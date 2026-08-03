@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 
 type Currency = "BRL" | "USD" | "EUR";
@@ -164,7 +164,8 @@ export default function QuickRechargeModal({
   lockServer = false,
   onError,
 }: Props) {
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const resolvedTenantId = useTenantId();
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
 
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -345,7 +346,7 @@ export default function QuickRechargeModal({
         setLoading(true);
         setLoadErr(null);
 
-        const tid = await getCurrentTenantId();
+        const tid = tenantId;
         if (!alive) return;
         setTenantId(tid);
 
@@ -616,9 +617,10 @@ export default function QuickRechargeModal({
               .select("content")
               .eq("tenant_id", tenantId)
               .eq("template_id", selectedTemplateId);
-            const pool = [tpl?.content, ...(variants || []).map((v: any) => v.content)].filter(
-              (c): c is string => !!c && String(c).trim().length > 0,
-            );
+            const pool = [
+              tpl?.content,
+              ...(variants || []).map((v: any) => v.content),
+            ].filter((c): c is string => !!c && String(c).trim().length > 0);
             if (pool.length > 0) {
               finalMessage = pool[Math.floor(Math.random() * pool.length)];
             }
@@ -971,11 +973,7 @@ function Switch({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      {label && (
-        <span className="text-xs text-foreground/90">
-          {label}
-        </span>
-      )}
+      {label && <span className="text-xs text-foreground/90">{label}</span>}
       <button
         type="button"
         onClick={(e) => {

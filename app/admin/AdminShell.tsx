@@ -6,6 +6,7 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { TenantProvider } from "@/lib/tenant-context";
 import { usePathname } from "next/navigation";
 import React from "react";
 import {
@@ -63,11 +64,7 @@ function getPageName(path: string): string {
   return match ? PAGE_NAMES[match] : "Painel";
 }
 
-function BrandUser({
-  userLabel,
-}: {
-  userLabel: string;
-}) {
+function BrandUser({ userLabel }: { userLabel: string }) {
   return (
     <div className="flex items-center gap-3 min-w-0 text-white cursor-pointer group">
       <Image
@@ -114,14 +111,22 @@ type Notification = {
 // isso aqui é só o ícone grande da lista)
 function getNotifEmoji(type: string): string {
   switch (type) {
-    case "fin_vencido": return "🟥";
-    case "whatsapp_falha": return "💬";
-    case "automacao_falha": return "🤖";
-    case "transfer_aguardando": return "🏦";
-    case "manual_pending": return "🟣";
-    case "saldo_baixo": return "🪫";
-    case "sugestao_conteudo": return "🍿";
-    default: return "🔔";
+    case "fin_vencido":
+      return "🟥";
+    case "whatsapp_falha":
+      return "💬";
+    case "automacao_falha":
+      return "🤖";
+    case "transfer_aguardando":
+      return "🏦";
+    case "manual_pending":
+      return "🟣";
+    case "saldo_baixo":
+      return "🪫";
+    case "sugestao_conteudo":
+      return "🍿";
+    default:
+      return "🔔";
   }
 }
 
@@ -130,7 +135,7 @@ function renderBold(text: any): React.ReactNode {
   // Blindagem contra cache velho
   if (typeof text !== "string") return text;
   if (!text.includes("**")) return text;
-  
+
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
@@ -155,7 +160,7 @@ export default function AdminShell({
   const [openMenu, setOpenMenu] = useState<
     null | "manager" | "settings" | "mobile"
   >(null);
-const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ vem direto da tabela notifications
+  const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ vem direto da tabela notifications
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -164,8 +169,6 @@ const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ v
     () => notifications.filter((n) => !n.is_read).length,
     [notifications],
   );
-
-  
 
   useEffect(() => {
     const loadNotifications = async () => {
@@ -296,7 +299,7 @@ const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ v
     setNotifications([]);
   };
 
-const handleSync = () => {
+  const handleSync = () => {
     setRefreshTrigger((prev) => prev + 1);
   };
 
@@ -330,7 +333,9 @@ const handleSync = () => {
     setShowNotificationsModal(false);
 
     setNotifications((prev) =>
-      prev.map((noti) => (noti.id === n.id ? { ...noti, is_read: true } : noti)),
+      prev.map((noti) =>
+        noti.id === n.id ? { ...noti, is_read: true } : noti,
+      ),
     );
     try {
       await supabaseBrowser
@@ -525,20 +530,20 @@ const handleSync = () => {
             top={managerPos.top}
             onClose={() => setOpenMenu(null)}
           >
-<div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Gestão
             </div>
-<MenuLink
-  href="/admin/gerenciador/guia-tv"
-  label={
-    <span className="flex items-center gap-2">
-      <Tv className="w-4 h-4 text-rose-400" /> Guia TV
-    </span>
-  }
-  onClick={() => setOpenMenu(null)}
-/>
-<MenuLink
-  href="/admin/gerenciador/servidor"
+            <MenuLink
+              href="/admin/gerenciador/guia-tv"
+              label={
+                <span className="flex items-center gap-2">
+                  <Tv className="w-4 h-4 text-rose-400" /> Guia TV
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
+            <MenuLink
+              href="/admin/gerenciador/servidor"
               label={
                 <span className="flex items-center gap-2">
                   <Server className="w-4 h-4 text-sky-400" /> Servidores
@@ -607,7 +612,7 @@ const handleSync = () => {
             top={mobilePos.top}
             onClose={() => setOpenMenu(null)}
           >
-<div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Navegação
             </div>
 
@@ -663,23 +668,23 @@ const handleSync = () => {
               Gerenciador
             </div>
             <MenuLink
-  href="/admin/gerenciador/guia-tv"
-  label={
-    <span className="flex items-center gap-2">
-      <Tv className="w-4 h-4 text-rose-400" /> Guia TV
-    </span>
-  }
-  onClick={() => setOpenMenu(null)}
-/>
-<MenuLink
-  href="/admin/gerenciador/servidor"
-  label={
-    <span className="flex items-center gap-2">
-      <Server className="w-4 h-4 text-sky-400" /> Servidores
-    </span>
-  }
-  onClick={() => setOpenMenu(null)}
-/>
+              href="/admin/gerenciador/guia-tv"
+              label={
+                <span className="flex items-center gap-2">
+                  <Tv className="w-4 h-4 text-rose-400" /> Guia TV
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
+            <MenuLink
+              href="/admin/gerenciador/servidor"
+              label={
+                <span className="flex items-center gap-2">
+                  <Server className="w-4 h-4 text-sky-400" /> Servidores
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
             <MenuLink
               href="/admin/gerenciador/plano"
               label={
@@ -867,7 +872,7 @@ const handleSync = () => {
         )}
 
       <main className="mx-auto w-full px-0 sm:px-2 pt-2 pb-6 animate-in fade-in duration-500">
-        {children}
+        <TenantProvider tenantId={tenantId}>{children}</TenantProvider>
       </main>
 
       {showNotificationsModal && (
@@ -884,7 +889,8 @@ const handleSync = () => {
                   className="px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
                   title="Ver registros de auditoria"
                 >
-                  <ScrollText className="w-3.5 h-3.5 text-emerald-500" /> Log do Portal
+                  <ScrollText className="w-3.5 h-3.5 text-emerald-500" /> Log do
+                  Portal
                 </Link>
                 <button
                   onClick={handleSync}
@@ -939,7 +945,7 @@ const handleSync = () => {
                       </p>
                     </div>
 
-<div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-border min-h-[32px] gap-1">
+                    <div className="flex flex-col items-center justify-start flex-shrink-0 pl-3 ml-1 border-l border-border min-h-[32px] gap-1">
                       <button
                         onClick={(e) => handleDismiss(e, n.id)}
                         className="p-1 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-500 rounded-md transition-colors"
@@ -964,7 +970,6 @@ const handleSync = () => {
           </div>
         </Modal>
       )}
-            
     </div>
   );
 }
@@ -991,9 +996,7 @@ function Modal({
         className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
-          <div className="font-medium text-foreground">
-            {title}
-          </div>
+          <div className="font-medium text-foreground">{title}</div>
           <button
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"

@@ -24,7 +24,7 @@ import {
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useSearchParams, useRouter } from "next/navigation";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
@@ -137,10 +137,10 @@ function formatNational(ddi: string, nat: string): string {
     const rest = d.slice(2);
     if (!area) return d;
     if (rest.length === 9)
-  return `(0${area}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-if (rest.length === 8)
-  return `(0${area}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-return `(0${area}) ${rest}`.trim();
+      return `(0${area}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8)
+      return `(0${area}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `(0${area}) ${rest}`.trim();
   }
   // Genérico: agrupa em blocos
   const groups: string[] = [];
@@ -171,15 +171,15 @@ function displayPhone(raw: string | null | undefined): string {
   }
 
   if (ddi === "55") {
-  if (national.startsWith("0")) national = national.slice(1);
-  const ddd = national.slice(0, 2);
-  const rest = national.slice(2);
-  if (rest.length === 9)
-    return `(0${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-  if (rest.length === 8)
-    return `(0${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-  return `(0${ddd}) ${rest}`.trim();
-}
+    if (national.startsWith("0")) national = national.slice(1);
+    const ddd = national.slice(0, 2);
+    const rest = national.slice(2);
+    if (rest.length === 9)
+      return `(0${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+    if (rest.length === 8)
+      return `(0${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+    return `(0${ddd}) ${rest}`.trim();
+  }
 
   const opt = DDI_OPTIONS.find((o) => o.code === ddi);
   const flag = opt?.flag || "🌐";
@@ -290,16 +290,17 @@ const MONTH_NAMES = [
 
 // ─── PAGE ────────────────────────────────────────────────────────────────────
 function AgendaPageContent() {
+  const resolvedTenantId = useTenantId();
   const searchParams = useSearchParams();
   const router = useRouter();
 
   // 👇 Ativando o nosso confirm customizado
-const { confirm, ConfirmUI } = useConfirm();
+  const { confirm, ConfirmUI } = useConfirm();
   const [valuesHidden, setValuesHidden] = useState(false);
 
   const [rows, setRows] = useState<GoogleContact[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
 
   // Filtros
   const [search, setSearch] = useState("");
@@ -604,7 +605,7 @@ const { confirm, ConfirmUI } = useConfirm();
   async function loadData() {
     setLoading(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       setTenantId(tid);
       if (!tid) return;
       const { data, error } = await supabaseBrowser
@@ -659,12 +660,19 @@ const { confirm, ConfirmUI } = useConfirm();
   // pra cada página ser um lote independente (sem seleção "fantasma").
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter, page, pageSize]);
+  }, [
+    search,
+    labelFilter,
+    emailLabelFilter,
+    phoneLabelFilter,
+    photoFilter,
+    page,
+    pageSize,
+  ]);
 
   // Volta para a página 1 sempre que um filtro muda (mesmo padrão da página de clientes)
   useEffect(() => {
     setPage(1);
-     
   }, [search, labelFilter, emailLabelFilter, phoneLabelFilter, photoFilter]);
 
   const filtered = useMemo(() => {
@@ -796,25 +804,25 @@ const { confirm, ConfirmUI } = useConfirm();
     setSendingNow(true);
     try {
       const { data: session } = await supabaseBrowser.auth.getSession();
-const token = session.session?.access_token;
+      const token = session.session?.access_token;
 
-const res = await fetch("/api/whatsapp/envio_avulso", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  },
-  body: JSON.stringify({
-    tenant_id: tenantId,
-    phone: showSendNow.phone,
-    message: msg,
-    whatsapp_session: selectedSessionNow,
-  }),
-});
-if (!res.ok) {
-  const d = await res.json().catch(() => ({}));
-  throw new Error(d.error || "Falha ao enviar");
-}
+      const res = await fetch("/api/whatsapp/envio_avulso", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          phone: showSendNow.phone,
+          message: msg,
+          whatsapp_session: selectedSessionNow,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || "Falha ao enviar");
+      }
       if (!res.ok) throw new Error("Falha ao enviar");
       addToast("success", "Enviado", "Mensagem enviada com sucesso.");
       setShowSendNow({ open: false, contactId: null, phone: null });
@@ -1274,15 +1282,19 @@ if (!res.ok) {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-<h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Agenda
             </h1>
             <button
-              onClick={() => setValuesHidden(v => !v)}
+              onClick={() => setValuesHidden((v) => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
-              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {valuesHidden ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline text-[11px] tracking-wide">
                 {valuesHidden ? "Exibir" : "Ocultar"}
               </span>
@@ -1407,7 +1419,7 @@ if (!res.ok) {
           {/* Botão filtros — só no mobile */}
           <button
             onClick={() => setShowMobileFilters((v) => !v)}
-className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition-colors flex items-center gap-1.5 ${
+            className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition-colors flex items-center gap-1.5 ${
               hasActiveFilters
                 ? "bg-amber-500 text-white border-amber-500"
                 : "bg-transparent border-border text-muted-foreground"
@@ -1765,7 +1777,9 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
 
                       {/* TELEFONES */}
                       <Td>
-                        <div className={`flex flex-col gap-1 py-1 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                        <div
+                          className={`flex flex-col gap-1 py-1 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                        >
                           {rPhones.length > 0 ? (
                             rPhones.map((p) => (
                               <div
@@ -1777,7 +1791,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                     ? p.label
                                     : `${p.label}:`}{" "}
                                 </span>
-<span className="text-foreground/90">
+                                <span className="text-foreground/90">
                                   {displayPhone(p.value)}
                                 </span>
                               </div>
@@ -1792,7 +1806,9 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
 
                       {/* EMAILS */}
                       <Td>
-                        <div className={`flex flex-col gap-1 py-1 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                        <div
+                          className={`flex flex-col gap-1 py-1 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                        >
                           {rEmails.length > 0 ? (
                             rEmails.map((e) => (
                               <div
@@ -1802,9 +1818,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                 <span className="font-medium text-muted-foreground">
                                   {e.label}:{" "}
                                 </span>
-                                <span className="text-sky-500">
-                                  {e.value}
-                                </span>
+                                <span className="text-sky-500">{e.value}</span>
                               </div>
                             ))
                           ) : (
@@ -1830,7 +1844,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                 </span>
                               ))
                           ) : (
-<span className="text-muted-foreground/60 text-xs italic">
+                            <span className="text-muted-foreground/60 text-xs italic">
                               —
                             </span>
                           )}
@@ -1942,9 +1956,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
               </span>
               <div className="text-sm text-emerald-700">
                 Enviando para{" "}
-<strong>
-                  {displayPhone(showSendNow.phone!)}
-                </strong>
+                <strong>{displayPhone(showSendNow.phone!)}</strong>
               </div>
             </div>
             <div>
@@ -2145,7 +2157,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                             })
                           }
                           onBlur={() => confirmPhone(idx)}
- className="flex-1 p-2 border border-border rounded-lg bg-transparent text-foreground text-sm min-w-0"
+                          className="flex-1 p-2 border border-border rounded-lg bg-transparent text-foreground text-sm min-w-0"
                         />
 
                         {/* Remover */}
@@ -2181,18 +2193,20 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               ? "bg-transparent text-muted-foreground border-border"
                               : wa?.exists
                                 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                              : wa?.exists === false
-                                ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                : wa?.exists === false
+                                  ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
                                   : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                           }`}
                         >
                           {wa?.loading ? (
                             <>
-                              <Loader2 className="w-3 h-3 animate-spin" /> Validando...
+                              <Loader2 className="w-3 h-3 animate-spin" />{" "}
+                              Validando...
                             </>
                           ) : wa?.exists ? (
                             <>
-                              <CheckCircle2 className="w-3 h-3" /> WhatsApp Ativo
+                              <CheckCircle2 className="w-3 h-3" /> WhatsApp
+                              Ativo
                             </>
                           ) : wa?.exists === false && p.confirmed ? (
                             <>
@@ -2244,14 +2258,15 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                               ? "bg-transparent text-muted-foreground border-border"
                               : wa?.photoStatus === "synced"
                                 ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                              : wa?.photoStatus === "protected"
-                                ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                : wa?.photoStatus === "protected"
+                                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
                                   : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                           }`}
                         >
                           {wa?.photoStatus === "loading" ? (
                             <>
-                              <Loader2 className="w-3 h-3 animate-spin" /> Buscando Foto...
+                              <Loader2 className="w-3 h-3 animate-spin" />{" "}
+                              Buscando Foto...
                             </>
                           ) : wa?.photoStatus === "synced" ? (
                             <>
@@ -2279,22 +2294,25 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                                 ? "bg-transparent text-muted-foreground border-border"
                                 : wa?.opName
                                   ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                : wa?.opError
-                                  ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                  : wa?.opError
+                                    ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
                                     : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                             }`}
                           >
                             {wa?.opLoading ? (
                               <>
-                                <Loader2 className="w-3 h-3 animate-spin" /> Buscando...
+                                <Loader2 className="w-3 h-3 animate-spin" />{" "}
+                                Buscando...
                               </>
                             ) : wa?.opName ? (
                               <>
-                                <Radio className="w-3 h-3" /> Operadora Atualizada
+                                <Radio className="w-3 h-3" /> Operadora
+                                Atualizada
                               </>
                             ) : wa?.opError ? (
                               <>
-                                <AlertTriangle className="w-3 h-3" /> Falha ao buscar
+                                <AlertTriangle className="w-3 h-3" /> Falha ao
+                                buscar
                               </>
                             ) : (
                               "Sincronizar Operadora"
@@ -2312,7 +2330,7 @@ className={`md:hidden h-10 px-3 rounded-lg border text-sm font-medium transition
                   );
                 })}
                 {editForm.phones.length === 0 && (
-<div className="text-xs text-muted-foreground italic">
+                  <div className="text-xs text-muted-foreground italic">
                     Nenhum telefone.
                   </div>
                 )}
@@ -2599,7 +2617,9 @@ function SortClick({
       onClick={onClick}
       className="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 transition-colors"
     >
-      <span className="font-medium uppercase text-xs tracking-wide">{label}</span>
+      <span className="font-medium uppercase text-xs tracking-wide">
+        {label}
+      </span>
       <span
         className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-400" : "opacity-30"}`}
       >
@@ -2637,9 +2657,12 @@ function IconActionBtn({
 }) {
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
-    green: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
-    amber: "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
-    purple: "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
+    green:
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    amber:
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
+    purple:
+      "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
     red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
   return (
@@ -2701,18 +2724,17 @@ function Modal({
         className="w-full h-full sm:h-auto sm:max-w-xl max-h-full sm:max-h-[90vh] bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl overflow-hidden flex flex-col"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent shrink-0">
-          <div className="font-medium text-foreground">
-            {title}
-          </div>
+          <div className="font-medium text-foreground">{title}</div>
           <button
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             <IconX />
           </button>
-
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-card">{children}</div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-card">
+          {children}
+        </div>
       </div>
     </div>,
     document.body,

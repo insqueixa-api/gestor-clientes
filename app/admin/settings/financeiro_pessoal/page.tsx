@@ -6,10 +6,8 @@ import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { EyeToggle } from "@/components/ui/eye-toggle";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
-import { getCurrentTenantId } from "@/lib/tenant";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 
@@ -306,7 +304,7 @@ function ModalDatePicker({
                       const diaCerto = Math.min(hoje, ultimoDiaDoMes);
                       onSelect(new Date(ano, idx, diaCerto));
                     }}
-className={`py-2 rounded-lg text-xs font-medium transition-all ${
+                    className={`py-2 rounded-lg text-xs font-medium transition-all ${
                       isSelected
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
                         : isCurrentMonth
@@ -434,7 +432,7 @@ function ModalDayPicker({
                   <button
                     key={idx}
                     onClick={() => onSelect(new Date(ano, mes, dia))}
-className={`h-8 rounded-lg text-xs font-medium transition-all ${
+                    className={`h-8 rounded-lg text-xs font-medium transition-all ${
                       isSelected
                         ? "bg-emerald-600 text-white shadow-md shadow-emerald-900/20"
                         : isToday
@@ -473,7 +471,8 @@ function getTodaySP(): string {
 }
 
 function FinanceiroPageContent() {
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const resolvedTenantId = useTenantId();
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
@@ -662,7 +661,10 @@ function FinanceiroPageContent() {
             const { error: errDel } = await supabaseBrowser
               .from("fin_transacoes")
               .delete()
-              .in("id", existentes.map((e) => e.id));
+              .in(
+                "id",
+                existentes.map((e) => e.id),
+              );
             if (errDel) falhasSync++;
           }
           return;
@@ -860,11 +862,12 @@ function FinanceiroPageContent() {
         ),
       ];
       if (recIds.length > 0) {
-        const { data: pendentesData, error: errPendentes } = await supabaseBrowser
-          .from("fin_transacoes")
-          .select("recorrencia_id")
-          .in("recorrencia_id", recIds)
-          .eq("status", "PENDENTE");
+        const { data: pendentesData, error: errPendentes } =
+          await supabaseBrowser
+            .from("fin_transacoes")
+            .select("recorrencia_id")
+            .in("recorrencia_id", recIds)
+            .eq("status", "PENDENTE");
 
         if (isStale()) return;
         if (errPendentes) {
@@ -894,7 +897,7 @@ function FinanceiroPageContent() {
   useEffect(() => {
     async function init() {
       setLoading(true);
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       setTenantId(tid);
 
       if (tid) {
@@ -1235,8 +1238,6 @@ function FinanceiroPageContent() {
       className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors"
       id="dashboard-values"
     >
-      
-
       {/* Topo */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         {/* Título (esquerda) */}
@@ -1257,46 +1258,45 @@ function FinanceiroPageContent() {
             {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
           {/* Botões do Calendário */}
-        <div className="flex items-center w-full md:w-auto gap-2">
-          <div className="flex items-center flex-1 md:flex-none justify-between bg-muted/40 border border-border rounded-lg shadow-sm">
+          <div className="flex items-center w-full md:w-auto gap-2">
+            <div className="flex items-center flex-1 md:flex-none justify-between bg-muted/40 border border-border rounded-lg shadow-sm">
+              <button
+                onClick={handlePrevMonth}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <IconChevronLeft />
+              </button>
+              <button
+                onClick={() => setShowDatePicker(true)}
+                className="px-2 sm:px-4 text-sm font-medium capitalize w-full md:w-40 text-center text-foreground/90 hover:text-emerald-500 transition-colors truncate"
+              >
+                {monthName}
+              </button>
+              <button
+                onClick={handleNextMonth}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <IconChevronRight />
+              </button>
+            </div>
             <button
-              onClick={handlePrevMonth}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              onClick={handleToday}
+              className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors shrink-0"
             >
-              <IconChevronLeft />
+              Hoje
             </button>
-            <button
-              onClick={() => setShowDatePicker(true)}
-              className="px-2 sm:px-4 text-sm font-medium capitalize w-full md:w-40 text-center text-foreground/90 hover:text-emerald-500 transition-colors truncate"
-            >
-              {monthName}
-            </button>
-            <button
-              onClick={handleNextMonth}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <IconChevronRight />
-            </button>
-          
           </div>
-          <button
-            onClick={handleToday}
-            className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors shrink-0"
-          >
-            Hoje
-          </button>
-        </div>
 
-        {showDatePicker && (
-          <ModalDatePicker
-            currentDate={currentDate}
-            onSelect={(date) => {
-              setCurrentDate(date);
-              setShowDatePicker(false);
-            }}
-            onClose={() => setShowDatePicker(false)}
-          />
-        )}
+          {showDatePicker && (
+            <ModalDatePicker
+              currentDate={currentDate}
+              onSelect={(date) => {
+                setCurrentDate(date);
+                setShowDatePicker(false);
+              }}
+              onClose={() => setShowDatePicker(false)}
+            />
+          )}
         </div>
       </div>
 
@@ -1345,7 +1345,7 @@ function FinanceiroPageContent() {
         />
       </div>
 
-<div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
+      <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 z-20">
         <div className="flex items-center justify-between">
           <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
             Lançamentos
@@ -1776,7 +1776,9 @@ function FinanceiroPageContent() {
                         }
 
                         return (
-                          <span className={`inline-flex gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase border whitespace-nowrap ${cor}`}>
+                          <span
+                            className={`inline-flex gap-1 px-2 py-1 rounded-lg text-[10px] font-normal tracking-tight shadow-sm uppercase border whitespace-nowrap ${cor}`}
+                          >
                             {label}
                           </span>
                         );
@@ -1813,7 +1815,9 @@ function FinanceiroPageContent() {
                           }
 
                           return (
-                            <div className={`flex items-center justify-center gap-1 text-[11px] font-normal whitespace-nowrap ${corTexto}`}>
+                            <div
+                              className={`flex items-center justify-center gap-1 text-[11px] font-normal whitespace-nowrap ${corTexto}`}
+                            >
                               <span>{recText}</span>
                               <span>
                                 {isQuitado
@@ -1833,7 +1837,9 @@ function FinanceiroPageContent() {
                     </td>
 
                     <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <span className={`font-normal transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-500" : "text-rose-500"}`}>
+                      <span
+                        className={`font-normal transition-all duration-300 finance-value ${t.tipo === "RECEITA" ? "text-emerald-500" : "text-rose-500"}`}
+                      >
                         {t.tipo === "RECEITA" ? "+" : "-"} {fmtBRL(t.valor)}
                       </span>
                     </td>
@@ -2084,7 +2090,7 @@ function MetricCard({
       className={`rounded-xl border border-border bg-card shadow-sm overflow-hidden flex flex-col border-l-4 ${colors[tone]} relative ${onEdit ? "cursor-pointer hover:scale-[1.02] hover:shadow-md transition-all" : ""}`}
       onClick={onEdit}
     >
-<div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-border font-normal text-[13px] sm:text-sm flex justify-between items-center">
+      <div className="px-3 py-2 sm:px-4 sm:py-3 border-b border-border font-normal text-[13px] sm:text-sm flex justify-between items-center">
         <span className="flex items-center gap-2">
           {icon} {title}
         </span>
@@ -2103,7 +2109,9 @@ function MetricCard({
       </div>
       <div className="p-3 sm:p-4 flex-1">
         {/* 👇 CLASSE finance-value MÁGICA DO OLHINHO */}
-        <div className={`text-[15px] sm:text-2xl font-normal leading-tight tabular-nums transition-all duration-300 finance-value`}>
+        <div
+          className={`text-[15px] sm:text-2xl font-normal leading-tight tabular-nums transition-all duration-300 finance-value`}
+        >
           {value}
         </div>
       </div>
@@ -2145,9 +2153,7 @@ function Modal({
         className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
-          <div className="font-medium text-foreground">
-            {title}
-          </div>
+          <div className="font-medium text-foreground">{title}</div>
           <button
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
@@ -2269,7 +2275,7 @@ function ModalAjusteSaldo({
           <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
             Qual é o saldo real hoje?
           </label>
-<div className="flex items-center h-11 bg-card border border-border rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
+          <div className="flex items-center h-11 bg-card border border-border rounded-lg focus-within:border-emerald-500 transition-colors overflow-hidden">
             <span className="pl-3 pr-1 text-sm font-medium text-muted-foreground select-none shrink-0">
               R$
             </span>
@@ -2554,11 +2560,15 @@ function ModalGerenciarItens({
                   try {
                     await onExcluir(it.id);
                   } catch {
-                    addToast("error", "Erro ao excluir", "Não foi possível excluir este item.");
+                    addToast(
+                      "error",
+                      "Erro ao excluir",
+                      "Não foi possível excluir este item.",
+                    );
                   }
                 }
               }}
-className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
+              className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
               title="Excluir"
             >
               <IconTrash />
@@ -2641,7 +2651,7 @@ className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 
                     <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-500">
                       📈 Receitas
                     </span>
-<div className="flex-1 h-px bg-emerald-500/20" />
+                    <div className="flex-1 h-px bg-emerald-500/20" />
                   </div>
                   {receitas.map((it) => renderItem(it))}
                 </>
@@ -2652,7 +2662,7 @@ className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 
                     <span className="text-[10px] font-medium uppercase tracking-wider text-rose-500">
                       📉 Despesas
                     </span>
-<div className="flex-1 h-px bg-rose-500/20" />
+                    <div className="flex-1 h-px bg-rose-500/20" />
                   </div>
                   {despesas.map((it) => renderItem(it))}
                 </>
@@ -3221,7 +3231,8 @@ function ModalTransacao({
                 conta_id: contaSelecionada,
                 categoria_id: categoriaSelecionada,
                 observacoes: obs,
-                frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+                frequencia:
+                  tipoRecorrencia === "RECORRENTE" ? frequencia : null,
               })
               .in("id", idsPendentes);
             if (errUpdate) throw errUpdate;
@@ -3702,42 +3713,46 @@ function ModalTransacao({
           </div>
 
           {(status === "PAGO" || (isEdit && rTipoInicial !== "UNICA")) && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {status === "PAGO" && (
-            <div className="sm:col-span-1">
-              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                Data de Pagamento
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowPagamentoPicker(true)}
-                className={`w-full h-10 px-3 flex justify-center items-center bg-card border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-500/20 text-emerald-500 hover:border-emerald-500" : "border-border text-muted-foreground hover:border-foreground/20"}`}
-              >
-                {pagamentoDisplay}
-              </button>
-              {showPagamentoPicker && (
-                <ModalDayPicker
-                  currentDate={
-                    dataPagamento
-                      ? new Date(`${dataPagamento}T12:00:00`)
-                      : new Date()
-                  }
-                  onSelect={(date) => {
-                    const d = String(date.getDate()).padStart(2, "0");
-                    const m = String(date.getMonth() + 1).padStart(2, "0");
-                    const y = date.getFullYear();
-                    setDataPagamento(`${y}-${m}-${d}`);
-                    setRawDigitsPagamento(`${d}${m}${y}`);
-                    setShowPagamentoPicker(false);
-                  }}
-                  onClose={() => setShowPagamentoPicker(false)}
-                />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {status === "PAGO" && (
+                <div className="sm:col-span-1">
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
+                    Data de Pagamento
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPagamentoPicker(true)}
+                    className={`w-full h-10 px-3 flex justify-center items-center bg-card border rounded-lg transition-colors text-sm font-medium ${status === "PAGO" ? "border-emerald-500/20 text-emerald-500 hover:border-emerald-500" : "border-border text-muted-foreground hover:border-foreground/20"}`}
+                  >
+                    {pagamentoDisplay}
+                  </button>
+                  {showPagamentoPicker && (
+                    <ModalDayPicker
+                      currentDate={
+                        dataPagamento
+                          ? new Date(`${dataPagamento}T12:00:00`)
+                          : new Date()
+                      }
+                      onSelect={(date) => {
+                        const d = String(date.getDate()).padStart(2, "0");
+                        const m = String(date.getMonth() + 1).padStart(2, "0");
+                        const y = date.getFullYear();
+                        setDataPagamento(`${y}-${m}-${d}`);
+                        setRawDigitsPagamento(`${d}${m}${y}`);
+                        setShowPagamentoPicker(false);
+                      }}
+                      onClose={() => setShowPagamentoPicker(false)}
+                    />
+                  )}
+                </div>
               )}
-            </div>
-            )}
 
-            {isEdit && rTipoInicial !== "UNICA" && (
-            <div className={status === "PAGO" ? "sm:col-span-2" : "sm:col-span-3"}>
+              {isEdit && rTipoInicial !== "UNICA" && (
+                <div
+                  className={
+                    status === "PAGO" ? "sm:col-span-2" : "sm:col-span-3"
+                  }
+                >
                   <label className="block text-[10px] font-medium text-muted-foreground  mb-1 uppercase tracking-wider">
                     Aplicar alterações em:
                   </label>
@@ -3757,9 +3772,9 @@ function ModalTransacao({
                       🔁 Nesta e nas futuras (pendentes)
                     </button>
                   </div>
+                </div>
+              )}
             </div>
-            )}
-          </div>
           )}
 
           {!isEdit && (
@@ -4158,16 +4173,16 @@ function ModalBaixa({
                 type="button"
                 onClick={() => setEscopo("UNICA")}
                 className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      📅 Apenas nesta
-                    </button>
+              >
+                📅 Apenas nesta
+              </button>
               <button
                 type="button"
                 onClick={() => setEscopo("TODAS")}
                 className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      🔁 Nesta e nas futuras
-                    </button>
+              >
+                🔁 Nesta e nas futuras
+              </button>
             </div>
           </div>
         )}

@@ -5,13 +5,11 @@ import { Loader2, CreditCard, EyeOff, Eye } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import RecargaServidorModal from "../recarga_servidor";
 import type { ServerRow } from "../page";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 
 // --- Tipagens ---
@@ -33,14 +31,13 @@ type ClientStats = {
 };
 
 export default function ServerDetailsPage() {
+  const tenantId = useTenantId();
   const params = useParams();
 
   // ✅ aceita /[id] ou /[server_id] ou /[serverId]
   const p = params as any;
   const serverIdRaw = (p?.id ?? p?.server_id ?? p?.serverId) as
-    | string
-    | string[]
-    | undefined;
+    string | string[] | undefined;
   const serverId = Array.isArray(serverIdRaw) ? serverIdRaw[0] : serverIdRaw;
   const serverIdSafe = (serverId ?? "").trim();
 
@@ -69,7 +66,7 @@ export default function ServerDetailsPage() {
 
   // Toast
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-const { confirm, ConfirmUI } = useConfirm();
+  const { confirm, ConfirmUI } = useConfirm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [valuesHidden, setValuesHidden] = useState(false);
 
@@ -89,7 +86,6 @@ const { confirm, ConfirmUI } = useConfirm();
     if (!ok) return;
 
     const supabase = supabaseBrowser;
-    const tenantId = await getCurrentTenantId();
     if (!tenantId) return;
 
     setDeletingId(m.id);
@@ -160,7 +156,6 @@ const { confirm, ConfirmUI } = useConfirm();
     }
 
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Tenant não encontrado");
       const supabase = supabaseBrowser;
 
@@ -567,11 +562,15 @@ const { confirm, ConfirmUI } = useConfirm();
               {fmtInt(server.credits_available)} créditos disponíveis
             </span>
             <button
-              onClick={() => setValuesHidden(v => !v)}
+              onClick={() => setValuesHidden((v) => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
-              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {valuesHidden ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline text-[11px] tracking-wide">
                 {valuesHidden ? "Exibir" : "Ocultar"}
               </span>
@@ -586,7 +585,7 @@ const { confirm, ConfirmUI } = useConfirm();
               Servidores
             </Link>
 
-<span className="opacity-30">/</span>
+            <span className="opacity-30">/</span>
 
             <span className="text-muted-foreground/60">detalhes</span>
           </div>
@@ -662,15 +661,31 @@ const { confirm, ConfirmUI } = useConfirm();
             </span>
           </div>
           <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatCard title="Faturamento total" value={fmtMoney(metrics.revenue)} hidden={valuesHidden} />
-            <StatCard title="Custo recargas" value={fmtMoney(metrics.restockCost)} hidden={valuesHidden} />
+            <StatCard
+              title="Faturamento total"
+              value={fmtMoney(metrics.revenue)}
+              hidden={valuesHidden}
+            />
+            <StatCard
+              title="Custo recargas"
+              value={fmtMoney(metrics.restockCost)}
+              hidden={valuesHidden}
+            />
             <StatCard
               title="Lucro operacional"
               value={fmtMoney(metrics.estimatedProfit)}
-              className={metrics.estimatedProfit >= 0 ? "text-emerald-500" : "text-rose-500"}
+              className={
+                metrics.estimatedProfit >= 0
+                  ? "text-emerald-500"
+                  : "text-rose-500"
+              }
               hidden={valuesHidden}
             />
-            <StatCard title="Créditos vendidos" value={fmtInt(metrics.creditsSold)} hidden={valuesHidden} />
+            <StatCard
+              title="Créditos vendidos"
+              value={fmtInt(metrics.creditsSold)}
+              hidden={valuesHidden}
+            />
           </div>
         </div>
 
@@ -684,14 +699,41 @@ const { confirm, ConfirmUI } = useConfirm();
             </div>
             <div className="p-5 space-y-6">
               <div className="grid grid-cols-3 gap-4 border-b border-border pb-6">
-                <DetailStat label="Total clientes" value={fmtInt(clientStats.total)} hidden={valuesHidden} />
-                <DetailStat label="Ativos" value={fmtInt(clientStats.active)} valueColor="text-emerald-500" hidden={valuesHidden} />
-                <DetailStat label="Consumo" value={fmtInt(metrics.cliente.consumed) + " cr"} hidden={valuesHidden} />
+                <DetailStat
+                  label="Total clientes"
+                  value={fmtInt(clientStats.total)}
+                  hidden={valuesHidden}
+                />
+                <DetailStat
+                  label="Ativos"
+                  value={fmtInt(clientStats.active)}
+                  valueColor="text-emerald-500"
+                  hidden={valuesHidden}
+                />
+                <DetailStat
+                  label="Consumo"
+                  value={fmtInt(metrics.cliente.consumed) + " cr"}
+                  hidden={valuesHidden}
+                />
               </div>
               <div className="grid grid-cols-3 gap-4">
-                <DetailStat label="Receita" value={fmtMoney(metrics.cliente.revenue)} hidden={valuesHidden} />
-                <DetailStat label="Custo" value={fmtMoney(metrics.cliente.cost)} valueColor="text-rose-500" hidden={valuesHidden} />
-                <DetailStat label="Lucro" value={fmtMoney(metrics.cliente.profit)} valueColor="text-emerald-500" hidden={valuesHidden} />
+                <DetailStat
+                  label="Receita"
+                  value={fmtMoney(metrics.cliente.revenue)}
+                  hidden={valuesHidden}
+                />
+                <DetailStat
+                  label="Custo"
+                  value={fmtMoney(metrics.cliente.cost)}
+                  valueColor="text-rose-500"
+                  hidden={valuesHidden}
+                />
+                <DetailStat
+                  label="Lucro"
+                  value={fmtMoney(metrics.cliente.profit)}
+                  valueColor="text-emerald-500"
+                  hidden={valuesHidden}
+                />
               </div>
             </div>
           </div>
@@ -704,13 +746,35 @@ const { confirm, ConfirmUI } = useConfirm();
             </div>
             <div className="p-5 space-y-6">
               <div className="grid grid-cols-2 gap-4 border-b border-border pb-6">
-                <DetailStat label="Total revendas" value={fmtInt(resellerCount)} hidden={valuesHidden} />
-                <DetailStat label="Consumo" value={fmtInt(metrics.resellers.consumed) + " cr"} hidden={valuesHidden} />
+                <DetailStat
+                  label="Total revendas"
+                  value={fmtInt(resellerCount)}
+                  hidden={valuesHidden}
+                />
+                <DetailStat
+                  label="Consumo"
+                  value={fmtInt(metrics.resellers.consumed) + " cr"}
+                  hidden={valuesHidden}
+                />
               </div>
-<div className="grid grid-cols-3 gap-4">
-                <DetailStat label="Receita" value={fmtMoney(metrics.resellers.revenue)} hidden={valuesHidden} />
-                <DetailStat label="Custo" value={fmtMoney(metrics.resellers.cost)} valueColor="text-rose-500" hidden={valuesHidden} />
-                <DetailStat label="Lucro" value={fmtMoney(metrics.resellers.profit)} valueColor="text-emerald-500" hidden={valuesHidden} />
+              <div className="grid grid-cols-3 gap-4">
+                <DetailStat
+                  label="Receita"
+                  value={fmtMoney(metrics.resellers.revenue)}
+                  hidden={valuesHidden}
+                />
+                <DetailStat
+                  label="Custo"
+                  value={fmtMoney(metrics.resellers.cost)}
+                  valueColor="text-rose-500"
+                  hidden={valuesHidden}
+                />
+                <DetailStat
+                  label="Lucro"
+                  value={fmtMoney(metrics.resellers.profit)}
+                  valueColor="text-emerald-500"
+                  hidden={valuesHidden}
+                />
               </div>
             </div>
           </div>
@@ -791,7 +855,7 @@ const { confirm, ConfirmUI } = useConfirm();
                     </td>
                   </tr>
                 ) : (
-filteredMovements.map((m) => (
+                  filteredMovements.map((m) => (
                     <tr
                       key={m.id}
                       className="hover:bg-muted/30 transition-all text-foreground/80 group"
@@ -816,14 +880,18 @@ filteredMovements.map((m) => (
                               : "Cliente"}
                         </span>
                       </td>
-<td className="px-5 py-3 font-medium text-center group-hover:text-emerald-500 transition-colors">
+                      <td className="px-5 py-3 font-medium text-center group-hover:text-emerald-500 transition-colors">
                         {m.qty_credits}
                       </td>
-                      <td className={`px-5 py-3 font-medium transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <td
+                        className={`px-5 py-3 font-medium transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                      >
                         {m.total_brl !== null ? fmtMoney(m.total_brl) : "--"}
                       </td>
                       {/* ✅ Nova formatação da Descrição */}
-<td className={`px-5 py-3 text-xs leading-relaxed max-w-[300px] transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <td
+                        className={`px-5 py-3 text-xs leading-relaxed max-w-[300px] transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                      >
                         {m.kind === "CLIENT_RENEWAL" ? (
                           <span className="font-medium text-foreground">
                             {m.label}

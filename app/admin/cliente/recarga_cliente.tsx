@@ -5,7 +5,7 @@ import { Loader2, X } from "lucide-react";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom"; // ✅ Importação necessária
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
@@ -80,9 +80,7 @@ interface Props {
   onError?: (msg: string) => void;
   allowConvertWithoutPayment?: boolean;
   toastKey?:
-    | "clients_list_toasts"
-    | "trials_list_toasts"
-    | "auditoria_list_toasts"; // ✅ Nova chave
+    "clients_list_toasts" | "trials_list_toasts" | "auditoria_list_toasts"; // ✅ Nova chave
 }
 
 // --- CONSTANTES ---
@@ -252,6 +250,7 @@ export default function RecargaCliente({
   allowConvertWithoutPayment = false,
   toastKey = "clients_list_toasts",
 }: Props) {
+  const tenantId = useTenantId();
   // ✅ 1. Estado para garantir renderização no client (evita erro de hidratação no Portal)
   const [mounted, setMounted] = useState(false);
 
@@ -352,7 +351,12 @@ export default function RecargaCliente({
 
   // ✅ Pendências financeiras em aberto — oferece quitar junto da recarga manual
   const [pendingChargesForClient, setPendingChargesForClient] = useState<
-    { id: string; message: string; appName: string | null; convertedAmount: number }[]
+    {
+      id: string;
+      message: string;
+      appName: string | null;
+      convertedAmount: number;
+    }[]
   >([]);
   const [settlePendingCharges, setSettlePendingCharges] = useState(true);
 
@@ -443,7 +447,7 @@ export default function RecargaCliente({
         // ser esperadas aqui — antes, se a VM estivesse fora do ar, essa
         // chamada sozinha travava a abertura do modal inteiro até 12s.
         const [tid, { data: rawClient, error: cErr }] = await Promise.all([
-          getCurrentTenantId(),
+          Promise.resolve(tenantId),
           supabaseBrowser
             .from("clients")
             .select("*, servers(name)")
@@ -476,7 +480,8 @@ export default function RecargaCliente({
             ? "ARCHIVED"
             : rawClient.is_trial
               ? "TRIAL"
-              : rawClient.vencimento && new Date(rawClient.vencimento) < new Date()
+              : rawClient.vencimento &&
+                  new Date(rawClient.vencimento) < new Date()
                 ? "OVERDUE"
                 : "ACTIVE",
         };
@@ -531,7 +536,10 @@ export default function RecargaCliente({
         }
 
         // ✅ NOVO: Detectar se servidor tem integração e QUAL O SERVIDOR
-        async function fetchIntegration(): Promise<{ hasInteg: boolean; provider: string } | null> {
+        async function fetchIntegration(): Promise<{
+          hasInteg: boolean;
+          provider: string;
+        } | null> {
           if (!c.server_id) return { hasInteg: false, provider: "NONE" };
           try {
             const { data: srv } = await supabaseBrowser
@@ -540,7 +548,8 @@ export default function RecargaCliente({
               .eq("id", c.server_id)
               .single();
 
-            if (!srv?.panel_integration) return { hasInteg: false, provider: "NONE" };
+            if (!srv?.panel_integration)
+              return { hasInteg: false, provider: "NONE" };
 
             const { data: integ } = await supabaseBrowser
               .from("server_integrations")
@@ -548,7 +557,10 @@ export default function RecargaCliente({
               .eq("id", srv.panel_integration)
               .single();
 
-            return { hasInteg: true, provider: String(integ?.provider || "").toUpperCase() };
+            return {
+              hasInteg: true,
+              provider: String(integ?.provider || "").toUpperCase(),
+            };
           } catch {
             return null; // erro real — trata como "sem integração" abaixo
           }
@@ -629,23 +641,24 @@ export default function RecargaCliente({
         // duas não dependem uma da outra nem do que veio acima — buscadas
         // juntas. O uso do resultado de templates continua lá embaixo, só o
         // fetch em si que subiu pra cá.)
-        const [{ data: tData, error: tErr }, { data: tmplData }] = await Promise.all([
-          supabaseBrowser
-            .from("plan_tables")
-            .select(
-              `id, name, currency, is_system_default, table_type,
+        const [{ data: tData, error: tErr }, { data: tmplData }] =
+          await Promise.all([
+            supabaseBrowser
+              .from("plan_tables")
+              .select(
+                `id, name, currency, is_system_default, table_type,
                 items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`,
-            )
-            .eq("tenant_id", tid)
-            .eq("is_active", true)
-            .eq("table_type", "iptv")
-            .order("name", { ascending: true }),
-          supabaseBrowser
-            .from("message_templates")
-            .select("id, name, content, image_url, category")
-            .eq("tenant_id", tid)
-            .order("name", { ascending: true }),
-        ]);
+              )
+              .eq("tenant_id", tid)
+              .eq("is_active", true)
+              .eq("table_type", "iptv")
+              .order("name", { ascending: true }),
+            supabaseBrowser
+              .from("message_templates")
+              .select("id, name, content, image_url, category")
+              .eq("tenant_id", tid)
+              .order("name", { ascending: true }),
+          ]);
 
         if (tErr) {
           addToast("error", "Falha ao carregar tabelas", tErr.message);
@@ -729,7 +742,10 @@ export default function RecargaCliente({
         // pendência; price_amount é só fallback pra logs antigos de antes
         // dessa coluna existir).
         const initialAmount =
-          paymentLog?.plan_price_amount ?? paymentLog?.price_amount ?? cFixed.price_amount ?? null;
+          paymentLog?.plan_price_amount ??
+          paymentLog?.price_amount ??
+          cFixed.price_amount ??
+          null;
 
         if (initialAmount != null) {
           setPlanPrice(Number(initialAmount).toFixed(2).replace(".", ","));
@@ -833,7 +849,7 @@ export default function RecargaCliente({
     let alive = true;
     (async () => {
       try {
-        const tid = await getCurrentTenantId();
+        const tid = tenantId;
         if (!tid || !clientId) return;
 
         const { data, error } = await supabaseBrowser
@@ -959,7 +975,7 @@ export default function RecargaCliente({
 
     (async () => {
       try {
-        const tid = await getCurrentTenantId();
+        const tid = tenantId;
         if (selectedTable.currency === "BRL") {
           setFxRate(1);
           return;
@@ -1156,7 +1172,7 @@ export default function RecargaCliente({
 
       const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
       const monthsToRenew = Number(PLAN_MONTHS[selectedPlanPeriod] ?? 1);
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       const nameToSend = clientData?.display_name || clientName;
 
       // ✅ VARIÁVEIS para dados da API
@@ -1443,7 +1459,6 @@ export default function RecargaCliente({
             } catch {
               serverName = "Servidor";
             }
-
           }
         } catch (apiErr: any) {
           // ✅ Toast LOCAL (aparece no modal)
@@ -1541,7 +1556,7 @@ export default function RecargaCliente({
         setLoadingText("Registrando pagamento...");
 
         // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
-const clientMessageManual = `Renovação manual via painel Admin · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+        const clientMessageManual = `Renovação manual via painel Admin · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
         const serverNotesManual = `${nameToSend} (${clientData?.username || "-"})${obs ? ` · ${obs}` : ""}`;
 
         const { error: renewError } = await supabaseBrowser.rpc(
@@ -1569,7 +1584,7 @@ const clientMessageManual = `Renovação manual via painel Admin · ${monthsToRe
       if (registerPayment && !renewAutomatic && paymentLogId) {
         setLoadingText("Registrando renovação manual...");
 
-const clientMessageManualAud = `Renovação manual via Portal do Cliente · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+        const clientMessageManualAud = `Renovação manual via Portal do Cliente · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
         const serverNotesManualAud = `${nameToSend} (${clientData?.username || "-"})${obs ? ` · ${obs}` : ""}`;
 
         const { error: renewErrorAud } = await supabaseBrowser.rpc(
@@ -1587,7 +1602,8 @@ const clientMessageManualAud = `Renovação manual via Portal do Cliente · ${mo
             p_total_amount: totalBrl,
           },
         );
-        if (renewErrorAud) throw new Error(`Erro Renew: ${renewErrorAud.message}`);
+        if (renewErrorAud)
+          throw new Error(`Erro Renew: ${renewErrorAud.message}`);
       }
 
       // ✅ Se automático, registra LOG + client_renewals
@@ -1595,7 +1611,7 @@ const clientMessageManualAud = `Renovação manual via Portal do Cliente · ${mo
         setLoadingText("Registrando renovação...");
 
         // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
-const clientMessageAuto = `Renovação automática via painel Admin · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
+        const clientMessageAuto = `Renovação automática via painel Admin · ${monthsToRenew} mês(es) · ${screens} tela(s) · ${fmtMoney(currency, rawPlanPrice)}`;
         const serverNotesAuto = `${nameToSend} (${clientData?.username || "-"})${obs ? ` · ${obs}` : ""}`;
 
         // ✅ NOVO: registra em client_renewals igual ao manual
@@ -1654,9 +1670,10 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
               .select("content")
               .eq("tenant_id", tid)
               .eq("template_id", selectedTemplateId);
-            const pool = [tpl?.content, ...(variants || []).map((v: any) => v.content)].filter(
-              (c): c is string => !!c && String(c).trim().length > 0,
-            );
+            const pool = [
+              tpl?.content,
+              ...(variants || []).map((v: any) => v.content),
+            ].filter((c): c is string => !!c && String(c).trim().length > 0);
             if (pool.length > 0) {
               finalMessage = pool[Math.floor(Math.random() * pool.length)];
             }
@@ -1792,7 +1809,10 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
       // passa por uma rota de API em vez de update direto (igual ao
       // client_alerts acima).
       const paymentLogCoupon = paymentLogCouponRef.current;
-      if (paymentLogCoupon?.coupon_id && Number(paymentLogCoupon.coupon_discount_amount) > 0) {
+      if (
+        paymentLogCoupon?.coupon_id &&
+        Number(paymentLogCoupon.coupon_discount_amount) > 0
+      ) {
         try {
           const { data: session } = await supabaseBrowser.auth.getSession();
           const token = session.session?.access_token;
@@ -1914,7 +1934,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
               {/* ... (Conteúdo igual, inputs já estão bons) ... */}
               <div className="flex items-center gap-2 mb-3 border-b border-border pb-2">
                 <span className="text-emerald-500">📅</span>
-<span className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
+                <span className="text-xs font-medium uppercase text-muted-foreground tracking-wider">
                   Novo Vencimento
                 </span>
               </div>
@@ -1944,7 +1964,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
             </div>
 
             {/* 2. SEÇÃO PLANO & FINANCEIRO (Unificado Visualmente ou Estilo Card NovoCliente) */}
-<div className="bg-muted/40 border border-border rounded-xl p-3 sm:p-4 space-y-4">
+            <div className="bg-muted/40 border border-border rounded-xl p-3 sm:p-4 space-y-4">
               {/* 3. SEÇÃO FINANCEIRO */}
               <div className="bg-card border border-border rounded-xl p-3 sm:p-4 shadow-sm">
                 {/* HEADER FINANCEIRO - ✅ IGUAL NOVO CLIENTE */}
@@ -1953,7 +1973,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
                     💰 Financeiro
                   </span>
                   <div className="flex items-center gap-2">
-<span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
+                    <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
                       Tabela:
                     </span>
                     <select
@@ -2118,7 +2138,7 @@ const clientMessageAuto = `Renovação automática via painel Admin · ${monthsT
                 onClick={() =>
                   hasIntegration && setRenewAutomatic(!renewAutomatic)
                 }
-className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   renewAutomatic
                     ? "bg-emerald-500/10 border-emerald-500/20"
                     : "bg-muted/50 border-border"
@@ -2173,7 +2193,9 @@ className={`p-3 rounded-xl border transition-all cursor-pointer ${
                         key={p.id}
                         className="flex justify-between text-xs text-muted-foreground"
                       >
-                        <span>{p.appName ? `Ativação: ${p.appName}` : p.message}</span>
+                        <span>
+                          {p.appName ? `Ativação: ${p.appName}` : p.message}
+                        </span>
                         <span className="font-semibold text-foreground">
                           {fmtMoney(currency, p.convertedAmount)}
                         </span>
@@ -2435,9 +2457,7 @@ function Switch({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-foreground/90">
-        {label}
-      </span>
+      <span className="text-xs text-foreground/90">{label}</span>
       <button
         type="button"
         onClick={(e) => {

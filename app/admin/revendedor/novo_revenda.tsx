@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
@@ -178,9 +178,7 @@ function ToggleLine({
       onClick={() => onChange(!value)}
       className="w-full h-10 px-3 py-2 rounded-lg border border-border bg-transparent hover:bg-muted/30 transition flex items-center justify-between"
     >
-      <span className="text-foreground font-semibold text-sm">
-        {label}
-      </span>
+      <span className="text-foreground font-semibold text-sm">{label}</span>
       <div
         className={`w-10 h-5 rounded-full border relative transition-colors ${value ? "bg-emerald-500 border-emerald-500/50" : "bg-foreground/20 border-foreground/20"}`}
       >
@@ -211,9 +209,10 @@ export default function ResellerFormModal({
   onSuccess,
   onError,
 }: Props) {
+  const resolvedTenantId = useTenantId();
   const { confirm } = useConfirm();
   const isEditing = !!resellerToEdit;
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
   const [loading, setLoading] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
@@ -288,7 +287,7 @@ export default function ResellerFormModal({
   useEffect(() => {
     let alive = true;
     (async () => {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!alive) return;
       setTenantId(tid);
 
@@ -615,7 +614,7 @@ export default function ResellerFormModal({
 
         {/* BODY */}
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-6">
-{submitAttempted && errors.length > 0 && (
+          {submitAttempted && errors.length > 0 && (
             <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-medium animate-in slide-in-from-top-2">
               <ul className="list-disc pl-4 space-y-0.5">
                 {errors.map((e, i) => (

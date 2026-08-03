@@ -4,10 +4,8 @@ import { X, Pencil, Trash2 } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
-import { getCurrentTenantId } from "@/lib/tenant";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useTenantId } from "@/lib/tenant-context";
 import { useConfirm } from "@/hooks/useConfirm";
 import {
   AppFieldType,
@@ -21,9 +19,7 @@ import {
   ALL_DEVICE_TYPES,
   DEVICE_TYPE_LABELS,
 } from "@/lib/apps/device-types";
-import {
-  PORTAL_VARIABLE_OPTIONS,
-} from "@/lib/apps/portal-variable-rules";
+import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
 
 // --- TIPOS ---
 type AppField = {
@@ -106,7 +102,8 @@ function normalizeApiUrl(url: string) {
 }
 
 export default function AppManagerPage() {
-const [apps, setApps] = useState<AppData[]>([]);
+  const tenantId = useTenantId();
+  const [apps, setApps] = useState<AppData[]>([]);
   const [myTenantId, setMyTenantId] = useState<string | null>(null);
   const [configuredIntegrations, setConfiguredIntegrations] = useState<
     { name: string; url: string }[]
@@ -118,8 +115,12 @@ const [apps, setApps] = useState<AppData[]>([]);
     "Todos" | "com" | "sem"
   >("Todos");
   const [partnerServerFilter, setPartnerServerFilter] = useState("Todos");
-  const [deviceTypeFilter, setDeviceTypeFilter] = useState<"Todos" | DeviceType>("Todos");
-  const [technologyFilter, setTechnologyFilter] = useState<"Todos" | Technology>("Todos");
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState<
+    "Todos" | DeviceType
+  >("Todos");
+  const [technologyFilter, setTechnologyFilter] = useState<
+    "Todos" | Technology
+  >("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -171,10 +172,13 @@ const [apps, setApps] = useState<AppData[]>([]);
   const [formCostType, setFormCostType] = useState<CostType | "">("");
   const [formPartnerServerId, setFormPartnerServerId] = useState<string>("");
   const [formLicensePrice, setFormLicensePrice] = useState<string>("");
-  const [formLicensePeriod, setFormLicensePeriod] = useState<LicensePeriod | "">("");
+  const [formLicensePeriod, setFormLicensePeriod] = useState<
+    LicensePeriod | ""
+  >("");
   const [formDeviceTypes, setFormDeviceTypes] = useState<DeviceType[]>([]);
   const [formTechnology, setFormTechnology] = useState<Technology>("IPTV");
-  const [formPortalInstructions, setFormPortalInstructions] = useState<string>("");
+  const [formPortalInstructions, setFormPortalInstructions] =
+    useState<string>("");
   const [formAccessCode, setFormAccessCode] = useState<string>("");
   const [formVariableBadges, setFormVariableBadges] = useState<string[]>([]);
   // ✅ "Descontinuado" — reaproveita apps.is_active (existia, mas nunca era
@@ -182,11 +186,14 @@ const [apps, setApps] = useState<AppData[]>([]);
   // de linha, clientes que já têm precisam ver aviso pra trocar; app some do
   // catálogo de "adicionar novo" mas continua listado pra quem já tem.
   const [formIsActive, setFormIsActive] = useState(true);
-  const [formDiscontinuedReplacement, setFormDiscontinuedReplacement] = useState<string>("");
+  const [formDiscontinuedReplacement, setFormDiscontinuedReplacement] =
+    useState<string>("");
 
   // Dados exibidos no portal: marca o que o cliente precisa copiar no app.
   function toggleVariableBadge(key: string) {
-    setFormVariableBadges((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    setFormVariableBadges((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
   }
 
   function moveVariableBadge(key: string, direction: "left" | "right") {
@@ -270,11 +277,11 @@ const [apps, setApps] = useState<AppData[]>([]);
   async function loadData() {
     setLoading(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) return;
       setMyTenantId(tid);
 
-const [appsRes, integrationsRes, serversRes] = await Promise.all([
+      const [appsRes, integrationsRes, serversRes] = await Promise.all([
         supabaseBrowser
           .from("apps")
           .select("*")
@@ -307,7 +314,7 @@ const [appsRes, integrationsRes, serversRes] = await Promise.all([
           a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
         );
 
-setApps(formattedApps);
+      setApps(formattedApps);
       setConfiguredIntegrations(
         integrationsRes.data?.map((i) => ({
           name: i.app_name,
@@ -353,7 +360,10 @@ setApps(formattedApps);
       )
         return false;
 
-      if (technologyFilter !== "Todos" && (a.technology || "IPTV") !== technologyFilter)
+      if (
+        technologyFilter !== "Todos" &&
+        (a.technology || "IPTV") !== technologyFilter
+      )
         return false;
 
       return true;
@@ -405,11 +415,26 @@ setApps(formattedApps);
   }
 
   // ✅ Só mostra no filtro as opções que realmente têm aplicativo cadastrado
-  const hasFreeApps = React.useMemo(() => apps.some((a) => a.cost_type === "free"), [apps]);
-  const hasPaidApps = React.useMemo(() => apps.some((a) => a.cost_type === "paid"), [apps]);
-  const hasPartnershipApps = React.useMemo(() => apps.some((a) => a.cost_type === "partnership"), [apps]);
-  const hasComIntegracao = React.useMemo(() => apps.some((a) => !!a.integration_type), [apps]);
-  const hasSemIntegracao = React.useMemo(() => apps.some((a) => !a.integration_type), [apps]);
+  const hasFreeApps = React.useMemo(
+    () => apps.some((a) => a.cost_type === "free"),
+    [apps],
+  );
+  const hasPaidApps = React.useMemo(
+    () => apps.some((a) => a.cost_type === "paid"),
+    [apps],
+  );
+  const hasPartnershipApps = React.useMemo(
+    () => apps.some((a) => a.cost_type === "partnership"),
+    [apps],
+  );
+  const hasComIntegracao = React.useMemo(
+    () => apps.some((a) => !!a.integration_type),
+    [apps],
+  );
+  const hasSemIntegracao = React.useMemo(
+    () => apps.some((a) => !a.integration_type),
+    [apps],
+  );
   const partnerServersInUse = React.useMemo(() => {
     const ids = new Set(
       apps
@@ -458,14 +483,20 @@ setApps(formattedApps);
     filteredApps.forEach((app) => {
       if (app.is_active === false) {
         discontinued.push(app);
-      } else if (app.cost_type === "paid" || app.cost_type === "partnership" || app.cost_type === "free") {
+      } else if (
+        app.cost_type === "paid" ||
+        app.cost_type === "partnership" ||
+        app.cost_type === "free"
+      ) {
         groups[app.cost_type].push(app);
       } else {
         discontinued.push(app);
       }
     });
 
-    (Object.keys(groups) as CostType[]).forEach((key) => groups[key].sort(compareApps));
+    (Object.keys(groups) as CostType[]).forEach((key) =>
+      groups[key].sort(compareApps),
+    );
     discontinued.sort(compareApps);
 
     return { groups, discontinued };
@@ -482,7 +513,8 @@ setApps(formattedApps);
 
     groupedByCost.groups.partnership.forEach((app) => {
       if (app.partner_server_id) {
-        if (!byServer[app.partner_server_id]) byServer[app.partner_server_id] = [];
+        if (!byServer[app.partner_server_id])
+          byServer[app.partner_server_id] = [];
         byServer[app.partner_server_id].push(app);
       } else {
         noServer.push(app);
@@ -495,10 +527,16 @@ setApps(formattedApps);
         label: servers.find((s) => s.id === serverId)?.name || "Servidor",
         apps: byServer[serverId],
       }))
-      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }));
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }),
+      );
 
     if (noServer.length > 0) {
-      result.push({ key: "SEM_SERVIDOR", label: "Sem servidor definido", apps: noServer });
+      result.push({
+        key: "SEM_SERVIDOR",
+        label: "Sem servidor definido",
+        apps: noServer,
+      });
     }
 
     return result;
@@ -521,8 +559,10 @@ setApps(formattedApps);
     });
 
     const result: SubGroup[] = [];
-    if (gratuitos.length > 0) result.push({ key: "GRATUITOS", label: "", apps: gratuitos });
-    if (computador.length > 0) result.push({ key: "COMPUTADOR", label: "Computador", apps: computador });
+    if (gratuitos.length > 0)
+      result.push({ key: "GRATUITOS", label: "", apps: gratuitos });
+    if (computador.length > 0)
+      result.push({ key: "COMPUTADOR", label: "Computador", apps: computador });
     return result;
   }, [groupedByCost]);
 
@@ -558,7 +598,9 @@ setApps(formattedApps);
     setFormIconUrl(app.icon_url || "");
     setFormCostType((app.cost_type as CostType) || "");
     setFormPartnerServerId(app.partner_server_id || "");
-    setFormLicensePrice(app.license_price != null ? String(app.license_price) : "");
+    setFormLicensePrice(
+      app.license_price != null ? String(app.license_price) : "",
+    );
     setFormLicensePeriod((app.license_period as LicensePeriod) || "");
     setFormDeviceTypes((app.device_types as DeviceType[]) || []);
     setFormTechnology((app.technology as Technology) || "IPTV");
@@ -607,7 +649,7 @@ setApps(formattedApps);
 
     setSaving(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) {
         addToast(
           "error",
@@ -631,7 +673,8 @@ setApps(formattedApps);
         integration_type: formIntegration || null,
         cost_type: formCostType || null,
         partner_server_id: isPartnership ? formPartnerServerId : null,
-        license_price: isPaid && formLicensePrice ? Number(formLicensePrice) : null,
+        license_price:
+          isPaid && formLicensePrice ? Number(formLicensePrice) : null,
         license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
         device_types: formDeviceTypes,
         technology: formTechnology,
@@ -639,7 +682,10 @@ setApps(formattedApps);
         access_code: formAccessCode.trim() || null,
         portal_variable_fields: variableBadgesToSave,
         is_active: formIsActive,
-        discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
+        discontinued_replacement_name:
+          !formIsActive && formDiscontinuedReplacement.trim()
+            ? formDiscontinuedReplacement.trim()
+            : null,
       };
 
       if (editingId) {
@@ -651,15 +697,20 @@ setApps(formattedApps);
           integration_type: formIntegration || null,
           cost_type: formCostType || null,
           partner_server_id: isPartnership ? formPartnerServerId : null,
-          license_price: isPaid && formLicensePrice ? Number(formLicensePrice) : null,
-          license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
+          license_price:
+            isPaid && formLicensePrice ? Number(formLicensePrice) : null,
+          license_period:
+            isPaid && formLicensePeriod ? formLicensePeriod : null,
           device_types: formDeviceTypes,
           technology: formTechnology,
           portal_setup_instructions: formPortalInstructions.trim() || null,
           access_code: formAccessCode.trim() || null,
           portal_variable_fields: variableBadgesToSave,
           is_active: formIsActive,
-          discontinued_replacement_name: !formIsActive && formDiscontinuedReplacement.trim() ? formDiscontinuedReplacement.trim() : null,
+          discontinued_replacement_name:
+            !formIsActive && formDiscontinuedReplacement.trim()
+              ? formDiscontinuedReplacement.trim()
+              : null,
         };
         const { error } = await supabaseBrowser
           .from("apps")
@@ -698,7 +749,7 @@ setApps(formattedApps);
     if (!ok) return;
 
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) {
         addToast(
           "error",
@@ -727,7 +778,11 @@ setApps(formattedApps);
       ? servers.find((s) => s.id === app.partner_server_id)?.name || "Servidor"
       : "";
     const licensePeriodLabel =
-      app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " vitalícia" : "";
+      app.license_period === "annual"
+        ? "/ano"
+        : app.license_period === "lifetime"
+          ? " vitalícia"
+          : "";
     const needsConfiguration =
       app.integration_type &&
       !configuredIntegrations.some((i) => i.name === app.integration_type);
@@ -754,17 +809,17 @@ setApps(formattedApps);
                           ? "IPTV Playerio"
                           : app.integration_type === "DUPLEXTV"
                             ? "Duplex TV"
-                          : app.integration_type === "CLOUDDY"
-                            ? "ClouDDy"
-                          : app.integration_type === "NINJAPLAYER"
-                            ? "Ninja Player"
-                          : app.integration_type === "LAZERPLAY"
-                    ? "Lazer Play"
-                    : app.integration_type === "FUNPLAY"
-                      ? "Fun Play"
-                      : app.integration_type === "FOCOXPLAY"
-                        ? "FocoX Play"
-                        : app.integration_type;
+                            : app.integration_type === "CLOUDDY"
+                              ? "ClouDDy"
+                              : app.integration_type === "NINJAPLAYER"
+                                ? "Ninja Player"
+                                : app.integration_type === "LAZERPLAY"
+                                  ? "Lazer Play"
+                                  : app.integration_type === "FUNPLAY"
+                                    ? "Fun Play"
+                                    : app.integration_type === "FOCOXPLAY"
+                                      ? "FocoX Play"
+                                      : app.integration_type;
 
     return (
       <div
@@ -780,7 +835,7 @@ setApps(formattedApps);
                   alt=""
                   className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
                 />
-             ) : (
+              ) : (
                 <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-base shrink-0">
                   📱
                 </div>
@@ -790,7 +845,7 @@ setApps(formattedApps);
               </h3>
             </div>
             <div className="flex flex-wrap gap-1 pt-0.5">
-             {app.tenant_id !== myTenantId && (
+              {app.tenant_id !== myTenantId && (
                 <span className="inline-flex items-center text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full">
                   🔒
                 </span>
@@ -946,34 +1001,39 @@ setApps(formattedApps);
               stroke="currentColor"
               strokeWidth="2"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 9l-7 7-7-7"
+              />
             </svg>
           </button>
         </div>
 
-        {!isCollapsed && (subGroups ? (
-          <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
-            {subGroups.map((sg) => (
-              <div key={sg.key} className="space-y-2">
-                {sg.label && (
-                  <h3 className="flex items-center gap-2 text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide pl-0.5">
-                    {sg.label}
-                    <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm normal-case">
-                      {sg.apps.length} {sg.apps.length > 1 ? "Apps" : "App"}
-                    </span>
-                  </h3>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                  {sg.apps.map((app) => renderAppCard(app))}
+        {!isCollapsed &&
+          (subGroups ? (
+            <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
+              {subGroups.map((sg) => (
+                <div key={sg.key} className="space-y-2">
+                  {sg.label && (
+                    <h3 className="flex items-center gap-2 text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide pl-0.5">
+                      {sg.label}
+                      <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm normal-case">
+                        {sg.apps.length} {sg.apps.length > 1 ? "Apps" : "App"}
+                      </span>
+                    </h3>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+                    {sg.apps.map((app) => renderAppCard(app))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
-            {appsInGroup.map((app) => renderAppCard(app))}
-          </div>
-        ))}
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
+              {appsInGroup.map((app) => renderAppCard(app))}
+            </div>
+          ))}
       </div>
     );
   }
@@ -1073,7 +1133,9 @@ setApps(formattedApps);
                 {hasFreeApps && <option value="free">🆓 Gratuito</option>}
                 {hasPaidApps && <option value="paid">💰 Pago</option>}
                 {hasPartnershipApps && (
-                  <option value="partnership">🤝 Parceria (Todos os servidores)</option>
+                  <option value="partnership">
+                    🤝 Parceria (Todos os servidores)
+                  </option>
                 )}
                 {partnerServersInUse.length > 0 && (
                   <optgroup label="🤝 Parceria por servidor">
@@ -1091,12 +1153,18 @@ setApps(formattedApps);
               <Select
                 value={integrationFilter}
                 onChange={(e) =>
-                  setIntegrationFilter(e.target.value as "Todos" | "com" | "sem")
+                  setIntegrationFilter(
+                    e.target.value as "Todos" | "com" | "sem",
+                  )
                 }
               >
                 <option value="Todos">Integração (Todas)</option>
-                {hasComIntegracao && <option value="com">Com integração</option>}
-                {hasSemIntegracao && <option value="sem">Sem integração</option>}
+                {hasComIntegracao && (
+                  <option value="com">Com integração</option>
+                )}
+                {hasSemIntegracao && (
+                  <option value="sem">Sem integração</option>
+                )}
               </Select>
             </div>
 
@@ -1148,7 +1216,9 @@ setApps(formattedApps);
                 {hasFreeApps && <option value="free">🆓 Gratuito</option>}
                 {hasPaidApps && <option value="paid">💰 Pago</option>}
                 {hasPartnershipApps && (
-                  <option value="partnership">🤝 Parceria (Todos os servidores)</option>
+                  <option value="partnership">
+                    🤝 Parceria (Todos os servidores)
+                  </option>
                 )}
                 {partnerServersInUse.length > 0 && (
                   <optgroup label="🤝 Parceria por servidor">
@@ -1164,12 +1234,18 @@ setApps(formattedApps);
               <Select
                 value={integrationFilter}
                 onChange={(e) =>
-                  setIntegrationFilter(e.target.value as "Todos" | "com" | "sem")
+                  setIntegrationFilter(
+                    e.target.value as "Todos" | "com" | "sem",
+                  )
                 }
               >
                 <option value="Todos">Integração (Todas)</option>
-                {hasComIntegracao && <option value="com">Com integração</option>}
-                {hasSemIntegracao && <option value="sem">Sem integração</option>}
+                {hasComIntegracao && (
+                  <option value="com">Com integração</option>
+                )}
+                {hasSemIntegracao && (
+                  <option value="sem">Sem integração</option>
+                )}
               </Select>
 
               <Select
@@ -1213,11 +1289,11 @@ setApps(formattedApps);
 
       {/* LISTAGEM */}
       {loading ? (
-<div className="text-center py-10 text-muted-foreground bg-transparent rounded-xl border border-dashed border-border">
+        <div className="text-center py-10 text-muted-foreground bg-transparent rounded-xl border border-dashed border-border">
           Carregando aplicativos...
         </div>
       ) : filteredApps.length === 0 ? (
-<div className="text-center py-10 text-muted-foreground bg-transparent rounded-xl border border-dashed border-border">
+        <div className="text-center py-10 text-muted-foreground bg-transparent rounded-xl border border-dashed border-border">
           {apps.length === 0
             ? 'Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.'
             : search.trim()
@@ -1228,16 +1304,26 @@ setApps(formattedApps);
         </div>
       ) : (
         <div className="px-3 sm:px-0 space-y-6">
-          {COST_GROUPS.filter((g) => groupedByCost.groups[g.key].length > 0).map((g) =>
+          {COST_GROUPS.filter(
+            (g) => groupedByCost.groups[g.key].length > 0,
+          ).map((g) =>
             renderAppGroup(
               g.key,
               g.label,
               groupedByCost.groups[g.key],
-              g.key === "partnership" ? partnershipSubGroups : g.key === "free" ? freeSubGroups : undefined,
+              g.key === "partnership"
+                ? partnershipSubGroups
+                : g.key === "free"
+                  ? freeSubGroups
+                  : undefined,
             ),
           )}
           {groupedByCost.discontinued.length > 0 &&
-            renderAppGroup("DESCONTINUADO", "🚫 Descontinuado", groupedByCost.discontinued)}
+            renderAppGroup(
+              "DESCONTINUADO",
+              "🚫 Descontinuado",
+              groupedByCost.discontinued,
+            )}
           <div className="h-24 md:h-20" />
         </div>
       )}
@@ -1341,7 +1427,7 @@ setApps(formattedApps);
                       PNG, JPG, WebP — funciona com figurinhas do WhatsApp
                     </p>
                   </div>
-<label className="cursor-pointer shrink-0">
+                  <label className="cursor-pointer shrink-0">
                     <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-medium flex items-center hover:bg-emerald-500/20 transition-colors">
                       {uploadingIcon ? "..." : "Selecionar"}
                     </span>
@@ -1420,7 +1506,9 @@ setApps(formattedApps);
                   <Label>Tipo</Label>
                   <Select
                     value={formCostType}
-                    onChange={(e) => setFormCostType(e.target.value as CostType | "")}
+                    onChange={(e) =>
+                      setFormCostType(e.target.value as CostType | "")
+                    }
                   >
                     <option value="">Não definido</option>
                     <option value="free">Gratuito (universal)</option>
@@ -1444,7 +1532,8 @@ setApps(formattedApps);
                       ))}
                     </Select>
                     <p className="text-[11px] text-muted-foreground mt-1">
-                      Este app é exclusivo/gratuito para clientes deste servidor.
+                      Este app é exclusivo/gratuito para clientes deste
+                      servidor.
                     </p>
                   </div>
                 )}
@@ -1465,11 +1554,17 @@ setApps(formattedApps);
                       <Label>Período da licença</Label>
                       <Select
                         value={formLicensePeriod}
-                        onChange={(e) => setFormLicensePeriod(e.target.value as LicensePeriod | "")}
+                        onChange={(e) =>
+                          setFormLicensePeriod(
+                            e.target.value as LicensePeriod | "",
+                          )
+                        }
                       >
                         <option value="">Não definido</option>
                         <option value="annual">Anual</option>
-                        <option value="lifetime">Vitalícia (paga uma vez)</option>
+                        <option value="lifetime">
+                          Vitalícia (paga uma vez)
+                        </option>
                       </Select>
                     </div>
                   </div>
@@ -1501,7 +1596,8 @@ setApps(formattedApps);
                     ))}
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Só aparece para cliente com a mesma tecnologia (IPTV ou P2P).
+                    Só aparece para cliente com a mesma tecnologia (IPTV ou
+                    P2P).
                   </p>
                 </div>
 
@@ -1563,7 +1659,10 @@ setApps(formattedApps);
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {formVariableBadges.map((key, index) => {
-                          const label = PORTAL_VARIABLE_OPTIONS.find((opt) => opt.key === key)?.label || key;
+                          const label =
+                            PORTAL_VARIABLE_OPTIONS.find(
+                              (opt) => opt.key === key,
+                            )?.label || key;
                           return (
                             <div
                               key={key}
@@ -1582,7 +1681,9 @@ setApps(formattedApps);
                               <button
                                 type="button"
                                 onClick={() => moveVariableBadge(key, "right")}
-                                disabled={index === formVariableBadges.length - 1}
+                                disabled={
+                                  index === formVariableBadges.length - 1
+                                }
                                 className="px-1 text-[10px] rounded border border-sky-500/20 disabled:opacity-30"
                                 title="Mover para a direita"
                               >
@@ -1605,7 +1706,8 @@ setApps(formattedApps);
                         className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
                       />
                       <p className="text-[11px] text-muted-foreground mt-1">
-                        Valor fixo, igual pra todos os clientes desse app (ex: Brasil IPTV usa "4100").
+                        Valor fixo, igual pra todos os clientes desse app (ex:
+                        Brasil IPTV usa "4100").
                       </p>
                     </div>
                   )}
@@ -1639,16 +1741,18 @@ setApps(formattedApps);
                     </button>
                   </div>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    Continua aparecendo no catálogo de "+ Adicionar
-                    aplicativo" do portal (quem já usa precisa achar ele lá),
-                    mas ao tentar adicionar mostra um aviso pra trocar em vez
-                    de adicionar. Quem já tem também vê o aviso no card.
+                    Continua aparecendo no catálogo de "+ Adicionar aplicativo"
+                    do portal (quem já usa precisa achar ele lá), mas ao tentar
+                    adicionar mostra um aviso pra trocar em vez de adicionar.
+                    Quem já tem também vê o aviso no card.
                   </p>
                   {!formIsActive && (
                     <input
                       type="text"
                       value={formDiscontinuedReplacement}
-                      onChange={(e) => setFormDiscontinuedReplacement(e.target.value)}
+                      onChange={(e) =>
+                        setFormDiscontinuedReplacement(e.target.value)
+                      }
                       placeholder="Recomendar no lugar (opcional) — ex: DupleCast"
                       className="w-full h-9 px-3 mt-2 bg-transparent border border-rose-500/30 rounded-lg text-sm text-foreground outline-none focus:border-rose-500/60"
                     />
@@ -1687,7 +1791,7 @@ setApps(formattedApps);
                 </div>
 
                 <div className="space-y-2">
-{formFields.length === 0 && (
+                  {formFields.length === 0 && (
                     <div className="text-center py-4 text-muted-foreground text-xs italic border border-dashed border-border rounded-lg">
                       Nenhum campo extra definido. O app usará apenas o campo
                       "Nome" ou "Usuário".

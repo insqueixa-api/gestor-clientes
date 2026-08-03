@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 
@@ -41,6 +41,7 @@ export default function AppIntegracaoModal({
   onSuccessAction: () => void;
   onErrorAction: (msg: string) => void;
 }) {
+  const tenantId = useTenantId();
   const isEdit = !!integration?.id;
 
   const [appName, setAppName] = useState(
@@ -93,12 +94,12 @@ export default function AppIntegracaoModal({
     isDuplexTv ||
     isClouddy ||
     isNinjaPlayer; // ✅ NINJAPLAYER: login é por mac+device_key POR CLIENTE
-    // (client_apps.field_values), não um login/senha compartilhado pelo
-    // tenant — mesma razão do CLOUDDY logo acima.
-    // (client_apps.field_values), não um só compartilhado pelo tenant —
-    // mostrar os campos aqui confundiria (pareceria que fazem algo, mas a
-    // rota nunca lê daqui). O que a rota REALMENTE usa daqui é api_url +
-    // is_active (kill-switch).
+  // (client_apps.field_values), não um login/senha compartilhado pelo
+  // tenant — mesma razão do CLOUDDY logo acima.
+  // (client_apps.field_values), não um só compartilhado pelo tenant —
+  // mostrar os campos aqui confundiria (pareceria que fazem algo, mas a
+  // rota nunca lê daqui). O que a rota REALMENTE usa daqui é api_url +
+  // is_active (kill-switch).
 
   useEffect(() => {
     if (integration) {
@@ -160,7 +161,6 @@ export default function AppIntegracaoModal({
     if (!canSave) return;
     try {
       setSaving(true);
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Tenant não encontrado.");
 
       const payload = {
@@ -287,7 +287,9 @@ export default function AppIntegracaoModal({
                     nada, não é mais a família de apps de antes. */}
                 <option value="IBOSOL">IBO Sol (só checagem Duplex TV)</option>
                 <option value="IBOPRO">IBO Pro Player</option>
-                <option value="QUICKPLAYER">Quick Player / Quick Player Pro</option>
+                <option value="QUICKPLAYER">
+                  Quick Player / Quick Player Pro
+                </option>
                 <option value="MESSITV">MessiTV</option>
                 <option value="BOBPLAYER">BOB Player</option>
                 <option value="IBOPLAYER">IBO Player</option>

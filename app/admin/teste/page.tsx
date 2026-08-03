@@ -19,7 +19,7 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { getIntegrationHandler } from "@/lib/integrations";
@@ -270,10 +270,11 @@ function copyText(text: string) {
 }
 
 export default function TrialsPage() {
+  const resolvedTenantId = useTenantId();
   // --- ESTADOS ---
   const [rows, setRows] = useState<TrialRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
 
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
@@ -493,7 +494,11 @@ export default function TrialsPage() {
     if (!tenantId || !showSimulate.trialId) return;
     const msg = (simulateText || "").trim();
     if (!msg) {
-      addToast("error", "Mensagem vazia", "Escolha um template ou digite uma mensagem.");
+      addToast(
+        "error",
+        "Mensagem vazia",
+        "Escolha um template ou digite uma mensagem.",
+      );
       return;
     }
     try {
@@ -502,7 +507,10 @@ export default function TrialsPage() {
       const token = session.session?.access_token;
       const res = await fetch("/api/whatsapp/envio_simulado", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         cache: "no-store",
         body: JSON.stringify({
           tenant_id: tenantId,
@@ -720,7 +728,7 @@ export default function TrialsPage() {
   async function loadData() {
     setLoading(true);
 
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     setTenantId(tid);
 
     if (!tid) {
@@ -828,7 +836,7 @@ export default function TrialsPage() {
     (async () => {
       await loadData();
 
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (tid) await loadAppsIndex(tid);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1102,15 +1110,22 @@ export default function TrialsPage() {
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-<h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Gestão de Testes
             </h1>
             <button
-              onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setValuesHidden((v) => !v);
+              }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
-              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {valuesHidden ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline text-[11px] tracking-wide">
                 {valuesHidden ? "Exibir" : "Ocultar"}
               </span>
@@ -1401,7 +1416,7 @@ export default function TrialsPage() {
                 setMobileFiltersOpen(false);
               }}
               className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-          >
+            >
               <IconX /> Limpar
             </button>
           </div>
@@ -1420,7 +1435,7 @@ export default function TrialsPage() {
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
-<div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
+            <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Testes{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs">
                 {filtered.length}
@@ -1493,17 +1508,17 @@ export default function TrialsPage() {
                         <div className="flex flex-col max-w-[180px] sm:max-w-none">
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <span
-  className="font-semibold text-foreground/90 truncate"
-  title={r.name}
->
-  {r.name.split(" ")[0]}
-  {r.secondary_display_name && (
-    <span className="text-muted-foreground font-medium">
-      {" / "}
-      {r.secondary_display_name.split(" ")[0]}
-    </span>
-  )}
-</span>
+                              className="font-semibold text-foreground/90 truncate"
+                              title={r.name}
+                            >
+                              {r.name.split(" ")[0]}
+                              {r.secondary_display_name && (
+                                <span className="text-muted-foreground font-medium">
+                                  {" / "}
+                                  {r.secondary_display_name.split(" ")[0]}
+                                </span>
+                              )}
+                            </span>
 
                             <div className="flex items-center gap-1 shrink-0">
                               {(scheduledMap[r.id]?.length || 0) > 0 && (
@@ -1525,16 +1540,22 @@ export default function TrialsPage() {
                             </div>
                           </div>
 
-                          <span className={`text-xs font-medium text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                          <span
+                            className={`text-xs font-medium text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                          >
                             {r.username}
                           </span>
                           {r.whatsapp_username && (
-                            <span className={`text-xs font-medium text-emerald-500 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                            <span
+                              className={`text-xs font-medium text-emerald-500 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                            >
                               @{r.whatsapp_username}
                             </span>
                           )}
                           {r.secondary_whatsapp_username && (
-                            <span className={`text-xs font-medium text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                            <span
+                              className={`text-xs font-medium text-muted-foreground truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                            >
                               @{r.secondary_whatsapp_username}
                             </span>
                           )}
@@ -1633,13 +1654,16 @@ export default function TrialsPage() {
                         {(() => {
                           const tech = r.technology || "";
                           const t = tech.toUpperCase();
-                          const colors = t === "IPTV" 
-                            ? "bg-sky-500/10 text-sky-500 border-sky-500/20" 
-                            : t === "P2P" 
-                            ? "bg-rose-500/10 text-rose-500 border-rose-500/20" 
-                            : "bg-muted text-muted-foreground border-border";
+                          const colors =
+                            t === "IPTV"
+                              ? "bg-sky-500/10 text-sky-500 border-sky-500/20"
+                              : t === "P2P"
+                                ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                : "bg-muted text-muted-foreground border-border";
                           return (
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}
+                            >
                               {r.technology || "—"}
                             </span>
                           );
@@ -1657,7 +1681,7 @@ export default function TrialsPage() {
                               ] as any;
                               const hasIntegration = Boolean(
                                 catApp?.integration_type &&
-                                  catApp.integration_type !== "SEM_INTEGRACAO",
+                                catApp.integration_type !== "SEM_INTEGRACAO",
                               );
                               return (
                                 <button
@@ -1957,7 +1981,7 @@ export default function TrialsPage() {
                       </button>
                     </div>
 
-<div className="text-sm text-foreground/80 whitespace-pre-wrap">
+                    <div className="text-sm text-foreground/80 whitespace-pre-wrap">
                       {s.message}
                     </div>
                   </div>
@@ -2121,7 +2145,9 @@ export default function TrialsPage() {
                 <IconCopy />
               </span>
               <div className="text-sm text-foreground/90">
-                Não envia nada pelo WhatsApp — só monta o texto pronto (com as variáveis já resolvidas) pra você copiar e mandar manualmente pelo WhatsApp Web.
+                Não envia nada pelo WhatsApp — só monta o texto pronto (com as
+                variáveis já resolvidas) pra você copiar e mandar manualmente
+                pelo WhatsApp Web.
               </div>
             </div>
 
@@ -2198,10 +2224,18 @@ export default function TrialsPage() {
 
       {/* --- MODAL DE RESULTADO DO ENVIO SIMULADO --- */}
       {simResult && (
-        <Modal title="Mensagem pronta pra copiar" onClose={() => setSimResult(null)}>
+        <Modal
+          title="Mensagem pronta pra copiar"
+          onClose={() => setSimResult(null)}
+        >
           <div className="space-y-4">
             {simResult.map((p, i) => (
-              <SimResultBubble key={i} phone={p.phone} label={p.label} text={p.text} />
+              <SimResultBubble
+                key={i}
+                phone={p.phone}
+                label={p.label}
+                text={p.text}
+              />
             ))}
             <div className="flex justify-end pt-1">
               <button
@@ -2569,9 +2603,7 @@ function Modal({
         className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
-          <div className="font-medium text-foreground">
-            {title}
-          </div>
+          <div className="font-medium text-foreground">{title}</div>
           <button
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -2588,7 +2620,15 @@ function Modal({
 
 // ✅ Bolha estilo conversa pro resultado do Envio Simulado — mesmo
 // componente da página de Clientes, duplicado aqui (arquivo separado).
-function SimResultBubble({ phone, label, text }: { phone: string; label: string; text: string }) {
+function SimResultBubble({
+  phone,
+  label,
+  text,
+}: {
+  phone: string;
+  label: string;
+  text: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="space-y-1.5">
@@ -2610,7 +2650,8 @@ function SimResultBubble({ phone, label, text }: { phone: string; label: string;
               : "bg-sky-500/10 text-sky-500 border border-sky-500/20 hover:bg-sky-500/20"
           }`}
         >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <IconCopy />} {copied ? "Copiado!" : "Copiar"}
+          {copied ? <Check className="w-3.5 h-3.5" /> : <IconCopy />}{" "}
+          {copied ? "Copiado!" : "Copiar"}
         </button>
       </div>
       <div className="rounded-2xl rounded-tl-sm bg-[#dcf8c6] dark:bg-[#025144] text-[#111b21] dark:text-[#e9edef] p-3 text-sm whitespace-pre-line shadow-sm border border-black/5">
@@ -2872,7 +2913,7 @@ function PapaTestesModal({
                     <span className="font-medium text-sm text-foreground/90">
                       {recs[0]?.client_name || "—"}
                     </span>
-{recs[0]?.whatsapp_username && (
+                    {recs[0]?.whatsapp_username && (
                       <span className="text-xs text-emerald-500">
                         @{recs[0].whatsapp_username}
                       </span>
@@ -2909,7 +2950,11 @@ function PapaTestesModal({
                               : undefined
                           }
                         >
-                          {r.is_trial ? (r.converted ? "Convertido" : "Teste") : "Cliente"}
+                          {r.is_trial
+                            ? r.converted
+                              ? "Convertido"
+                              : "Teste"
+                            : "Cliente"}
                         </span>
                         <span className="text-xs text-muted-foreground shrink-0">
                           {new Date(r.created_at).toLocaleDateString("pt-BR")}
@@ -2924,7 +2969,7 @@ function PapaTestesModal({
                             {r.username}
                           </span>
                         )}
-{r.plan_price && (
+                        {r.plan_price && (
                           <span className="text-xs font-medium text-emerald-500 shrink-0">
                             {new Intl.NumberFormat("pt-BR", {
                               style: "currency",

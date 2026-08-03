@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { useConfirm } from "@/hooks/useConfirm";
 
 // Tipos
@@ -94,8 +94,9 @@ export default function VincularServidor({
   onSaved,
   onError,
 }: Props) {
+  const resolvedTenantId = useTenantId();
   const { confirm } = useConfirm();
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
   const [loadingServers, setLoadingServers] = useState(true);
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -128,7 +129,7 @@ export default function VincularServidor({
         setLoadingServers(true);
         setLoadErr(null);
 
-        const tid = await getCurrentTenantId();
+        const tid = tenantId;
         if (!alive) return;
         setTenantId(tid);
 
@@ -262,7 +263,7 @@ export default function VincularServidor({
             </div>
           )}
 
-         {loadingServers ? (
+          {loadingServers ? (
             <div className="py-12 text-center text-muted-foreground animate-pulse font-medium">
               Carregando servidores...
             </div>

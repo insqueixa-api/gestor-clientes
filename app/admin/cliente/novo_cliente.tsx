@@ -3,7 +3,7 @@
 import { Loader2, X, MessageCircle } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Trazendo a caixa de confirmação bonita
@@ -11,7 +11,10 @@ import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador In
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { normalizeMacInput } from "@/lib/apps/field-types";
-import { ADMIN_CHECK_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
+import {
+  ADMIN_CHECK_HANDLERS,
+  resolveIntegrationTypeByName,
+} from "@/lib/apps/panel";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import { dispatchIbosolAction } from "@/lib/apps/ibosol-extension";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
@@ -450,9 +453,7 @@ function Switch({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-foreground/90">
-        {label}
-      </span>
+      <span className="text-xs text-foreground/90">{label}</span>
       <button
         type="button"
         onClick={() => !disabled && onChange(!checked)} // ✅ NOVO
@@ -563,6 +564,7 @@ export default function NovoCliente({
   onClose,
   onSuccess,
 }: Props) {
+  const tenantId = useTenantId();
   // ✅ Scroll lock padrão (não deixa “vazar” e restaura posição)
   const modalScrollYRef = useRef(0);
 
@@ -593,15 +595,15 @@ export default function NovoCliente({
     };
   }, []);
   const isEditing = !!clientToEdit?.id; // ✅ sem id = criação (ex: Teste Rápido)
-const isTrialMode = mode === "trial";
+  const isTrialMode = mode === "trial";
 
-// ✅ Teste Rápido é identificado pelo defaultSendWhatsapp=false (só ele usa essa prop assim)
-const isQuickTrial = isTrialMode && defaultSendWhatsapp === false;
+  // ✅ Teste Rápido é identificado pelo defaultSendWhatsapp=false (só ele usa essa prop assim)
+  const isQuickTrial = isTrialMode && defaultSendWhatsapp === false;
 
-// ✅ Sync de Agenda/Operadora é permitido na CRIAÇÃO (teste normal OU cliente comum)
-// (fica desabilitado em: edição e teste rápido)
-const canSyncAuto = !isEditing && !isQuickTrial;
-const canSyncAgenda = canSyncAuto;
+  // ✅ Sync de Agenda/Operadora é permitido na CRIAÇÃO (teste normal OU cliente comum)
+  // (fica desabilitado em: edição e teste rápido)
+  const canSyncAuto = !isEditing && !isQuickTrial;
+  const canSyncAgenda = canSyncAuto;
   const [activeTab, setActiveTab] = useState<"dados" | "pagamento" | "apps">(
     initialTab || "dados",
   );
@@ -700,7 +702,7 @@ const canSyncAgenda = canSyncAuto;
     }
     setPapaTesteLoading(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       const { data } = await supabaseBrowser
         .from("papa_testes")
         .select("*")
@@ -1143,7 +1145,7 @@ const canSyncAgenda = canSyncAuto;
     let alive = true;
     async function load() {
       try {
-        const tid = await getCurrentTenantId();
+        const tid = tenantId;
 
         // ✅ OTIMIZAÇÃO (02/08/2026): sessões de WhatsApp deixam de ser
         // esperadas aqui (só usadas lá embaixo, no Select de sessão) — antes,
@@ -1154,55 +1156,64 @@ const canSyncAgenda = canSyncAuto;
         // apps, integrações de apps, tabelas de preço, templates) não
         // dependem uma da outra — só de tid. Buscadas em paralelo em vez de
         // uma atrás da outra.
-        const [srvRes, { data: appsData, error: appsErr }, { data: appInts }, tRes, { data: tmplData, error: tmplErr }] =
-          await Promise.all([
-            // 1. Servidores
-            supabaseBrowser
-              .from("servers")
-              .select("id, name")
-              .eq("tenant_id", tid)
-              .eq("is_archived", false),
-            // 2. Apps (Catálogo Completo com Configuração)
-            // ✅ Acesso direto e sem restrições à tabela de aplicativos
-            // ✅ Inclui os descontinuados (is_active=false) de propósito — o
-            // buscador de apps precisa achá-los pra mostrar o card "Descontinuado"
-            // (em vez de simplesmente sumir da lista, o que deixava o admin sem
-            // saber que o app existe/já foi usado por algum cliente).
-            supabaseBrowser.from("apps").select("*"),
-            // ✅ Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
-            // ✅ login_email/login_password incluídos (02/08/2026) — só o
-            // IBOSOL usa isso no browser (extensão precisa logar de verdade
-            // numa aba real, ver lib/apps/ibosol-extension.ts); os outros
-            // apps continuam com login/senha 100% server-side, nunca lidos
-            // daqui.
-            supabaseBrowser
-              .from("app_integrations")
-              .select("app_name, api_url, pin, login_email, login_password")
-              .eq("tenant_id", tid)
-              .eq("is_active", true),
-            // 3. Tabelas de Preço
-            supabaseBrowser
-              .from("plan_tables")
-              .select(
-                `id, name, currency, is_system_default, table_type,
+        const [
+          srvRes,
+          { data: appsData, error: appsErr },
+          { data: appInts },
+          tRes,
+          { data: tmplData, error: tmplErr },
+        ] = await Promise.all([
+          // 1. Servidores
+          supabaseBrowser
+            .from("servers")
+            .select("id, name")
+            .eq("tenant_id", tid)
+            .eq("is_archived", false),
+          // 2. Apps (Catálogo Completo com Configuração)
+          // ✅ Acesso direto e sem restrições à tabela de aplicativos
+          // ✅ Inclui os descontinuados (is_active=false) de propósito — o
+          // buscador de apps precisa achá-los pra mostrar o card "Descontinuado"
+          // (em vez de simplesmente sumir da lista, o que deixava o admin sem
+          // saber que o app existe/já foi usado por algum cliente).
+          supabaseBrowser.from("apps").select("*"),
+          // ✅ Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
+          // ✅ login_email/login_password incluídos (02/08/2026) — só o
+          // IBOSOL usa isso no browser (extensão precisa logar de verdade
+          // numa aba real, ver lib/apps/ibosol-extension.ts); os outros
+          // apps continuam com login/senha 100% server-side, nunca lidos
+          // daqui.
+          supabaseBrowser
+            .from("app_integrations")
+            .select("app_name, api_url, pin, login_email, login_password")
+            .eq("tenant_id", tid)
+            .eq("is_active", true),
+          // 3. Tabelas de Preço
+          supabaseBrowser
+            .from("plan_tables")
+            .select(
+              `id, name, currency, is_system_default, table_type,
                  items:plan_table_items (id, period, credits_base, prices:plan_table_item_prices (screens_count, price_amount))`,
-              )
-              .eq("tenant_id", tid)
-              .eq("is_active", true)
-              .eq("table_type", "iptv")
-              .order("name", { ascending: true }),
-            // 4. Templates (para mensagem automática / teste)
-            supabaseBrowser
-              .from("message_templates")
-              .select("id, name, content, image_url, category")
-              .eq("tenant_id", tid)
-              .order("name", { ascending: true }),
-          ]);
+            )
+            .eq("tenant_id", tid)
+            .eq("is_active", true)
+            .eq("table_type", "iptv")
+            .order("name", { ascending: true }),
+          // 4. Templates (para mensagem automática / teste)
+          supabaseBrowser
+            .from("message_templates")
+            .select("id, name, content, image_url, category")
+            .eq("tenant_id", tid)
+            .order("name", { ascending: true }),
+        ]);
 
         if (!alive) return;
 
         if (appsErr) {
-          addToast("error", "Erro ao carregar catálogo de apps", appsErr.message);
+          addToast(
+            "error",
+            "Erro ao carregar catálogo de apps",
+            appsErr.message,
+          );
         }
         if (appInts) setAppIntegrations(appInts);
 
@@ -1333,8 +1344,13 @@ const canSyncAgenda = canSyncAuto;
           );
         } else if (clientToEdit?.price_currency) {
           // ✅ Fallback Inteligente para Testes: se o ID da tabela não vier, busca a tabela pela moeda!
-          const fallbackTable = allTables.find((t) => t.currency === clientToEdit.price_currency && t.is_system_default)
-                             || allTables.find((t) => t.currency === clientToEdit.price_currency);
+          const fallbackTable =
+            allTables.find(
+              (t) =>
+                t.currency === clientToEdit.price_currency &&
+                t.is_system_default,
+            ) ||
+            allTables.find((t) => t.currency === clientToEdit.price_currency);
           if (fallbackTable) initialTableId = fallbackTable.id;
         }
 
@@ -1417,9 +1433,13 @@ const canSyncAgenda = canSyncAuto;
 
           setUsername(clientToEdit.username || "");
           // Força a conversão para String explícita antes de colocar no estado
-          // Se o valor for 0019... e chegar como 19..., a única forma de recuperar é garantindo 
+          // Se o valor for 0019... e chegar como 19..., a única forma de recuperar é garantindo
           // que o valor lido do banco (clientToEdit) seja lido como string.
-          setPassword(clientToEdit.server_password != null ? String(clientToEdit.server_password) : "");
+          setPassword(
+            clientToEdit.server_password != null
+              ? String(clientToEdit.server_password)
+              : "",
+          );
 
           // ✅ M3U URL
           setM3uUrl(clientToEdit.m3u_url || "");
@@ -1766,7 +1786,7 @@ const canSyncAgenda = canSyncAuto;
 
     (async () => {
       try {
-        const tid = await getCurrentTenantId();
+        const tid = tenantId;
 
         if (selectedTable.currency === "BRL") {
           setFxRate(1);
@@ -1945,14 +1965,20 @@ const canSyncAgenda = canSyncAuto;
     const token = sess.session?.access_token;
     const res = await fetch(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(body),
     });
     return res.json().catch(() => ({}) as any);
   }
 
   // ✅ FUNÇÃO UNIVERSAL DE CONFIGURAÇÃO (Inteligente)
-  async function handleConfigApp(instanceId: string, mode: ReconfigureMode = "principal") {
+  async function handleConfigApp(
+    instanceId: string,
+    mode: ReconfigureMode = "principal",
+  ) {
     if (!clientToEdit?.id) {
       addToast(
         "warning",
@@ -2018,7 +2044,8 @@ const canSyncAgenda = canSyncAuto;
     // um link preenchido — é o próprio propósito dessa opção.
     let m3uToSend = mode === "secundaria" ? "" : m3uUrl.trim();
     if (!m3uToSend) {
-      m3uToSend = mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
+      m3uToSend =
+        mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
       if (!m3uToSend) {
         addToast(
           "warning",
@@ -2075,7 +2102,11 @@ const canSyncAgenda = canSyncAuto;
             // manualmente", já dispara a checagem real via IBOSOL na
             // sequência (pedido do Márcio, 02/08/2026, ver
             // checkDuplexTvViaIbosol acima).
-            addToast("success", "Integrado!", "Playlist configurada! Verificando vencimento real via IBOSOL...");
+            addToast(
+              "success",
+              "Integrado!",
+              "Playlist configurada! Verificando vencimento real via IBOSOL...",
+            );
             setLoadingStep("Verificando vencimento via IBOSOL...");
             const ibosolResult = await checkDuplexTvViaIbosol(currentApp);
             setLoadingStep("");
@@ -2089,7 +2120,8 @@ const canSyncAgenda = canSyncAuto;
               addToast(
                 "warning",
                 "Vencimento não confirmado",
-                ibosolResult.error || "Não foi possível checar via IBOSOL — confira manualmente no painel do parceiro.",
+                ibosolResult.error ||
+                  "Não foi possível checar via IBOSOL — confira manualmente no painel do parceiro.",
               );
             }
           } else {
@@ -2103,7 +2135,7 @@ const canSyncAgenda = canSyncAuto;
               "success",
               "Integrado!",
               apiJson.message ||
-                "App configurado, mas não foi possível confirmar o vencimento agora — clique em \"Verificar vencimento\" pra conferir.",
+                'App configurado, mas não foi possível confirmar o vencimento agora — clique em "Verificar vencimento" pra conferir.',
             );
           }
         } else {
@@ -2250,11 +2282,23 @@ const canSyncAgenda = canSyncAuto;
       setLoading(false);
       setLoadingStep("");
       if (ibosolResult.ok && ibosolResult.expireDate) {
-        addToast("success", "Vencimento verificado", `${appName}: ${String(ibosolResult.expireDate).split("-").reverse().join("/")}`);
+        addToast(
+          "success",
+          "Vencimento verificado",
+          `${appName}: ${String(ibosolResult.expireDate).split("-").reverse().join("/")}`,
+        );
       } else if (ibosolResult.ok) {
-        addToast("warning", "Sem vencimento", "IBOSOL não encontrou vencimento pra esse MAC.");
+        addToast(
+          "warning",
+          "Sem vencimento",
+          "IBOSOL não encontrou vencimento pra esse MAC.",
+        );
       } else {
-        addToast("error", "Não foi possível verificar", ibosolResult.error || "Falha desconhecida.");
+        addToast(
+          "error",
+          "Não foi possível verificar",
+          ibosolResult.error || "Falha desconhecida.",
+        );
       }
       return;
     }
@@ -2274,21 +2318,28 @@ const canSyncAgenda = canSyncAuto;
         return;
       }
       try {
-        const tenantIdForCheck = await getCurrentTenantId();
-        const apiJson = await callAdminAppApi("/api/admin/apps/check-validity", {
-          tenant_id: tenantIdForCheck,
-          client_app_id: currentApp.client_app_id || undefined,
-          app_id: currentApp.client_app_id ? undefined : currentApp.app_id,
-          client_id: clientToEdit?.id,
-          field_values: currentApp.values,
-        });
+        const tenantIdForCheck = tenantId;
+        const apiJson = await callAdminAppApi(
+          "/api/admin/apps/check-validity",
+          {
+            tenant_id: tenantIdForCheck,
+            client_app_id: currentApp.client_app_id || undefined,
+            app_id: currentApp.client_app_id ? undefined : currentApp.app_id,
+            client_id: clientToEdit?.id,
+            field_values: currentApp.values,
+          },
+        );
         setLoading(false);
         setLoadingStep("");
 
         if (apiJson?.ok && apiJson.expireDate) {
           if (dateField) {
             const fieldKey = dateField.id || dateField.label;
-            updateAppFieldValue(currentApp!.instanceId, String(fieldKey), apiJson.expireDate);
+            updateAppFieldValue(
+              currentApp!.instanceId,
+              String(fieldKey),
+              apiJson.expireDate,
+            );
           }
           addToast(
             "success",
@@ -2347,8 +2398,12 @@ const canSyncAgenda = canSyncAuto;
       (f: any) => String(f?.type || "").toLowerCase() === "password",
     );
     return {
-      email: emailField ? currentApp.values[String(emailField.id || emailField.label)] || "" : "",
-      password: passField ? currentApp.values[String(passField.id || passField.label)] || "" : "",
+      email: emailField
+        ? currentApp.values[String(emailField.id || emailField.label)] || ""
+        : "",
+      password: passField
+        ? currentApp.values[String(passField.id || passField.label)] || ""
+        : "",
     };
   }
 
@@ -2382,33 +2437,57 @@ const canSyncAgenda = canSyncAuto;
   // tenant (não por cliente, ao contrário do ClouDDy) — vem de
   // app_integrations. Reaproveita persistClouddyExpireDate (função
   // genérica, apesar do nome) pra gravar o campo de data.
-  async function checkDuplexTvViaIbosol(currentApp: any): Promise<{ ok: boolean; expireDate?: string | null; error?: string }> {
-    const ibosolInteg = appIntegrations.find((a) => String(a.app_name || "").toUpperCase() === "IBOSOL");
+  async function checkDuplexTvViaIbosol(
+    currentApp: any,
+  ): Promise<{ ok: boolean; expireDate?: string | null; error?: string }> {
+    const ibosolInteg = appIntegrations.find(
+      (a) => String(a.app_name || "").toUpperCase() === "IBOSOL",
+    );
     const email = ibosolInteg?.login_email || "";
     const password = ibosolInteg?.login_password || "";
     if (!email || !password) {
-      return { ok: false, error: "Credenciais do IBOSOL não configuradas (Configurações → Integrações)." };
+      return {
+        ok: false,
+        error:
+          "Credenciais do IBOSOL não configuradas (Configurações → Integrações).",
+      };
     }
     const macValue = getMacFromApp(currentApp);
     if (!macValue) {
-      return { ok: false, error: "Preencha o Device ID (MAC) do Duplex TV antes de checar." };
+      return {
+        ok: false,
+        error: "Preencha o Device ID (MAC) do Duplex TV antes de checar.",
+      };
     }
 
-    const result = await dispatchIbosolAction("IBOSOL_CHECK_DUPLEXTV", { email, password, macValue });
-    if (!result.ok) return { ok: false, error: result.error || "Falha desconhecida." };
-    if (result.expireDate) await persistClouddyExpireDate(currentApp, result.expireDate);
+    const result = await dispatchIbosolAction("IBOSOL_CHECK_DUPLEXTV", {
+      email,
+      password,
+      macValue,
+    });
+    if (!result.ok)
+      return { ok: false, error: result.error || "Falha desconhecida." };
+    if (result.expireDate)
+      await persistClouddyExpireDate(currentApp, result.expireDate);
     return { ok: true, expireDate: result.expireDate ?? null };
   }
 
   // ✅ ClouDDy — abre, loga, pega o vencimento atual (pro toast), configura
   // TV + VOD com o m3uUrl atual, e fecha a sessão.
-  async function handleClouddyConfigure(instanceId: string, mode: ReconfigureMode = "principal") {
+  async function handleClouddyConfigure(
+    instanceId: string,
+    mode: ReconfigureMode = "principal",
+  ) {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
     if (!currentApp) return;
 
     const { email, password } = getClouddyCreds(currentApp);
     if (!email || !password) {
-      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de configurar.");
+      addToast(
+        "error",
+        "Email/senha obrigatórios",
+        "Preencha o email e a senha do ClouDDy antes de configurar.",
+      );
       return;
     }
 
@@ -2417,9 +2496,14 @@ const canSyncAgenda = canSyncAuto;
     // que já tenha um m3u preenchido.
     let m3uToSend = mode === "secundaria" ? "" : m3uUrl.trim();
     if (!m3uToSend) {
-      m3uToSend = mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
+      m3uToSend =
+        mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
       if (!m3uToSend) {
-        addToast("warning", "Sem Domínio", "Não foi possível gerar o link M3U. Verifique se o servidor possui DNS configurado.");
+        addToast(
+          "warning",
+          "Sem Domínio",
+          "Não foi possível gerar o link M3U. Verifique se o servidor possui DNS configurado.",
+        );
         return;
       }
       setM3uUrl(m3uToSend);
@@ -2428,9 +2512,14 @@ const canSyncAgenda = canSyncAuto;
     setLoading(true);
     setLoadingStep("Abrindo ClouDDy na extensão...");
     try {
-      const result = await dispatchClouddyAction("CLOUDDY_CONFIGURE", { email, password, m3uUrl: m3uToSend });
+      const result = await dispatchClouddyAction("CLOUDDY_CONFIGURE", {
+        email,
+        password,
+        m3uUrl: m3uToSend,
+      });
       if (result.ok) {
-        if (result.expireDate) await persistClouddyExpireDate(currentApp, result.expireDate);
+        if (result.expireDate)
+          await persistClouddyExpireDate(currentApp, result.expireDate);
         addToast(
           "success",
           "ClouDDy configurado",
@@ -2439,7 +2528,11 @@ const canSyncAgenda = canSyncAuto;
             : "TV + VOD atualizados.",
         );
       } else {
-        addToast("error", "Falha ao configurar", result.error || "Não foi possível configurar o ClouDDy.");
+        addToast(
+          "error",
+          "Falha ao configurar",
+          result.error || "Não foi possível configurar o ClouDDy.",
+        );
       }
     } finally {
       setLoading(false);
@@ -2455,21 +2548,40 @@ const canSyncAgenda = canSyncAuto;
 
     const { email, password } = getClouddyCreds(currentApp);
     if (!email || !password) {
-      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de verificar.");
+      addToast(
+        "error",
+        "Email/senha obrigatórios",
+        "Preencha o email e a senha do ClouDDy antes de verificar.",
+      );
       return;
     }
 
     setLoading(true);
     setLoadingStep("Abrindo ClouDDy na extensão...");
     try {
-      const result = await dispatchClouddyAction("CLOUDDY_CHECK", { email, password });
+      const result = await dispatchClouddyAction("CLOUDDY_CHECK", {
+        email,
+        password,
+      });
       if (result.ok && result.expireDate) {
         await persistClouddyExpireDate(currentApp, result.expireDate);
-        addToast("success", "Vencimento verificado", `ClouDDy: ${String(result.expireDate).split("-").reverse().join("/")}`);
+        addToast(
+          "success",
+          "Vencimento verificado",
+          `ClouDDy: ${String(result.expireDate).split("-").reverse().join("/")}`,
+        );
       } else if (result.ok) {
-        addToast("warning", "Sem vencimento", "Não foi possível localizar o vencimento.");
+        addToast(
+          "warning",
+          "Sem vencimento",
+          "Não foi possível localizar o vencimento.",
+        );
       } else {
-        addToast("error", "Não foi possível verificar", result.error || "Falha desconhecida.");
+        addToast(
+          "error",
+          "Não foi possível verificar",
+          result.error || "Falha desconhecida.",
+        );
       }
     } finally {
       setLoading(false);
@@ -2485,18 +2597,29 @@ const canSyncAgenda = canSyncAuto;
 
     const { email, password } = getClouddyCreds(currentApp);
     if (!email || !password) {
-      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de remover.");
+      addToast(
+        "error",
+        "Email/senha obrigatórios",
+        "Preencha o email e a senha do ClouDDy antes de remover.",
+      );
       return;
     }
 
     setLoading(true);
     setLoadingStep("Abrindo ClouDDy na extensão...");
     try {
-      const result = await dispatchClouddyAction("CLOUDDY_DELETE", { email, password });
+      const result = await dispatchClouddyAction("CLOUDDY_DELETE", {
+        email,
+        password,
+      });
       if (result.ok) {
         addToast("success", "ClouDDy removido", "TV + VOD removidos.");
       } else {
-        addToast("error", "Falha ao remover", result.error || "Não foi possível remover no ClouDDy.");
+        addToast(
+          "error",
+          "Falha ao remover",
+          result.error || "Não foi possível remover no ClouDDy.",
+        );
       }
     } finally {
       setLoading(false);
@@ -2538,15 +2661,16 @@ const canSyncAgenda = canSyncAuto;
     if (!finalE164) return;
 
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       // Normaliza igual à rota /create: strip +55, remove formatação, vira "02197022713"
-const rawDigits = onlyDigits(finalE164);
-const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
-  ? "0" + rawDigits.slice(2)
-  : rawDigits.startsWith("0")
-    ? rawDigits
-    : rawDigits;
-// A rota /create salva sem o 55 e sem formatação, então fica "2197022713X"
+      const rawDigits = onlyDigits(finalE164);
+      const phoneDigits =
+        rawDigits.startsWith("55") && rawDigits.length >= 12
+          ? "0" + rawDigits.slice(2)
+          : rawDigits.startsWith("0")
+            ? rawDigits
+            : rawDigits;
+      // A rota /create salva sem o 55 e sem formatação, então fica "2197022713X"
       const selectedServerName =
         servers.find((s) => s.id === serverId)?.name || "";
 
@@ -2565,69 +2689,73 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
 
       // --- Checa se o contato já existe ---
       const { data: existingContact } = await supabaseBrowser
-  .from("google_contacts")
-  .select("id, phones, google_resource_name, display_name, emails, labels")
-  .eq("tenant_id", tid)
-  .eq("phone_e164", phoneDigits)
-  .maybeSingle();
+        .from("google_contacts")
+        .select(
+          "id, phones, google_resource_name, display_name, emails, labels",
+        )
+        .eq("tenant_id", tid)
+        .eq("phone_e164", phoneDigits)
+        .maybeSingle();
 
       if (existingContact) {
-  const existingLabels = (existingContact.labels as string[]) || [];
-  const updatedLabels = existingLabels.includes(selectedServerName)
-    ? existingLabels
-    : [...existingLabels, selectedServerName];
+        const existingLabels = (existingContact.labels as string[]) || [];
+        const updatedLabels = existingLabels.includes(selectedServerName)
+          ? existingLabels
+          : [...existingLabels, selectedServerName];
 
-  const updateRes = await fetch("/api/auth/google/update", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      id: existingContact.id,
-      google_resource_name: existingContact.google_resource_name,
-      display_name: formattedName, // ✅ atualiza o nome com firstName + suffix
-      phones: existingContact.phones || [],
-      emails: existingContact.emails || [],
-      labels: updatedLabels,
-    }),
-  });
+        const updateRes = await fetch("/api/auth/google/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: existingContact.id,
+            google_resource_name: existingContact.google_resource_name,
+            display_name: formattedName, // ✅ atualiza o nome com firstName + suffix
+            phones: existingContact.phones || [],
+            emails: existingContact.emails || [],
+            labels: updatedLabels,
+          }),
+        });
 
-  if (!updateRes.ok) {
-    const errBody = await updateRes.json().catch(() => ({}));
-    queueListToast(isTrialMode ? "trial" : "client", {
-      type: "error",
-      title: "Falha ao atualizar Agenda",
-      message: errBody?.error || "Não foi possível salvar no Google. Verifique se a conexão com o Google ainda está ativa.",
-    });
-    return;
-  }
+        if (!updateRes.ok) {
+          const errBody = await updateRes.json().catch(() => ({}));
+          queueListToast(isTrialMode ? "trial" : "client", {
+            type: "error",
+            title: "Falha ao atualizar Agenda",
+            message:
+              errBody?.error ||
+              "Não foi possível salvar no Google. Verifique se a conexão com o Google ainda está ativa.",
+          });
+          return;
+        }
 
-  queueListToast(isTrialMode ? "trial" : "client", {
-    type: "success",
-    title: "Agenda Atualizada",
-    message: `Contato existente atualizado com grupo ${selectedServerName}.`,
-  });
+        queueListToast(isTrialMode ? "trial" : "client", {
+          type: "success",
+          title: "Agenda Atualizada",
+          message: `Contato existente atualizado com grupo ${selectedServerName}.`,
+        });
 
-  // Sincroniza foto do contato existente também
-  try {
-    const vRes = await fetch("/api/whatsapp/validate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: rawDigits }),
-    });
-    const vData = await vRes.json().catch(() => ({}));
-    if (vData.exists && vData.jid) {
-      await fetch("/api/whatsapp/contact-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact_id: existingContact.id,
-          jid: vData.jid,
-        }),
-      });
-    }
-  } catch {}
+        // Sincroniza foto do contato existente também
+        try {
+          const vRes = await fetch("/api/whatsapp/validate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: rawDigits }),
+          });
+          const vData = await vRes.json().catch(() => ({}));
+          if (vData.exists && vData.jid) {
+            await fetch("/api/whatsapp/contact-photo", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contact_id: existingContact.id,
+                jid: vData.jid,
+              }),
+            });
+          }
+        } catch {}
 
-  return;
-}
+        return;
+      }
 
       // --- Contato novo: cria com label do servidor no telefone e grupo correto ---
       const payload = {
@@ -2649,35 +2777,40 @@ const phoneDigits = rawDigits.startsWith("55") && rawDigits.length >= 12
         queueListToast(isTrialMode ? "trial" : "client", {
           type: "error",
           title: "Falha ao salvar na Agenda",
-          message: errBody?.error || "Não foi possível criar o contato no Google. Verifique se a conexão com o Google ainda está ativa.",
+          message:
+            errBody?.error ||
+            "Não foi possível criar o contato no Google. Verifique se a conexão com o Google ainda está ativa.",
         });
         return;
       }
 
-queueListToast(isTrialMode ? "trial" : "client", {
-  type: "success",
-  title: "Agenda Atualizada",
-  message: `Contato ${formattedName} salvo no Google.`,
-});
+      queueListToast(isTrialMode ? "trial" : "client", {
+        type: "success",
+        title: "Agenda Atualizada",
+        message: `Contato ${formattedName} salvo no Google.`,
+      });
 
-if (phoneDigits.length < 8) return;
+      if (phoneDigits.length < 8) return;
 
-// Busca pelo phone_e164 com retry — mais confiável que depender do timing
-let newContactData: { id: string } | null = null;
-for (let attempt = 0; attempt < 3; attempt++) {
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  const { data } = await supabaseBrowser
-    .from("google_contacts")
-    .select("id")
-    .eq("tenant_id", tid)
-    .eq("phone_e164", phoneDigits)
-    .order("synced_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (data) { newContactData = data; break; }
-}
+      // Busca pelo phone_e164 com retry — mais confiável que depender do timing
+      let newContactData: { id: string } | null = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const { data } = await supabaseBrowser
+          .from("google_contacts")
+          .select("id")
+          .eq("tenant_id", tid)
+          .eq("phone_e164", phoneDigits)
+          .order("synced_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) {
+          newContactData = data;
+          break;
+        }
+      }
 
-if (!newContactData) return;
+      if (!newContactData) return;
 
       // Operadora (só Brasil e se marcado na UI)
       if (syncOperadora) {
@@ -2693,12 +2826,12 @@ if (!newContactData) return;
       // Foto do WhatsApp
       try {
         // Para validar no WhatsApp, precisa do número com DDI completo (sem o zero inicial)
-const waPhone = rawDigits; // rawDigits já tem o 55 na frente: "5521979163313"
-const vRes = await fetch("/api/whatsapp/validate", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ phone: waPhone }),
-});
+        const waPhone = rawDigits; // rawDigits já tem o 55 na frente: "5521979163313"
+        const vRes = await fetch("/api/whatsapp/validate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: waPhone }),
+        });
         const vData = await vRes.json().catch(() => ({}));
         if (vData.exists && vData.jid) {
           await fetch("/api/whatsapp/contact-photo", {
@@ -2737,7 +2870,7 @@ const vRes = await fetch("/api/whatsapp/validate", {
     try {
       // Recalcula variáveis necessárias para o envio (garante dados frescos)
 
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
 
       const rawPrimaryDigits = onlyDigits(primaryPhoneRaw);
       // ✅ Usa o DDI já identificado no label (evita re-inferir errado com número nacional sem prefixo)
@@ -2881,7 +3014,11 @@ const vRes = await fetch("/api/whatsapp/validate", {
             .eq("tenant_id", tid)
             .select();
           if (patchErr) {
-            addToast("error", "Erro ao atualizar M3U/data de cadastro", patchErr.message);
+            addToast(
+              "error",
+              "Erro ao atualizar M3U/data de cadastro",
+              patchErr.message,
+            );
             throw patchErr;
           }
         }
@@ -2910,62 +3047,64 @@ const vRes = await fetch("/api/whatsapp/validate", {
         }
 
         // Sincroniza agenda e/ou operadora na edição se marcado
-if (syncAgenda && finalPrimaryE164) {
-  setLoadingStep("Agenda Google...");
-  await syncToGoogleAgenda(
-    finalPrimaryE164,
-    displayName,
-    username,
-  );
-}
+        if (syncAgenda && finalPrimaryE164) {
+          setLoadingStep("Agenda Google...");
+          await syncToGoogleAgenda(finalPrimaryE164, displayName, username);
+        }
 
-// Secundário: sincroniza agenda também se tiver número
-if (syncAgenda && finalSecondaryE164) {
-  await syncToGoogleAgenda(
-    finalSecondaryE164,
-    secName || displayName,
-    username,
-  );
-}
+        // Secundário: sincroniza agenda também se tiver número
+        if (syncAgenda && finalSecondaryE164) {
+          await syncToGoogleAgenda(
+            finalSecondaryE164,
+            secName || displayName,
+            username,
+          );
+        }
 
-if (syncOperadora) {
-  setLoadingStep("Operadora...");
-  try {
-    const contactIds: string[] = [];
+        if (syncOperadora) {
+          setLoadingStep("Operadora...");
+          try {
+            const contactIds: string[] = [];
 
-    // Busca id do contato principal
-    const rd1 = onlyDigits(finalPrimaryE164);
-    const phoneDigits1 = rd1.startsWith("55") && rd1.length >= 12 ? "0" + rd1.slice(2) : rd1;
-    const { data: contact1 } = await supabaseBrowser
-      .from("google_contacts")
-      .select("id")
-      .eq("tenant_id", tid)
-      .eq("phone_e164", phoneDigits1)
-      .maybeSingle();
-    if (contact1?.id) contactIds.push(contact1.id);
+            // Busca id do contato principal
+            const rd1 = onlyDigits(finalPrimaryE164);
+            const phoneDigits1 =
+              rd1.startsWith("55") && rd1.length >= 12
+                ? "0" + rd1.slice(2)
+                : rd1;
+            const { data: contact1 } = await supabaseBrowser
+              .from("google_contacts")
+              .select("id")
+              .eq("tenant_id", tid)
+              .eq("phone_e164", phoneDigits1)
+              .maybeSingle();
+            if (contact1?.id) contactIds.push(contact1.id);
 
-    // Busca id do contato secundário
-    if (finalSecondaryE164) {
-      const rd2 = onlyDigits(finalSecondaryE164);
-      const phoneDigits2 = rd2.startsWith("55") && rd2.length >= 12 ? "0" + rd2.slice(2) : rd2;
-      const { data: contact2 } = await supabaseBrowser
-        .from("google_contacts")
-        .select("id")
-        .eq("tenant_id", tid)
-        .eq("phone_e164", phoneDigits2)
-        .maybeSingle();
-      if (contact2?.id) contactIds.push(contact2.id);
-    }
+            // Busca id do contato secundário
+            if (finalSecondaryE164) {
+              const rd2 = onlyDigits(finalSecondaryE164);
+              const phoneDigits2 =
+                rd2.startsWith("55") && rd2.length >= 12
+                  ? "0" + rd2.slice(2)
+                  : rd2;
+              const { data: contact2 } = await supabaseBrowser
+                .from("google_contacts")
+                .select("id")
+                .eq("tenant_id", tid)
+                .eq("phone_e164", phoneDigits2)
+                .maybeSingle();
+              if (contact2?.id) contactIds.push(contact2.id);
+            }
 
-    if (contactIds.length > 0) {
-      await fetch("/api/auth/google/sync-operadora", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_ids: contactIds }),
-      });
-    }
-  } catch {}
-}
+            if (contactIds.length > 0) {
+              await fetch("/api/auth/google/sync-operadora", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contact_ids: contactIds }),
+              });
+            }
+          } catch {}
+        }
 
         queueListToast(isTrialMode ? "trial" : "client", {
           type: "success",
@@ -3286,8 +3425,6 @@ if (syncOperadora) {
                   setExternalUserId(nextExternalUserId); // ✅ reflete na UI/estado
                 }
 
-                
-
                 // ✅ Reflete na UI imediatamente (Exceto o Username, para mantermos o original na tela para o Sync!)
                 if (apiPassword) setPassword(apiPassword);
                 if (apiM3uUrl) setM3uUrl(apiM3uUrl);
@@ -3336,7 +3473,10 @@ if (syncOperadora) {
                     // ✅ Best-effort (mantém apiUsername/apiPassword/apiVencimento
                     // como estavam) — só loga pra debug, não bloqueia o fluxo.
                     const syncErrText = await syncRes.text().catch(() => "");
-                    console.warn("Falha no sync de saldo do servidor:", syncErrText);
+                    console.warn(
+                      "Falha no sync de saldo do servidor:",
+                      syncErrText,
+                    );
                   } else {
                     const syncData = await syncRes.json().catch(() => ({}));
                     if (syncData?.username) apiUsername = syncData.username;
@@ -3450,8 +3590,6 @@ if (syncOperadora) {
           });
         }
 
-        
-
         // ✅ UPDATE ÚNICO (evita writes extras): m3u_url + external_user_id + created_at + tipo_cadastro
 
         // ✅ Na criação, usa apiUsername/apiPassword que já vieram da API (ou do form se manual)
@@ -3491,8 +3629,6 @@ if (syncOperadora) {
             .eq("tenant_id", tid)
 
             .select();
-
-        
         }
 
         if (selectedApps.length > 0 && clientId) {
@@ -3559,11 +3695,14 @@ if (syncOperadora) {
                   // foram salvos no insert) apagaria esses dois na hora que
                   // o vencimento fosse persistido. Todo handler registrado
                   // hoje tem useApi:true (ver resolveIntegration/orchestration.ts).
-                  const apiJson = await callAdminAppApi("/api/admin/apps/configure", {
-                    client_app_id: insertedAppId,
-                    mode: "principal",
-                    m3u_url: finalM3u || apiM3uUrl || m3uUrl || "",
-                  });
+                  const apiJson = await callAdminAppApi(
+                    "/api/admin/apps/configure",
+                    {
+                      client_app_id: insertedAppId,
+                      mode: "principal",
+                      m3u_url: finalM3u || apiM3uUrl || m3uUrl || "",
+                    },
+                  );
 
                   if (apiJson?.ok) {
                     const expireDateAuto = apiJson.expireDate || null;
@@ -3590,7 +3729,8 @@ if (syncOperadora) {
                     queueListToast("trial", {
                       type: "error",
                       title: "Aviso do App",
-                      message: apiJson?.error || `Falha ao integrar ${app.name}.`,
+                      message:
+                        apiJson?.error || `Falha ao integrar ${app.name}.`,
                     });
                   }
                 } catch {}
@@ -3601,51 +3741,62 @@ if (syncOperadora) {
 
         // ✅ PAPA TESTES: salva histórico sempre que CRIA cliente ou teste — nunca em
         // edição (senão gera linha nova a cada salvamento) nem no Teste Rápido.
-if (clientId && !isEditing && !isQuickTrial) {
-  try {
-    const tid2 = await getCurrentTenantId();
-    const selectedServerName2 =
-      servers.find((s) => s.id === serverId)?.name || null;
-    const papaWaUsername = onlyDigits(whatsappUsername) || onlyDigits(finalPrimaryE164) || "desconhecido";
+        if (clientId && !isEditing && !isQuickTrial) {
+          try {
+            const tid2 = tenantId;
+            const selectedServerName2 =
+              servers.find((s) => s.id === serverId)?.name || null;
+            const papaWaUsername =
+              onlyDigits(whatsappUsername) ||
+              onlyDigits(finalPrimaryE164) ||
+              "desconhecido";
 
-    const papaTestes: any[] = [{
-      tenant_id: tid2,
-      whatsapp_username: papaWaUsername,
-      client_name: displayName,
-      phone_e164: finalPrimaryE164 || null,
-      server_name: selectedServerName2,
-      username: apiUsername || username,
-      plan_price: rpcPriceAmount || null,
-      plan_currency: rpcCurrency || "BRL",
-      is_trial: isTrialMode,
-      created_at: new Date().toISOString(),
-    }];
+            const papaTestes: any[] = [
+              {
+                tenant_id: tid2,
+                whatsapp_username: papaWaUsername,
+                client_name: displayName,
+                phone_e164: finalPrimaryE164 || null,
+                server_name: selectedServerName2,
+                username: apiUsername || username,
+                plan_price: rpcPriceAmount || null,
+                plan_currency: rpcCurrency || "BRL",
+                is_trial: isTrialMode,
+                created_at: new Date().toISOString(),
+              },
+            ];
 
-    // Secundário: insere também se tiver número
-    if (finalSecondaryE164 && secWhatsUser) {
-      papaTestes.push({
-        tenant_id: tid2,
-        whatsapp_username: onlyDigits(secWhatsUser),
-        client_name: secName || displayName,
-        phone_e164: finalSecondaryE164,
-        server_name: selectedServerName2,
-        username: apiUsername || username,
-        plan_price: rpcPriceAmount || null,
-        plan_currency: rpcCurrency || "BRL",
-        is_trial: isTrialMode,
-        created_at: new Date().toISOString(),
-      });
-    }
+            // Secundário: insere também se tiver número
+            if (finalSecondaryE164 && secWhatsUser) {
+              papaTestes.push({
+                tenant_id: tid2,
+                whatsapp_username: onlyDigits(secWhatsUser),
+                client_name: secName || displayName,
+                phone_e164: finalSecondaryE164,
+                server_name: selectedServerName2,
+                username: apiUsername || username,
+                plan_price: rpcPriceAmount || null,
+                plan_currency: rpcCurrency || "BRL",
+                is_trial: isTrialMode,
+                created_at: new Date().toISOString(),
+              });
+            }
 
-    const { error: papaErr } = await supabaseBrowser.from("papa_testes").insert(papaTestes);
+            const { error: papaErr } = await supabaseBrowser
+              .from("papa_testes")
+              .insert(papaTestes);
 
-    if (papaErr) {
-      addToast("error", "Erro no histórico", papaErr.message);
-    }
-  } catch (e: any) {
-    addToast("error", "Erro no histórico", e?.message || "Falha ao salvar papa teste.");
-  }
-}
+            if (papaErr) {
+              addToast("error", "Erro no histórico", papaErr.message);
+            }
+          } catch (e: any) {
+            addToast(
+              "error",
+              "Erro no histórico",
+              e?.message || "Falha ao salvar papa teste.",
+            );
+          }
+        }
 
         // ✅ TRIAL: enviar mensagem de teste imediatamente + toast na tela de testes
         // 🔒 TRAVA: Só dispara se whatsappOptIn for true
@@ -3712,23 +3863,19 @@ if (clientId && !isEditing && !isQuickTrial) {
         }
 
         // Agenda Google (na criação, respeitando o que o usuário marcou no toggle)
-if (syncAgenda && finalPrimaryE164 && clientId) {
-  setLoadingStep("Agenda Google...");
-  await syncToGoogleAgenda(
-    finalPrimaryE164,
-    displayName,
-    apiUsername,
-  );
-}
+        if (syncAgenda && finalPrimaryE164 && clientId) {
+          setLoadingStep("Agenda Google...");
+          await syncToGoogleAgenda(finalPrimaryE164, displayName, apiUsername);
+        }
 
-// Secundário: sincroniza agenda também se tiver número
-if (syncAgenda && finalSecondaryE164 && clientId) {
-  await syncToGoogleAgenda(
-    finalSecondaryE164,
-    secName || displayName,
-    apiUsername,
-  );
-}
+        // Secundário: sincroniza agenda também se tiver número
+        if (syncAgenda && finalSecondaryE164 && clientId) {
+          await syncToGoogleAgenda(
+            finalSecondaryE164,
+            secName || displayName,
+            apiUsername,
+          );
+        }
       }
 
       // ✅ RENOVAÇÃO AUTOMÁTICA: SOMENTE NA CRIAÇÃO (nunca na edição)
@@ -3851,9 +3998,9 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
       }
 
       setTimeout(() => {
-  onSuccess();
-  onClose();
-}, 900);
+        onSuccess();
+        onClose();
+      }, 900);
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : "Erro desconhecido";
 
@@ -3903,14 +4050,17 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
     const pass = (overridePass ?? password)?.trim() || "";
     if (!user || serverDomains.length === 0) return "";
 
-    const selectedServerName = servers.find((s) => s.id === serverId)?.name || "";
+    const selectedServerName =
+      servers.find((s) => s.id === serverId)?.name || "";
     const isNaTv = selectedServerName.trim().toUpperCase() === "NATV";
     if (!isNaTv) return buildM3uUrlSilent(overrideUser, overridePass);
 
     const randomDomain =
       serverDomains[Math.floor(Math.random() * serverDomains.length)];
     const { host } = splitDnsScheme(randomDomain);
-    const mirrorHost = host.toLowerCase().startsWith("r2.") ? host : `r2.${host}`;
+    const mirrorHost = host.toLowerCase().startsWith("r2.")
+      ? host
+      : `r2.${host}`;
     return `http://${mirrorHost}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
   }
 
@@ -3938,7 +4088,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
           key={idx}
           className="flex items-center justify-between bg-transparent p-2.5 rounded-lg border border-border mb-1.5 shadow-sm"
         >
- <span className=" text-xs text-muted-foreground truncate mr-2 select-all">
+          <span className=" text-xs text-muted-foreground truncate mr-2 select-all">
             {dns}
           </span>
           <button
@@ -4074,7 +4224,6 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
           <ToastNotifications toasts={toasts} removeToast={removeToast} />
         </div>
       </div>
-
       <div
         className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
         onPointerDown={(e) => {
@@ -4184,57 +4333,64 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                 {/* Telefone + WhatsUser */}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-  <div>
-    <PhoneRow
-      label="Telefone principal"
-      countryLabel={primaryCountryLabel}
-      rawValue={primaryPhoneRaw}
-      onRawChange={setPrimaryPhoneRaw}
-      onDone={handleDonePrimary}
-    />
-    {(papaTesteLoading || papaTesteInfo) && (
-      <div className="mt-1 flex items-center gap-1.5">
-        {papaTesteLoading ? (
-          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            Verificando...
-          </span>
-        ) : papaTesteInfo ? (
-          <button
-            type="button"
-            onClick={async () => {
-              const lines = papaTesteInfo.records.map((r) => {
-                const dt = new Date(r.created_at).toLocaleDateString("pt-BR");
-                const tipo = r.is_trial ? "Teste" : "Cliente";
-                const val = r.plan_price
-                  ? `${r.plan_currency || "BRL"} ${Number(r.plan_price).toFixed(2).replace(".", ",")}`
-                  : "—";
-                return `${tipo} · ${dt} · ${r.server_name || "—"} · ${r.username || "—"} · ${val}`;
-              });
-              await confirm({
-                title: `📋 Histórico — ${papaTesteInfo.records[0]?.client_name || whatsappUsername}`,
-                subtitle: `${papaTesteInfo.count} registro(s) encontrado(s) para este WhatsApp.`,
-                tone: "sky",
-                confirmText: "Fechar",
-                cancelText: "",
-                details: lines.map((line, i) => (
-                  <div key={i} className="text-xs text-foreground/80 py-1 border-b border-border last:border-0">
-                    {line}
+                  <div>
+                    <PhoneRow
+                      label="Telefone principal"
+                      countryLabel={primaryCountryLabel}
+                      rawValue={primaryPhoneRaw}
+                      onRawChange={setPrimaryPhoneRaw}
+                      onDone={handleDonePrimary}
+                    />
+                    {(papaTesteLoading || papaTesteInfo) && (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        {papaTesteLoading ? (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            Verificando...
+                          </span>
+                        ) : papaTesteInfo ? (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const lines = papaTesteInfo.records.map((r) => {
+                                const dt = new Date(
+                                  r.created_at,
+                                ).toLocaleDateString("pt-BR");
+                                const tipo = r.is_trial ? "Teste" : "Cliente";
+                                const val = r.plan_price
+                                  ? `${r.plan_currency || "BRL"} ${Number(r.plan_price).toFixed(2).replace(".", ",")}`
+                                  : "—";
+                                return `${tipo} · ${dt} · ${r.server_name || "—"} · ${r.username || "—"} · ${val}`;
+                              });
+                              await confirm({
+                                title: `📋 Histórico — ${papaTesteInfo.records[0]?.client_name || whatsappUsername}`,
+                                subtitle: `${papaTesteInfo.count} registro(s) encontrado(s) para este WhatsApp.`,
+                                tone: "sky",
+                                confirmText: "Fechar",
+                                cancelText: "",
+                                details: lines.map((line, i) => (
+                                  <div
+                                    key={i}
+                                    className="text-xs text-foreground/80 py-1 border-b border-border last:border-0"
+                                  >
+                                    {line}
+                                  </div>
+                                )),
+                              });
+                            }}
+                            className="text-[11px] font-medium text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-colors"
+                          >
+                            ⚠️ {papaTesteInfo.count}{" "}
+                            {papaTesteInfo.count > 1 ? "registros" : "registro"}{" "}
+                            no Papa Teste
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
-                )),
-              });
-            }}
-            className="text-[11px] font-medium text-amber-500 hover:text-amber-400 flex items-center gap-1 transition-colors"
-          >
-            ⚠️ {papaTesteInfo.count} {papaTesteInfo.count > 1 ? "registros" : "registro"} no Papa Teste
-          </button>
-        ) : null}
-      </div>
-    )}
-  </div>
 
-  <div>
-    <Label>WhatsApp username</Label>
+                  <div>
+                    <Label>WhatsApp username</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                         @
@@ -4277,16 +4433,21 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                       )}
                     </div>
                     {waValidation && (
-  <div className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}>
-    {waValidation.loading ? (
-      <><Loader2 className="w-4 h-4 animate-spin" /> Validando...</>
-    ) : waValidation.exists ? (
-      <>✅ WhatsApp ativo</>
-    ) : (
-      <>❌ Não encontrado no WhatsApp</>
-    )}
-  </div>
-)}
+                      <div
+                        className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {waValidation.loading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                            Validando...
+                          </>
+                        ) : waValidation.exists ? (
+                          <>✅ WhatsApp ativo</>
+                        ) : (
+                          <>❌ Não encontrado no WhatsApp</>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -4464,55 +4625,67 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                 </div>
 
                 {/* ✅ SELEÇÃO DA SESSÃO DE WHATSAPP + AGENDA */}
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-  {/* Coluna 1: Sessão */}
-  <div>
-    <Label>Sessão WhatsApp</Label>
-    <Select
-      value={selectedSession}
-      onChange={(e) => setSelectedSession(e.target.value)}
-    >
-      {sessionOptions.map((s) => (
-        <option key={s.id} value={s.id}>
-          {s.label}
-        </option>
-      ))}
-    </Select>
-  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Coluna 1: Sessão */}
+                  <div>
+                    <Label>Sessão WhatsApp</Label>
+                    <Select
+                      value={selectedSession}
+                      onChange={(e) => setSelectedSession(e.target.value)}
+                    >
+                      {sessionOptions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
 
-  {/* Coluna 2: Atualizar Agenda (Em todos os fluxos) */}
-  <div>
-    <Label>Atualizar Agenda</Label>
-    <div className="grid grid-cols-2 gap-2">
-      <div
-  onClick={() => setSyncAgenda(!syncAgenda)}
-  className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-    syncAgenda
-      ? "bg-emerald-500/10 border-emerald-500/20"
-      : "bg-transparent border-border"
-  }`}
->
-<span className={`text-xs font-medium ${syncAgenda ? "text-emerald-500" : "text-muted-foreground"}`}>
-  Cadastro
-</span>
-  <Switch checked={syncAgenda} onChange={setSyncAgenda} label="" />
-</div>
-      <div
-        onClick={() => setSyncOperadora(!syncOperadora)}
-        className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
-          syncOperadora
-            ? "bg-sky-500/10 border-sky-500/20"
-            : "bg-transparent border-border"
-        }`}
-      >
-<span className={`text-xs font-medium ${syncOperadora ? "text-sky-500" : "text-muted-foreground"}`}>
-          Operadora
-        </span>
-        <Switch checked={syncOperadora} onChange={setSyncOperadora} label="" />
-      </div>
-    </div>
-  </div>
-</div>
+                  {/* Coluna 2: Atualizar Agenda (Em todos os fluxos) */}
+                  <div>
+                    <Label>Atualizar Agenda</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div
+                        onClick={() => setSyncAgenda(!syncAgenda)}
+                        className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
+                          syncAgenda
+                            ? "bg-emerald-500/10 border-emerald-500/20"
+                            : "bg-transparent border-border"
+                        }`}
+                      >
+                        <span
+                          className={`text-xs font-medium ${syncAgenda ? "text-emerald-500" : "text-muted-foreground"}`}
+                        >
+                          Cadastro
+                        </span>
+                        <Switch
+                          checked={syncAgenda}
+                          onChange={setSyncAgenda}
+                          label=""
+                        />
+                      </div>
+                      <div
+                        onClick={() => setSyncOperadora(!syncOperadora)}
+                        className={`h-10 px-3 rounded-lg border cursor-pointer flex items-center justify-between gap-2 transition-colors ${
+                          syncOperadora
+                            ? "bg-sky-500/10 border-sky-500/20"
+                            : "bg-transparent border-border"
+                        }`}
+                      >
+                        <span
+                          className={`text-xs font-medium ${syncOperadora ? "text-sky-500" : "text-muted-foreground"}`}
+                        >
+                          Operadora
+                        </span>
+                        <Switch
+                          checked={syncOperadora}
+                          onChange={setSyncOperadora}
+                          label=""
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 {/* ✅ CAMPO DE OBSERVAÇÕES (Adicionado aqui conforme pedido) */}
 
@@ -4544,7 +4717,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                     {/* Tecnologia */}
 
                     <div className="flex items-center gap-2">
-<span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
+                      <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
                         Tecnologia:
                       </span>
 
@@ -4714,16 +4887,16 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                       <Label>Senha</Label>
                       <div className="relative">
                         <Input
-                      type="text"
-                      inputMode="text"
-                      value={password}
-                      onChange={(e) => {
-                        // Garante que o que está chegando aqui seja tratado como string
-                        const val = String(e.target.value);
-                        setPassword(val);
-                      }}
-                      className="pr-10"
-                    />
+                          type="text"
+                          inputMode="text"
+                          value={password}
+                          onChange={(e) => {
+                            // Garante que o que está chegando aqui seja tratado como string
+                            const val = String(e.target.value);
+                            setPassword(val);
+                          }}
+                          className="pr-10"
+                        />
                         {password && (
                           <button
                             type="button"
@@ -4773,7 +4946,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                           value={m3uUrl}
                           onChange={(e) => setM3uUrl(e.target.value)}
                           placeholder="http://dominio/get.php?username=...&password=...&type=m3u_plus&output=ts"
- className="flex-1 text-xs "
+                          className="flex-1 text-xs "
                         />
 
                         <button
@@ -4860,7 +5033,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                     </span>
 
                     <div className="flex items-center gap-2">
-<span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
+                      <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">
                         Tabela:
                       </span>
 
@@ -4988,7 +5161,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                       <div>
                         <Label>Total BRL</Label>
 
-<div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-500/20 rounded text-emerald-500 font-medium">
+                        <div className="w-full h-9 flex items-center justify-center bg-emerald-500/20 border border-emerald-500/20 rounded text-emerald-500 font-medium">
                           {fmtMoney("BRL", totalBrl)}
                         </div>
                       </div>
@@ -5097,7 +5270,7 @@ if (syncAgenda && finalSecondaryE164 && clientId) {
                               hasIntegration &&
                               setSyncWithServer(!syncWithServer)
                             }
-className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-center gap-3 ${
+                            className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-center gap-3 ${
                               syncWithServer
                                 ? "bg-sky-500/10 border-sky-500/30"
                                 : "bg-muted/50 border-border"
@@ -5588,22 +5761,35 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                   hasApiIntegration={false}
                                   appLabel={appLabel}
                                   panelUrl={
-                                    appIntegrations.find((a) => a.app_name.toUpperCase() === "CLOUDDY")?.api_url ||
+                                    appIntegrations.find(
+                                      (a) =>
+                                        a.app_name.toUpperCase() === "CLOUDDY",
+                                    )?.api_url ||
                                     "https://console.clouddy.online"
                                   }
                                   canCheckVencimento={false}
                                   loading={loading}
                                   onOpenPanel={() => {
                                     const url =
-                                      appIntegrations.find((a) => a.app_name.toUpperCase() === "CLOUDDY")?.api_url ||
+                                      appIntegrations.find(
+                                        (a) =>
+                                          a.app_name.toUpperCase() ===
+                                          "CLOUDDY",
+                                      )?.api_url ||
                                       "https://console.clouddy.online";
                                     window.open(url, "_blank");
                                   }}
                                   onConfigure={() => {}}
                                   onCheck={() => {}}
-                                  onClouddyConfigure={(mode) => handleClouddyConfigure(app.instanceId, mode)}
-                                  onClouddyCheck={() => handleClouddyCheck(app.instanceId)}
-                                  onClouddyDelete={() => handleClouddyDelete(app.instanceId)}
+                                  onClouddyConfigure={(mode) =>
+                                    handleClouddyConfigure(app.instanceId, mode)
+                                  }
+                                  onClouddyCheck={() =>
+                                    handleClouddyCheck(app.instanceId)
+                                  }
+                                  onClouddyDelete={() =>
+                                    handleClouddyDelete(app.instanceId)
+                                  }
                                 />
                               </div>
                             )}
@@ -5616,16 +5802,22 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                     hasApiIntegration
                                     appLabel={appLabel}
                                     panelUrl={
-                                      appIntegrations.find((a) => a.app_name.toUpperCase() === integrationType)
-                                        ?.api_url || ""
+                                      appIntegrations.find(
+                                        (a) =>
+                                          a.app_name.toUpperCase() ===
+                                          integrationType,
+                                      )?.api_url || ""
                                     }
                                     canCheckVencimento={canCheckVencimento}
                                     showRemoveButton={canAutoDelete}
                                     loading={loading}
                                     onOpenPanel={() => {
                                       const url =
-                                        appIntegrations.find((a) => a.app_name.toUpperCase() === integrationType)
-                                          ?.api_url || "";
+                                        appIntegrations.find(
+                                          (a) =>
+                                            a.app_name.toUpperCase() ===
+                                            integrationType,
+                                        )?.api_url || "";
                                       if (url) window.open(url, "_blank");
                                       else
                                         addToast(
@@ -5634,8 +5826,12 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                           "Nenhum link configurado para esta integração.",
                                         );
                                     }}
-                                    onConfigure={(mode) => handleConfigApp(app.instanceId, mode)}
-                                    onCheck={() => handleCheckApp(app.instanceId)}
+                                    onConfigure={(mode) =>
+                                      handleConfigApp(app.instanceId, mode)
+                                    }
+                                    onCheck={() =>
+                                      handleCheckApp(app.instanceId)
+                                    }
                                     onRemove={async () => {
                                       const ok = await confirm({
                                         title: `Remover do ${appLabel}?`,
@@ -5644,7 +5840,8 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                         confirmText: "Sim, remover",
                                         cancelText: "Cancelar",
                                       });
-                                      if (ok) await handleDeleteApp(app.instanceId);
+                                      if (ok)
+                                        await handleDeleteApp(app.instanceId);
                                     }}
                                     onClouddyConfigure={() => {}}
                                     onClouddyCheck={() => {}}
@@ -5680,7 +5877,7 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                                           d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
                                         />
                                       </svg>
-                                     <span
+                                      <span
                                         className={`text-xs font-medium ${app.auto_configure !== false ? "text-sky-500" : "text-muted-foreground"}`}
                                       >
                                         Configurar {appLabel} automaticamente
@@ -5743,14 +5940,20 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                     id: app.id,
                     name: app.name,
                     icon_url: app.icon_url ?? null,
-                    device_types: Array.isArray(app.device_types) ? app.device_types : [],
+                    device_types: Array.isArray(app.device_types)
+                      ? app.device_types
+                      : [],
                     cost_type: app.cost_type as any,
                     partner_server_id: app.partner_server_id ?? null,
                     license_price: app.license_price ?? null,
                     license_period: app.license_period ?? null,
                     is_active: app.is_active ?? true,
-                    discontinued_replacement_name: app.discontinued_replacement_name ?? null,
-                    has_integration: Boolean(app.integration_type && app.integration_type !== "SEM_INTEGRACAO"),
+                    discontinued_replacement_name:
+                      app.discontinued_replacement_name ?? null,
+                    has_integration: Boolean(
+                      app.integration_type &&
+                      app.integration_type !== "SEM_INTEGRACAO",
+                    ),
                   }))}
                   // ✅ Trava de parceria (só app do servidor parceiro certo,
                   // mesma regra de app/api/client-portal/apps/catalog/route.ts)
@@ -5768,14 +5971,16 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                   title="Adicionar aplicativo"
                   variant="admin"
                   subtitle={
-                    (technology === "P2P" ||
-                      (technology === "Personalizado" && customTechnology.trim().toUpperCase() === "P2P"))
+                    technology === "P2P" ||
+                    (technology === "Personalizado" &&
+                      customTechnology.trim().toUpperCase() === "P2P")
                       ? "Escolha o aplicativo"
                       : "Em qual aparelho você vai usar?"
                   }
                   presetDeviceTypes={
                     technology === "P2P" ||
-                    (technology === "Personalizado" && customTechnology.trim().toUpperCase() === "P2P")
+                    (technology === "Personalizado" &&
+                      customTechnology.trim().toUpperCase() === "P2P")
                       ? ["ANDROID_TVBOX", "FIRE_TV"]
                       : undefined
                   }
@@ -5842,7 +6047,9 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                     key={i}
                     className="text-sm text-foreground/90 flex items-start gap-2.5"
                   >
-                    <span className="text-emerald-500 font-medium mt-0.5">•</span>
+                    <span className="text-emerald-500 font-medium mt-0.5">
+                      •
+                    </span>
 
                     <span className="leading-tight">{line}</span>
                   </li>
@@ -5879,4 +6086,3 @@ function IconX() {
 function IconChat() {
   return <MessageCircle className="w-4 h-4" />;
 }
-

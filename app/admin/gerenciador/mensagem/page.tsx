@@ -5,10 +5,8 @@ import { X, Pencil, MessageCircle, Trash2 } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { getCurrentTenantId } from "@/lib/tenant";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
+import { useTenantId } from "@/lib/tenant-context";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 
 // --- ÍCONES (ADICIONAR/SUBSTITUIR NO TOPO) ---
@@ -115,7 +113,10 @@ const TAG_GROUPS = [
       { label: "{telas_qtd}", desc: "Telas (screens)" },
       { label: "{tecnologia}", desc: "Tecnologia (technology)" },
       { label: "{servidor_nome}", desc: "Nome do Servidor" },
-      { label: "{dns_servidor}", desc: "DNS aleatória do servidor (evita a 1ª cadastrada)" },
+      {
+        label: "{dns_servidor}",
+        desc: "DNS aleatória do servidor (evita a 1ª cadastrada)",
+      },
     ],
   },
   {
@@ -147,12 +148,24 @@ const TAG_GROUPS = [
     tags: [
       { label: "{venda_creditos}", desc: "Qtd. de Créditos da Última Recarga" },
       { label: "{link_pagamento}", desc: "Link Área do Cliente / Fatura" },
-      { label: "{tabela_precos}", desc: "Tabela de preços do cliente (todos os períodos), texto pronto" },
+      {
+        label: "{tabela_precos}",
+        desc: "Tabela de preços do cliente (todos os períodos), texto pronto",
+      },
       { label: "{valor_fatura}", desc: "Valor da renovação" },
       { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
-      { label: "{cupom_frase}", desc: "Frase pronta com o cupom elegível do cliente (só contas BRL) — some sozinha se não houver nenhum" },
-      { label: "{pendencia_detalhe}", desc: "Lista as pendências financeiras em aberto (app + data + valor) — vazia se não houver nenhuma" },
-      { label: "{pix_copia_cola}", desc: "Código PIX copia-e-cola automático (gateway online)" },
+      {
+        label: "{cupom_frase}",
+        desc: "Frase pronta com o cupom elegível do cliente (só contas BRL) — some sozinha se não houver nenhum",
+      },
+      {
+        label: "{pendencia_detalhe}",
+        desc: "Lista as pendências financeiras em aberto (app + data + valor) — vazia se não houver nenhuma",
+      },
+      {
+        label: "{pix_copia_cola}",
+        desc: "Código PIX copia-e-cola automático (gateway online)",
+      },
 
       // ✅ PIX Manual
       { label: "{pix_manual_cnpj}", desc: "Chave PIX (tipo CNPJ)" },
@@ -214,6 +227,7 @@ function getCategoryDisplay(cat: string) {
 // COMPONENTE PRINCIPAL
 // ============================================================================
 export default function MessagesPage() {
+  const tenantId = useTenantId();
   const [messages, setMessages] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -239,7 +253,7 @@ export default function MessagesPage() {
 
   async function loadMessages() {
     setLoading(true);
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
 
     if (!tid) {
       setLoading(false);
@@ -265,7 +279,8 @@ export default function MessagesPage() {
 
   useEffect(() => {
     loadMessages();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId]);
 
   // Deletar Mensagem
   async function handleDelete(id: string) {
@@ -278,7 +293,7 @@ export default function MessagesPage() {
     });
     if (!ok) return;
 
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) return;
 
     // ✅ Encontra o template para ver se tem imagem
@@ -311,7 +326,10 @@ export default function MessagesPage() {
     const q = search.trim().toLowerCase();
 
     const filtered = messages.filter((m) => {
-      if (categoryFilter !== "Todos" && getTemplateCategory(m) !== categoryFilter)
+      if (
+        categoryFilter !== "Todos" &&
+        getTemplateCategory(m) !== categoryFilter
+      )
         return false;
 
       if (q) {
@@ -528,7 +546,7 @@ export default function MessagesPage() {
                       <h2 className="text-sm font-medium text-foreground/90 truncate">
                         {title}
                       </h2>
-<span className="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[11px] font-medium">
+                      <span className="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[11px] font-medium">
                         {items.length}
                       </span>
                     </div>
@@ -564,9 +582,7 @@ export default function MessagesPage() {
                               <span
                                 className={[
                                   "inline-flex w-2 h-2 rounded-full shrink-0",
-                                  isSelected
-                                    ? "bg-emerald-500"
-                                    : "bg-muted",
+                                  isSelected ? "bg-emerald-500" : "bg-muted",
                                 ].join(" ")}
                               />
                               <h3
@@ -718,7 +734,7 @@ function PreviewModal({
           </button>
         </div>
 
-{/* Conteúdo da Mensagem */}
+        {/* Conteúdo da Mensagem */}
         <div className="flex-1 p-3 sm:p-4 overflow-y-auto custom-scrollbar bg-muted/20 border border-border">
           <div className="flex flex-col gap-3 whitespace-pre-wrap text-xs text-muted-foreground font-mono leading-relaxed bg-card p-2.5 sm:p-3 rounded-xl border border-border shadow-sm min-h-full">
             {/* ✅ PREVIEW DA IMAGEM SE HOUVER */}
@@ -745,7 +761,7 @@ function PreviewModal({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000); // Volta ao normal após 2 segundos
             }}
-className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg border font-medium text-[11px] transition-colors uppercase flex items-center justify-center gap-1.5 ${
+            className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg border font-medium text-[11px] transition-colors uppercase flex items-center justify-center gap-1.5 ${
               copied
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
                 : "border-border text-foreground/90 hover:bg-muted"
@@ -821,6 +837,7 @@ function EditorModal({
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
+  const tenantId = useTenantId();
   const [name, setName] = useState(templateToEdit?.name || "");
   const [content, setContent] = useState(templateToEdit?.content || "");
   const [category, setCategory] = useState(
@@ -869,7 +886,7 @@ function EditorModal({
 
   async function handleAddVariant() {
     if (!templateToEdit?.id) return;
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) return;
     const { data, error } = await supabaseBrowser
       .from("message_template_variants")
@@ -900,7 +917,7 @@ function EditorModal({
     }
     setGeneratingVariant(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Sessão inválida.");
 
       const { data: sessionData } = await supabaseBrowser.auth.getSession();
@@ -955,8 +972,7 @@ function EditorModal({
   async function handleDeleteVariant(id: string) {
     const ok = await confirmVariant({
       title: "Excluir variação?",
-      subtitle:
-        "Essa variação deixa de ser sorteada nos envios automáticos.",
+      subtitle: "Essa variação deixa de ser sorteada nos envios automáticos.",
       tone: "rose",
       confirmText: "Excluir",
       cancelText: "Cancelar",
@@ -1049,7 +1065,7 @@ function EditorModal({
     }
     setLoading(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Sessão inválida.");
 
       let finalImageUrl = templateToEdit?.image_url || null;
@@ -1181,7 +1197,7 @@ function EditorModal({
                 onClick={() => setMobileTagsOpen((v) => !v)}
                 className="w-full h-9 px-3 rounded-lg border border-border bg-transparent text-foreground/90 font-medium text-xs flex items-center justify-between"
               >
-<span className="flex items-center gap-2">
+                <span className="flex items-center gap-2">
                   🏷️ Variáveis
                   <span className="text-[10px] font-medium text-muted-foreground/60">
                     (toque para {mobileTagsOpen ? "fechar" : "abrir"})
@@ -1256,7 +1272,7 @@ function EditorModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Cobrança 3 dias antes..."
                 readOnly={isProtected} // 🔒 Trava a edição do nome
-className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
+                className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500 transition-colors font-medium ${
                   isProtected
                     ? "bg-transparent border-border border-dashed text-muted-foreground cursor-not-allowed"
                     : "bg-transparent border-border"
@@ -1371,10 +1387,9 @@ className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-no
                   </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground mb-2.5 leading-relaxed">
-                  No envio automático, o sistema sorteia aleatoriamente entre
-                  o texto acima e as variações abaixo — reduz o padrão
-                  repetitivo que o WhatsApp pode identificar como disparo em
-                  massa.
+                  No envio automático, o sistema sorteia aleatoriamente entre o
+                  texto acima e as variações abaixo — reduz o padrão repetitivo
+                  que o WhatsApp pode identificar como disparo em massa.
                 </p>
 
                 {variantsLoading ? (
@@ -1414,9 +1429,7 @@ className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-no
                         />
                         <div className="flex justify-end mt-2">
                           <button
-                            onClick={() =>
-                              handleSaveVariant(v.id, v.content)
-                            }
+                            onClick={() => handleSaveVariant(v.id, v.content)}
                             disabled={savingVariantId === v.id}
                             className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-[11px] font-medium disabled:opacity-50 transition-colors"
                           >
@@ -1451,8 +1464,8 @@ className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-no
               </div>
             ) : (
               <div className="border-t border-border pt-4 text-[10px] text-muted-foreground">
-                💡 Salve esta mensagem primeiro para poder cadastrar
-                variações que serão sorteadas nos envios automáticos.
+                💡 Salve esta mensagem primeiro para poder cadastrar variações
+                que serão sorteadas nos envios automáticos.
               </div>
             )}
           </div>
@@ -1491,7 +1504,7 @@ className={`w-full h-9 px-3 border rounded-lg text-sm text-foreground outline-no
 
                     {isOpen && (
                       <div className="p-2.5 grid grid-cols-1 gap-1.5 bg-transparent">
-{group.tags.map((tag) => (
+                        {group.tags.map((tag) => (
                           <button
                             key={tag.label}
                             onClick={() => insertTag(tag.label)}

@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom"; // Faltava importar o createPortal
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page"; // Importamos o tipo do servidor
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
@@ -59,6 +59,7 @@ export default function RecargaServidorModal({
   onSuccess,
   onError,
 }: Props) {
+  const tenantId = useTenantId();
   const [saving, setSaving] = useState(false);
 
   // ✅ Detecta se tem integração
@@ -89,7 +90,6 @@ export default function RecargaServidorModal({
   useEffect(() => {
     async function fetchLastPurchase() {
       try {
-        const tenantId = await getCurrentTenantId();
         const { data } = await supabaseBrowser
           .from("server_credit_purchases")
           .select("*")
@@ -149,7 +149,6 @@ export default function RecargaServidorModal({
         return;
       }
       try {
-        const tenantId = await getCurrentTenantId();
         const supabase = supabaseBrowser;
         const { data } = await supabase
           .from("tenant_fx_rates")
@@ -172,7 +171,6 @@ export default function RecargaServidorModal({
   // crítico, resolve a notificação de saldo baixo no sino (se existir)
   async function resolveIfCreditsOk() {
     try {
-      const tenantId = await getCurrentTenantId();
       const { data: fresh } = await supabaseBrowser
         .from("servers")
         .select("credits_available")
@@ -205,7 +203,6 @@ export default function RecargaServidorModal({
     setSaving(true);
 
     try {
-      const tenantId = await getCurrentTenantId();
       const supabase = supabaseBrowser;
 
       const oldCredits = Number(server.credits_available || 0);

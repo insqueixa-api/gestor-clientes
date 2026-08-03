@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 
@@ -88,6 +88,7 @@ function queueListToast(toast: {
 }
 
 export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
+  const tenantId = useTenantId();
   const isEditing = !!plan;
 
   const [name, setName] = useState("");
@@ -181,7 +182,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   // Clona da tabela padrão
   async function cloneFromDefault(curr: "BRL" | "USD" | "EUR") {
     setLoading(true);
-    const tenantId = await getCurrentTenantId();
     const supabase = supabaseBrowser;
 
     try {
@@ -287,7 +287,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
     setSaving(true);
     const supabase = supabaseBrowser;
-    const tenantId = await getCurrentTenantId();
 
     if (!tenantId) {
       addToast(
@@ -577,9 +576,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
 
                         const currentCredits = item.credits * screenCount;
                         const field = `price${screenCount}` as
-                          | "price1"
-                          | "price2"
-                          | "price3";
+                          "price1" | "price2" | "price3";
                         const value = item[field];
 
                         return (

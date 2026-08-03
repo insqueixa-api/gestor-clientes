@@ -3,7 +3,7 @@
 import { X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import PlanoModal from "./plano_modal";
 import ToastNotifications from "@/hooks/ToastNotifications"; // ✅ Novo import
@@ -51,6 +51,7 @@ const PERIOD_LABELS: Record<string, string> = {
 };
 
 export default function PlanosPage() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [plano, setPlano] = useState<PlanRow[]>([]);
   const { confirm } = useConfirm();
@@ -113,7 +114,6 @@ export default function PlanosPage() {
   async function fetchPlano() {
     try {
       setLoading(true);
-      const tenantId = await getCurrentTenantId();
 
       if (!tenantId) {
         setLoading(false);
@@ -176,7 +176,6 @@ export default function PlanosPage() {
     setLoading(true);
 
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Acesso negado: Tenant ausente.");
 
       const supabase = supabaseBrowser;
@@ -375,7 +374,7 @@ export default function PlanosPage() {
                     <span className="text-sm font-medium text-foreground/90 whitespace-nowrap">
                       {group.label}
                     </span>
-<span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs font-medium">
+                    <span className="ml-1 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs font-medium">
                       {group.plans.length}
                     </span>
                   </div>

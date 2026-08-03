@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -90,12 +90,24 @@ function normalizeApiUrl(url: string) {
   return s;
 }
 
-export default function ServerFormModal({ server, onClose, onSuccess, onError }: Props) {
+export default function ServerFormModal({
+  server,
+  onClose,
+  onSuccess,
+  onError,
+}: Props) {
+  const tenantId = useTenantId();
   const { confirm } = useConfirm();
   const alertError = (msg: string) =>
     onError
       ? Promise.resolve(onError(msg))
-      : confirm({ title: "Erro", subtitle: msg, tone: "rose", confirmText: "OK", cancelText: "" });
+      : confirm({
+          title: "Erro",
+          subtitle: msg,
+          tone: "rose",
+          confirmText: "OK",
+          cancelText: "",
+        });
   const isEditing = !!server;
   const [saving, setSaving] = useState(false);
 
@@ -218,7 +230,6 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
     async function loadAuxData() {
       try {
         setLoadingIntegrations(true);
-        const tenantId = await getCurrentTenantId();
         if (!tenantId) return;
 
         // 1. Carrega as sessões
@@ -283,7 +294,6 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
     return () => {
       alive = false;
     };
-     
   }, [server?.id]);
 
   const handleDnsChange = (idx: number, val: string) => {
@@ -311,7 +321,6 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
     setSaving(true);
 
     try {
-      const tenantId = await getCurrentTenantId();
       const supabase = supabaseBrowser;
 
       const cleanDns = dnsList.map((d) => d.trim()).filter((d) => d !== "");
@@ -543,7 +552,6 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
           }
         }
         // -----------------------------------------------------
-
 
         const { error } = await supabase
           .from("servers")
@@ -864,7 +872,7 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
                   PNG, JPG, WebP
                 </p>
               </div>
-<label className="cursor-pointer shrink-0">
+              <label className="cursor-pointer shrink-0">
                 <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-medium flex items-center hover:bg-emerald-500/20 transition-colors">
                   {uploadingIcon ? "..." : "Selecionar"}
                 </span>
@@ -880,7 +888,7 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
                   }}
                 />
               </label>
-{formIconUrl && (
+              {formIconUrl && (
                 <button
                   type="button"
                   onClick={() => setFormIconUrl("")}
@@ -933,11 +941,7 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
                 onChange={(e) => setCredits(e.target.value)}
                 placeholder="0"
                 // ✅ CAMPO LIBERADO
-                className={
-                  isEditing
-                    ? "font-medium text-emerald-500"
-                    : ""
-                }
+                className={isEditing ? "font-medium text-emerald-500" : ""}
               />
               {isEditing && (
                 <div className="mt-1 p-2 bg-amber-500/10 border border-amber-500/20 rounded text-[10px] text-amber-500 flex items-start gap-2">
@@ -976,7 +980,7 @@ export default function ServerFormModal({ server, onClose, onSuccess, onError }:
                   </option>
                 ))}
               </Select>
-<p className="text-[9px] text-muted-foreground/60 mt-1 italic">
+              <p className="text-[9px] text-muted-foreground/60 mt-1 italic">
                 Define de qual WhatsApp o portal do cliente enviará as
                 confirmações e PIX.
               </p>

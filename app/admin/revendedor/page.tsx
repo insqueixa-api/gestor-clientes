@@ -18,7 +18,7 @@ import {
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 
@@ -127,10 +127,11 @@ function num(v: any) {
 }
 
 export default function RevendaPage() {
+  const resolvedTenantId = useTenantId();
   // --- ESTADOS ---
   const [rows, setRows] = useState<ResellerRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
 
   // Modais
   const [showFormModal, setShowFormModal] = useState(false);
@@ -342,10 +343,9 @@ export default function RevendaPage() {
     setScheduledMap(map);
   }
 
-
   async function loadData() {
     setLoading(true);
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     setTenantId(tid);
     // ✅ Templates e sessões de WhatsApp saíram completamente daqui — só
     // carregam quando o modal de mensagem é aberto (ensureMessagingDataLoaded).
@@ -531,7 +531,6 @@ export default function RevendaPage() {
         setResellerIdsByServer(null);
       }
     })();
-     
   }, [serverFilter, tenantId]);
 
   useEffect(() => {
@@ -960,11 +959,18 @@ export default function RevendaPage() {
               Gestão de Revendas
             </h1>
             <button
-              onClick={(e) => { e.stopPropagation(); setValuesHidden(v => !v); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setValuesHidden((v) => !v);
+              }}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
-              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {valuesHidden ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline text-[11px] tracking-wide">
                 {valuesHidden ? "Exibir" : "Ocultar"}
               </span>
@@ -1160,7 +1166,7 @@ export default function RevendaPage() {
           className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors"
           onClick={(e) => e.stopPropagation()}
         >
-<div className="flex items-center justify-between px-5 py-3 border-b border-border bg-transparent">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-transparent">
             <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Revendas{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs">
@@ -1238,7 +1244,7 @@ export default function RevendaPage() {
               </thead>
 
               <tbody className="text-sm divide-y divide-border">
-{visible.map((r) => (
+                {visible.map((r) => (
                   <tr
                     key={r.id}
                     className="hover:bg-muted/30 transition-all group"
@@ -1282,7 +1288,9 @@ export default function RevendaPage() {
                           </div>
                         </div>
 
-<span className={`text-xs font-medium text-emerald-500/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                        <span
+                          className={`text-xs font-medium text-emerald-500/70 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                        >
                           {r.whatsapp_username
                             ? `@${r.whatsapp_username}`
                             : r.primary_phone}
@@ -1292,24 +1300,33 @@ export default function RevendaPage() {
 
                     <Td>
                       <span className="text-muted-foreground">
-                        {((serversByReseller[r.id] || []) as string[]).length === 0
+                        {((serversByReseller[r.id] || []) as string[])
+                          .length === 0
                           ? "-"
-                          : ((serversByReseller[r.id] || []) as string[]).join(", ")}
+                          : ((serversByReseller[r.id] || []) as string[]).join(
+                              ", ",
+                            )}
                       </span>
                     </Td>
 
                     <Td>
-                      <span className={`font-medium text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span
+                        className={`font-medium text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                      >
                         {r.revenueLabel}
                       </span>
                     </Td>
                     <Td>
-                      <span className={`font-medium text-muted-foreground transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span
+                        className={`font-medium text-muted-foreground transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                      >
                         {r.costLabel}
                       </span>
                     </Td>
                     <Td>
-                      <span className={`font-medium text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span
+                        className={`font-medium text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                      >
                         {r.profitLabel}
                       </span>
                     </Td>
@@ -1432,7 +1449,7 @@ export default function RevendaPage() {
                   </tr>
                 ))}
 
-{visible.length === 0 && (
+                {visible.length === 0 && (
                   <tr>
                     <td
                       colSpan={8}

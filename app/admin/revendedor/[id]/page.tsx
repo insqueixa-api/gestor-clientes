@@ -5,7 +5,7 @@ import { Loader2, Pencil, RefreshCcw, EyeOff, Eye, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import Link from "next/link";
 
 // ✅ 1. Importar o Hook
@@ -165,15 +165,14 @@ type EditLinkState = {
    PÁGINA PRINCIPAL
 ========================= */
 export default function ResellerDetailPage() {
+  const tenantId = useTenantId();
   const params = useParams();
   const router = useRouter();
 
   // ✅ aceita /[id] ou /[reseller_id] ou /[resellerId]
   const p = params as any;
   const resellerIdRaw = (p?.id ?? p?.reseller_id ?? p?.resellerId) as
-    | string
-    | string[]
-    | undefined;
+    string | string[] | undefined;
 
   const resellerId = Array.isArray(resellerIdRaw)
     ? resellerIdRaw[0]
@@ -181,7 +180,7 @@ export default function ResellerDetailPage() {
   const resellerIdSafe = (resellerId ?? "").trim();
 
   // ✅ 2. Inicializar o Hook de Confirmação
-const { confirm, ConfirmUI } = useConfirm();
+  const { confirm, ConfirmUI } = useConfirm();
   const [valuesHidden, setValuesHidden] = useState(false);
 
   // Estados de Dados
@@ -234,7 +233,7 @@ const { confirm, ConfirmUI } = useConfirm();
 
     setDeletingHistoryId(h.id);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
       const { error } = await supabaseBrowser
@@ -287,7 +286,7 @@ const { confirm, ConfirmUI } = useConfirm();
     setLoading(true);
 
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
       // 1) Revenda (view)
@@ -434,7 +433,7 @@ const { confirm, ConfirmUI } = useConfirm();
     if (!ok) return;
 
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
       const { error } = await supabaseBrowser.rpc(
@@ -502,11 +501,15 @@ const { confirm, ConfirmUI } = useConfirm();
               {reseller.is_archived ? "Arquivado" : "Ativo"}
             </span>
             <button
-              onClick={() => setValuesHidden(v => !v)}
+              onClick={() => setValuesHidden((v) => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
-              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {valuesHidden ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline text-[11px] tracking-wide">
                 {valuesHidden ? "Exibir" : "Ocultar"}
               </span>
@@ -552,9 +555,7 @@ const { confirm, ConfirmUI } = useConfirm();
             </h3>
             <div className="space-y-3 text-sm">
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground font-medium">
-                  Desde
-                </span>
+                <span className="text-muted-foreground font-medium">Desde</span>
                 <span className="font-medium text-foreground/90 text-right">
                   {fmtDate(reseller.created_at)}
                 </span>
@@ -573,7 +574,9 @@ const { confirm, ConfirmUI } = useConfirm();
                 <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                   Total Investido
                 </span>
-                <div className={`text-right font-medium text-base text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                <div
+                  className={`text-right font-medium text-base text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                >
                   {fmtBRL(totalInvested)}
                 </div>
               </div>
@@ -581,16 +584,14 @@ const { confirm, ConfirmUI } = useConfirm();
           </div>
 
           {/* 2. CARD CONTATOS */}
-<div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
             <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest">
               Contatos e Observações
             </h3>
             <div className="space-y-3 text-sm">
               {/* Email */}
               <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground font-medium">
-                  Email
-                </span>
+                <span className="text-muted-foreground font-medium">Email</span>
                 <span
                   className="font-medium text-foreground text-right truncate max-w-[150px]"
                   title={reseller.email ?? ""}
@@ -604,7 +605,9 @@ const { confirm, ConfirmUI } = useConfirm();
                 <span className="text-muted-foreground font-medium">
                   Telefone
                 </span>
-<span className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                <span
+                  className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                >
                   {formatPhoneDisplay(reseller.whatsapp_e164)}
                 </span>
               </div>
@@ -614,7 +617,9 @@ const { confirm, ConfirmUI } = useConfirm();
                 <span className="text-muted-foreground font-medium">
                   WhatsApp
                 </span>
-<span className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}>
+                <span
+                  className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                >
                   {reseller.whatsapp_username ? (
                     <a
                       href={`https://wa.me/${reseller.whatsapp_e164?.replace(/\D/g, "")}`}
@@ -635,7 +640,9 @@ const { confirm, ConfirmUI } = useConfirm();
                       {formatPhoneDisplay(reseller.whatsapp_e164)}
                     </a>
                   ) : (
-                    <span className="text-muted-foreground italic text-sm">—</span>
+                    <span className="text-muted-foreground italic text-sm">
+                      —
+                    </span>
                   )}
                 </span>
               </div>
@@ -658,7 +665,7 @@ const { confirm, ConfirmUI } = useConfirm();
                 )}
               </div>
 
-{/* Notas */}
+              {/* Notas */}
               <div>
                 <div className="text-[11px] font-medium text-muted-foreground mb-1.5">
                   Observações
@@ -674,7 +681,7 @@ const { confirm, ConfirmUI } = useConfirm();
         {/* ================= COLUNA DIREITA (2 SPANS: SERVIDORES + TIMELINE) ================= */}
         <div className="lg:col-span-2 space-y-6">
           {/* BLOCO 1: SERVIDORES VINCULADOS */}
-<div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
             <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
               Servidores Vinculados
@@ -797,7 +804,9 @@ const { confirm, ConfirmUI } = useConfirm();
                             💳 Compra de Créditos
                           </div>
 
-<div className={`mt-1 text-xs font-medium text-muted-foreground/70 tracking-tight transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                          <div
+                            className={`mt-1 text-xs font-medium text-muted-foreground/70 tracking-tight transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                          >
                             {h.notes
                               ? h.notes
                               : `${serverName} · ${num(h.qty_credits)} créditos · Unit: ${fmtMoney(String(h.currency || "BRL"), Number(h.unit_price || 0))} · Total: ${fmtBRL(total)}`}

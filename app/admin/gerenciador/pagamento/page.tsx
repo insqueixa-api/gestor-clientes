@@ -13,10 +13,8 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { getCurrentTenantId } from "@/lib/tenant";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
+import { useTenantId } from "@/lib/tenant-context";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -194,7 +192,8 @@ const GATEWAY_META: GatewayMeta[] = [
   {
     type: "transfer_manual_eur",
     label: "Transferência Bancária (EUR)",
-    description: "Dados bancários para recebimento em Euros (Local e Internacional).",
+    description:
+      "Dados bancários para recebimento em Euros (Local e Internacional).",
     currencies: ["EUR"],
     is_online: false,
     icon: "💶",
@@ -396,7 +395,7 @@ function renderStepWithLinks(text: string) {
     }
     const url = match[0];
     const href = url.startsWith("http") ? url : `https://${url}`;
-parts.push(
+    parts.push(
       <a
         key={match.index}
         href={href}
@@ -424,7 +423,9 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className="w-full h-full sm:h-auto sm:max-w-lg bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]"
@@ -455,7 +456,7 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
 
         {/* Steps */}
         <div className="flex-1 min-h-0 p-5 overflow-y-auto space-y-4">
-<ol className="space-y-3">
+          <ol className="space-y-3">
             {help.steps.map((step, i) => (
               <li key={i} className="flex items-start gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-medium flex items-center justify-center mt-0.5">
@@ -556,6 +557,7 @@ function GatewayModal({
     message?: string,
   ) => void;
 }) {
+  const tenantId = useTenantId();
   const isEdit = !!gateway;
 
   const [selectedType, setSelectedType] = useState<GatewayType | null>(
@@ -592,7 +594,6 @@ function GatewayModal({
     setError(null);
 
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Sessão inválida. Atualize a página.");
 
       const supabase = supabaseBrowser;
@@ -650,7 +651,9 @@ function GatewayModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200"
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className="w-full h-full sm:h-auto sm:max-w-2xl bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]"
@@ -928,9 +931,7 @@ function GatewayModal({
                       type="button"
                       onClick={() => setIsManualFallback(!isManualFallback)}
                       className={`relative w-12 h-6 rounded-full transition-colors ${
-                        isManualFallback
-                          ? "bg-violet-600"
-                          : "bg-foreground/20"
+                        isManualFallback ? "bg-violet-600" : "bg-foreground/20"
                       }`}
                     >
                       <span
@@ -1038,9 +1039,7 @@ function GatewayCard({
         <button
           onClick={onToggle}
           className={`relative w-11 h-6 rounded-full transition-colors ${
-            gateway.is_active
-              ? "bg-emerald-600"
-              : "bg-foreground/20"
+            gateway.is_active ? "bg-emerald-600" : "bg-foreground/20"
           }`}
           title={gateway.is_active ? "Desativar" : "Ativar"}
         >
@@ -1121,6 +1120,7 @@ function GatewayCard({
 // ─── PAGE ─────────────────────────────────────────────────────────────────────
 
 export default function PagamentosPage() {
+  const tenantId = useTenantId();
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -1151,7 +1151,6 @@ export default function PagamentosPage() {
 
   const fetchGateways = useCallback(async () => {
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) {
         setLoading(false);
         return;
@@ -1175,7 +1174,7 @@ export default function PagamentosPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tenantId]);
 
   useEffect(() => {
     fetchGateways();
@@ -1183,7 +1182,6 @@ export default function PagamentosPage() {
 
   async function handleToggle(gateway: PaymentGateway) {
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) {
         addToast(
           "error",
@@ -1231,7 +1229,6 @@ export default function PagamentosPage() {
     if (!ok) return;
 
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) {
         addToast(
           "error",
@@ -1294,13 +1291,13 @@ export default function PagamentosPage() {
           </button>
         </div>
       </div>
-      {/* CONTEÚDO */} 
+      {/* CONTEÚDO */}
       <div className="px-3 sm:px-0 space-y-6 pt-3 sm:pt-4">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-muted-foreground">
             <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
           </div>
-) : gateways.length === 0 ? (
+        ) : gateways.length === 0 ? (
           <div className="bg-card border border-dashed border-border rounded-xl p-10 text-center mx-0">
             <div className="text-5xl mb-3">💳</div>
             <h3 className="text-lg font-bold text-foreground mb-2">
@@ -1330,7 +1327,7 @@ export default function PagamentosPage() {
                     <h2 className="text-sm font-medium text-foreground">
                       Gateways BRL
                     </h2>
-<span className="bg-emerald-500/10 text-emerald-500 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
+                    <span className="bg-emerald-500/10 text-emerald-500 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
                       {brlGateways.length}
                     </span>
                   </div>
@@ -1367,7 +1364,7 @@ export default function PagamentosPage() {
                     <h2 className="text-sm font-medium text-foreground">
                       Gateways Internacionais
                     </h2>
-<span className="bg-emerald-500/10 text-emerald-500 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
+                    <span className="bg-emerald-500/10 text-emerald-500 gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm">
                       {intlGateways.length}
                     </span>
                   </div>

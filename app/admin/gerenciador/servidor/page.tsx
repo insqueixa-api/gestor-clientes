@@ -14,14 +14,12 @@ import {
 import React, { useEffect, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
 import Link from "next/link";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import NovoServidorModal from "./novo_servidor";
 import RecargaServidorModal from "./recarga_servidor";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 
 // --- TIPAGEM ---
@@ -68,6 +66,7 @@ export type ServerRow = {
 };
 
 export default function AdminServersPage() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [servers, setServers] = useState<ServerRow[]>([]);
   const [showArchived, setShowArchived] = useState(false);
@@ -117,7 +116,6 @@ export default function AdminServersPage() {
   async function fetchServers() {
     try {
       setLoading(true);
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) {
         setLoading(false);
         return;
@@ -285,102 +283,148 @@ export default function AdminServersPage() {
   // --- ACTIONS ---
 
   // Ref para capturar os valores dos inputs dentro do modal
-const offlineMotivoRef = React.useRef<HTMLInputElement>(null);
-const offlineHorarioRef = React.useRef<HTMLInputElement>(null);
+  const offlineMotivoRef = React.useRef<HTMLInputElement>(null);
+  const offlineHorarioRef = React.useRef<HTMLInputElement>(null);
 
-async function handleToggleOffline(server: ServerRow) {
-  if (server.is_offline) {
-    const ok = await confirm({
-      title: `${server.name} voltou ao normal?`,
-      subtitle: "O servidor será marcado como Online e os clientes não verão mais o aviso de instabilidade.",
-      tone: "emerald",
-      confirmText: "Servidor Online",
-      cancelText: "Cancelar",
-    });
-    if (!ok) return;
+  async function handleToggleOffline(server: ServerRow) {
+    if (server.is_offline) {
+      const ok = await confirm({
+        title: `${server.name} voltou ao normal?`,
+        subtitle:
+          "O servidor será marcado como Online e os clientes não verão mais o aviso de instabilidade.",
+        tone: "emerald",
+        confirmText: "Servidor Online",
+        cancelText: "Cancelar",
+      });
+      if (!ok) return;
 
-    setServers((prev) => prev.map((s) => s.id === server.id ? { ...s, is_offline: false, offline_since: null, offline_reason: null } : s));
+      setServers((prev) =>
+        prev.map((s) =>
+          s.id === server.id
+            ? {
+                ...s,
+                is_offline: false,
+                offline_since: null,
+                offline_reason: null,
+              }
+            : s,
+        ),
+      );
 
-    const { error } = await supabaseBrowser.rpc("toggle_server_offline", {
-      p_server_id: server.id,
-      p_is_offline: false,
-      p_offline_since: null,
-      p_offline_reason: null,
-    });
+      const { error } = await supabaseBrowser.rpc("toggle_server_offline", {
+        p_server_id: server.id,
+        p_is_offline: false,
+        p_offline_since: null,
+        p_offline_reason: null,
+      });
 
-    if (error) { addToast("error", "Erro ao atualizar", error.message); fetchServers(); return; }
-    addToast("success", `${server.name} Online`, "Clientes receberão atendimento normal.");
-    fetchServers();
-
-  } else {
-    const agoraSP = new Date().toLocaleTimeString("pt-BR", {
-      timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit",
-    });
-
-    const ok = await confirm({
-      title: `Marcar ${server.name} como Offline?`,
-      subtitle: "O bot informará automaticamente aos clientes que há uma instabilidade sendo investigada.",
-      tone: "rose",
-      confirmText: "Confirmar Offline",
-      cancelText: "Cancelar",
-      details: [
-        <div key="campos" className="space-y-3 pt-1">
-          <div>
-            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-              Motivo (opcional)
-            </label>
-            <input
-              ref={offlineMotivoRef}
-              type="text"
-              placeholder="Ex: Instabilidade no datacenter"
-              defaultValue=""
-              className="w-full h-9 px-3 text-xs bg-card border border-border rounded-lg outline-none focus:border-rose-500/50 text-foreground placeholder-muted-foreground/50"
-            />
-          </div>
-          <div>
-            <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
-              Desde quando (HH:MM — padrão: agora)
-            </label>
-            <FormattedTimeInput
-              ref={offlineHorarioRef}
-              defaultValue={agoraSP}
-              className="h-9 text-xs bg-card focus:border-rose-500/50"
-            />
-          </div>
-        </div>,
-        "O bot pausará o diagnóstico técnico para clientes deste servidor",
-        "Você pode reverter a qualquer momento clicando em OFF",
-      ],
-    });
-    if (!ok) return;
-
-    // Lê os valores dos inputs via ref após confirmação
-    const motivo = offlineMotivoRef.current?.value?.trim() || null;
-    const horarioInput = offlineHorarioRef.current?.value || agoraSP;
-
-    let offlineSince: string;
-    if (horarioInput && /^\d{2}:\d{2}$/.test(horarioInput)) {
-      const today = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-      offlineSince = new Date(`${today}T${horarioInput}:00-03:00`).toISOString();
+      if (error) {
+        addToast("error", "Erro ao atualizar", error.message);
+        fetchServers();
+        return;
+      }
+      addToast(
+        "success",
+        `${server.name} Online`,
+        "Clientes receberão atendimento normal.",
+      );
+      fetchServers();
     } else {
-      offlineSince = new Date().toISOString();
+      const agoraSP = new Date().toLocaleTimeString("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const ok = await confirm({
+        title: `Marcar ${server.name} como Offline?`,
+        subtitle:
+          "O bot informará automaticamente aos clientes que há uma instabilidade sendo investigada.",
+        tone: "rose",
+        confirmText: "Confirmar Offline",
+        cancelText: "Cancelar",
+        details: [
+          <div key="campos" className="space-y-3 pt-1">
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                Motivo (opcional)
+              </label>
+              <input
+                ref={offlineMotivoRef}
+                type="text"
+                placeholder="Ex: Instabilidade no datacenter"
+                defaultValue=""
+                className="w-full h-9 px-3 text-xs bg-card border border-border rounded-lg outline-none focus:border-rose-500/50 text-foreground placeholder-muted-foreground/50"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                Desde quando (HH:MM — padrão: agora)
+              </label>
+              <FormattedTimeInput
+                ref={offlineHorarioRef}
+                defaultValue={agoraSP}
+                className="h-9 text-xs bg-card focus:border-rose-500/50"
+              />
+            </div>
+          </div>,
+          "O bot pausará o diagnóstico técnico para clientes deste servidor",
+          "Você pode reverter a qualquer momento clicando em OFF",
+        ],
+      });
+      if (!ok) return;
+
+      // Lê os valores dos inputs via ref após confirmação
+      const motivo = offlineMotivoRef.current?.value?.trim() || null;
+      const horarioInput = offlineHorarioRef.current?.value || agoraSP;
+
+      let offlineSince: string;
+      if (horarioInput && /^\d{2}:\d{2}$/.test(horarioInput)) {
+        const today = new Date().toLocaleDateString("sv-SE", {
+          timeZone: "America/Sao_Paulo",
+        });
+        offlineSince = new Date(
+          `${today}T${horarioInput}:00-03:00`,
+        ).toISOString();
+      } else {
+        offlineSince = new Date().toISOString();
+      }
+
+      setServers((prev) =>
+        prev.map((s) =>
+          s.id === server.id
+            ? {
+                ...s,
+                is_offline: true,
+                offline_since: offlineSince,
+                offline_reason: motivo,
+              }
+            : s,
+        ),
+      );
+
+      const { error } = await supabaseBrowser.rpc("toggle_server_offline", {
+        p_server_id: server.id,
+        p_is_offline: true,
+        p_offline_since: offlineSince,
+        p_offline_reason: motivo,
+      });
+
+      if (error) {
+        addToast("error", "Erro ao atualizar", error.message);
+        fetchServers();
+        return;
+      }
+      addToast(
+        "success",
+        `${server.name} Offline`,
+        motivo
+          ? `Motivo: ${motivo}`
+          : "Bot pausará diagnósticos para este servidor.",
+      );
+      fetchServers();
     }
-
-    setServers((prev) => prev.map((s) => s.id === server.id ? { ...s, is_offline: true, offline_since: offlineSince, offline_reason: motivo } : s));
-
-    const { error } = await supabaseBrowser.rpc("toggle_server_offline", {
-      p_server_id: server.id,
-      p_is_offline: true,
-      p_offline_since: offlineSince,
-      p_offline_reason: motivo,
-    });
-
-    if (error) { addToast("error", "Erro ao atualizar", error.message); fetchServers(); return; }
-    addToast("success", `${server.name} Offline`, motivo ? `Motivo: ${motivo}` : "Bot pausará diagnósticos para este servidor.");
-    fetchServers();
   }
-}
-
 
   async function handleArchive(server: ServerRow) {
     // ✅ botão de excluir (arquivar) restaurado
@@ -644,7 +688,6 @@ async function handleToggleOffline(server: ServerRow) {
     if (!ok) return;
 
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) return;
 
       const userRes = await supabaseBrowser.auth.getUser();
@@ -709,15 +752,19 @@ async function handleToggleOffline(server: ServerRow) {
         {/* Título (esquerda) */}
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-<h1 className="text-xl sm:text-2xl font-medium text-foreground tracking-tight truncate">
+            <h1 className="text-xl sm:text-2xl font-medium text-foreground tracking-tight truncate">
               Servidores
             </h1>
             <button
-              onClick={() => setValuesHidden(v => !v)}
+              onClick={() => setValuesHidden((v) => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
-              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {valuesHidden ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline text-[11px] tracking-wide">
                 {valuesHidden ? "Exibir" : "Ocultar"}
               </span>
@@ -755,7 +802,7 @@ async function handleToggleOffline(server: ServerRow) {
           </div>
         )}
 
-{!loading && servers.length === 0 && (
+        {!loading && servers.length === 0 && (
           <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
             Nenhum servidor encontrado {showArchived ? "na lixeira" : ""}.
           </div>
@@ -833,27 +880,41 @@ async function handleToggleOffline(server: ServerRow) {
 
                     {/* Botão de Sync (só se tiver integração) */}
                     {/* Botão ON/OFF do servidor */}
-<button
-  onClick={(e) => { e.stopPropagation(); handleToggleOffline(server); }}
-  title={server.is_offline ? "Servidor OFFLINE — clique para marcar como Online" : "Servidor Online — clique para marcar como Offline"}
-  className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all ${
-    server.is_offline
-      ? "bg-rose-500/10 text-rose-500 border-rose-500/30 hover:bg-rose-500/20 animate-pulse"
-      : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
-  }`}
->
-  {server.is_offline ? "OFF" : "ON"}
-</button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleOffline(server);
+                      }}
+                      title={
+                        server.is_offline
+                          ? "Servidor OFFLINE — clique para marcar como Online"
+                          : "Servidor Online — clique para marcar como Offline"
+                      }
+                      className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        server.is_offline
+                          ? "bg-rose-500/10 text-rose-500 border-rose-500/30 hover:bg-rose-500/20 animate-pulse"
+                          : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
+                      }`}
+                    >
+                      {server.is_offline ? "OFF" : "ON"}
+                    </button>
 
-{server.panel_integration && (
-  <IconActionBtn
-    title={syncingServerId === server.id ? "Sincronizando..." : "Sincronizar saldo da integração"}
-    tone={syncingServerId === server.id ? "amber" : "blue"}
-    onClick={(e) => { e.stopPropagation(); handleSyncIntegration(server); }}
-  >
-    <IconSync />
-  </IconActionBtn>
-)}
+                    {server.panel_integration && (
+                      <IconActionBtn
+                        title={
+                          syncingServerId === server.id
+                            ? "Sincronizando..."
+                            : "Sincronizar saldo da integração"
+                        }
+                        tone={syncingServerId === server.id ? "amber" : "blue"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSyncIntegration(server);
+                        }}
+                      >
+                        <IconSync />
+                      </IconActionBtn>
+                    )}
 
                     <IconActionBtn
                       title="Recarregar Créditos"
@@ -924,7 +985,9 @@ async function handleToggleOffline(server: ServerRow) {
                         </svg>
                         <span>Total de clientes</span>
                       </div>
-                      <span className={`font-normal text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span
+                        className={`font-normal text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                      >
                         {formatNumber(server.stats?.total)}
                       </span>
                     </div>
@@ -1025,7 +1088,9 @@ async function handleToggleOffline(server: ServerRow) {
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardCusto /> Custo crédito
                       </span>
-                      <span className={`font-normal text-foreground/90 bg-transparent border border-border px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <span
+                        className={`font-normal text-foreground/90 bg-transparent border border-border px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                      >
                         {formatMoney(
                           server.credit_unit_cost_brl ??
                             server.default_credit_unit_price,
@@ -1038,7 +1103,9 @@ async function handleToggleOffline(server: ServerRow) {
                       <span className="flex items-center gap-2 text-muted-foreground">
                         <IconCardSaldo /> Saldo atual
                       </span>
-<span className={`font-normal px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${server.credits_available > 10 ? "text-emerald-500 bg-emerald-500/10" : "text-rose-500 bg-rose-500/10"}`}>
+                      <span
+                        className={`font-normal px-2 py-0.5 rounded-lg text-xs transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${server.credits_available > 10 ? "text-emerald-500 bg-emerald-500/10" : "text-rose-500 bg-rose-500/10"}`}
+                      >
                         {formatNumber(server.credits_available)}
                       </span>
                     </div>
@@ -1046,10 +1113,7 @@ async function handleToggleOffline(server: ServerRow) {
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground flex items-center gap-2">
                         {server.panel_integration ? (
-                          <span
-                            className="text-sky-500"
-                            title="Conectado"
-                          >
+                          <span className="text-sky-500" title="Conectado">
                             <IconPlug />
                           </span>
                         ) : (
@@ -1141,7 +1205,9 @@ async function handleToggleOffline(server: ServerRow) {
                 {(server.panel_web_url ||
                   server.panel_telegram_group ||
                   server.notes) && (
-                  <div className={`bg-transparent p-3 border-t border-border text-[11px] space-y-2 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                  <div
+                    className={`bg-transparent p-3 border-t border-border text-[11px] space-y-2 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                  >
                     {server.panel_web_url && (
                       <div className="flex gap-2">
                         <span className="font-medium text-muted-foreground uppercase tracking-tighter">

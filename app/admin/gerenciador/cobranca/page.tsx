@@ -16,15 +16,17 @@ import {
 import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { getCurrentTenantId } from "@/lib/tenant";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
+import { useTenantId } from "@/lib/tenant-context";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
-import { MAX_DELAY_SECS, MIN_DELAY_SECS, normalizeBillingDelayWindow } from "@/lib/admin/billing-campaign-window";
+import {
+  MAX_DELAY_SECS,
+  MIN_DELAY_SECS,
+  normalizeBillingDelayWindow,
+} from "@/lib/admin/billing-campaign-window";
 
 // --- TIPOS ---
 type Automation = {
@@ -55,7 +57,7 @@ type Automation = {
   message_template_id: string; // Obrigatório para o formulário saber qual ID selecionar na edição
   whatsapp_session?: string;
   delay_min?: number;
-  };
+};
 
 // Tipo simplificado de cliente para cálculo de impacto
 type ClientLight = {
@@ -76,7 +78,6 @@ type ClientLight = {
   secondary_whatsapp_username?: string;
   price_amount?: number;
 };
-
 
 type SelectOption = { id: string; label: string };
 
@@ -174,6 +175,7 @@ function GlobalQueueMonitor({
     durationMs?: number,
   ) => void;
 }) {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(false);
   const [queueData, setQueueData] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
@@ -182,7 +184,7 @@ function GlobalQueueMonitor({
   // 1. Polling: Busca a fila (Simplificado para não falhar)
   useEffect(() => {
     const fetchQueue = async () => {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) return;
 
       // ✅ BLINDAGEM: garante que o usuário logado pertence ao tenant
@@ -237,12 +239,12 @@ function GlobalQueueMonitor({
     fetchQueue();
     const interval = setInterval(fetchQueue, 30000); // 30s (cron roda a cada 1 min)
     return () => clearInterval(interval);
-  }, []);
+  }, [tenantId]);
 
   // 2. Ação: PAUSAR TUDO
   const handleGlobalPause = async () => {
     setLoading(true);
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) {
       setLoading(false);
       return;
@@ -260,7 +262,7 @@ function GlobalQueueMonitor({
   // 3. Ação: RETOMAR TUDO
   const handleGlobalResume = async () => {
     setLoading(true);
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) return;
 
     // ✅ Segurança extra: garante que só afeta o tenant
@@ -279,7 +281,7 @@ function GlobalQueueMonitor({
 
     setLoading(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) return;
 
       // ✅ Segurança: Atualiza APENAS os jobs filtrados no cache local (queueData) que pertencem a este tenant
@@ -387,10 +389,7 @@ function GlobalQueueMonitor({
 
                   <tbody className="divide-y divide-border">
                     {queueData.map((job) => (
-                      <tr
-                        key={job.id}
-                        className="hover:bg-muted/30 align-top"
-                      >
+                      <tr key={job.id} className="hover:bg-muted/30 align-top">
                         {/* QUANDO */}
                         <td className="p-4 text-muted-foreground whitespace-nowrap">
                           {job.when_sp || "--"}
@@ -412,7 +411,7 @@ function GlobalQueueMonitor({
                           )}
                         </td>
 
-{/* WHATSAPP */}
+                        {/* WHATSAPP */}
                         <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">
                           {job.whatsapp_username || "--"}
                         </td>
@@ -466,7 +465,12 @@ function GlobalQueueMonitor({
                     disabled={loading}
                     className="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium text-xs hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "⏸️"} PAUSAR TUDO
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      "⏸️"
+                    )}{" "}
+                    PAUSAR TUDO
                   </button>
                 ) : (
                   <button
@@ -474,7 +478,12 @@ function GlobalQueueMonitor({
                     disabled={loading || pausedCount === 0}
                     className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium text-xs hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "▶️"} RETOMAR
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      "▶️"
+                    )}{" "}
+                    RETOMAR
                   </button>
                 )}
                 <button
@@ -482,7 +491,12 @@ function GlobalQueueMonitor({
                   disabled={loading}
                   className="px-4 py-2 bg-rose-600 text-white rounded-lg font-medium text-xs hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🚨"} CANCELAR TUDO
+                  {loading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    "🚨"
+                  )}{" "}
+                  CANCELAR TUDO
                 </button>
               </div>
             </div>
@@ -503,6 +517,7 @@ function CampaignWindowCard({
 }: {
   addToast: (type: "success" | "error", title: string, msg?: string) => void;
 }) {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
@@ -515,18 +530,23 @@ function CampaignWindowCard({
 
   useEffect(() => {
     (async () => {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) {
         setLoading(false);
         return;
       }
       const { data } = await supabaseBrowser
         .from("billing_campaign_settings")
-        .select("window_start, delay_min_secs, delay_max_secs, schedule_days, is_active")
+        .select(
+          "window_start, delay_min_secs, delay_max_secs, schedule_days, is_active",
+        )
         .eq("tenant_id", tid)
         .maybeSingle();
       if (data) {
-        const normalized = normalizeBillingDelayWindow(data.delay_min_secs ?? MIN_DELAY_SECS, data.delay_max_secs ?? MAX_DELAY_SECS);
+        const normalized = normalizeBillingDelayWindow(
+          data.delay_min_secs ?? MIN_DELAY_SECS,
+          data.delay_max_secs ?? MAX_DELAY_SECS,
+        );
         setSettings({
           window_start: String(data.window_start || "09:30").slice(0, 5),
           delay_min_secs: normalized.minSecs,
@@ -539,19 +559,30 @@ function CampaignWindowCard({
       }
       setLoading(false);
     })();
-  }, []);
+  }, [tenantId]);
 
   const handleSave = async () => {
-    const normalized = normalizeBillingDelayWindow(settings.delay_min_secs, settings.delay_max_secs);
-    const nextSettings = { ...settings, delay_min_secs: normalized.minSecs, delay_max_secs: normalized.maxSecs };
+    const normalized = normalizeBillingDelayWindow(
+      settings.delay_min_secs,
+      settings.delay_max_secs,
+    );
+    const nextSettings = {
+      ...settings,
+      delay_min_secs: normalized.minSecs,
+      delay_max_secs: normalized.maxSecs,
+    };
     setSettings(nextSettings);
     if (nextSettings.delay_max_secs < nextSettings.delay_min_secs) {
-      addToast("error", "Intervalo inválido", "O máximo não pode ser menor que o mínimo.");
+      addToast(
+        "error",
+        "Intervalo inválido",
+        "O máximo não pode ser menor que o mínimo.",
+      );
       return;
     }
     setSaving(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Sessão inválida.");
 
       const { error } = await supabaseBrowser
@@ -589,7 +620,9 @@ function CampaignWindowCard({
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-foreground">Janela de disparo compartilhada</h3>
+                <h3 className="text-sm font-semibold text-foreground">
+                  Janela de disparo compartilhada
+                </h3>
                 <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                   <Clock3 className="h-3 w-3 text-foreground/70" />
                   {windowLabel}
@@ -600,17 +633,26 @@ function CampaignWindowCard({
                 </span>
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground max-w-3xl">
-                Disparo embaralhado entre as regras, respeitando a faixa de 2 a 5 minutos entre envios.
+                Disparo embaralhado entre as regras, respeitando a faixa de 2 a
+                5 minutos entre envios.
               </p>
             </div>
 
             <div className="flex items-center gap-2 self-start lg:shrink-0">
               <button
-                onClick={() => setSettings((s) => ({ ...s, is_active: !s.is_active }))}
+                onClick={() =>
+                  setSettings((s) => ({ ...s, is_active: !s.is_active }))
+                }
                 className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] transition-all ${settings.is_active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-muted text-muted-foreground"}`}
-                title={settings.is_active ? "Ativo" : "Desativado — nenhuma automação dispara"}
+                title={
+                  settings.is_active
+                    ? "Ativo"
+                    : "Desativado — nenhuma automação dispara"
+                }
               >
-                <span className={`relative h-2.5 w-2.5 rounded-full ${settings.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                <span
+                  className={`relative h-2.5 w-2.5 rounded-full ${settings.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`}
+                />
                 {settings.is_active ? "Ativo" : "Inativo"}
               </button>
               <button
@@ -645,13 +687,19 @@ function CampaignWindowCard({
                 onChange={(e) =>
                   setSettings((s) => ({
                     ...s,
-                    delay_min_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
+                    delay_min_secs: Math.min(
+                      MAX_DELAY_SECS,
+                      Math.max(
+                        MIN_DELAY_SECS,
+                        Math.round(Number(e.target.value) * 60),
+                      ),
+                    ),
                   }))
                 }
-                  className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
+                className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
             </div>
-              <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-2">
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-2">
               <Label>Intervalo máx. (min)</Label>
               <Input
                 type="number"
@@ -662,15 +710,21 @@ function CampaignWindowCard({
                 onChange={(e) =>
                   setSettings((s) => ({
                     ...s,
-                    delay_max_secs: Math.min(MAX_DELAY_SECS, Math.max(MIN_DELAY_SECS, Math.round(Number(e.target.value) * 60))),
+                    delay_max_secs: Math.min(
+                      MAX_DELAY_SECS,
+                      Math.max(
+                        MIN_DELAY_SECS,
+                        Math.round(Number(e.target.value) * 60),
+                      ),
+                    ),
                   }))
                 }
-                  className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
+                className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
             </div>
-              <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-5">
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-5">
               <Label>Dias da semana</Label>
-                <div className="flex flex-wrap gap-1 pt-0.5">
+              <div className="flex flex-wrap gap-1 pt-0.5">
                 {DAYS_OF_WEEK.map((d) => {
                   const selected = settings.schedule_days.includes(d.id);
                   return (
@@ -684,7 +738,7 @@ function CampaignWindowCard({
                             : [...s.schedule_days, d.id],
                         }))
                       }
-                        className={`h-7 min-w-7 rounded-full border px-1.5 text-[10px] font-semibold transition-all ${selected ? "border-emerald-500 bg-emerald-500 text-white shadow-sm" : "border-border bg-muted text-muted-foreground"}`}
+                      className={`h-7 min-w-7 rounded-full border px-1.5 text-[10px] font-semibold transition-all ${selected ? "border-emerald-500 bg-emerald-500 text-white shadow-sm" : "border-border bg-muted text-muted-foreground"}`}
                     >
                       {d.label}
                     </button>
@@ -700,10 +754,13 @@ function CampaignWindowCard({
 }
 
 export default function BillingPage() {
+  const tenantId = useTenantId();
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [clients, setClients] = useState<ClientLight[]>([]);
   const [loading, setLoading] = useState(true);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [collapsedSections, setCollapsedSections] = useState<
+    Record<string, boolean>
+  >({});
   const { confirm } = useConfirm();
 
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
@@ -748,7 +805,7 @@ export default function BillingPage() {
 
   async function loadData() {
     setLoading(true);
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
 
     if (!tid) {
       setLoading(false);
@@ -894,11 +951,12 @@ export default function BillingPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId]);
 
   // --- ACTIONS ---
   async function toggleActive(rule: Automation) {
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) return;
 
     const nextActive = !rule.is_active;
@@ -956,7 +1014,7 @@ export default function BillingPage() {
       cancelText: "Cancelar",
     });
     if (!ok) return;
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) return;
 
     const { error } = await supabaseBrowser
@@ -976,7 +1034,7 @@ export default function BillingPage() {
     rule: Automation,
     action: "PLAY" | "PAUSE" | "STOP",
   ) {
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) return;
 
     // ✅ Segurança: não deixa dar PLAY se a regra estiver desativada ou sem mensagem
@@ -1220,7 +1278,7 @@ export default function BillingPage() {
     });
     if (!ok) return;
 
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) return;
 
     try {
@@ -1259,10 +1317,14 @@ export default function BillingPage() {
             .maybeSingle(),
         ]);
 
-      const textPool = [tpl.content, ...(variantRows || []).map((v: any) => v.content)].filter(
-        (c): c is string => !!c && String(c).trim().length > 0,
+      const textPool = [
+        tpl.content,
+        ...(variantRows || []).map((v: any) => v.content),
+      ].filter((c): c is string => !!c && String(c).trim().length > 0);
+      const normalized = normalizeBillingDelayWindow(
+        campaignSettings?.delay_min_secs ?? MIN_DELAY_SECS,
+        campaignSettings?.delay_max_secs ?? MAX_DELAY_SECS,
       );
-      const normalized = normalizeBillingDelayWindow(campaignSettings?.delay_min_secs ?? MIN_DELAY_SECS, campaignSettings?.delay_max_secs ?? MAX_DELAY_SECS);
       const delayMinSecs = normalized.minSecs;
       const delayMaxSecs = normalized.maxSecs;
 
@@ -1274,7 +1336,8 @@ export default function BillingPage() {
           Math.floor(Math.random() * (delayMaxSecs - delayMinSecs + 1));
         currentSendAt = new Date(currentSendAt.getTime() + delaySecs * 1000);
 
-        const pickedText = textPool[Math.floor(Math.random() * textPool.length)];
+        const pickedText =
+          textPool[Math.floor(Math.random() * textPool.length)];
 
         return {
           tenant_id: tid,
@@ -1365,10 +1428,15 @@ export default function BillingPage() {
         <div className="space-y-4 px-3 sm:px-0 md:px-4">
           {sections.map((section) => {
             const isCollapsed = collapsedSections[section.key];
-            const activeCount = section.items.filter((item) => item.is_active).length;
+            const activeCount = section.items.filter(
+              (item) => item.is_active,
+            ).length;
 
             return (
-              <section key={section.key} className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+              <section
+                key={section.key}
+                className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm"
+              >
                 <button
                   onClick={() =>
                     setCollapsedSections((prev) => ({
@@ -1380,7 +1448,9 @@ export default function BillingPage() {
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-base font-semibold text-foreground">{section.label}</h2>
+                      <h2 className="text-base font-semibold text-foreground">
+                        {section.label}
+                      </h2>
                       <span className="rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
                         {section.items.length} regras
                       </span>
@@ -1389,11 +1459,17 @@ export default function BillingPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {isCollapsed ? "Seção compactada" : "Exibindo regras deste grupo"}
+                      {isCollapsed
+                        ? "Seção compactada"
+                        : "Exibindo regras deste grupo"}
                     </p>
                   </div>
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground">
-                    {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                    {isCollapsed ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronUp className="h-4 w-4" />
+                    )}
                   </span>
                 </button>
 
@@ -1414,7 +1490,9 @@ export default function BillingPage() {
                             sessionLabel={sessionInfo?.label}
                             onToggle={() => toggleActive(auto)}
                             onDelete={() => handleDelete(auto.id)}
-                            onEdit={() => setWizardState({ show: true, editingRule: auto })}
+                            onEdit={() =>
+                              setWizardState({ show: true, editingRule: auto })
+                            }
                             onShowImpact={() =>
                               setImpactModalData({
                                 ruleId: auto.id,
@@ -1425,7 +1503,10 @@ export default function BillingPage() {
                             }
                             onControl={(action) => handleControl(auto, action)}
                             onShowLogs={() =>
-                              setLogsModalData({ ruleId: auto.id, ruleName: auto.name })
+                              setLogsModalData({
+                                ruleId: auto.id,
+                                ruleName: auto.name,
+                              })
                             }
                             onRun={() => handleManualRun(auto)}
                           />
@@ -1576,7 +1657,7 @@ function AutomationCard({
           </div>
         )}
         {/* ✅ SESSÃO DO WHATSAPP COM STATUS E NÚMERO REAIS */}
-<div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 mt-1 border-t border-border">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 mt-1 border-t border-border">
           <span className="text-base">📱</span>
           <span className="truncate" title={sessionLabel}>
             Sessão:{" "}
@@ -1599,7 +1680,7 @@ function AutomationCard({
             <div className="text-[10px] text-muted-foreground uppercase font-medium tracking-wider mb-0.5">
               Afetados Hoje
             </div>
-<div className="text-xl font-medium text-foreground group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
+            <div className="text-xl font-medium text-foreground group-hover/impact:text-emerald-500 transition-colors flex items-center gap-1">
               {impactCount}
               <span className="text-xs text-muted-foreground font-medium group-hover/impact:text-emerald-500">
                 clientes
@@ -1754,6 +1835,7 @@ function ImpactListModal({
   };
   onClose: () => void;
 }) {
+  const tenantId = useTenantId();
   // Descobre se a regra usa vencimento ou data de criação
   const isCadastro =
     data.ruleDateField === "cadastro" || data.ruleDateField === "created_at";
@@ -1767,7 +1849,7 @@ function ImpactListModal({
     let cancelled = false;
 
     async function loadSendStatus() {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) return;
 
       const clientIds = data.clients.map((c) => c.id).filter(Boolean);
@@ -1784,7 +1866,10 @@ function ImpactListModal({
       if (error || !jobs || cancelled) return;
 
       // Mantém apenas o job mais recente de cada cliente (jobs já vêm ordenados desc)
-      const map: Record<string, { status: string; error_message: string | null }> = {};
+      const map: Record<
+        string,
+        { status: string; error_message: string | null }
+      > = {};
       for (const j of jobs as any[]) {
         if (!j.client_id || map[j.client_id]) continue;
         map[j.client_id] = { status: j.status, error_message: j.error_message };
@@ -1886,7 +1971,7 @@ function ImpactListModal({
                   <th className="p-3">Envio</th>
                 </tr>
               </thead>
-<tbody className="text-sm text-foreground/80 divide-y divide-border">
+              <tbody className="text-sm text-foreground/80 divide-y divide-border">
                 {data.clients.map((c) => (
                   <tr
                     key={c.id}
@@ -1991,7 +2076,7 @@ function ImpactListModal({
           )}
         </div>
 
-<div className="px-6 py-4 border-t border-border flex justify-end">
+        <div className="px-6 py-4 border-t border-border flex justify-end">
           <button
             onClick={onClose}
             className="px-5 py-2.5 rounded-lg bg-foreground text-background font-medium text-xs uppercase hover:bg-foreground/90 transition-colors shadow-md"
@@ -2021,9 +2106,20 @@ function AutomationWizard({
   onSuccess: () => void;
   onError: (m: string) => void;
 }) {
+  const tenantId = useTenantId();
   const steps = [
-    { id: 1, title: "Base da regra", caption: "Tipo, mensagem e sessão.", icon: CheckCircle2 },
-    { id: 2, title: "Público e envio", caption: "Filtros e modo da regra.", icon: SlidersHorizontal },
+    {
+      id: 1,
+      title: "Base da regra",
+      caption: "Tipo, mensagem e sessão.",
+      icon: CheckCircle2,
+    },
+    {
+      id: 2,
+      title: "Público e envio",
+      caption: "Filtros e modo da regra.",
+      icon: SlidersHorizontal,
+    },
   ] as const;
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -2077,7 +2173,7 @@ function AutomationWizard({
 
     setSaving(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Sessão inválida.");
 
       {
@@ -2148,7 +2244,9 @@ function AutomationWizard({
           <div className="flex justify-between items-start gap-2 mb-1.5">
             <div>
               <h2 className="text-base font-semibold text-foreground">
-                {editingRule ? `Editar: ${editingRule.name}` : "Nova automação de cobrança"}
+                {editingRule
+                  ? `Editar: ${editingRule.name}`
+                  : "Nova automação de cobrança"}
               </h2>
             </div>
             <button
@@ -2170,12 +2268,18 @@ function AutomationWizard({
                   className={`rounded-lg border px-2 py-1 text-left transition-all ${active ? "border-emerald-500/30 bg-emerald-500/10 shadow-sm" : done ? "border-border bg-muted/40" : "border-border bg-background"}`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`inline-flex h-6 w-6 items-center justify-center rounded-md border ${active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-background text-muted-foreground"}`}>
+                    <span
+                      className={`inline-flex h-6 w-6 items-center justify-center rounded-md border ${active ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600" : "border-border bg-background text-muted-foreground"}`}
+                    >
                       <Icon className="h-3 w-3" />
                     </span>
                     <div>
-                      <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Etapa {item.id}</div>
-                      <div className="text-xs font-medium text-foreground">{item.title}</div>
+                      <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Etapa {item.id}
+                      </div>
+                      <div className="text-xs font-medium text-foreground">
+                        {item.title}
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -2189,8 +2293,12 @@ function AutomationWizard({
             <div className="space-y-1.5">
               <div className="rounded-xl border border-border bg-card p-2 space-y-2 shadow-sm">
                 <div>
-                  <h3 className="text-[13px] font-medium text-foreground">Definição principal</h3>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">Tipo da régua, template e sessão.</p>
+                  <h3 className="text-[13px] font-medium text-foreground">
+                    Definição principal
+                  </h3>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Tipo da régua, template e sessão.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
@@ -2198,7 +2306,9 @@ function AutomationWizard({
                     <Label>Tipo</Label>
                     <Select
                       value={form.type}
-                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, type: e.target.value })
+                      }
                     >
                       {TYPES.map((t) => (
                         <option key={t} value={t}>
@@ -2211,7 +2321,9 @@ function AutomationWizard({
                     <Label>Nome da automação</Label>
                     <Input
                       value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      onChange={(e) =>
+                        setForm({ ...form, name: e.target.value })
+                      }
                       placeholder="Ex.: Vencido há 3 dias"
                     />
                   </div>
@@ -2223,13 +2335,17 @@ function AutomationWizard({
                     <Select
                       value={form.message_template_id}
                       onChange={(e) =>
-                        setForm({ ...form, message_template_id: e.target.value })
+                        setForm({
+                          ...form,
+                          message_template_id: e.target.value,
+                        })
                       }
                     >
                       <option value="">Selecione...</option>
                       {auxData.templates
                         .filter((t: any) => {
-                          if (String(t.label).toLowerCase().startsWith("teste")) return false;
+                          if (String(t.label).toLowerCase().startsWith("teste"))
+                            return false;
                           return true;
                         })
                         .map((t: any) => (
@@ -2263,7 +2379,9 @@ function AutomationWizard({
               <div className="rounded-xl border border-border bg-card p-2 shadow-sm">
                 <Label>Regra de Disparo</Label>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-muted/20 p-2">
-                  <span className="text-sm font-medium text-foreground/80">Enviar</span>
+                  <span className="text-sm font-medium text-foreground/80">
+                    Enviar
+                  </span>
                   <div className="inline-flex items-center overflow-hidden rounded-lg border border-border bg-card shadow-sm">
                     <button
                       onClick={() =>
@@ -2333,46 +2451,53 @@ function AutomationWizard({
           {step === 2 && (
             <div className="space-y-1.5">
               <div className="rounded-xl border border-border bg-card p-2 shadow-sm space-y-2">
-              <div>
-                <h3 className="text-[13px] font-medium text-foreground">Quem recebe?</h3>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Deixe sem filtro quando a regra precisar atingir toda a base daquele tipo.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                <MultiSelectDropdown
-                  label="Status do Cliente"
-                  options={CLIENT_STATUS}
-                  selected={form.status}
-                  onChange={(v: any) => setForm({ ...form, status: v })}
-                />
-                <MultiSelectDropdown
-                  label="Servidores"
-                  options={auxData.servers}
-                  selected={form.servers}
-                  onChange={(v: any) => setForm({ ...form, servers: v })}
-                />
-                <MultiSelectDropdown
-                  label="Planos"
-                  options={auxData.plans}
-                  selected={form.plans}
-                  onChange={(v: any) => setForm({ ...form, plans: v })}
-                />
-                <MultiSelectDropdown
-                  label="Aplicativos"
-                  options={auxData.apps}
-                  selected={form.apps}
-                  onChange={(v: any) => setForm({ ...form, apps: v })}
-                />
-              </div>
+                <div>
+                  <h3 className="text-[13px] font-medium text-foreground">
+                    Quem recebe?
+                  </h3>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Deixe sem filtro quando a regra precisar atingir toda a base
+                    daquele tipo.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <MultiSelectDropdown
+                    label="Status do Cliente"
+                    options={CLIENT_STATUS}
+                    selected={form.status}
+                    onChange={(v: any) => setForm({ ...form, status: v })}
+                  />
+                  <MultiSelectDropdown
+                    label="Servidores"
+                    options={auxData.servers}
+                    selected={form.servers}
+                    onChange={(v: any) => setForm({ ...form, servers: v })}
+                  />
+                  <MultiSelectDropdown
+                    label="Planos"
+                    options={auxData.plans}
+                    selected={form.plans}
+                    onChange={(v: any) => setForm({ ...form, plans: v })}
+                  />
+                  <MultiSelectDropdown
+                    label="Aplicativos"
+                    options={auxData.apps}
+                    selected={form.apps}
+                    onChange={(v: any) => setForm({ ...form, apps: v })}
+                  />
+                </div>
               </div>
 
               <div className="rounded-xl border border-border bg-card p-2 shadow-sm space-y-2">
                 <div>
-                  <h3 className="text-[13px] font-medium text-foreground">Modo de envio</h3>
+                  <h3 className="text-[13px] font-medium text-foreground">
+                    Modo de envio
+                  </h3>
                 </div>
                 <div className="flex items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-muted/10 p-1">
-                  <span className="px-1 text-[10px] font-medium text-muted-foreground">Operação</span>
+                  <span className="px-1 text-[10px] font-medium text-muted-foreground">
+                    Operação
+                  </span>
                   <div className="inline-flex items-center gap-0.5 rounded-md border border-border/80 bg-transparent p-0.5">
                     <button
                       onClick={() => setForm({ ...form, is_automatic: false })}
@@ -2388,7 +2513,11 @@ function AutomationWizard({
                     </button>
                   </div>
                   <span className="inline-flex items-center gap-1 rounded-md border border-border/70 bg-transparent px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                    {form.is_automatic ? <Clock3 className="h-3 w-3" /> : <Send className="h-3 w-3" />}
+                    {form.is_automatic ? (
+                      <Clock3 className="h-3 w-3" />
+                    ) : (
+                      <Send className="h-3 w-3" />
+                    )}
                     {form.is_automatic ? "Auto" : "Manual"}
                   </span>
                 </div>
@@ -2427,7 +2556,11 @@ function AutomationWizard({
                 disabled={saving}
                 className="px-3.5 py-1 bg-emerald-600 text-white hover:bg-emerald-500 font-medium rounded-lg shadow-lg shadow-emerald-900/20 transition-all text-[11px] uppercase"
               >
-                {saving ? "Salvando..." : editingRule ? "Salvar alterações" : "Confirmar e Criar"}
+                {saving
+                  ? "Salvando..."
+                  : editingRule
+                    ? "Salvar alterações"
+                    : "Confirmar e Criar"}
               </button>
             </>
           )}
@@ -2515,7 +2648,9 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
       >
         <span
           className={
-            selected.length === 0 ? "text-muted-foreground italic" : "font-medium"
+            selected.length === 0
+              ? "text-muted-foreground italic"
+              : "font-medium"
           }
         >
           {getLabel()}
@@ -2616,6 +2751,7 @@ function LogsModal({
   ruleName: string;
   onClose: () => void;
 }) {
+  const tenantId = useTenantId();
   const [logs, setLogs] = useState<JobLogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -2628,7 +2764,7 @@ function LogsModal({
 
   const fetchLogs = async () => {
     setLoading(true);
-    const tid = await getCurrentTenantId();
+    const tid = tenantId;
     if (!tid) {
       setLoading(false);
       return;
@@ -2766,7 +2902,7 @@ function LogsModal({
     }
   };
 
-// ✅ NOVO: se não sobrou nenhuma falha pra essa automação, resolve a notificação do sino
+  // ✅ NOVO: se não sobrou nenhuma falha pra essa automação, resolve a notificação do sino
   const resolveIfNoMoreFailures = async (tid: string) => {
     try {
       const { count } = await supabaseBrowser
@@ -2791,7 +2927,7 @@ function LogsModal({
     if (ids.length === 0) return;
     setWorking(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Sessão inválida.");
 
       // Puxa os dados originais EXATOS dos jobs (a view não traz image_url/template_id)
@@ -2856,7 +2992,7 @@ function LogsModal({
     if (ids.length === 0) return;
     setWorking(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Sessão inválida.");
 
       const { error } = await supabaseBrowser
@@ -2886,7 +3022,9 @@ function LogsModal({
       <div className="w-full h-full sm:h-auto sm:max-w-3xl bg-card border-0 sm:border border-border sm:rounded-2xl shadow-2xl flex flex-col max-h-full sm:max-h-[80vh]">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>
-            <h3 className="text-lg font-medium text-foreground">Logs de Envio</h3>
+            <h3 className="text-lg font-medium text-foreground">
+              Logs de Envio
+            </h3>
             <p className="text-xs text-foreground/70">
               Regra: <strong>{ruleName}</strong>
               {failedRows.length > 0 && (
@@ -2966,7 +3104,9 @@ function LogsModal({
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
           {loading ? (
-            <div className="text-center py-10 text-muted-foreground">Carregando...</div>
+            <div className="text-center py-10 text-muted-foreground">
+              Carregando...
+            </div>
           ) : logs.length === 0 ? (
             <div className="text-center py-10 text-muted-foreground">
               Nenhum registro encontrado.
@@ -3019,7 +3159,7 @@ function LogsModal({
                       <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">
                         {log.when_sp || "--"}
                       </td>
-<td className="p-2 font-medium text-foreground/90">
+                      <td className="p-2 font-medium text-foreground/90">
                         {log.client_name || (
                           <span className="text-muted-foreground italic">
                             (sem nome)
@@ -3060,7 +3200,10 @@ function LogsModal({
                                 : log.status}
                         </span>
                         {log.error_message && isFailed && (
-                          <div className="text-[10px] text-rose-500 mt-1 max-w-[220px] truncate" title={log.error_message}>
+                          <div
+                            className="text-[10px] text-rose-500 mt-1 max-w-[220px] truncate"
+                            title={log.error_message}
+                          >
                             {log.error_message}
                           </div>
                         )}

@@ -5,12 +5,10 @@ import { X } from "lucide-react";
 import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import AplicativosLog from "./AplicativosLog";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { EyeToggle } from "@/components/ui/eye-toggle";
 
 // ✅ Importa os modais de recarga
@@ -52,7 +50,10 @@ type LogRow = {
 };
 
 function fmtMoney(amount: number, currency: string = "BRL") {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "BRL" }).format(amount);
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: currency || "BRL",
+  }).format(amount);
 }
 
 /** Extrai o nome do app da mensagem padrão `Ativação: "Nome" - dia DD/MM/AAAA` — cai pra mensagem crua se não bater (formato antigo). */
@@ -110,9 +111,15 @@ function gatewayLabel(raw: string) {
 // fulfillment (segundos) e mais que a janela de "zumbi" do lock (3min).
 const STUCK_THRESHOLD_MS = 10 * 60 * 1000;
 
-function isStuckFulfillment(status: string, paymentStatus: string, createdAt: string): boolean {
+function isStuckFulfillment(
+  status: string,
+  paymentStatus: string,
+  createdAt: string,
+): boolean {
   const isApproved =
-    paymentStatus === "approved" || paymentStatus === "PAGO" || paymentStatus === "manual_approved";
+    paymentStatus === "approved" ||
+    paymentStatus === "PAGO" ||
+    paymentStatus === "manual_approved";
   if (!isApproved) return false;
   const st = String(status || "").toLowerCase();
   if (st !== "pending" && st !== "processing" && st !== "") return false;
@@ -123,9 +130,17 @@ function isStuckFulfillment(status: string, paymentStatus: string, createdAt: st
 // ✅ Mesma prioridade de regras usada em getFulfillmentBadge — filtro e badge
 // nunca mais podem discordar (ex: pagamento recusado sempre vira "Cancelada",
 // mesmo que a coluna fulfillment_status ainda esteja com um valor antigo/"pending").
-function getFulfillmentBucket(status: string, paymentStatus: string, createdAt: string): string {
+function getFulfillmentBucket(
+  status: string,
+  paymentStatus: string,
+  createdAt: string,
+): string {
   if (status === "manual_cancelled") return "manual_cancelled";
-  if (status === "cancelled" || paymentStatus === "rejected" || paymentStatus === "cancelled")
+  if (
+    status === "cancelled" ||
+    paymentStatus === "rejected" ||
+    paymentStatus === "cancelled"
+  )
     return "cancelled";
   if (status === "awaiting_transfer") return "awaiting_transfer";
   if (
@@ -158,15 +173,25 @@ const WHATSAPP_OPTIONS = [
 ];
 
 function matchesFulfillment(r: LogRow, value: string) {
-  return getFulfillmentBucket(r.fulfillment_status, r.payment_status, r.created_at) === value;
+  return (
+    getFulfillmentBucket(
+      r.fulfillment_status,
+      r.payment_status,
+      r.created_at,
+    ) === value
+  );
 }
 
 function matchesPayment(r: LogRow, value: string) {
-  const isApproved = r.payment_status === "approved" || r.payment_status === "PAGO";
+  const isApproved =
+    r.payment_status === "approved" || r.payment_status === "PAGO";
   const isManualApproved = r.payment_status === "manual_approved";
-  const isRejected = r.payment_status === "rejected" || r.payment_status === "cancelled";
-  const isManualPending = r.payment_status === "pending" && r.payment_method === "manual";
-  const isPending = r.payment_status === "pending" && r.payment_method !== "manual";
+  const isRejected =
+    r.payment_status === "rejected" || r.payment_status === "cancelled";
+  const isManualPending =
+    r.payment_status === "pending" && r.payment_method === "manual";
+  const isPending =
+    r.payment_status === "pending" && r.payment_method !== "manual";
   if (value === "aprovado") return isApproved;
   if (value === "aprovado_manual") return isManualApproved;
   if (value === "recusado") return isRejected;
@@ -190,11 +215,14 @@ function matchesWhatsapp(r: LogRow, value: string) {
     r.fulfillment_status === "cancelled";
   const isDoneFulfillment =
     r.fulfillment_status === "done" || r.fulfillment_status === "manual_done";
-  const eligible = isApprovedPayment && !isCancelledFulfillment && isDoneFulfillment;
+  const eligible =
+    isApprovedPayment && !isCancelledFulfillment && isDoneFulfillment;
   if (value === "sent") return r.whatsapp_status === "sent";
   if (value === "error") return r.whatsapp_status === "error";
   if (value === "aguardando")
-    return eligible && r.whatsapp_status !== "sent" && r.whatsapp_status !== "error";
+    return (
+      eligible && r.whatsapp_status !== "sent" && r.whatsapp_status !== "error"
+    );
   if (value === "na") return !eligible;
   return false;
 }
@@ -240,6 +268,7 @@ function IconRefresh() {
 }
 
 function AuditoriaPageContent() {
+  const resolvedTenantId = useTenantId();
   const searchParams = useSearchParams();
   // ✅ Toggle IPTV (log de pagamentos, existente) / Aplicativos (pedidos de
   // configuração manual do Bloco 3, novo) — mesmo padrão visual do toggle
@@ -249,7 +278,7 @@ function AuditoriaPageContent() {
   const [activeLogView, setActiveLogView] = useState<"iptv" | "aplicativos">(
     searchParams.get("view") === "aplicativos" ? "aplicativos" : "iptv",
   );
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
   const [rows, setRows] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true); // Filtros
   const [search, setSearch] = useState("");
@@ -316,7 +345,7 @@ function AuditoriaPageContent() {
   async function loadData(searchTerm = "") {
     setLoading(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       setTenantId(tid);
       if (tid) loadAppRequestsPendingCount(tid);
 
@@ -393,7 +422,9 @@ function AuditoriaPageContent() {
         // pendência sem abrir cada pagamento).
         const allAlertIds = [
           ...new Set(
-            (paymentsData || []).flatMap((p: any) => (p.settled_alert_ids as string[] | null) || []),
+            (paymentsData || []).flatMap(
+              (p: any) => (p.settled_alert_ids as string[] | null) || [],
+            ),
           ),
         ];
         const alertsMap: Record<string, { label: string; amount: number }> = {};
@@ -441,9 +472,13 @@ function AuditoriaPageContent() {
             gateway_name: r.gateway_type,
             mp_payment_id: r.mp_payment_id || null, // ✅ Adicionado ao mapeamento
             coupon_code: r.coupon_code || null,
-            coupon_discount_amount: r.coupon_discount_amount != null ? Number(r.coupon_discount_amount) : null,
+            coupon_discount_amount:
+              r.coupon_discount_amount != null
+                ? Number(r.coupon_discount_amount)
+                : null,
             pendencies,
-            payment_type: r.payment_type === "app_renewal" ? "app_renewal" : "subscription",
+            payment_type:
+              r.payment_type === "app_renewal" ? "app_renewal" : "subscription",
             app_name_snapshot: r.app_name_snapshot || null,
             client_app_id: r.client_app_id || null,
           };
@@ -503,15 +538,24 @@ function AuditoriaPageContent() {
 
   // Só mostra no filtro as opções que realmente têm registro (evita filtro vazio)
   const availableFulfillmentOptions = useMemo(
-    () => FULFILLMENT_OPTIONS.filter((o) => rows.some((r) => matchesFulfillment(r, o.value))),
+    () =>
+      FULFILLMENT_OPTIONS.filter((o) =>
+        rows.some((r) => matchesFulfillment(r, o.value)),
+      ),
     [rows],
   );
   const availablePaymentOptions = useMemo(
-    () => PAYMENT_OPTIONS.filter((o) => rows.some((r) => matchesPayment(r, o.value))),
+    () =>
+      PAYMENT_OPTIONS.filter((o) =>
+        rows.some((r) => matchesPayment(r, o.value)),
+      ),
     [rows],
   );
   const availableWhatsappOptions = useMemo(
-    () => WHATSAPP_OPTIONS.filter((o) => rows.some((r) => matchesWhatsapp(r, o.value))),
+    () =>
+      WHATSAPP_OPTIONS.filter((o) =>
+        rows.some((r) => matchesWhatsapp(r, o.value)),
+      ),
     [rows],
   );
 
@@ -524,8 +568,14 @@ function AuditoriaPageContent() {
         (r) =>
           r.fulfillment_status === "manual_pending" ||
           r.fulfillment_status === "awaiting_transfer" ||
-          (r.whatsapp_status === "error" && (r.fulfillment_status === "done" || r.fulfillment_status === "manual_done")) ||
-          isStuckFulfillment(r.fulfillment_status, r.payment_status, r.created_at),
+          (r.whatsapp_status === "error" &&
+            (r.fulfillment_status === "done" ||
+              r.fulfillment_status === "manual_done")) ||
+          isStuckFulfillment(
+            r.fulfillment_status,
+            r.payment_status,
+            r.created_at,
+          ),
       ).length,
     [rows],
   );
@@ -538,7 +588,10 @@ function AuditoriaPageContent() {
       .replace(/[\u0300-\u036f]/g, "");
 
     return rows.filter((r) => {
-      if (filterFulfillment !== "Todos" && !matchesFulfillment(r, filterFulfillment))
+      if (
+        filterFulfillment !== "Todos" &&
+        !matchesFulfillment(r, filterFulfillment)
+      )
         return false;
 
       if (filterGateway !== "Todos") {
@@ -602,7 +655,6 @@ function AuditoriaPageContent() {
   // Volta para a página 1 sempre que um filtro muda (mesmo padrão da página de clientes)
   useEffect(() => {
     setPage(1);
-     
   }, [search, filterFulfillment, filterPayment, filterGateway, filterWhatsapp]);
 
   // --- AÇÕES ---
@@ -620,16 +672,27 @@ function AuditoriaPageContent() {
       const token = sess.session?.access_token;
       const res = await fetch("/api/admin/payments/retry-fulfillment", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ tenant_id: tenantId, payment_id: log.id }),
       });
       const result = await res.json().catch(() => null);
       if (!res.ok) throw new Error(result?.error || "Falha ao reprocessar.");
 
       if (result.outcome === "manual_pending") {
-        addToast("success", "Caiu pra ação manual", "Esse cliente precisa de renovação manual — veja o botão roxo.");
+        addToast(
+          "success",
+          "Caiu pra ação manual",
+          "Esse cliente precisa de renovação manual — veja o botão roxo.",
+        );
       } else {
-        addToast("success", "Reprocessado!", "Renovação concluída com sucesso.");
+        addToast(
+          "success",
+          "Reprocessado!",
+          "Renovação concluída com sucesso.",
+        );
       }
       loadData();
     } catch (e: any) {
@@ -734,7 +797,8 @@ function AuditoriaPageContent() {
 
     const ok = await confirm({
       title: "Confirmar Recebimento",
-      subtitle: "O dinheiro já caiu na conta? Isso vai abrir o painel de renovação.",
+      subtitle:
+        "O dinheiro já caiu na conta? Isso vai abrir o painel de renovação.",
       tone: "sky",
       icon: "🏦",
       details: [
@@ -818,11 +882,14 @@ function AuditoriaPageContent() {
       }
 
       // 3. Atualiza o status do banco para sucesso (via RPC SECURITY DEFINER — RLS bloqueia UPDATE direto)
-      const { error: rpcErr } = await supabaseBrowser.rpc("update_whatsapp_status", {
-        p_log_id: log.id,
-        p_tenant_id: tenantId,
-        p_status: "sent",
-      });
+      const { error: rpcErr } = await supabaseBrowser.rpc(
+        "update_whatsapp_status",
+        {
+          p_log_id: log.id,
+          p_tenant_id: tenantId,
+          p_status: "sent",
+        },
+      );
       if (rpcErr) throw rpcErr;
 
       // ✅ NOVO: resolve a notificação de falha de WhatsApp, se existir
@@ -870,11 +937,14 @@ function AuditoriaPageContent() {
     try {
       setLoading(true);
 
-      const { error: rpcErr } = await supabaseBrowser.rpc("update_whatsapp_status", {
-        p_log_id: log.id,
-        p_tenant_id: tenantId,
-        p_status: "manual",
-      });
+      const { error: rpcErr } = await supabaseBrowser.rpc(
+        "update_whatsapp_status",
+        {
+          p_log_id: log.id,
+          p_tenant_id: tenantId,
+          p_status: "manual",
+        },
+      );
       if (rpcErr) throw rpcErr;
 
       try {
@@ -907,7 +977,7 @@ function AuditoriaPageContent() {
         </span>
       );
     if (status === "pending") {
-if (paymentMethod === "manual") {
+      if (paymentMethod === "manual") {
         return (
           <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-purple-500/10 text-purple-500 text-[10px] font-medium uppercase border border-purple-500/20">
             Renovação Manual
@@ -942,13 +1012,19 @@ if (paymentMethod === "manual") {
     );
   }
 
-  function getFulfillmentBadge(status: string, paymentStatus: string, createdAt: string) {
+  function getFulfillmentBadge(
+    status: string,
+    paymentStatus: string,
+    createdAt: string,
+  ) {
     const bucket = getFulfillmentBucket(status, paymentStatus, createdAt);
 
     if (bucket === "manual_cancelled" || bucket === "cancelled") {
       return (
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
-          {bucket === "manual_cancelled" ? "Cancelado (Manual)" : "Cancelado (Automático)"}
+          {bucket === "manual_cancelled"
+            ? "Cancelado (Manual)"
+            : "Cancelado (Automático)"}
         </span>
       );
     }
@@ -962,9 +1038,7 @@ if (paymentMethod === "manual") {
     }
 
     if (bucket === "aguardando_pagamento") {
-      return (
-        <span className="text-muted-foreground/60 font-medium">—</span>
-      );
+      return <span className="text-muted-foreground/60 font-medium">—</span>;
     }
 
     if (bucket === "done")
@@ -1017,10 +1091,12 @@ if (paymentMethod === "manual") {
     }
 
     // 1. Se o pagamento NÃO foi aprovado, a mensagem nunca é enviada.
-if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !== "manual_approved") {
-      return (
-        <span className="text-muted-foreground/60 font-medium">—</span>
-      );
+    if (
+      paymentStatus !== "approved" &&
+      paymentStatus !== "PAGO" &&
+      paymentStatus !== "manual_approved"
+    ) {
+      return <span className="text-muted-foreground/60 font-medium">—</span>;
     }
 
     // 2. ✅ NOVO: Se a renovação foi cancelada (manual ou sistema), não há mensagem.
@@ -1028,16 +1104,12 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
       fulfillmentStatus === "manual_cancelled" ||
       fulfillmentStatus === "cancelled"
     ) {
-      return (
-        <span className="text-muted-foreground/60 font-medium">—</span>
-      );
+      return <span className="text-muted-foreground/60 font-medium">—</span>;
     }
 
     // 3. Se a renovação ainda não terminou (processando ou erro), o zap ainda não "nasceu" no fluxo.
     if (fulfillmentStatus !== "done" && fulfillmentStatus !== "manual_done") {
-      return (
-        <span className="text-muted-foreground/60 font-medium">—</span>
-      );
+      return <span className="text-muted-foreground/60 font-medium">—</span>;
     }
 
     // 4. Se a renovação deu certo, mostramos o status real vindo do campo whatsapp_status
@@ -1071,7 +1143,10 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
   }
 
   return (
-    <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors" id="dashboard-values">
+    <div
+      className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors"
+      id="dashboard-values"
+    >
       {/* TOPO */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
@@ -1115,7 +1190,9 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
               <span>Aplicativos</span>
               {appRequestsPendingCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
-                  {appRequestsPendingCount > 99 ? "99+" : appRequestsPendingCount}
+                  {appRequestsPendingCount > 99
+                    ? "99+"
+                    : appRequestsPendingCount}
                 </span>
               )}
             </button>
@@ -1133,578 +1210,607 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
       )}
 
       {activeLogView === "iptv" && (
-      <>
-      {/* FILTROS */}
-      <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
-        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
-          Filtros Rápidos
-        </div>
+        <>
+          {/* FILTROS */}
+          <div className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20">
+            <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
+              Filtros Rápidos
+            </div>
 
-        {/* MOBILE (somente): busca + botão abrir painel */}
-        <div className="md:hidden flex items-center gap-2">
-          <div className="flex-1 relative">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Buscar (Pressione Enter)"
-              className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            />
-            {search && (
+            {/* MOBILE (somente): busca + botão abrir painel */}
+            <div className="md:hidden flex items-center gap-2">
+              <div className="flex-1 relative">
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Buscar (Pressione Enter)"
+                  className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                />
+                {search && (
+                  <button
+                    onClick={() => {
+                      setSearch("");
+                      loadData("");
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
+                    title="Limpar busca"
+                  >
+                    <IconX />
+                  </button>
+                )}
+              </div>
+
               <button
-                onClick={() => {
-                  setSearch("");
-                  loadData("");
-                }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
-                title="Limpar busca"
+                onClick={() => loadData(search)}
+                className="h-10 px-3 bg-card border border-border hover:bg-muted text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
               >
-                <IconX />
+                Buscar
               </button>
+
+              <button
+                onClick={() => setMobileFiltersOpen((v) => !v)}
+                className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
+                  hasActiveFilters
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                    : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+                title="Filtros"
+              >
+                Filtros
+              </button>
+            </div>
+
+            {/* DESKTOP (somente): tudo na mesma linha */}
+            <div className="hidden md:flex items-center gap-2 flex-wrap">
+              <div className="flex-1 min-w-[200px] flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Buscar (Pressione Enter)"
+                    className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                  />
+                  {search && (
+                    <button
+                      onClick={() => {
+                        setSearch("");
+                        loadData("");
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
+                      title="Limpar busca"
+                    >
+                      <IconX />
+                    </button>
+                  )}
+                </div>
+                <button
+                  onClick={() => loadData(search)}
+                  className="h-10 px-4 bg-card border border-border hover:bg-muted text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                >
+                  Buscar
+                </button>
+              </div>
+
+              <div className="w-[180px]">
+                <select
+                  value={filterFulfillment}
+                  onChange={(e) => setFilterFulfillment(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">Renovação (Todos)</option>
+                  {availableFulfillmentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="w-[170px]">
+                <select
+                  value={filterPayment}
+                  onChange={(e) => setFilterPayment(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">Pagamento (Todos)</option>
+                  {availablePaymentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="w-[160px]">
+                <select
+                  value={filterGateway}
+                  onChange={(e) => setFilterGateway(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">Banco (Todos)</option>
+                  {uniqueGateways.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="w-[170px]">
+                <select
+                  value={filterWhatsapp}
+                  onChange={(e) => setFilterWhatsapp(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">WhatsApp (Todos)</option>
+                  {availableWhatsappOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={clearFilters}
+                className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              >
+                <IconX /> Limpar
+              </button>
+            </div>
+
+            {/* Painel de filtros no mobile */}
+            {mobileFiltersOpen && (
+              <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
+                <select
+                  value={filterFulfillment}
+                  onChange={(e) => setFilterFulfillment(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">Renovação (Todos)</option>
+                  {availableFulfillmentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterPayment}
+                  onChange={(e) => setFilterPayment(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">Pagamento (Todos)</option>
+                  {availablePaymentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterGateway}
+                  onChange={(e) => setFilterGateway(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">Banco (Todos)</option>
+                  {uniqueGateways.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={filterWhatsapp}
+                  onChange={(e) => setFilterWhatsapp(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">WhatsApp (Todos)</option>
+                  {availableWhatsappOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={() => {
+                    clearFilters();
+                    setMobileFiltersOpen(false);
+                  }}
+                  className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+                >
+                  <IconX /> Limpar
+                </button>
+              </div>
             )}
           </div>
 
-          <button
-            onClick={() => loadData(search)}
-            className="h-10 px-3 bg-card border border-border hover:bg-muted text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
-          >
-            Buscar
-          </button>
-
-          <button
-            onClick={() => setMobileFiltersOpen((v) => !v)}
-            className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
-              hasActiveFilters
-                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
-                : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-            title="Filtros"
-          >
-            Filtros
-          </button>
-        </div>
-
-        {/* DESKTOP (somente): tudo na mesma linha */}
-        <div className="hidden md:flex items-center gap-2 flex-wrap">
-          <div className="flex-1 min-w-[200px] flex gap-2">
-            <div className="relative flex-1">
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Buscar (Pressione Enter)"
-                className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-              />
-              {search && (
-                <button
-                  onClick={() => {
-                    setSearch("");
-                    loadData("");
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
-                  title="Limpar busca"
-                >
-                  <IconX />
-                </button>
-              )}
+          {/* TABELA */}
+          {loading ? (
+            <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
+              Carregando logs de auditoria...
             </div>
-            <button
-              onClick={() => loadData(search)}
-              className="h-10 px-4 bg-card border border-border hover:bg-muted text-foreground/90 rounded-lg text-sm font-medium transition-colors shadow-sm"
-            >
-              Buscar
-            </button>
-          </div>
-
-          <div className="w-[180px]">
-            <select
-              value={filterFulfillment}
-              onChange={(e) => setFilterFulfillment(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            >
-              <option value="Todos">Renovação (Todos)</option>
-              {availableFulfillmentOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="w-[170px]">
-            <select
-              value={filterPayment}
-              onChange={(e) => setFilterPayment(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            >
-              <option value="Todos">Pagamento (Todos)</option>
-              {availablePaymentOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="w-[160px]">
-            <select
-              value={filterGateway}
-              onChange={(e) => setFilterGateway(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            >
-              <option value="Todos">Banco (Todos)</option>
-              {uniqueGateways.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="w-[170px]">
-            <select
-              value={filterWhatsapp}
-              onChange={(e) => setFilterWhatsapp(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            >
-              <option value="Todos">WhatsApp (Todos)</option>
-              {availableWhatsappOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            onClick={clearFilters}
-            className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-          >
-            <IconX /> Limpar
-          </button>
-        </div>
-
-        {/* Painel de filtros no mobile */}
-        {mobileFiltersOpen && (
-          <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
-            <select
-              value={filterFulfillment}
-              onChange={(e) => setFilterFulfillment(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            >
-              <option value="Todos">Renovação (Todos)</option>
-              {availableFulfillmentOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filterPayment}
-              onChange={(e) => setFilterPayment(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            >
-              <option value="Todos">Pagamento (Todos)</option>
-              {availablePaymentOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filterGateway}
-              onChange={(e) => setFilterGateway(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            >
-              <option value="Todos">Banco (Todos)</option>
-              {uniqueGateways.map((g) => (
-                <option key={g} value={g}>
-                  {g}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filterWhatsapp}
-              onChange={(e) => setFilterWhatsapp(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            >
-              <option value="Todos">WhatsApp (Todos)</option>
-              {availableWhatsappOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              onClick={() => {
-                clearFilters();
-                setMobileFiltersOpen(false);
-              }}
-              className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-            >
-              <IconX /> Limpar
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* TABELA */}
-      {loading ? (
-        <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
-          Carregando logs de auditoria...
-        </div>
-      ) : (
-        <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
-              <thead>
-                <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-muted-foreground bg-transparent">
-                  <th className="px-4 py-3">Data / Hora</th>
-                  <th className="px-4 py-3">Cliente / Login / Servidor</th>
-                  <th className="px-4 py-3 text-center">Plano / Telas</th>
-                  <th className="px-4 py-3 text-center">Banco</th>
-                  <th className="px-4 py-3 text-center">Pagamento</th>
-                  <th className="px-4 py-3 text-center">Renovação</th>
-                  <th className="px-4 py-3 text-center">WhatsApp</th>
-                  <th className="px-4 py-3 text-center">Valor</th>
-                  <th className="px-4 py-3 text-center">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm divide-y divide-border">
-                {visible.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="p-8 text-center text-muted-foreground italic"
-                    >
-                      Nenhum registro encontrado.
-                    </td>
-                  </tr>
-                ) : (
-                  visible.map((r) => {
-                    const dateObj = new Date(r.created_at);
-
-                    // ✅ Separação clara dos estados
-                    const isManualPending =
-                      r.fulfillment_status === "manual_pending";
-                    const isAwaitingTransfer =
-                      r.fulfillment_status === "awaiting_transfer";
-                    const isWhatsappError =
-                      r.whatsapp_status === "error" &&
-                      (r.fulfillment_status === "done" ||
-                        r.fulfillment_status === "manual_done");
-                    const isStuck = isStuckFulfillment(
-                      r.fulfillment_status,
-                      r.payment_status,
-                      r.created_at,
-                    );
-
-                    const canShowAction =
-                      isManualPending || isAwaitingTransfer || isWhatsappError || isStuck;
-
-                    return (
-                      <tr
-                        key={r.id}
-                        className="hover:bg-muted/50 transition-colors group"
-                      >
-                        {/* Data e Hora */}
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col">
-<span className="text-foreground/90">
-                              {dateObj.toLocaleDateString("pt-BR", {
-                                timeZone: "America/Sao_Paulo",
-                              })}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {dateObj.toLocaleTimeString("pt-BR", {
-                                timeZone: "America/Sao_Paulo",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Cliente / Login / Servidor */}
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col">
-                            <span className="font-medium text-foreground truncate max-w-[200px]">
-                              {r.client_name}
-                            </span>
-                            <div className="flex items-center gap-1.5 mt-0.5">
-<span className="text-xs text-muted-foreground">
-                                {r.server_username}
-                              </span>
-<span className="text-muted-foreground/60">
-                                •
-                              </span>
-                              <span className="text-[11px] text-muted-foreground">
-                                {r.server_name}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Plano / Telas (ou App, se for licença avulsa) */}
-                        <td className="px-4 py-3 text-center">
-                          {r.payment_type === "app_renewal" ? (
-                            <div className="flex flex-col gap-0.5 items-center">
-                              <span className="px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[10px] font-bold uppercase">
-                                📱 Licença de App
-                              </span>
-                              <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
-                                {r.app_name_snapshot || "Aplicativo"}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col gap-0.5 items-center">
-                              <span className="text-xs font-medium text-foreground/80">
-                                {r.plan_label ||
-                                  PERIOD_LABELS[r.period] ||
-                                  r.period}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {r.screens} {r.screens === 1 ? "tela" : "telas"}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Banco */}
-                        <td className="px-4 py-3 text-center">
-                          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                            {gatewayLabel(r.gateway_name || r.payment_method)}
-                          </span>
-                        </td>
-
-                        {/* Pagamento (Status + Ref) */}
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex flex-col gap-1 items-center">
-                            {getPaymentBadge(r.payment_status, r.payment_method)}
-                            {r.mp_payment_id && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigator.clipboard.writeText(
-                                    r.mp_payment_id!,
-                                  );
-                                  addToast(
-                                    "success",
-                                    "Copiado",
-                                    "Código da transação copiado!",
-                                  );
-                                }}
- className="text-[9px] text-muted-foreground bg-transparent px-1.5 py-0.5 rounded border border-border hover:border-emerald-500 hover:text-emerald-500 transition-colors"
-                                title="Clique para copiar a referência"
-                              >
-                                Ref: {String(r.mp_payment_id).slice(-8)}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                        {/* Renovação */}
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex flex-col gap-1 items-center">
-                                                       {" "}
-                            {getFulfillmentBadge(
-                              r.fulfillment_status,
-                              r.payment_status,
-                              r.created_at,
-                            )}
-                            {/* Cor neutra para todos os fluxos manuais (Pendente, Concluído ou Cancelado) */}
-                            {r.fulfillment_status === "manual_pending" ||
-                            r.fulfillment_status === "manual_done" ||
-                            r.fulfillment_status === "manual_cancelled" ? (
-                              <span
-                                className="text-[10px] text-muted-foreground leading-tight max-w-[200px] truncate font-medium"
-                                title={
-                                  r.fulfillment_error ||
-                                  (r.payment_type === "app_renewal"
-                                    ? "Renovação de Aplicativo"
-                                    : "Renovação de Assinatura")
-                                }
-                              >
-                                {r.fulfillment_error ||
-                                  (r.payment_type === "app_renewal"
-                                    ? "Renovação de Aplicativo"
-                                    : "Renovação de Assinatura")}
-                              </span>
-                            ) : (
-                              /* Erros reais de API continuam vermelhos */
-                              r.fulfillment_error &&
-                              r.payment_status === "approved" && (
-                                <span
-                                  className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate"
-                                  title={r.fulfillment_error}
-                                >
-                                  {r.fulfillment_error}
-                                </span>
-                              )
-                            )}
-                                                     {" "}
-                          </div>
-                        </td>
-
-                        {/* Mensagem WA */}
-                        <td className="px-4 py-3 text-center">
-                          {getWhatsappBadge(
-                            r.whatsapp_status,
-                            r.payment_status,
-                            r.fulfillment_status,
-                            r.payment_type,
-                          )}
-                        </td>
-
-                        {/* Valor */}
-                        <td className="px-4 py-3 text-center">
-                          <span className="font-medium text-foreground/90 finance-value">
-                            {fmtMoney(r.price_amount, r.price_currency)}
-                          </span>
-                          {/* ✅ Resumo do valor — só aparece quando não é "só assinatura"
-                              (tem cupom e/ou pendência quitada junto), pra dar pra auditar
-                              a diferença entre o total e o desconto/pendência aplicados. */}
-                          {(r.coupon_code || r.pendencies.length > 0) && (
-                            <div className="mt-1 space-y-0.5 finance-value">
-                              {r.coupon_code && (
-                                <div className="text-[10px] text-emerald-500 leading-tight">
-                                  Cupom: {r.coupon_code} (-{fmtMoney(r.coupon_discount_amount || 0, r.price_currency)})
-                                </div>
-                              )}
-                              {r.pendencies.map((p, idx) => (
-                                <div
-                                  key={idx}
-                                  className="text-[10px] text-amber-500 leading-tight max-w-[220px] truncate mx-auto"
-                                  title={p.label}
-                                >
-                                  {p.label} ({fmtMoney(p.amount, r.price_currency)})
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Ações */}
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            {isManualPending && (
-                              <>
-                                <button
-  onClick={() =>
-    r.payment_type === "app_renewal" && r.client_app_id
-      ? setAppRenewalState({ logId: r.id, clientAppId: r.client_app_id })
-      : setRenewState({
-          logId: r.id,
-          clientId: r.client_id,
-          clientName: r.client_name,
-          wasAwaitingTransfer: false,
-        })
-  }
-                                  className="gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
-                                  title="Abrir painel de renovação"
-                                >
-                                  <IconCheckCircle /> Concluir
-                                </button>
-                                <button
-                                  onClick={() => handleCancelarAcao(r)}
-                                  className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
-                                  title="Encerrar esta pendência sem renovar"
-                                >
-                                  <IconX />
-                                </button>
-                              </>
-                            )}
-
-                            {/* ✅ NOVO: Aguardando transferência bancária */}
-                            {isAwaitingTransfer && (
-                              <>
-                                <button
-                                  onClick={() =>
-                                    handleConfirmarTransferencia(r)
-                                  }
-                                  className="gap-1 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
-                                  title="Confirmar recebimento e renovar"
-                                >
-                                  <IconCheckCircle /> Confirmar
-                                </button>
-                                <button
-                                  onClick={() => handleCancelarAcao(r)}
-                                  className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
-                                  title="Cancelar — cliente não transferiu"
-                                >
-                                  <IconX />
-                                </button>
-                              </>
-                            )}
-
-                            {/* ✅ NOVO: pagamento aprovado sem fulfillment concluído há mais
-                                de 10min — tenta rodar a renovação de novo na hora. */}
-                            {isStuck && (
-                              <button
-                                onClick={() => handleReprocessar(r)}
-                                disabled={reprocessingId === r.id}
-                                className="gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-amber-500/30 shadow-sm flex items-center justify-center gap-1 disabled:opacity-50"
-                                title="Tentar concluir a renovação automática de novo"
-                              >
-                                <span className={reprocessingId === r.id ? "animate-spin" : ""}>
-                                  <IconRefresh />
-                                </span>{" "}
-                                {reprocessingId === r.id ? "Reprocessando..." : "Reprocessar"}
-                              </button>
-                            )}
-
-                            {/* ✅ NOVO: Botão direto para reenviar o comprovante de WhatsApp */}
-                            {isWhatsappError && (
-                              <>
-                                <button
-                                  onClick={() => handleReenviarWhatsapp(r)}
-                                  className="gap-1 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
-                                  title="Reenviar comprovante via WhatsApp"
-                                >
-                                  💬 Reenviar Zap
-                                </button>
-                                <button
-                                  onClick={() => handleResolverWhatsappManual(r)}
-                                  className="gap-1 px-3 py-1.5 bg-muted/40 hover:bg-muted text-muted-foreground text-[10px] font-medium uppercase rounded-lg transition-colors border border-border shadow-sm flex items-center justify-center gap-1"
-                                  title="Marcar como resolvido manualmente (sem tentar reenviar)"
-                                >
-                                  <IconCheckCircle /> Resolvido
-                                </button>
-                              </>
-                            )}
-
-                            {!canShowAction && (
-<span className="text-muted-foreground/60 text-xs font-medium">
-                                —
-                              </span>
-                            )}
-                          </div>
+          ) : (
+            <div className="bg-card border border-border rounded-none sm:rounded-xl shadow-sm overflow-visible transition-colors sm:mx-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[800px]">
+                  <thead>
+                    <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-muted-foreground bg-transparent">
+                      <th className="px-4 py-3">Data / Hora</th>
+                      <th className="px-4 py-3">Cliente / Login / Servidor</th>
+                      <th className="px-4 py-3 text-center">Plano / Telas</th>
+                      <th className="px-4 py-3 text-center">Banco</th>
+                      <th className="px-4 py-3 text-center">Pagamento</th>
+                      <th className="px-4 py-3 text-center">Renovação</th>
+                      <th className="px-4 py-3 text-center">WhatsApp</th>
+                      <th className="px-4 py-3 text-center">Valor</th>
+                      <th className="px-4 py-3 text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm divide-y divide-border">
+                    {visible.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="p-8 text-center text-muted-foreground italic"
+                        >
+                          Nenhum registro encontrado.
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                    ) : (
+                      visible.map((r) => {
+                        const dateObj = new Date(r.created_at);
 
-          <Pagination
-            page={safePage}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            pageSize={pageSize}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            pageSizeOptions={[25, 50, 100, 200]}
-          />
-        </div>
-      )}
-      </>
+                        // ✅ Separação clara dos estados
+                        const isManualPending =
+                          r.fulfillment_status === "manual_pending";
+                        const isAwaitingTransfer =
+                          r.fulfillment_status === "awaiting_transfer";
+                        const isWhatsappError =
+                          r.whatsapp_status === "error" &&
+                          (r.fulfillment_status === "done" ||
+                            r.fulfillment_status === "manual_done");
+                        const isStuck = isStuckFulfillment(
+                          r.fulfillment_status,
+                          r.payment_status,
+                          r.created_at,
+                        );
+
+                        const canShowAction =
+                          isManualPending ||
+                          isAwaitingTransfer ||
+                          isWhatsappError ||
+                          isStuck;
+
+                        return (
+                          <tr
+                            key={r.id}
+                            className="hover:bg-muted/50 transition-colors group"
+                          >
+                            {/* Data e Hora */}
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col">
+                                <span className="text-foreground/90">
+                                  {dateObj.toLocaleDateString("pt-BR", {
+                                    timeZone: "America/Sao_Paulo",
+                                  })}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {dateObj.toLocaleTimeString("pt-BR", {
+                                    timeZone: "America/Sao_Paulo",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Cliente / Login / Servidor */}
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col">
+                                <span className="font-medium text-foreground truncate max-w-[200px]">
+                                  {r.client_name}
+                                </span>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-xs text-muted-foreground">
+                                    {r.server_username}
+                                  </span>
+                                  <span className="text-muted-foreground/60">
+                                    •
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {r.server_name}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Plano / Telas (ou App, se for licença avulsa) */}
+                            <td className="px-4 py-3 text-center">
+                              {r.payment_type === "app_renewal" ? (
+                                <div className="flex flex-col gap-0.5 items-center">
+                                  <span className="px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[10px] font-bold uppercase">
+                                    📱 Licença de App
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                                    {r.app_name_snapshot || "Aplicativo"}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex flex-col gap-0.5 items-center">
+                                  <span className="text-xs font-medium text-foreground/80">
+                                    {r.plan_label ||
+                                      PERIOD_LABELS[r.period] ||
+                                      r.period}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {r.screens}{" "}
+                                    {r.screens === 1 ? "tela" : "telas"}
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Banco */}
+                            <td className="px-4 py-3 text-center">
+                              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                                {gatewayLabel(
+                                  r.gateway_name || r.payment_method,
+                                )}
+                              </span>
+                            </td>
+
+                            {/* Pagamento (Status + Ref) */}
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex flex-col gap-1 items-center">
+                                {getPaymentBadge(
+                                  r.payment_status,
+                                  r.payment_method,
+                                )}
+                                {r.mp_payment_id && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(
+                                        r.mp_payment_id!,
+                                      );
+                                      addToast(
+                                        "success",
+                                        "Copiado",
+                                        "Código da transação copiado!",
+                                      );
+                                    }}
+                                    className="text-[9px] text-muted-foreground bg-transparent px-1.5 py-0.5 rounded border border-border hover:border-emerald-500 hover:text-emerald-500 transition-colors"
+                                    title="Clique para copiar a referência"
+                                  >
+                                    Ref: {String(r.mp_payment_id).slice(-8)}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            {/* Renovação */}
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex flex-col gap-1 items-center">
+                                                           {" "}
+                                {getFulfillmentBadge(
+                                  r.fulfillment_status,
+                                  r.payment_status,
+                                  r.created_at,
+                                )}
+                                {/* Cor neutra para todos os fluxos manuais (Pendente, Concluído ou Cancelado) */}
+                                {r.fulfillment_status === "manual_pending" ||
+                                r.fulfillment_status === "manual_done" ||
+                                r.fulfillment_status === "manual_cancelled" ? (
+                                  <span
+                                    className="text-[10px] text-muted-foreground leading-tight max-w-[200px] truncate font-medium"
+                                    title={
+                                      r.fulfillment_error ||
+                                      (r.payment_type === "app_renewal"
+                                        ? "Renovação de Aplicativo"
+                                        : "Renovação de Assinatura")
+                                    }
+                                  >
+                                    {r.fulfillment_error ||
+                                      (r.payment_type === "app_renewal"
+                                        ? "Renovação de Aplicativo"
+                                        : "Renovação de Assinatura")}
+                                  </span>
+                                ) : (
+                                  /* Erros reais de API continuam vermelhos */
+                                  r.fulfillment_error &&
+                                  r.payment_status === "approved" && (
+                                    <span
+                                      className="text-[10px] text-rose-500 leading-tight max-w-[200px] truncate"
+                                      title={r.fulfillment_error}
+                                    >
+                                      {r.fulfillment_error}
+                                    </span>
+                                  )
+                                )}
+                                                         {" "}
+                              </div>
+                            </td>
+
+                            {/* Mensagem WA */}
+                            <td className="px-4 py-3 text-center">
+                              {getWhatsappBadge(
+                                r.whatsapp_status,
+                                r.payment_status,
+                                r.fulfillment_status,
+                                r.payment_type,
+                              )}
+                            </td>
+
+                            {/* Valor */}
+                            <td className="px-4 py-3 text-center">
+                              <span className="font-medium text-foreground/90 finance-value">
+                                {fmtMoney(r.price_amount, r.price_currency)}
+                              </span>
+                              {/* ✅ Resumo do valor — só aparece quando não é "só assinatura"
+                              (tem cupom e/ou pendência quitada junto), pra dar pra auditar
+                              a diferença entre o total e o desconto/pendência aplicados. */}
+                              {(r.coupon_code || r.pendencies.length > 0) && (
+                                <div className="mt-1 space-y-0.5 finance-value">
+                                  {r.coupon_code && (
+                                    <div className="text-[10px] text-emerald-500 leading-tight">
+                                      Cupom: {r.coupon_code} (-
+                                      {fmtMoney(
+                                        r.coupon_discount_amount || 0,
+                                        r.price_currency,
+                                      )}
+                                      )
+                                    </div>
+                                  )}
+                                  {r.pendencies.map((p, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="text-[10px] text-amber-500 leading-tight max-w-[220px] truncate mx-auto"
+                                      title={p.label}
+                                    >
+                                      {p.label} (
+                                      {fmtMoney(p.amount, r.price_currency)})
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Ações */}
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                {isManualPending && (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        r.payment_type === "app_renewal" &&
+                                        r.client_app_id
+                                          ? setAppRenewalState({
+                                              logId: r.id,
+                                              clientAppId: r.client_app_id,
+                                            })
+                                          : setRenewState({
+                                              logId: r.id,
+                                              clientId: r.client_id,
+                                              clientName: r.client_name,
+                                              wasAwaitingTransfer: false,
+                                            })
+                                      }
+                                      className="gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
+                                      title="Abrir painel de renovação"
+                                    >
+                                      <IconCheckCircle /> Concluir
+                                    </button>
+                                    <button
+                                      onClick={() => handleCancelarAcao(r)}
+                                      className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
+                                      title="Encerrar esta pendência sem renovar"
+                                    >
+                                      <IconX />
+                                    </button>
+                                  </>
+                                )}
+
+                                {/* ✅ NOVO: Aguardando transferência bancária */}
+                                {isAwaitingTransfer && (
+                                  <>
+                                    <button
+                                      onClick={() =>
+                                        handleConfirmarTransferencia(r)
+                                      }
+                                      className="gap-1 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
+                                      title="Confirmar recebimento e renovar"
+                                    >
+                                      <IconCheckCircle /> Confirmar
+                                    </button>
+                                    <button
+                                      onClick={() => handleCancelarAcao(r)}
+                                      className="gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-rose-500/20 shadow-sm flex items-center justify-center gap-1"
+                                      title="Cancelar — cliente não transferiu"
+                                    >
+                                      <IconX />
+                                    </button>
+                                  </>
+                                )}
+
+                                {/* ✅ NOVO: pagamento aprovado sem fulfillment concluído há mais
+                                de 10min — tenta rodar a renovação de novo na hora. */}
+                                {isStuck && (
+                                  <button
+                                    onClick={() => handleReprocessar(r)}
+                                    disabled={reprocessingId === r.id}
+                                    className="gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-amber-500/30 shadow-sm flex items-center justify-center gap-1 disabled:opacity-50"
+                                    title="Tentar concluir a renovação automática de novo"
+                                  >
+                                    <span
+                                      className={
+                                        reprocessingId === r.id
+                                          ? "animate-spin"
+                                          : ""
+                                      }
+                                    >
+                                      <IconRefresh />
+                                    </span>{" "}
+                                    {reprocessingId === r.id
+                                      ? "Reprocessando..."
+                                      : "Reprocessar"}
+                                  </button>
+                                )}
+
+                                {/* ✅ NOVO: Botão direto para reenviar o comprovante de WhatsApp */}
+                                {isWhatsappError && (
+                                  <>
+                                    <button
+                                      onClick={() => handleReenviarWhatsapp(r)}
+                                      className="gap-1 px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-sky-500/30 shadow-sm flex items-center justify-center gap-1"
+                                      title="Reenviar comprovante via WhatsApp"
+                                    >
+                                      💬 Reenviar Zap
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleResolverWhatsappManual(r)
+                                      }
+                                      className="gap-1 px-3 py-1.5 bg-muted/40 hover:bg-muted text-muted-foreground text-[10px] font-medium uppercase rounded-lg transition-colors border border-border shadow-sm flex items-center justify-center gap-1"
+                                      title="Marcar como resolvido manualmente (sem tentar reenviar)"
+                                    >
+                                      <IconCheckCircle /> Resolvido
+                                    </button>
+                                  </>
+                                )}
+
+                                {!canShowAction && (
+                                  <span className="text-muted-foreground/60 text-xs font-medium">
+                                    —
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <Pagination
+                page={safePage}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                pageSize={pageSize}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+                pageSizeOptions={[25, 50, 100, 200]}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* ✅ Renderiza o Modal de Recarga ao clicar em Concluir */}
@@ -1717,35 +1823,39 @@ if (paymentStatus !== "approved" && paymentStatus !== "PAGO" && paymentStatus !=
             toastKey="auditoria_list_toasts"
             onClose={() => setRenewState(null)}
             onSuccess={async (returnedLogId) => {
-  if (!returnedLogId) return;
-  try {
-    const { error } = await supabaseBrowser.rpc(
-      "update_fulfillment_status",
-      {
-        p_log_id: returnedLogId,
-        p_tenant_id: tenantId,
-        p_status: "manual_done",
-      },
-    );
-    if (error) throw error;
+              if (!returnedLogId) return;
+              try {
+                const { error } = await supabaseBrowser.rpc(
+                  "update_fulfillment_status",
+                  {
+                    p_log_id: returnedLogId,
+                    p_tenant_id: tenantId,
+                    p_status: "manual_done",
+                  },
+                );
+                if (error) throw error;
 
-    // 2. Só marca o pagamento como "aprovado manualmente" se o pagamento em si
-    // era manual (transferência aguardando confirmação bancária). Se o pagamento
-    // já foi confirmado automaticamente pelo gateway (MP/Stripe) e só faltava
-    // a renovação manual no servidor (ex: Elite), o status do pagamento
-    // NÃO deve ser tocado — ele já está correto como "approved".
-    if (renewState?.wasAwaitingTransfer) {
-      await supabaseBrowser.rpc("approve_manual_payment", {
-        p_log_id: returnedLogId,
-        p_tenant_id: tenantId,
-      });
-    }
+                // 2. Só marca o pagamento como "aprovado manualmente" se o pagamento em si
+                // era manual (transferência aguardando confirmação bancária). Se o pagamento
+                // já foi confirmado automaticamente pelo gateway (MP/Stripe) e só faltava
+                // a renovação manual no servidor (ex: Elite), o status do pagamento
+                // NÃO deve ser tocado — ele já está correto como "approved".
+                if (renewState?.wasAwaitingTransfer) {
+                  await supabaseBrowser.rpc("approve_manual_payment", {
+                    p_log_id: returnedLogId,
+                    p_tenant_id: tenantId,
+                  });
+                }
 
-    addToast("success", "Auditoria Atualizada", "Renovação confirmada na Auditoria!");
-    setRenewState(null);
-    loadData();
-  } catch {}
-}}
+                addToast(
+                  "success",
+                  "Auditoria Atualizada",
+                  "Renovação confirmada na Auditoria!",
+                );
+                setRenewState(null);
+                loadData();
+              } catch {}
+            }}
           />
         </>
       )}

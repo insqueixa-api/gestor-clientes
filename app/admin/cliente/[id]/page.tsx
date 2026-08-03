@@ -1,11 +1,19 @@
 "use client";
 // app/admin/cliente/[id]/page.tsx
-import { Loader2, CreditCard, Pencil, RefreshCcw, EyeOff, Eye, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  CreditCard,
+  Pencil,
+  RefreshCcw,
+  EyeOff,
+  Eye,
+  Trash2,
+} from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -53,13 +61,10 @@ function tableLabelFromClient(
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    ACTIVE:
-      "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-    OVERDUE:
-      "bg-rose-500/10 text-rose-500 border-rose-500/20",
+    ACTIVE: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+    OVERDUE: "bg-rose-500/10 text-rose-500 border-rose-500/20",
     TRIAL: "bg-sky-500/10 text-sky-500 border-sky-500/20",
-    ARCHIVED:
-      "bg-muted text-muted-foreground border-border",
+    ARCHIVED: "bg-muted text-muted-foreground border-border",
   };
   const labelMap: Record<string, string> = {
     ACTIVE: "Ativo",
@@ -96,7 +101,11 @@ function fmtDate(d: string) {
   return (
     dt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) +
     " " +
-    dt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })
+    dt.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    })
   );
 }
 
@@ -210,29 +219,27 @@ type TimelineItem = {
 };
 
 export default function ClientDetailsPage() {
+  const resolvedTenantId = useTenantId();
   const params = useParams();
   const { confirm, ConfirmUI } = useConfirm(); // ✅ ADICIONADO ConfirmUI
 
   // ✅ aceita /[id] ou /[client_id] ou /[clientId] ou /[clienteId]
   const p = params as any;
   const clientIdRaw = (p?.id ?? p?.client_id ?? p?.clientId ?? p?.clienteId) as
-    | string
-    | string[]
-    | undefined;
+    string | string[] | undefined;
 
   const clientId = Array.isArray(clientIdRaw) ? clientIdRaw[0] : clientIdRaw;
   const clientIdSafe = (clientId ?? "").trim();
 
-const [valuesHidden, setValuesHidden] = useState(false);
-  const [expandedAppIcon, setExpandedAppIcon] = useState<{ url: string; name: string } | null>(null);
+  const [valuesHidden, setValuesHidden] = useState(false);
+  const [expandedAppIcon, setExpandedAppIcon] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
-  const [tenantId, setTenantId] = useState<string | null>(null);
-
-  useEffect(() => {
-    getCurrentTenantId().then(setTenantId);
-  }, []);
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
@@ -269,7 +276,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
 
     setDeletingEventId(item.id);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
       const { error } = await supabaseBrowser
@@ -320,7 +327,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
 
     setLoading(true);
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) {
         setClient(null);
         setTimeline([]);
@@ -589,7 +596,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
     if (!ok) return;
 
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
       // ⚠️ IMPORTANTE: só adicione p_created_by SE a assinatura do RPC pedir (confirme no SQL)
@@ -639,7 +646,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
     if (!ok) return;
 
     try {
-      const tid = await getCurrentTenantId(); // ✅ Puxa o ID na hora, como no handleArchiveToggle
+      const tid = tenantId; // ✅ Puxa o ID na hora, como no handleArchiveToggle
       if (!tid) throw new Error("Tenant não encontrado");
 
       const { error } = await supabaseBrowser.rpc("delete_client_forever", {
@@ -690,7 +697,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
 
   if (loading)
     return (
-<div className="p-10 text-center text-muted-foreground/60 animate-pulse font-medium">
+      <div className="p-10 text-center text-muted-foreground/60 animate-pulse font-medium">
         Carregando...
       </div>
     );
@@ -727,11 +734,15 @@ const [valuesHidden, setValuesHidden] = useState(false);
               />
             )}
             <button
-              onClick={() => setValuesHidden(v => !v)}
+              onClick={() => setValuesHidden((v) => !v)}
               title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
             >
-              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {valuesHidden ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
               <span className="hidden sm:inline text-[11px] tracking-wide">
                 {valuesHidden ? "Exibir" : "Ocultar"}
               </span>
@@ -767,7 +778,7 @@ const [valuesHidden, setValuesHidden] = useState(false);
           {/* Botão Arquivar (Icone no Mobile, Texto no Desktop) */}
           <button
             onClick={handleArchiveToggle}
-className={`h-9 sm:h-9 px-3 rounded-lg border font-medium text-xs transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
+            className={`h-9 sm:h-9 px-3 rounded-lg border font-medium text-xs transition-all shadow-sm inline-flex items-center justify-center gap-2 ${
               client.client_is_archived
                 ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20"
                 : "bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20"
@@ -818,7 +829,7 @@ className={`h-9 sm:h-9 px-3 rounded-lg border font-medium text-xs transition-all
               setTimeout(() => setIsEditingLoading(false), 5000);
             }}
             disabled={isEditingLoading}
-className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 font-medium text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
+            className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 font-medium text-xs hover:bg-amber-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2"
             title="Editar"
           >
             {isEditingLoading ? <IconLoading /> : <IconEdit />}
@@ -833,7 +844,7 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20
               setTimeout(() => setIsTrialLoading(false), 5000);
             }}
             disabled={client.client_is_archived || isTrialLoading}
-className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 font-medium text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
+            className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 font-medium text-xs hover:bg-sky-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
             title="Criar teste rápido com os dados deste cliente"
           >
             {isTrialLoading ? <IconLoading /> : <IconFastTimer />}
@@ -862,7 +873,7 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
         <div className="space-y-4">
           {/* 1. CARD ASSINATURA ATUAL */}
           <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-<h3 className="text-[10px] font-medium text-foreground/80 uppercase mb-3 tracking-widest">
+            <h3 className="text-[10px] font-medium text-foreground/80 uppercase mb-3 tracking-widest">
               Assinatura atual
             </h3>
 
@@ -884,13 +895,16 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                 {(() => {
                   const tech = client.technology || "";
                   const t = tech.toUpperCase();
-                  const colors = t === "IPTV" 
-                    ? "bg-sky-500/10 text-sky-500 border-sky-500/20" 
-                    : t === "P2P" 
-                    ? "bg-rose-500/10 text-rose-500 border-rose-500/20" 
-                    : "bg-muted text-muted-foreground border-border";
+                  const colors =
+                    t === "IPTV"
+                      ? "bg-sky-500/10 text-sky-500 border-sky-500/20"
+                      : t === "P2P"
+                        ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                        : "bg-muted text-muted-foreground border-border";
                   return (
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}
+                    >
                       {client.technology || "—"}
                     </span>
                   );
@@ -926,7 +940,10 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                               <button
                                 type="button"
                                 onClick={() =>
-                                  setExpandedAppIcon({ url: app.icon_url, name: app.name })
+                                  setExpandedAppIcon({
+                                    url: app.icon_url,
+                                    name: app.name,
+                                  })
                                 }
                                 className="shrink-0 rounded overflow-hidden active:scale-95 transition-transform"
                                 title={`Ampliar ícone: ${app.name}`}
@@ -958,7 +975,7 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
               {/* DIVISOR FINANCEIRO (Com margem ajustada) */}
               <div className="pt-3 pb-1">
                 <div className="border-t border-border mb-3"></div>
-<div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">
+                <div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">
                   Financeiro
                 </div>
               </div>
@@ -974,28 +991,24 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">
-                  Plano
-                </span>
-<span className="font-medium text-emerald-500 tracking-tight">
+                <span className="text-muted-foreground font-medium">Plano</span>
+                <span className="font-medium text-emerald-500 tracking-tight">
                   {extractPeriod(client.plan_name)}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">
-                  Telas
-                </span>
+                <span className="text-muted-foreground font-medium">Telas</span>
                 <span className="font-medium text-foreground">
                   {client.screens}
                 </span>
               </div>
 
               <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">
-                  Valor
-                </span>
-<span className={`font-medium text-foreground bg-transparent px-2 py-0.5 rounded-md transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                <span className="text-muted-foreground font-medium">Valor</span>
+                <span
+                  className={`font-medium text-foreground bg-transparent px-2 py-0.5 rounded-md transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                >
                   {fmtMoney(client.price_amount, client.price_currency)}
                 </span>
               </div>
@@ -1006,7 +1019,9 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                   <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
                     Vencimento
                   </span>
-                  <div className={`text-right font-medium text-base transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${client.computed_status === "OVERDUE" ? "text-rose-500" : client.computed_status === "ACTIVE" ? "text-emerald-500" : "text-muted-foreground"}`}>
+                  <div
+                    className={`text-right font-medium text-base transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${client.computed_status === "OVERDUE" ? "text-rose-500" : client.computed_status === "ACTIVE" ? "text-emerald-500" : "text-muted-foreground"}`}
+                  >
                     {client.vencimento ? fmtDateTime(client.vencimento) : "—"}
                   </div>
                 </div>
@@ -1016,7 +1031,7 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
 
           {/* 2. CARD CONTATOS E OBSERVAÇÕES */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-<h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-4 tracking-widest">
+            <h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-4 tracking-widest">
               Contatos e observações
             </h3>
 
@@ -1027,7 +1042,9 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                 </span>
                 <span className="font-medium text-foreground text-right">
                   {client.created_at
-                    ? new Date(client.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })
+                    ? new Date(client.created_at).toLocaleDateString("pt-BR", {
+                        timeZone: "America/Sao_Paulo",
+                      })
                     : "—"}
                 </span>
               </div>
@@ -1045,7 +1062,9 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                 <span className="text-muted-foreground font-medium">
                   Telefone Principal
                 </span>
-<span className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                <span
+                  className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                >
                   {formatPhoneDisplay(client.whatsapp_e164)}
                 </span>
               </div>
@@ -1055,13 +1074,15 @@ className="h-9 sm:h-9 px-3 rounded-lg bg-sky-500/10 border border-sky-500/20 tex
                 <span className="text-muted-foreground font-medium">
                   WhatsApp Principal
                 </span>
-                <span className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}>
+                <span
+                  className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                >
                   {client.whatsapp_username ? (
                     <a
                       href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noreferrer"
-className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
+                      className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
                     >
                       <IconWhatsapp />@{client.whatsapp_username}
                     </a>
@@ -1174,7 +1195,7 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
 
         {/* COLUNA DIREITA (TIMELINE) */}
         <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
-<h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-6 tracking-widest flex items-center gap-2">
+          <h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-6 tracking-widest flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Linha do tempo
           </h3>
@@ -1190,20 +1211,22 @@ className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:u
                   key={idx}
                   className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-border last:border-0 group"
                 >
-<div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-card bg-muted"></div>
+                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-card bg-muted"></div>
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50 p-2 rounded-xl border border-transparent hover:border-border transition-all">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-foreground tracking-tight">
                         {EVENT_LABELS[item.event_type] ?? item.event_type}
                       </div>
-<div className={`text-xs text-muted-foreground mt-1.5 leading-relaxed transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
+                      <div
+                        className={`text-xs text-muted-foreground mt-1.5 leading-relaxed transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                      >
                         {item.message ||
                           (item.meta ? JSON.stringify(item.meta) : "")}
                       </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">
-<div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm">
+                      <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm">
                         {fmtDate(item.created_at)}
                       </div>
                       <button

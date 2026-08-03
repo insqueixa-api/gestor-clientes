@@ -4,11 +4,9 @@ import { Pencil, RefreshCcw, Trash2 } from "lucide-react";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import NovaIntegracaoModal from "./nova_integracao_modal";
 import AppIntegracaoModal from "./app_integracao_modal";
@@ -45,6 +43,7 @@ type AppIntegration = {
 };
 
 export default function ApiServerPage() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -67,12 +66,8 @@ export default function ApiServerPage() {
   // 7 apps com logos diferentes), a integração usa a própria
   // `app_integrations.icon_url` (upload manual, ver handleAppIconUpload).
   const [appIconMap, setAppIconMap] = useState<Map<string, string>>(new Map());
-  const [uploadingIconFor, setUploadingIconFor] = useState<string | null>(
-    null,
-  );
-  const appIconFileInputs = useRef<Record<string, HTMLInputElement | null>>(
-    {},
-  );
+  const [uploadingIconFor, setUploadingIconFor] = useState<string | null>(null);
+  const appIconFileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -94,7 +89,6 @@ export default function ApiServerPage() {
   async function fetchData() {
     try {
       setLoading(true);
-      const tenantId = await getCurrentTenantId();
 
       if (!tenantId) {
         setLoading(false);
@@ -137,7 +131,11 @@ export default function ApiServerPage() {
       // Servidor → logo (1ª ocorrência não-nula por integration_id)
       const srvLogoMap = new Map<string, string>();
       (serversLogoRes.data || []).forEach((s: any) => {
-        if (s.panel_integration && s.logo_url && !srvLogoMap.has(s.panel_integration)) {
+        if (
+          s.panel_integration &&
+          s.logo_url &&
+          !srvLogoMap.has(s.panel_integration)
+        ) {
           srvLogoMap.set(s.panel_integration, s.logo_url);
         }
       });
@@ -151,7 +149,9 @@ export default function ApiServerPage() {
       const iconsByHandler = new Map<string, Set<string>>();
       const missingIconByHandler = new Set<string>();
       (appsIconRes.data || []).forEach((a: any) => {
-        const key = String(a.integration_type || "").trim().toUpperCase();
+        const key = String(a.integration_type || "")
+          .trim()
+          .toUpperCase();
         if (!key) return;
         if (!iconsByHandler.has(key)) iconsByHandler.set(key, new Set());
         if (a.icon_url) iconsByHandler.get(key)!.add(a.icon_url);
@@ -382,7 +382,11 @@ export default function ApiServerPage() {
       addToast("success", "Logo salva", "Ícone atualizado com sucesso.");
       fetchData();
     } catch (e: any) {
-      addToast("error", "Erro no upload", e?.message ?? "Falha ao enviar a imagem.");
+      addToast(
+        "error",
+        "Erro no upload",
+        e?.message ?? "Falha ao enviar a imagem.",
+      );
     } finally {
       setUploadingIconFor(null);
     }
@@ -501,7 +505,7 @@ export default function ApiServerPage() {
 
       {activeTab === "servidores" && (
         <>
-{!loading && integrations.length === 0 && (
+          {!loading && integrations.length === 0 && (
             <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
               Nenhuma integração de servidor cadastrada.
             </div>
@@ -534,7 +538,7 @@ export default function ApiServerPage() {
                           {row.integration_name}
                         </h2>
 
-<span className="inline-flex items-center text-[10px] font-medium bg-sky-500/10 text-sky-500 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        <span className="inline-flex items-center text-[10px] font-medium bg-sky-500/10 text-sky-500 border border-sky-500/20 px-2.5 py-0.5 rounded-full uppercase">
                           {providerLabel(row.provider)}
                         </span>
 
@@ -683,7 +687,9 @@ export default function ApiServerPage() {
                     <div className="flex items-center gap-2 min-w-0 pr-3">
                       {(() => {
                         const catalogIcon = appIconMap.get(
-                          String(row.app_name || "").trim().toUpperCase(),
+                          String(row.app_name || "")
+                            .trim()
+                            .toUpperCase(),
                         );
                         if (catalogIcon) {
                           return (
@@ -751,7 +757,7 @@ export default function ApiServerPage() {
                       <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
                         {row.label}
                       </h2>
-<span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
                         {appLabel(row.app_name)}
                       </span>
                       {!row.is_active && (
@@ -837,9 +843,7 @@ export default function ApiServerPage() {
                     )}
                     {row.login_email && (
                       <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">
-                          📧 Login
-                        </span>
+                        <span className="text-muted-foreground">📧 Login</span>
                         <span className="font-medium text-foreground/90">
                           {row.login_email}
                         </span>

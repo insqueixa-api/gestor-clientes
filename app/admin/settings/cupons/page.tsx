@@ -5,11 +5,9 @@ import { createPortal } from "react-dom";
 
 import { useEffect, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import ToastNotifications, {
-  ToastMessage,
-} from "@/hooks/ToastNotifications";
+import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import CupomModal, { CouponEditPayload } from "./cupom_modal";
 import { computeCouponImpact, ImpactResult } from "./impact_preview";
@@ -45,32 +43,48 @@ function fmtMoney(value: number) {
 }
 
 /** Apaga o resgate (coupon_redemptions só aceita escrita via service_role, por isso passa pela API). */
-async function resetCouponRedemption(tenantId: string, redemptionId: string): Promise<{ ok: boolean; error?: string }> {
+async function resetCouponRedemption(
+  tenantId: string,
+  redemptionId: string,
+): Promise<{ ok: boolean; error?: string }> {
   const { data: session } = await supabaseBrowser.auth.getSession();
   const token = session.session?.access_token;
   const res = await fetch("/api/admin/coupons/reset-redemption", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
     body: JSON.stringify({ tenant_id: tenantId, redemption_id: redemptionId }),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json?.ok) return { ok: false, error: json?.error || "Falha ao resetar." };
+  if (!res.ok || !json?.ok)
+    return { ok: false, error: json?.error || "Falha ao resetar." };
   return { ok: true };
 }
 
 export default function CuponsPage() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [coupons, setCoupons] = useState<CouponRow[]>([]);
-  const [redemptionCounts, setRedemptionCounts] = useState<Record<string, number>>({});
+  const [redemptionCounts, setRedemptionCounts] = useState<
+    Record<string, number>
+  >({});
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingCoupon, setEditingCoupon] = useState<CouponEditPayload | null>(null);
+  const [editingCoupon, setEditingCoupon] = useState<CouponEditPayload | null>(
+    null,
+  );
   const [impactCoupon, setImpactCoupon] = useState<CouponRow | null>(null);
   const [usageCoupon, setUsageCoupon] = useState<CouponRow | null>(null);
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  function addToast(type: "success" | "error", title: string, message?: string) {
+  function addToast(
+    type: "success" | "error",
+    title: string,
+    message?: string,
+  ) {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, type, title, message }]);
     setTimeout(() => removeToast(id), 5000);
@@ -83,7 +97,6 @@ export default function CuponsPage() {
   async function fetchData() {
     try {
       setLoading(true);
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) {
         setLoading(false);
         return;
@@ -105,12 +118,17 @@ export default function CuponsPage() {
       setCoupons((couponsRes.data as CouponRow[]) || []);
 
       const counts: Record<string, number> = {};
-      for (const row of (redemptionsRes.data as { coupon_id: string }[]) || []) {
+      for (const row of (redemptionsRes.data as { coupon_id: string }[]) ||
+        []) {
         counts[row.coupon_id] = (counts[row.coupon_id] || 0) + 1;
       }
       setRedemptionCounts(counts);
     } catch (e: any) {
-      addToast("error", "Erro ao carregar", e?.message ?? "Falha ao carregar cupons.");
+      addToast(
+        "error",
+        "Erro ao carregar",
+        e?.message ?? "Falha ao carregar cupons.",
+      );
     } finally {
       setLoading(false);
     }
@@ -150,11 +168,18 @@ export default function CuponsPage() {
   function ruleSummary(row: CouponRow): string {
     if (row.client_id) return "Cupom pessoal";
     const parts: string[] = [];
-    if (row.target_status?.length) parts.push(`Status (${row.target_status.length})`);
-    if (row.target_server_ids?.length) parts.push(`Servidor (${row.target_server_ids.length})`);
-    if (row.target_plan_labels?.length) parts.push(`Plano (${row.target_plan_labels.length})`);
-    if (row.target_app_names?.length) parts.push(`App (${row.target_app_names.length})`);
-    if (row.rule_date_field) parts.push(row.rule_date_field === "vencimento" ? "Vencimento" : "Cadastro");
+    if (row.target_status?.length)
+      parts.push(`Status (${row.target_status.length})`);
+    if (row.target_server_ids?.length)
+      parts.push(`Servidor (${row.target_server_ids.length})`);
+    if (row.target_plan_labels?.length)
+      parts.push(`Plano (${row.target_plan_labels.length})`);
+    if (row.target_app_names?.length)
+      parts.push(`App (${row.target_app_names.length})`);
+    if (row.rule_date_field)
+      parts.push(
+        row.rule_date_field === "vencimento" ? "Vencimento" : "Cadastro",
+      );
     return parts.length ? parts.join(" · ") : "Sem restrição";
   }
 
@@ -187,12 +212,19 @@ export default function CuponsPage() {
     if (!ok) return;
 
     try {
-      const { error } = await supabaseBrowser.from("coupons").delete().eq("id", row.id);
+      const { error } = await supabaseBrowser
+        .from("coupons")
+        .delete()
+        .eq("id", row.id);
       if (error) throw error;
       addToast("success", "Removido", "Cupom removido com sucesso.");
       fetchData();
     } catch (e: any) {
-      addToast("error", "Erro ao remover", e?.message ?? "Falha ao remover cupom.");
+      addToast(
+        "error",
+        "Erro ao remover",
+        e?.message ?? "Falha ao remover cupom.",
+      );
     }
   }
 
@@ -276,7 +308,10 @@ export default function CuponsPage() {
                       )}
                     </div>
                     {row.description && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate" title={row.description}>
+                      <p
+                        className="text-xs text-muted-foreground mt-1 truncate"
+                        title={row.description}
+                      >
                         {row.description}
                       </p>
                     )}
@@ -303,7 +338,11 @@ export default function CuponsPage() {
                         handleToggleActive(row);
                       }}
                     >
-                      {row.is_active ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                      {row.is_active ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
                     </IconActionBtn>
 
                     <IconActionBtn
@@ -404,11 +443,17 @@ export default function CuponsPage() {
       )}
 
       {impactCoupon && (
-        <ImpactListModal coupon={impactCoupon} onClose={() => setImpactCoupon(null)} />
+        <ImpactListModal
+          coupon={impactCoupon}
+          onClose={() => setImpactCoupon(null)}
+        />
       )}
 
       {usageCoupon && (
-        <UsageLogModal coupon={usageCoupon} onClose={() => setUsageCoupon(null)} />
+        <UsageLogModal
+          coupon={usageCoupon}
+          onClose={() => setUsageCoupon(null)}
+        />
       )}
 
       {ConfirmUI}
@@ -435,9 +480,12 @@ function IconActionBtn({
 }) {
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
-    green: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
-    amber: "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
-    purple: "text-purple-500 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
+    green:
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    amber:
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
+    purple:
+      "text-purple-500 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20",
     red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
 
@@ -457,14 +505,23 @@ function IconActionBtn({
 }
 
 /** Prévia de impacto direto na listagem — usa as regras já SALVAS do cupom (sem precisar abrir o modal de edição). */
-function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => void }) {
+function ImpactListModal({
+  coupon,
+  onClose,
+}: {
+  coupon: CouponRow;
+  onClose: () => void;
+}) {
+  const tenantId = useTenantId();
   const { confirm, ConfirmUI } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<ImpactResult | null>(null);
   const [usedRows, setUsedRows] = useState<RedemptionRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "eligible" | "used">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "eligible" | "used">(
+    "all",
+  );
   const [resettingId, setResettingId] = useState<string | null>(null);
 
   async function handleReset(row: RedemptionRow) {
@@ -479,7 +536,6 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
 
     setResettingId(row.id);
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Tenant não encontrado.");
       const result = await resetCouponRedemption(tenantId, row.id);
       if (!result.ok) throw new Error(result.error);
@@ -495,7 +551,6 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
     let alive = true;
     (async () => {
       try {
-        const tenantId = await getCurrentTenantId();
         if (!tenantId) throw new Error("Tenant não encontrado.");
         const [r, redemptions] = await Promise.all([
           computeCouponImpact({
@@ -513,7 +568,9 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
           }),
           supabaseBrowser
             .from("coupon_redemptions")
-            .select("id, discount_amount, currency, created_at, clients(display_name, username:server_username)")
+            .select(
+              "id, discount_amount, currency, created_at, clients(display_name, username:server_username)",
+            )
             .eq("coupon_id", coupon.id)
             .order("created_at", { ascending: false }),
         ]);
@@ -547,7 +604,9 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
         (g) =>
           g.name.toLowerCase().includes(term) ||
           g.accounts.some(
-            (a) => a.username.toLowerCase().includes(term) || a.serverName.toLowerCase().includes(term),
+            (a) =>
+              a.username.toLowerCase().includes(term) ||
+              a.serverName.toLowerCase().includes(term),
           ),
       );
 
@@ -559,8 +618,12 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
       <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
         <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
           <div className="min-w-0">
-            <h3 className="text-base font-medium text-foreground">Clientes impactados</h3>
-            <p className="text-xs text-muted-foreground font-mono">{coupon.code}</p>
+            <h3 className="text-base font-medium text-foreground">
+              Clientes impactados
+            </h3>
+            <p className="text-xs text-muted-foreground font-mono">
+              {coupon.code}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -581,8 +644,14 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
             <div className="flex gap-1 p-1 bg-muted/50 border border-border rounded-lg w-fit">
               {(
                 [
-                  { id: "all", label: `Todos (${result.totalClients + usedRows.length})` },
-                  { id: "eligible", label: `Não usado (${result.totalClients})` },
+                  {
+                    id: "all",
+                    label: `Todos (${result.totalClients + usedRows.length})`,
+                  },
+                  {
+                    id: "eligible",
+                    label: `Não usado (${result.totalClients})`,
+                  },
                   { id: "used", label: `Usado (${usedRows.length})` },
                 ] as const
               ).map((opt) => (
@@ -604,37 +673,52 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
         )}
 
         <div className="flex-1 overflow-y-auto p-4">
-          {loading && <div className="text-center text-muted-foreground text-sm py-8">Calculando...</div>}
+          {loading && (
+            <div className="text-center text-muted-foreground text-sm py-8">
+              Calculando...
+            </div>
+          )}
           {error && <p className="text-rose-500 text-sm">{error}</p>}
 
           {result && (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm bg-muted/50 rounded-lg px-3 py-2.5">
                 <span className="text-muted-foreground">
-                  {result.totalClients} cliente(s) elegível(is) — estimativa em BRL
+                  {result.totalClients} cliente(s) elegível(is) — estimativa em
+                  BRL
                   {usedRows.length > 0 && ` · ${usedRows.length} já usaram`}
                 </span>
                 <span className="font-medium text-foreground/90">
                   {fmtMoney(result.totalNormal)} →{" "}
-                  <span className="text-emerald-500">{fmtMoney(result.totalDiscounted)}</span>
+                  <span className="text-emerald-500">
+                    {fmtMoney(result.totalDiscounted)}
+                  </span>
                 </span>
               </div>
 
               {filteredUsed.length === 0 && filteredGroups.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">
-                  {term ? "Nenhum cliente encontrado." : "Nenhum cliente elegível hoje."}
+                  {term
+                    ? "Nenhum cliente encontrado."
+                    : "Nenhum cliente elegível hoje."}
                 </p>
               ) : (
                 <div className="rounded-lg border border-border divide-y divide-border">
                   {filteredUsed.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between gap-2 px-3 py-2 text-xs"
+                    >
                       <span className="text-foreground/90 truncate">
                         {r.clients?.display_name || "—"}{" "}
-                        <span className="text-muted-foreground">({r.clients?.username || "—"})</span>
+                        <span className="text-muted-foreground">
+                          ({r.clients?.username || "—"})
+                        </span>
                       </span>
                       <span className="flex items-center gap-1.5 shrink-0">
                         <span className="inline-flex items-center text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
-                          ✅ Usado {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                          ✅ Usado{" "}
+                          {new Date(r.created_at).toLocaleDateString("pt-BR")}
                         </span>
                         <button
                           type="button"
@@ -650,9 +734,15 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                   ))}
                   {filteredGroups.map((g) =>
                     g.accounts.length === 1 ? (
-                      <div key={g.key} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                      <div
+                        key={g.key}
+                        className="flex items-center justify-between gap-2 px-3 py-2 text-xs"
+                      >
                         <span className="text-foreground/90 truncate">
-                          {g.name} <span className="text-muted-foreground">({g.accounts[0].username})</span>
+                          {g.name}{" "}
+                          <span className="text-muted-foreground">
+                            ({g.accounts[0].username})
+                          </span>
                         </span>
                         <span className="flex items-center gap-1.5 shrink-0">
                           <span className="text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full whitespace-nowrap">
@@ -660,12 +750,17 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                           </span>
                           <span className="text-muted-foreground whitespace-nowrap">
                             {fmtMoney(g.accounts[0].normalPrice!)} →{" "}
-                            <span className="text-emerald-500">{fmtMoney(g.accounts[0].discountedPrice!)}</span>
+                            <span className="text-emerald-500">
+                              {fmtMoney(g.accounts[0].discountedPrice!)}
+                            </span>
                           </span>
                         </span>
                       </div>
                     ) : (
-                      <div key={g.key} className="px-3 py-2 text-xs space-y-1.5">
+                      <div
+                        key={g.key}
+                        className="px-3 py-2 text-xs space-y-1.5"
+                      >
                         <div className="font-medium text-foreground/90">
                           {g.name}{" "}
                           <span className="text-muted-foreground font-normal">
@@ -674,7 +769,10 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                         </div>
                         <div className="pl-3 space-y-1">
                           {g.accounts.map((a) => (
-                            <div key={a.id} className="flex items-center justify-between gap-2">
+                            <div
+                              key={a.id}
+                              className="flex items-center justify-between gap-2"
+                            >
                               <span className="text-muted-foreground truncate">
                                 {a.username} ({a.serverName})
                               </span>
@@ -685,7 +783,9 @@ function ImpactListModal({ coupon, onClose }: { coupon: CouponRow; onClose: () =
                                   </span>
                                   <span className="text-muted-foreground whitespace-nowrap">
                                     {fmtMoney(a.normalPrice!)} →{" "}
-                                    <span className="text-emerald-500">{fmtMoney(a.discountedPrice!)}</span>
+                                    <span className="text-emerald-500">
+                                      {fmtMoney(a.discountedPrice!)}
+                                    </span>
                                   </span>
                                 </span>
                               ) : (
@@ -720,7 +820,14 @@ type RedemptionRow = {
 };
 
 /** Log de uso do cupom (coupon_redemptions). */
-function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => void }) {
+function UsageLogModal({
+  coupon,
+  onClose,
+}: {
+  coupon: CouponRow;
+  onClose: () => void;
+}) {
+  const tenantId = useTenantId();
   const { confirm, ConfirmUI } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<RedemptionRow[]>([]);
@@ -738,7 +845,6 @@ function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => 
 
     setResettingId(row.id);
     try {
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Tenant não encontrado.");
       const result = await resetCouponRedemption(tenantId, row.id);
       if (!result.ok) throw new Error(result.error);
@@ -755,7 +861,9 @@ function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => 
     (async () => {
       const { data } = await supabaseBrowser
         .from("coupon_redemptions")
-        .select("id, discount_amount, currency, created_at, clients(display_name, username:server_username)")
+        .select(
+          "id, discount_amount, currency, created_at, clients(display_name, username:server_username)",
+        )
         .eq("coupon_id", coupon.id)
         .order("created_at", { ascending: false });
       if (!alive) return;
@@ -774,8 +882,12 @@ function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => 
       <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
         <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
           <div className="min-w-0">
-            <h3 className="text-base font-medium text-foreground">Log de uso</h3>
-            <p className="text-xs text-muted-foreground font-mono">{coupon.code}</p>
+            <h3 className="text-base font-medium text-foreground">
+              Log de uso
+            </h3>
+            <p className="text-xs text-muted-foreground font-mono">
+              {coupon.code}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -786,7 +898,11 @@ function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => 
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {loading && <div className="text-center text-muted-foreground text-sm py-8">Carregando...</div>}
+          {loading && (
+            <div className="text-center text-muted-foreground text-sm py-8">
+              Carregando...
+            </div>
+          )}
           {!loading && rows.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">
               Nenhum uso registrado ainda.
@@ -795,14 +911,20 @@ function UsageLogModal({ coupon, onClose }: { coupon: CouponRow; onClose: () => 
           {!loading && rows.length > 0 && (
             <div className="rounded-lg border border-border divide-y divide-border">
               {rows.map((r) => (
-                <div key={r.id} className="flex items-center justify-between px-3 py-2 text-xs gap-2">
+                <div
+                  key={r.id}
+                  className="flex items-center justify-between px-3 py-2 text-xs gap-2"
+                >
                   <span className="text-foreground/90 truncate">
                     {r.clients?.display_name || "—"}{" "}
-                    <span className="text-muted-foreground">({r.clients?.username || "—"})</span>
+                    <span className="text-muted-foreground">
+                      ({r.clients?.username || "—"})
+                    </span>
                   </span>
                   <span className="flex items-center gap-1.5 shrink-0">
                     <span className="text-muted-foreground whitespace-nowrap">
-                      {new Date(r.created_at).toLocaleString("pt-BR")} · {fmtMoney(Number(r.discount_amount))}
+                      {new Date(r.created_at).toLocaleString("pt-BR")} ·{" "}
+                      {fmtMoney(Number(r.discount_amount))}
                     </span>
                     <button
                       type="button"

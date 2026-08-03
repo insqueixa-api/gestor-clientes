@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export type IntegrationProvider = "NATV" | "FAST" | "ELITE";
@@ -36,6 +36,7 @@ export default function NovaIntegracaoModal({
   onSuccess: () => void;
   onError: (msg: string) => void;
 }) {
+  const tenantId = useTenantId();
   const isEdit = !!integration?.id;
 
   const [provider, setProvider] = useState<IntegrationProvider>(
@@ -70,7 +71,7 @@ export default function NovaIntegracaoModal({
         setLoadingEdit(true);
 
         // 👇 INÍCIO DA BLINDAGEM: Garantir o Tenant ID
-        const tid = await getCurrentTenantId();
+        const tid = tenantId;
         if (!tid) throw new Error("Tenant não encontrado.");
 
         const { data, error } = await supabaseBrowser
@@ -109,7 +110,6 @@ export default function NovaIntegracaoModal({
     return () => {
       alive = false;
     };
-     
   }, [isEdit, integration?.id]);
 
   const canSave = useMemo(() => {
@@ -132,13 +132,9 @@ export default function NovaIntegracaoModal({
 
     try {
       setSaving(true);
-      const tenantId = await getCurrentTenantId();
       if (!tenantId) throw new Error("Tenant não encontrado.");
 
       if (!isEdit) {
-        const tenantId = await getCurrentTenantId();
-        if (!tenantId) throw new Error("Tenant não encontrado.");
-
         const payload: any = {
           tenant_id: tenantId,
           provider,

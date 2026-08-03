@@ -22,7 +22,7 @@ import {
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
 import { createPortal } from "react-dom";
-import { getCurrentTenantId } from "@/lib/tenant";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import {
@@ -326,6 +326,7 @@ function formatMoney(amount: number | null, currency: string | null) {
 }
 
 function ClientePageContent() {
+  const resolvedTenantId = useTenantId();
   const searchParams = useSearchParams();
   const router = useRouter();
   const entidadeLabel = "Cliente";
@@ -333,7 +334,7 @@ function ClientePageContent() {
   const [loading, setLoading] = useState(true);
   const loadingRef = useRef(false);
   const alertBellRefs = useRef<Map<string, ClientAlertBellHandle>>(new Map());
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
   const [sendingNow, setSendingNow] = useState(false);
   const sendNowAbortRef = useRef<AbortController | null>(null);
 
@@ -364,7 +365,7 @@ function ClientePageContent() {
 
   // Filtros
   const [search, setSearch] = useState("");
-const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<"Todos" | ClientStatus>(
     "Todos",
@@ -476,7 +477,6 @@ const [pageSize, setPageSize] = useState(50);
     clientName: undefined,
   });
 
-
   // Mensagem (Mantido conforme original)
   const [showSendNow, setShowSendNow] = useState<{
     open: boolean;
@@ -515,7 +515,7 @@ const [pageSize, setPageSize] = useState(50);
     image_url?: string | null;
     category?: string | null;
   }; // ✅ Busca a Categoria
-const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     [],
   );
   // ✅ NOVO: controla se já buscamos, pra não repetir toda vez que o modal abre
@@ -548,7 +548,11 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     if (!tenantId || !showSimulate.clientId) return;
     const msg = (simulateText || "").trim();
     if (!msg) {
-      addToast("error", "Mensagem vazia", "Escolha um template ou digite uma mensagem.");
+      addToast(
+        "error",
+        "Mensagem vazia",
+        "Escolha um template ou digite uma mensagem.",
+      );
       return;
     }
     try {
@@ -556,7 +560,10 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
       const token = await getToken();
       const res = await fetch("/api/whatsapp/envio_simulado", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         cache: "no-store",
         body: JSON.stringify({
           tenant_id: tenantId,
@@ -708,7 +715,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     setLoading(true);
 
     try {
-      const tid = await getCurrentTenantId();
+      const tid = tenantId;
       setTenantId(tid);
 
       if (!tid) {
@@ -1368,7 +1375,6 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     }
   };
 
-
   const handleSendMessage = async () => {
     if (!tenantId || !showSendNow.clientId) return;
     if (sendingNow) return; // ✅ trava double click
@@ -1623,7 +1629,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
         className="px-3 md:p-4 bg-transparent md:bg-card border-0 md:border md:border-border rounded-none md:rounded-xl shadow-none md:shadow-sm space-y-3 md:space-y-4 mb-6 md:sticky md:top-4 z-20"
         onClick={(e) => e.stopPropagation()}
       >
-<div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider mb-2">
+        <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider mb-2">
           Filtros Rápidos
         </div>
 
@@ -1648,7 +1654,7 @@ const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
 
           <button
             onClick={() => setMobileFiltersOpen((v) => !v)}
-className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
+            className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
               statusFilter !== "Todos" ||
               serverFilter !== "Todos" ||
               planFilter !== "Todos" ||
@@ -1814,7 +1820,7 @@ className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
                 e.stopPropagation();
                 setArchivedFilter((cur) => (cur === "Não" ? "Sim" : "Não"));
               }}
-className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
+              className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-colors flex items-center justify-between ${
                 archivedFilter === "Sim"
                   ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                   : "bg-muted border-border text-muted-foreground"
@@ -1949,7 +1955,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
       </div>
 
       {loading && (
-<div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
+        <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-none sm:rounded-xl border border-border">
           Carregando dados...
         </div>
       )}
@@ -1971,7 +1977,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[250px]">
               <thead>
-<tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground">
+                <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground">
                   <Th width={40}>
                     <input
                       ref={selectAllRef}
@@ -2134,7 +2140,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                               @{r.whatsapp_username}
                             </span>
                           )}
-{r.secondary_whatsapp_username && (
+                          {r.secondary_whatsapp_username && (
                             <span
                               className={`text-xs font-medium text-muted-foreground/60 truncate transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                             >
@@ -2218,13 +2224,16 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                         {(() => {
                           const tech = r.technology || "";
                           const t = tech.toUpperCase();
-                          const colors = t === "IPTV" 
-                            ? "bg-sky-500/10 text-sky-500 border-sky-500/20" 
-                            : t === "P2P" 
-                            ? "bg-rose-500/10 text-rose-500 border-rose-500/20" 
-                            : "bg-muted text-muted-foreground border-border";
+                          const colors =
+                            t === "IPTV"
+                              ? "bg-sky-500/10 text-sky-500 border-sky-500/20"
+                              : t === "P2P"
+                                ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                : "bg-muted text-muted-foreground border-border";
                           return (
-                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}>
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}
+                            >
                               {r.technology || "—"}
                             </span>
                           );
@@ -2261,7 +2270,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
 
                               const hasIntegration = Boolean(
                                 catApp?.integration_type &&
-                                  catApp.integration_type !== "SEM_INTEGRACAO",
+                                catApp.integration_type !== "SEM_INTEGRACAO",
                               );
 
                               return (
@@ -2284,7 +2293,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                                 </button>
                               );
                             })
-                         ) : (
+                          ) : (
                             <span className="text-muted-foreground/60 text-xs italic">
                               —
                             </span>
@@ -2434,7 +2443,7 @@ className={`w-full h-10 px-3 rounded-lg text-sm font-medium border transition-co
                   <tr>
                     <td
                       colSpan={11}
-className="p-8 text-center text-muted-foreground italic"
+                      className="p-8 text-center text-muted-foreground italic"
                     >
                       Nenhum cliente encontrado.
                     </td>
@@ -2489,7 +2498,7 @@ className="p-8 text-center text-muted-foreground italic"
             <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
-<p className="text-foreground/90 text-sm font-medium">
+                <p className="text-foreground/90 text-sm font-medium">
                   O cliente{" "}
                   <strong className="text-amber-400">
                     {showRenewWarning.clientName}
@@ -2563,7 +2572,6 @@ className="p-8 text-center text-muted-foreground italic"
           }}
         />
       )}
-
 
       {/* --- MODAL DE ENVIO DE MENSAGEM --- */}
       {showSendNow.open && (
@@ -2723,7 +2731,9 @@ className="p-8 text-center text-muted-foreground italic"
                 <IconCopy />
               </span>
               <div className="text-sm text-foreground/90">
-                Não envia nada pelo WhatsApp — só monta o texto pronto (com as variáveis já resolvidas) pra você copiar e mandar manualmente pelo WhatsApp Web.
+                Não envia nada pelo WhatsApp — só monta o texto pronto (com as
+                variáveis já resolvidas) pra você copiar e mandar manualmente
+                pelo WhatsApp Web.
               </div>
             </div>
 
@@ -2801,10 +2811,18 @@ className="p-8 text-center text-muted-foreground italic"
 
       {/* --- MODAL DE RESULTADO DO ENVIO SIMULADO --- */}
       {simResult && (
-        <Modal title="Mensagem pronta pra copiar" onClose={() => setSimResult(null)}>
+        <Modal
+          title="Mensagem pronta pra copiar"
+          onClose={() => setSimResult(null)}
+        >
           <div className="space-y-4">
             {simResult.map((p, i) => (
-              <SimResultBubble key={i} phone={p.phone} label={p.label} text={p.text} />
+              <SimResultBubble
+                key={i}
+                phone={p.phone}
+                label={p.label}
+                text={p.text}
+              />
             ))}
             <div className="flex justify-end pt-1">
               <button
@@ -3092,7 +3110,9 @@ function SortClick({
       onClick={onClick}
       className="inline-flex items-center justify-center gap-1 cursor-pointer select-none hover:text-emerald-500 transition-colors"
     >
-      <span className="font-medium uppercase text-xs tracking-wide">{label}</span>
+      <span className="font-medium uppercase text-xs tracking-wide">
+        {label}
+      </span>
       {/* Ícone condicional para não empurrar o texto quando inativo (opcional, mas ajuda na centralização visual exata) */}
       <span
         className={`transition-opacity flex items-center ${active ? "opacity-100 text-emerald-400" : "opacity-30"}`}
@@ -3195,7 +3215,7 @@ function ScheduledMessagesModal({
     <>
       <Modal title={`Mensagens Programadas • ${clientName}`} onClose={onClose}>
         {items.length === 0 ? (
-<div className="flex flex-col items-center justify-center py-8 text-muted-foreground/60 border-2 border-dashed border-border rounded-xl">
+          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground/60 border-2 border-dashed border-border rounded-xl">
             <span className="text-2xl mb-2">🗓️</span>
             <p className="text-sm">Nenhum agendamento encontrado.</p>
           </div>
@@ -3229,13 +3249,13 @@ function ScheduledMessagesModal({
                       </div>
 
                       {it.status && (
-<span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-500 text-[9px] font-medium uppercase tracking-wider">
+                        <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-500 text-[9px] font-medium uppercase tracking-wider">
                           {it.status}
                         </span>
                       )}
                     </div>
 
-<div className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-border pl-3">
+                    <div className="text-sm text-foreground/90 whitespace-pre-wrap break-words leading-relaxed border-l-2 border-border pl-3">
                       {it.message}
                     </div>
                   </div>
@@ -3322,9 +3342,12 @@ function IconActionBtn({
 }) {
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/20 hover:bg-sky-500/20",
-    green: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
-    amber: "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
-    purple: "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
+    green:
+      "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20",
+    amber:
+      "text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20",
+    purple:
+      "text-purple-500 bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20",
     red: "text-rose-500 bg-rose-500/10 border-rose-500/20 hover:bg-rose-500/20",
   };
   return (
@@ -3385,16 +3408,13 @@ function Modal({
         className="w-full h-full sm:h-auto sm:max-w-xl max-h-full sm:max-h-[90vh] bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl overflow-hidden flex flex-col"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent shrink-0">
-          <div className="font-medium text-foreground">
-            {title}
-          </div>
+          <div className="font-medium text-foreground">{title}</div>
           <button
             onClick={onClose}
             className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           >
             <IconX />
           </button>
-
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-4">{children}</div>
       </div>
@@ -3405,7 +3425,15 @@ function Modal({
 
 // ✅ Bolha estilo conversa pro resultado do Envio Simulado — mostra o texto
 // já com as variáveis resolvidas e um botão de copiar com feedback visual.
-function SimResultBubble({ phone, label, text }: { phone: string; label: string; text: string }) {
+function SimResultBubble({
+  phone,
+  label,
+  text,
+}: {
+  phone: string;
+  label: string;
+  text: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="space-y-1.5">
@@ -3427,7 +3455,8 @@ function SimResultBubble({ phone, label, text }: { phone: string; label: string;
               : "bg-sky-500/10 text-sky-500 border border-sky-500/20 hover:bg-sky-500/20"
           }`}
         >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <IconCopy />} {copied ? "Copiado!" : "Copiar"}
+          {copied ? <Check className="w-3.5 h-3.5" /> : <IconCopy />}{" "}
+          {copied ? "Copiado!" : "Copiar"}
         </button>
       </div>
       <div className="rounded-2xl rounded-tl-sm bg-[#dcf8c6] dark:bg-[#025144] text-[#111b21] dark:text-[#e9edef] p-3 text-sm whitespace-pre-line shadow-sm border border-black/5">
