@@ -199,8 +199,8 @@ export async function POST(req: NextRequest) {
 
       // 3. Separa em updates e inserts
       const agora = new Date().toISOString();
-      const paraUpdate: Array<{ id: string; cover_url?: string; ano: number | null; atualizado_em: string }> = [];
-      const paraInsert: Array<{ titulo_normalizado: string; tipo: string; cover_url?: string; ano: number | null; atualizado_em: string }> = [];
+      const paraUpdate: Array<{ id: string; cover_url?: string; ano: number | null; atualizado_em: string; titulo_exibicao?: string }> = [];
+      const paraInsert: Array<{ titulo_normalizado: string; tipo: string; cover_url?: string; ano: number | null; atualizado_em: string; titulo_exibicao: string | null }> = [];
 
       for (let j = 0; j < lote.length; j++) {
         const e   = lote[j];
@@ -215,6 +215,7 @@ export async function POST(req: NextRequest) {
             ...(e.cover_url ? { cover_url: e.cover_url } : {}),
             ano:           e.ano ?? null,
             atualizado_em: agora,
+            ...(e.titulo_original ? { titulo_exibicao: e.titulo_original } : {}),
           });
         } else {
           // Não existe — INSERT
@@ -224,6 +225,7 @@ export async function POST(req: NextRequest) {
             ...(e.cover_url ? { cover_url: e.cover_url } : {}),
             ano:           e.ano ?? null,
             atualizado_em: agora,
+            titulo_exibicao: e.titulo_original || null,
           });
         }
       }

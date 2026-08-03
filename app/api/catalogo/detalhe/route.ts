@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const { data: titulo, error: tErr } = await supabaseAdmin
       .from("catalog_master")
       .select(`
-        id, titulo_normalizado, tipo,
+        id, titulo_normalizado, titulo_exibicao, tipo,
         cover_url, poster_tmdb_url,
         ano, sinopse, avaliacao, generos,
         total_temporadas, total_episodios,

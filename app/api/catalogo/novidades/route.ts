@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     let query = supabaseAdmin
       .from("vw_catalog_novidades")
       .select(`
-        id, titulo_normalizado, tipo,
+        id, titulo_normalizado, titulo_exibicao, tipo,
         cover_url, poster_tmdb_url,
         ano, sinopse, avaliacao, generos,
         total_temporadas, total_episodios,

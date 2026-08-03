@@ -173,9 +173,9 @@ export async function POST(req: NextRequest) {
     .limit(lote);
 
   if (!forcar) {
-    // Só busca os que nunca tentamos OU que tentamos há mais de 30 dias
-    query = query.or("tmdb_buscado_em.is.null,tmdb_buscado_em.lt." + 
-      new Date(Date.now() - 30 * 24 * 3600000).toISOString());
+    // Só busca os que nunca tentamos OU que tentamos há mais de 7 dias
+    query = query.or("tmdb_buscado_em.is.null,tmdb_buscado_em.lt." +
+      new Date(Date.now() - 7 * 24 * 3600000).toISOString());
   }
 
   const { data: titulos, error } = await query;

@@ -9,6 +9,14 @@ type BarItem = {
   logo_url?: string | null;
 };
 
+// Meta (previsto) x progresso (executado) numa única barra por categoria
+type ProgressItem = {
+  label: string;
+  previsto: number;
+  executado: number;
+  logo_url?: string | null;
+};
+
 type AccentColor = "sky" | "emerald" | "violet" | "rose" | "amber" | "indigo";
 
 interface RankingCardProps {
@@ -18,6 +26,7 @@ interface RankingCardProps {
   itemsPrevisto?: BarItem[]; // ✅ Novo
   itemsAjustes?: BarItem[]; // ✅ Surgiu depois da fotografia do Previsto
   itemsExecutado?: BarItem[]; // ✅ Novo
+  itemsProgress?: ProgressItem[]; // ✅ meta x progresso, uma barra só por linha
   accentColor?: AccentColor;
   valueLabel?: string;
   formatValue?: (v: number) => string;
@@ -29,10 +38,13 @@ const fmtBRL = (v: number) =>
     v,
   );
 
+const OVERFLOW_COLOR = "#f59e0b"; // amber-500 — mesmo tom usado pra "ajuste"/desvio
+
 const accents: Record<
   AccentColor,
   {
     bar: string; // gradient para a barra
+    barLight: string; // tom leve pro preenchimento de progresso
     barBg: string; // fundo da barra (track)
     rank: string; // cor do número de rank
     rankBg: string; // fundo do badge de rank
@@ -43,6 +55,7 @@ const accents: Record<
 > = {
   sky: {
     bar: "#075985",
+    barLight: "#38bdf8",
     barBg: "bg-sky-500/20",
     rank: "text-sky-500",
     rankBg: "bg-sky-500/10",
@@ -52,6 +65,7 @@ const accents: Record<
   },
   emerald: {
     bar: "#065f46",
+    barLight: "#34d399",
     barBg: "bg-emerald-500/20",
     rank: "text-emerald-500",
     rankBg: "bg-emerald-500/10",
@@ -61,6 +75,7 @@ const accents: Record<
   },
   violet: {
     bar: "#5b21b6",
+    barLight: "#a78bfa",
     barBg: "bg-violet-500/20",
     rank: "text-violet-500",
     rankBg: "bg-violet-500/10",
@@ -70,6 +85,7 @@ const accents: Record<
   },
   rose: {
     bar: "#9f1239",
+    barLight: "#fb7185",
     barBg: "bg-rose-500/20",
     rank: "text-rose-500",
     rankBg: "bg-rose-500/10",
@@ -79,6 +95,7 @@ const accents: Record<
   },
   amber: {
     bar: "#92400e",
+    barLight: "#fbbf24",
     barBg: "bg-amber-500/20",
     rank: "text-amber-500",
     rankBg: "bg-amber-500/10",
@@ -88,6 +105,7 @@ const accents: Record<
   },
   indigo: {
     bar: "#4338ca",
+    barLight: "#818cf8",
     barBg: "bg-indigo-500/20",
     rank: "text-indigo-500",
     rankBg: "bg-indigo-500/10",
@@ -106,6 +124,7 @@ export function RankingCard({
   itemsPrevisto,
   itemsAjustes,
   itemsExecutado,
+  itemsProgress,
   accentColor = "sky",
   valueLabel,
   formatValue,
@@ -120,8 +139,11 @@ export function RankingCard({
   const fmt = formatValue ?? defaultFormat;
   const c = accents[accentColor];
 
+  // ✅ meta (previsto) x progresso (executado) numa barra só, sem toggle
+  const hasProgress = !!itemsProgress && itemsProgress.length > 0;
+
   // ✅ Se o componente receber as duas props do financeiro, ativa o toggle
-  const hasToggle = !!itemsPrevisto && !!itemsExecutado;
+  const hasToggle = !hasProgress && !!itemsPrevisto && !!itemsExecutado;
   const hasAjustes = !!itemsAjustes && itemsAjustes.length > 0;
 
   // ✅ Define qual array de dados usar (O selecionado ou o padrão)
@@ -141,19 +163,17 @@ export function RankingCard({
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-border">
         <div>
-<h3 className="text-sm font-medium text-foreground tracking-tight">
+          <h3 className="text-sm font-medium text-foreground tracking-tight">
             {title}
           </h3>
           {subtitle && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {subtitle}
-            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
           )}
         </div>
 
         {/* ✅ SELETOR (Só aparece se você passar os itemsPrevisto/itemsExecutado lá no page.tsx) */}
         {hasToggle && (
-<div className="flex bg-transparent p-1 rounded-lg border border-border shrink-0">
+          <div className="flex bg-transparent p-1 rounded-lg border border-border shrink-0">
             <button
               onClick={() => setView("previsto")}
               className={`px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider rounded-md transition-all ${
@@ -192,88 +212,200 @@ export function RankingCard({
 
       {/* Items */}
       <div className="px-5 py-4 space-y-3">
-        {currentItems.length === 0 && (
-          <p className="text-muted-foreground text-sm py-2">
-            Sem dados{" "}
-            {view === "previsto"
-              ? "previstos"
-              : view === "ajustes"
-                ? "de ajustes"
-                : "executados"}
-            .
-          </p>
-        )}
+        {hasProgress ? (
+          <>
+            {itemsProgress!.length === 0 && (
+              <p className="text-muted-foreground text-sm py-2">
+                Sem dados no mês.
+              </p>
+            )}
 
-        {/* ✅ LER DE currentItems em vez de items direto */}
-        {currentItems.map((item, idx) => {
-          const pct = (item.value / max) * 100;
+            {itemsProgress!.map((item, idx) => {
+              const scale = Math.max(item.previsto, item.executado, 1);
+              const targetPct = (item.previsto / scale) * 100;
+              const basePct =
+                (Math.min(item.executado, item.previsto) / scale) * 100;
+              const overPct =
+                (Math.max(item.executado - item.previsto, 0) / scale) * 100;
+              const isOver =
+                item.executado > item.previsto && item.previsto > 0;
+              const pctOfTarget =
+                item.previsto > 0
+                  ? Math.round((item.executado / item.previsto) * 100)
+                  : item.executado > 0
+                    ? 100
+                    : 0;
+              const tooltip = `Previsto: ${fmt(item.previsto)} · Executado: ${fmt(item.executado)}${
+                isOver
+                  ? ` · Desvio: +${fmt(item.executado - item.previsto)}`
+                  : ""
+              }`;
 
-          return (
-            <div key={item.label} className="group">
-              {/* Row */}
-              <div className="flex items-center gap-3 mb-1.5">
-                {/* Rank badge */}
-                <div
-                  className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${c.rankBg}`}
-                >
-                  {idx < 3 ? (
-                    <span className="text-[13px] leading-none">
-                      {medals[idx]}
-                    </span>
-                  ) : (
-                    <span
-                      className={`text-[10px] font-medium tabular-nums ${c.rank}`}
+              return (
+                <div key={item.label} className="group" title={tooltip}>
+                  {/* Row */}
+                  <div className="flex items-center gap-3 mb-1.5">
+                    {/* Rank badge */}
+                    <div
+                      className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${c.rankBg}`}
                     >
-                      {idx + 1}
-                    </span>
-                  )}
-                </div>
+                      {idx < 3 ? (
+                        <span className="text-[13px] leading-none">
+                          {medals[idx]}
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-[10px] font-medium tabular-nums ${c.rank}`}
+                        >
+                          {idx + 1}
+                        </span>
+                      )}
+                    </div>
 
-                {/* Label & Logo */}
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  {item.logo_url && (
-                    <img
-                      src={item.logo_url}
-                      alt=""
-                      className="w-5 h-5 rounded-md object-cover border border-border shrink-0"
-                    />
-                  )}
-                  <span
-                    className={`text-[13px] font-medium truncate ${c.label} group-hover:opacity-100`}
-                    title={item.label}
+                    {/* Label & Logo */}
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      {item.logo_url && (
+                        <img
+                          src={item.logo_url}
+                          alt=""
+                          className="w-5 h-5 rounded-md object-cover border border-border shrink-0"
+                        />
+                      )}
+                      <span
+                        className={`text-[13px] font-medium truncate ${c.label} group-hover:opacity-100`}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+
+                    {/* % da meta */}
+                    <span
+                      className={`text-[11px] font-medium tabular-nums flex-shrink-0 ${
+                        isOver ? "text-amber-500" : "text-muted-foreground"
+                      }`}
+                    >
+                      {pctOfTarget}%
+                    </span>
+                  </div>
+
+                  {/* Progress bar: preenchimento leve até a meta, amarelo se ultrapassar */}
+                  <div
+                    className={`relative h-1.5 rounded-full overflow-hidden ml-9 ${c.barBg}`}
                   >
-                    {item.label}
-                  </span>
+                    <div
+                      className="absolute left-0 top-0 h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${basePct}%`,
+                        background: c.barLight,
+                      }}
+                    />
+                    {overPct > 0 && (
+                      <div
+                        className="absolute top-0 h-full transition-all duration-700"
+                        style={{
+                          left: `${basePct}%`,
+                          width: `${overPct}%`,
+                          background: OVERFLOW_COLOR,
+                        }}
+                      />
+                    )}
+                    {item.previsto > 0 && (
+                      <div
+                        className="absolute top-0 h-full w-px bg-foreground/30"
+                        style={{ left: `${targetPct}%` }}
+                      />
+                    )}
+                  </div>
                 </div>
+              );
+            })}
+          </>
+        ) : (
+          <>
+            {currentItems.length === 0 && (
+              <p className="text-muted-foreground text-sm py-2">
+                Sem dados{" "}
+                {view === "previsto"
+                  ? "previstos"
+                  : view === "ajustes"
+                    ? "de ajustes"
+                    : "executados"}
+                .
+              </p>
+            )}
 
-                {/* Value */}
-                <span
-                  className={`text-[13px] font-medium tabular-nums flex-shrink-0 ${c.value}`}
-                >
-                  {fmt(item.value)}
-                  {valueLabel && (
-                    <span className="text-[10px] font-medium ml-1 opacity-60">
-                      {valueLabel}
+            {/* ✅ LER DE currentItems em vez de items direto */}
+            {currentItems.map((item, idx) => {
+              const pct = (item.value / max) * 100;
+
+              return (
+                <div key={item.label} className="group">
+                  {/* Row */}
+                  <div className="flex items-center gap-3 mb-1.5">
+                    {/* Rank badge */}
+                    <div
+                      className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${c.rankBg}`}
+                    >
+                      {idx < 3 ? (
+                        <span className="text-[13px] leading-none">
+                          {medals[idx]}
+                        </span>
+                      ) : (
+                        <span
+                          className={`text-[10px] font-medium tabular-nums ${c.rank}`}
+                        >
+                          {idx + 1}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Label & Logo */}
+                    <div className="flex-1 min-w-0 flex items-center gap-2">
+                      {item.logo_url && (
+                        <img
+                          src={item.logo_url}
+                          alt=""
+                          className="w-5 h-5 rounded-md object-cover border border-border shrink-0"
+                        />
+                      )}
+                      <span
+                        className={`text-[13px] font-medium truncate ${c.label} group-hover:opacity-100`}
+                        title={item.label}
+                      >
+                        {item.label}
+                      </span>
+                    </div>
+
+                    {/* Value */}
+                    <span
+                      className={`text-[13px] font-medium tabular-nums flex-shrink-0 ${c.value}`}
+                    >
+                      {fmt(item.value)}
+                      {valueLabel && (
+                        <span className="text-[10px] font-medium ml-1 opacity-60">
+                          {valueLabel}
+                        </span>
+                      )}
                     </span>
-                  )}
-                </span>
-              </div>
+                  </div>
 
-              {/* Progress bar */}
-              <div
-                className={`relative h-1.5 rounded-full overflow-hidden ml-9 ${c.barBg}`}
-              >
-                <div
-                  className="absolute left-0 top-0 h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${pct}%`,
-                    background: c.bar,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
+                  {/* Progress bar */}
+                  <div
+                    className={`relative h-1.5 rounded-full overflow-hidden ml-9 ${c.barBg}`}
+                  >
+                    <div
+                      className="absolute left-0 top-0 h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${pct}%`,
+                        background: c.bar,
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
     </div>
   );

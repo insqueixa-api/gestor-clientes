@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
         catalog_master!inner (
           id,
           titulo_normalizado,
+          titulo_exibicao,
           tipo,
           cover_url,
           poster_tmdb_url,

@@ -83,11 +83,23 @@ function normalizarTitulo(nome: string): string {
 
 type MasterEntry = {
   titulo_normalizado: string;
+  titulo_original: string;
   tipo: "FILME" | "SERIE";
   cover_url: string | null;
   ano: number | null;
   categoria_origem: string;
 };
+
+// ─── Título de exibição — texto cru do m3u, só sem marcadores estruturais ─────
+// (mesmo princípio de lib/catalog/catalog-parser.ts: preserva acento, cedilha,
+// maiúsc/minúsc — só tira ano entre colchetes e, em séries, o sufixo SxxExx)
+function extrairTituloExibicao(nome: string, tipo: "FILME" | "SERIE"): string {
+  let s = nome.replace(/[\[(]\d{4}[\])]/g, "");
+  if (tipo === "SERIE") {
+    s = s.replace(/\s*S\d+\s*E\d+.*/i, "");
+  }
+  return s.trim();
+}
 type EpisodioEntry = {
   titulo_normalizado: string;
   temporada: number;
@@ -131,6 +143,7 @@ function parseM3UFast(m3uText: string) {
       if (!filmes.has(titulo) || (!filmes.get(titulo)!.cover_url && tvgLogo)) {
         filmes.set(titulo, {
           titulo_normalizado: titulo, tipo: "FILME",
+          titulo_original: extrairTituloExibicao(tvgNome, "FILME"),
           cover_url: tvgLogo || null,
           ano: anoMatch ? parseInt(anoMatch) : null,
           categoria_origem: categoria,
@@ -147,6 +160,7 @@ function parseM3UFast(m3uText: string) {
       if (!seriesMaster.has(titulo) || (!seriesMaster.get(titulo)!.cover_url && tvgLogo)) {
         seriesMaster.set(titulo, {
           titulo_normalizado: titulo, tipo: "SERIE",
+          titulo_original: extrairTituloExibicao(tvgNome, "SERIE"),
           cover_url: tvgLogo || null,
           ano: anoMatch ? parseInt(anoMatch) : null,
           categoria_origem: categoria,
@@ -333,6 +347,7 @@ export async function POST(req: NextRequest) {
         ...(e.cover_url ? { cover_url: e.cover_url } : {}),
         ano:           e.ano ?? null,
         atualizado_em: agora,
+        titulo_exibicao: e.titulo_original || null,
       }));
 
       const { error } = await supabaseAdmin

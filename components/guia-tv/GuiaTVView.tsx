@@ -75,7 +75,7 @@ type Programa = { channel_id: string; channel_nome: string; categoria: string; s
 type EpgData = { gerado_em: string; total_canais: number; total_programas: number; canais: Canal[]; programas: Programa[]; };
 type TipoConteudo = "FILME" | "SERIE";
 type ServidorId   = "ELITE" | "NATV" | "FAST";
-type TituloCard = { id: string; titulo_normalizado: string; tipo: TipoConteudo; cover_url: string | null; poster_tmdb_url: string | null; ano: number | null; sinopse: string | null; avaliacao: number | null; generos: string[] | null; total_temporadas: number; total_episodios: number; tmdb_confirmado: boolean; categoria_origem?: string; adicionado_em?: string; };
+type TituloCard = { id: string; titulo_normalizado: string; titulo_exibicao?: string | null; tipo: TipoConteudo; cover_url: string | null; poster_tmdb_url: string | null; ano: number | null; sinopse: string | null; avaliacao: number | null; generos: string[] | null; total_temporadas: number; total_episodios: number; tmdb_confirmado: boolean; categoria_origem?: string; adicionado_em?: string; };
 type TituloBusca = TituloCard & { rotas: { servidor: string; categoria: string }[]; };
 type Categoria = { categoria_origem: string; label: string; emoji: string; total: number; };
 type Detalhe = TituloCard & { tmdb_id: number | null; disponibilidade: { servidor: string; categoria_origem: string; adicionado_em: string; sincronizado_em: string }[]; temporadas: { temporada: number; total_episodios: number; servidores: string[] }[]; };
@@ -926,7 +926,7 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
           <button onClick={onClose} className="absolute top-4 right-4 bg-card/80 text-muted-foreground hover:text-rose-500 rounded-full p-2 hover:bg-rose-500/10 transition-colors z-10"><X size={20}/></button>
           {!loading&&detalhe&&(
             <div className="relative p-5 sm:p-6 flex gap-4 sm:gap-6 items-end pt-16">
-              <Poster titulo={detalhe.titulo_normalizado} posterUrl={detalhe.poster_tmdb_url} coverUrl={detalhe.cover_url}/>
+              <Poster titulo={detalhe.titulo_exibicao||detalhe.titulo_normalizado} posterUrl={detalhe.poster_tmdb_url} coverUrl={detalhe.cover_url}/>
               <div className="flex-1 min-w-0 pb-1">
                 <div className="flex items-center gap-2 mb-2.5 flex-wrap">
                   <span className={`text-[10px] sm:text-[11px] font-bold text-white px-2.5 py-1 rounded-full uppercase tracking-wide inline-flex items-center gap-1.5 ${detalhe.tipo==="FILME"?"bg-amber-600":"bg-sky-600"}`}>
@@ -946,7 +946,7 @@ const backdrop=detalhe?.poster_tmdb_url||detalhe?.cover_url||"";
                     :<span className="text-xs font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/30">Falta TMDB</span>
                   )}
                 </div>
-                <div className="text-base sm:text-2xl font-extrabold text-foreground leading-tight tracking-tight whitespace-normal line-clamp-3">{detalhe.titulo_normalizado}</div>
+                <div className="text-base sm:text-2xl font-extrabold text-foreground leading-tight tracking-tight whitespace-normal line-clamp-3">{detalhe.titulo_exibicao||detalhe.titulo_normalizado}</div>
               </div>
             </div>
           )}
@@ -1067,14 +1067,14 @@ function ResultadoBuscaCatalogo({resultados,loading,onSelect,modoCliente,onSuger
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
       {resultados.map(t=>(
         <button key={t.id} onClick={()=>onSelect(t)} className="flex items-start gap-4 p-4 rounded-2xl bg-card border border-border hover:border-sky-500/30 hover:bg-sky-500/[0.01] transition-all text-left group">
-          <div className="w-[148px] flex-shrink-0"><Poster titulo={t.titulo_normalizado} posterUrl={t.poster_tmdb_url} coverUrl={t.cover_url}/></div>
+          <div className="w-[148px] flex-shrink-0"><Poster titulo={t.titulo_exibicao||t.titulo_normalizado} posterUrl={t.poster_tmdb_url} coverUrl={t.cover_url}/></div>
           <div className="flex-1 min-w-0 pt-1">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full uppercase tracking-wide ${t.tipo==="FILME"?"bg-amber-600":"bg-sky-600"}`}>{t.tipo==="FILME"?"Filme":"Série"}</span>
               {t.ano&&<span className="text-xs font-medium text-muted-foreground">{t.ano}</span>}
               {t.avaliacao&&<span className="text-xs text-amber-500 flex items-center gap-1 font-semibold"><Star size={11} className="fill-amber-500"/>{t.avaliacao.toFixed(1)}</span>}
             </div>
-            <div className="text-base font-bold text-foreground leading-snug group-hover:text-sky-400 tracking-tight whitespace-normal mb-3">{t.titulo_normalizado}</div>
+            <div className="text-base font-bold text-foreground leading-snug group-hover:text-sky-400 tracking-tight whitespace-normal mb-3">{t.titulo_exibicao||t.titulo_normalizado}</div>
             {t.sinopse&&<div className="text-xs text-muted-foreground/90 overflow-hidden line-clamp-3 leading-relaxed mb-4">{t.sinopse}</div>}
             <div className="flex gap-2 flex-wrap pt-1 border-t border-border/80 mt-2">{t.rotas.map((r,i)=><span key={i} className="text-[10px] font-semibold bg-muted border border-border px-2.5 py-1 rounded-full tracking-wide" style={{borderColor: (COR_SERVIDOR[r.servidor]||"#94a3b8") + "40", color: COR_SERVIDOR[r.servidor]||"#94a3b8"}}>{r.servidor.toUpperCase()} / {formatCategoriaLabel(r.categoria)}</span>)}</div>
           </div>
@@ -1092,13 +1092,13 @@ function GradeMiniaturas({titulos,total,page,perPage=50,onSelect,onPage}:{titulo
     <div className="pb-10">
       <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 sm:gap-5">
         {titulos.map(t=>(
-          <button key={t.id} onClick={()=>onSelect(t)} className="flex flex-col gap-2 p-0 bg-transparent border-none focus:ring-0 group w-full" title={t.titulo_normalizado}>
+          <button key={t.id} onClick={()=>onSelect(t)} className="flex flex-col gap-2 p-0 bg-transparent border-none focus:ring-0 group w-full" title={t.titulo_exibicao||t.titulo_normalizado}>
             <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-              <Poster titulo={t.titulo_normalizado} posterUrl={t.poster_tmdb_url} coverUrl={t.cover_url} fill/>
+              <Poster titulo={t.titulo_exibicao||t.titulo_normalizado} posterUrl={t.poster_tmdb_url} coverUrl={t.cover_url} fill/>
               {t.avaliacao&&<div className="absolute top-1.5 left-1.5 bg-black/70 rounded px-1.5 py-0.5 flex items-center gap-1"><Star size={9} className="fill-amber-400 text-amber-400"/><span className="text-[10px] text-amber-400 font-bold">{t.avaliacao.toFixed(1)}</span></div>}
               <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center"><ChevronRight className="w-8 h-8 text-white/0 group-hover:text-white transition-opacity scale-50 group-hover:scale-100"/></div>
             </div>
-            <div className="text-[11px] font-semibold text-foreground leading-tight line-clamp-2 group-hover:text-sky-400 w-full px-0.5">{t.titulo_normalizado}</div>
+            <div className="text-[11px] font-semibold text-foreground leading-tight line-clamp-2 group-hover:text-sky-400 w-full px-0.5">{t.titulo_exibicao||t.titulo_normalizado}</div>
             {t.ano&&<div className="text-[10px] text-muted-foreground px-0.5">{t.ano}</div>}
           </button>
         ))}

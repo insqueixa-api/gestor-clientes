@@ -499,7 +499,10 @@ export default async function AdminDashboardPage({
     : 0;
 
   const ajustesIptv = hasSnapshot
-    ? Math.max(0, toNumber(finance?.to_receive_brl_estimated) - snapshotIptvTotal)
+    ? Math.max(
+        0,
+        toNumber(finance?.to_receive_brl_estimated) - snapshotIptvTotal,
+      )
     : 0;
 
   const finReceitasAjustes = ajustesTransacoesReceita + ajustesIptv;
@@ -563,8 +566,12 @@ export default async function AdminDashboardPage({
     // Previsto: direto da fotografia (nunca recalcula)
     for (const s of finSnapshotRows) {
       const map = s.tipo === "RECEITA" ? catRevPrevMap : catExpPrevMap;
-      const key = s.origem === "iptv_a_receber" ? iptvKey : (s.categoria_id ?? "__none__");
-      const label = s.origem === "iptv_a_receber" ? iptvLabel : catLabel(s.categoria_id);
+      const key =
+        s.origem === "iptv_a_receber"
+          ? iptvKey
+          : (s.categoria_id ?? "__none__");
+      const label =
+        s.origem === "iptv_a_receber" ? iptvLabel : catLabel(s.categoria_id);
       const prev = map.get(key) ?? { label, value: 0 };
       map.set(key, { ...prev, value: prev.value + toNumber(s.valor) });
     }
@@ -572,7 +579,8 @@ export default async function AdminDashboardPage({
     // Ajustes: fin_transacoes que apareceram depois da fotografia
     for (const t of finTrxRows) {
       const inMonth =
-        t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
+        t.data_vencimento >= _finMonthStart &&
+        t.data_vencimento <= _finMonthEnd;
       if (!inMonth || snapshotTransacaoIds.has(t.id)) continue;
       const map = t.tipo === "RECEITA" ? catRevAjusteMap : catExpAjusteMap;
       const key = t.categoria_id ?? "__none__";
@@ -588,7 +596,8 @@ export default async function AdminDashboardPage({
     // Fallback (mês sem fotografia ainda): comportamento antigo, tudo ao vivo
     for (const t of finTrxRows) {
       const inPrev =
-        t.data_vencimento >= _finMonthStart && t.data_vencimento <= _finMonthEnd;
+        t.data_vencimento >= _finMonthStart &&
+        t.data_vencimento <= _finMonthEnd;
       if (!inPrev) continue;
       const map = t.tipo === "RECEITA" ? catRevPrevMap : catExpPrevMap;
       const key = t.categoria_id ?? "__none__";
@@ -599,7 +608,10 @@ export default async function AdminDashboardPage({
     const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
     if (_toReceiveVal > 0 && iptvCatEntry) {
       const prev = catRevPrevMap.get(iptvKey) ?? { label: iptvLabel, value: 0 };
-      catRevPrevMap.set(iptvKey, { ...prev, value: prev.value + _toReceiveVal });
+      catRevPrevMap.set(iptvKey, {
+        ...prev,
+        value: prev.value + _toReceiveVal,
+      });
     }
   }
 
@@ -619,17 +631,45 @@ export default async function AdminDashboardPage({
     map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
   }
 
-  const getTop5 = (map: Map<string, { label: string; value: number }>) =>
-    Array.from(map.values())
-      .sort((a, b) => b.value - a.value)
+  // Meta (previsto + ajustes pós-fotografia) x progresso (executado ao vivo)
+  const buildProgressItems = (
+    prevMap: Map<string, { label: string; value: number }>,
+    ajusteMap: Map<string, { label: string; value: number }>,
+    execMap: Map<string, { label: string; value: number }>,
+  ) => {
+    const keys = new Set<string>([
+      ...prevMap.keys(),
+      ...ajusteMap.keys(),
+      ...execMap.keys(),
+    ]);
+    return Array.from(keys)
+      .map((key) => {
+        const p = prevMap.get(key);
+        const a = ajusteMap.get(key);
+        const e = execMap.get(key);
+        return {
+          label: p?.label ?? a?.label ?? e?.label ?? "📦 Sem categoria",
+          previsto: (p?.value ?? 0) + (a?.value ?? 0),
+          executado: e?.value ?? 0,
+        };
+      })
+      .sort(
+        (x, y) =>
+          Math.max(y.previsto, y.executado) - Math.max(x.previsto, x.executado),
+      )
       .slice(0, 5);
+  };
 
-  const finCatRevAjusteItems = getTop5(catRevAjusteMap);
-  const finCatExpAjusteItems = getTop5(catExpAjusteMap);
-  const finCatRevPrevItems = getTop5(catRevPrevMap);
-  const finCatRevExecItems = getTop5(catRevExecMap);
-  const finCatExpPrevItems = getTop5(catExpPrevMap);
-  const finCatExpExecItems = getTop5(catExpExecMap);
+  const finCatRevProgressItems = buildProgressItems(
+    catRevPrevMap,
+    catRevAjusteMap,
+    catRevExecMap,
+  );
+  const finCatExpProgressItems = buildProgressItems(
+    catExpPrevMap,
+    catExpAjusteMap,
+    catExpExecMap,
+  );
 
   const dueRows = (dueRes.data ?? []) as VwDue5Days[];
   const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
@@ -748,7 +788,9 @@ export default async function AdminDashboardPage({
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
           <div className="flex items-center gap-3">
-<h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">Dashboard</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
+              Dashboard
+            </h1>
             <EyeToggle />
           </div>
           <div className="flex items-center gap-3 mt-1">
@@ -1091,32 +1133,24 @@ export default async function AdminDashboardPage({
             />
           </div>
 
-          {finCatRevPrevItems.length > 0 ||
-          finCatRevExecItems.length > 0 ||
-          finCatExpPrevItems.length > 0 ||
-          finCatExpExecItems.length > 0 ? (
+          {finCatRevProgressItems.length > 0 ||
+          finCatExpProgressItems.length > 0 ? (
             <div className="grid grid-cols-1 gap-3 sm:gap-6 lg:grid-cols-2">
-              {(finCatRevPrevItems.length > 0 ||
-                finCatRevExecItems.length > 0) && (
+              {finCatRevProgressItems.length > 0 && (
                 <div className="sv">
                   <RankingCard
                     title="Receitas por Categoria"
-                    itemsPrevisto={finCatRevPrevItems}
-                    itemsAjustes={finCatRevAjusteItems}
-                    itemsExecutado={finCatRevExecItems}
+                    itemsProgress={finCatRevProgressItems}
                     accentColor="emerald"
                     mode="currency"
                   />
                 </div>
               )}
-              {(finCatExpPrevItems.length > 0 ||
-                finCatExpExecItems.length > 0) && (
+              {finCatExpProgressItems.length > 0 && (
                 <div className="sv">
                   <RankingCard
                     title="Despesas por Categoria"
-                    itemsPrevisto={finCatExpPrevItems}
-                    itemsAjustes={finCatExpAjusteItems}
-                    itemsExecutado={finCatExpExecItems}
+                    itemsProgress={finCatExpProgressItems}
                     accentColor="rose"
                     mode="currency"
                   />
@@ -1142,7 +1176,7 @@ export default async function AdminDashboardPage({
         <div
           className={`grid grid-cols-1 gap-3 sm:gap-6 ${showRankings ? "lg:grid-cols-2" : "lg:grid-cols-2 xl:grid-cols-2"}`}
         >
-<div className="bg-card rounded-xl border border-border p-3 sm:p-6 shadow-sm">
+          <div className="bg-card rounded-xl border border-border p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-foreground">
@@ -1165,7 +1199,7 @@ export default async function AdminDashboardPage({
             </div>
           </div>
 
-<div className="bg-card rounded-xl border border-border p-3 sm:p-6 shadow-sm">
+          <div className="bg-card rounded-xl border border-border p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
                 <h3 className="text-base sm:text-lg font-bold text-foreground">
@@ -1288,7 +1322,7 @@ function MetricCardView({
   footer?: ReactNode;
   href?: string;
 }) {
-const colors: Record<Accent, string> = {
+  const colors: Record<Accent, string> = {
     green: "border-l-emerald-500",
     red: "border-l-rose-500",
     amber: "border-l-amber-500",

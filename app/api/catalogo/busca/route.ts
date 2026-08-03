@@ -29,11 +29,24 @@ function normalizar(s: string): string {
 // CAREGIVER OF..."): uma busca curta que bate numa palavra solta lá dentro
 // aparecia como se fosse "lixo" sem relação nenhuma com a busca. Agora o
 // título mais PARECIDO com o termo digitado vem primeiro, sempre.
-function relevancia(tituloNorm: string, termoNorm: string): number {
+// ✅ Match "certeiro" (02/08/2026) — titulo_alt_busca junta pt-BR + título
+// original numa string só (ex: "com as proprias maos 2 o troco walking tall
+// the payback"). Uma busca genérica de uma palavra ("walking") batia nesse
+// campo com a mesma nota fixa de um match muito mais específico, então um
+// filme sem nenhuma relação aparecia lado a lado com o resultado certo. No
+// título principal (secundario=false) mantém a nota fixa — não mexe no caso
+// dos animes de título gigante, que essa mesma função já corrigiu antes.
+function relevancia(tituloNorm: string, termoNorm: string, secundario = false): number {
   if (!tituloNorm || !termoNorm) return 0;
   if (tituloNorm === termoNorm) return 100;
   if (tituloNorm.startsWith(termoNorm)) return 80;
-  if (tituloNorm.includes(termoNorm)) return 60;
+  if (tituloNorm.includes(termoNorm)) {
+    if (!secundario) return 60;
+    // Campo alternativo: proporcional a quanto do texto o termo representa,
+    // pra uma palavra solta perdida numa string longa não empatar com um
+    // match que é praticamente o campo inteiro.
+    return Math.round(60 * (termoNorm.length / tituloNorm.length));
+  }
   // Todas as palavras batem, mas espalhadas pelo título — quanto mais curto
   // o título em relação ao termo buscado, mais provável que seja o match
   // certo (e não uma palavra solta perdida num título gigante).
@@ -69,7 +82,7 @@ export async function GET(req: NextRequest) {
     // português quanto quem catalogou em inglês.
     let masterQuery = supabaseAdmin
       .from("catalog_master")
-      .select("id, titulo_normalizado, titulo_alt_busca, tipo, cover_url, poster_tmdb_url, ano, sinopse, avaliacao, generos, total_temporadas, total_episodios, tmdb_confirmado")
+      .select("id, titulo_normalizado, titulo_exibicao, titulo_alt_busca, tipo, cover_url, poster_tmdb_url, ano, sinopse, avaliacao, generos, total_temporadas, total_episodios, tmdb_confirmado")
       .limit(500);
 
     if (tipo !== "TODOS") masterQuery = masterQuery.eq("tipo", tipo);
@@ -137,11 +150,11 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => {
         const relA = Math.max(
           relevancia(normalizar(a.item.titulo_normalizado), termoNorm),
-          relevancia(normalizar(a.item.titulo_alt_busca || ""), termoNorm),
+          relevancia(normalizar(a.item.titulo_alt_busca || ""), termoNorm, true),
         );
         const relB = Math.max(
           relevancia(normalizar(b.item.titulo_normalizado), termoNorm),
-          relevancia(normalizar(b.item.titulo_alt_busca || ""), termoNorm),
+          relevancia(normalizar(b.item.titulo_alt_busca || ""), termoNorm, true),
         );
         if (relB !== relA) return relB - relA;
         // Empate de relevância — prioriza quem tem poster_tmdb_url
@@ -155,6 +168,11 @@ export async function GET(req: NextRequest) {
       .map(({ item, rotas }) => ({
         id:               item.id,
         titulo_normalizado: item.titulo_normalizado,
+        // Texto cru do m3u (acentos, cedilha, etc.) — usar para exibir ao
+        // cliente. titulo_normalizado continua existindo só para quem ainda
+        // depende dele; linhas que nunca passaram por um sync novo caem no
+        // fallback (titulo_normalizado) até o próximo sync preencher.
+        titulo_exibicao:  item.titulo_exibicao || item.titulo_normalizado,
         tipo:             item.tipo,
         cover_url:        item.cover_url,
         poster_tmdb_url:  item.poster_tmdb_url,

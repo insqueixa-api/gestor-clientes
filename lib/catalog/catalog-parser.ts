@@ -23,6 +23,21 @@ export type EntradaCatalogo = {
   episodio?:          number;
 };
 
+// ─── Título de exibição — texto cru do m3u, só sem marcadores estruturais ─────
+// Ao contrário de normalizarFilme/normalizarSerie (usados para casar/agrupar
+// títulos no banco), isto preserva acentos, cedilha, maiúsc/minúsc e
+// pontuação exatamente como vieram no tvg-name — é o texto mostrado pro
+// cliente, que precisa bater com o que aparece na TV dele. Só remove o ano
+// entre colchetes/parênteses e, em séries, o sufixo SxxExx em diante (senão
+// o título "de exibição" da série ficaria preso ao nome de um episódio).
+function extrairTituloExibicao(nome: string, tipo: "FILME" | "SERIE"): string {
+  let s = nome.replace(/[\[(]\d{4}[\])]/g, "");
+  if (tipo === "SERIE") {
+    s = s.replace(/\s*S\d+\s*E\d+.*/i, "");
+  }
+  return s.trim();
+}
+
 // ─── Remove acentos e normaliza para comparação ───────────────────────────────
 // Garante que "PERMISSÃO" e "PERMISSAO" viram o mesmo título no banco
 function removerAcentos(s: string): string {
@@ -195,7 +210,7 @@ export function parseM3U(conteudo: string): EntradaCatalogo[] {
 
       resultado.push({
         titulo_normalizado: titulo,
-        titulo_original:    tvgNome,
+        titulo_original:    extrairTituloExibicao(tvgNome, "FILME"),
         tipo:               "FILME",
         cover_url:          tvgLogo,
         ano,
@@ -208,7 +223,7 @@ export function parseM3U(conteudo: string): EntradaCatalogo[] {
 
       resultado.push({
         titulo_normalizado: titulo,
-        titulo_original:    tvgNome,
+        titulo_original:    extrairTituloExibicao(tvgNome, "SERIE"),
         tipo:               "SERIE",
         cover_url:          tvgLogo,
         ano,
