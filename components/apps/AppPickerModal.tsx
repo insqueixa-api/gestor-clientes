@@ -40,6 +40,7 @@ export default function AppPickerModal({
   variant = "admin",
   helperText,
   clientServerId,
+  presetDeviceTypes,
 }: {
   open: boolean;
   onClose: () => void;
@@ -56,6 +57,9 @@ export default function AppPickerModal({
    * livre (sem aparelho selecionado) nunca é travada por isso — pesquisa o
    * catálogo inteiro, pra achar qualquer app rápido. */
   clientServerId?: string | null;
+  /** Quando informado, pula a etapa de escolher aparelho e filtra direto
+   * pelos tipos definidos aqui (ex.: P2P -> Android TV Box + Fire TV). */
+  presetDeviceTypes?: DeviceType[];
 }) {
   const [mounted, setMounted] = useState(false);
   const [deviceType, setDeviceType] = useState<DeviceType | null>(null);
@@ -86,13 +90,21 @@ export default function AppPickerModal({
   }, [open, onClose]);
 
   const appsForDevice = useMemo(() => {
+    const hasPresetDeviceTypes = (presetDeviceTypes?.length || 0) > 0;
     return catalog.filter((app) => {
-      if (!deviceType) return true;
+      if (!deviceType && !hasPresetDeviceTypes) return true;
       // ✅ Trava de parceria (só app do servidor certo do cliente) — entra
       // em vigor só depois que um aparelho é escolhido. Busca livre (sem
       // aparelho) nunca aplica essa trava, pra sempre achar qualquer app.
-      if (app.cost_type === "partnership" && clientServerId !== undefined) {
+      if ((deviceType || hasPresetDeviceTypes) && app.cost_type === "partnership" && clientServerId !== undefined) {
         if (!clientServerId || app.partner_server_id !== clientServerId) return false;
+      }
+      if (!deviceType && hasPresetDeviceTypes) {
+        return Boolean(
+          app.device_types?.some((dt) =>
+            presetDeviceTypes?.includes(dt as DeviceType),
+          ),
+        );
       }
       // ✅ Sem device_types cadastrado não é "compatível com tudo" — é dado
       // faltando no catálogo (ex: Meta Player). Precisa ficar de fora do
@@ -101,7 +113,7 @@ export default function AppPickerModal({
       // ter sido testado lá de verdade.
       return Boolean(app.device_types?.includes(deviceType));
     });
-  }, [catalog, deviceType, clientServerId]);
+  }, [catalog, deviceType, clientServerId, presetDeviceTypes]);
 
   const hasPaidApps = appsForDevice.some((app) => app.cost_type === "paid");
   const hasFreeApps = appsForDevice.some((app) => app.cost_type !== "paid");
@@ -127,7 +139,8 @@ export default function AppPickerModal({
   // ✅ No admin, a busca fica sempre visível no cabeçalho (pedido do
   // Márcio) — dá pra achar o app pelo nome sem escolher aparelho antes. No
   // portal mantém o fluxo original (busca só depois de escolher aparelho).
-  const showTiles = !deviceType && (isPortal || !search.trim());
+  const hasPresetDeviceTypes = (presetDeviceTypes?.length || 0) > 0;
+  const showTiles = !hasPresetDeviceTypes && !deviceType && (isPortal || !search.trim());
 
   return createPortal(
     <div

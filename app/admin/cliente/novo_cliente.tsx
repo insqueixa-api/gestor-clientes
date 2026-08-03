@@ -5767,6 +5767,18 @@ className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col ju
                   busyAppId={null}
                   title="Adicionar aplicativo"
                   variant="admin"
+                  subtitle={
+                    (technology === "P2P" ||
+                      (technology === "Personalizado" && customTechnology.trim().toUpperCase() === "P2P"))
+                      ? "Escolha o aplicativo"
+                      : "Em qual aparelho você vai usar?"
+                  }
+                  presetDeviceTypes={
+                    technology === "P2P" ||
+                    (technology === "Personalizado" && customTechnology.trim().toUpperCase() === "P2P")
+                      ? ["ANDROID_TVBOX", "FIRE_TV"]
+                      : undefined
+                  }
                   helperText="Os apps são adicionados diretamente ao cliente e podem usar a integração ativa do admin."
                 />
               </div>

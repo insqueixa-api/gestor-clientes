@@ -3542,6 +3542,8 @@ export default function RenewClient() {
 
   // ========= RENDER: APPS (BLOCO 3) =========
   if (activeSection === "apps") {
+    const isP2PAccount = String(selectedAccount.technology || "").toUpperCase() === "P2P";
+
     return (
       <div className="min-h-screen bg-background">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
@@ -3594,21 +3596,29 @@ export default function RenewClient() {
 
               {showAppsGuide && (
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs sm:text-sm text-muted-foreground marker:font-bold marker:text-foreground/70">
-                  <li>
-                    Atualize seu cadastro, clique em <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e selecione o <strong className="text-foreground">aplicativo</strong> que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais de um acesso, saiba que é possível, basta adicionar o aplicativo seguindo as instruções da tela.
-                  </li>
+                  {isP2PAccount ? (
+                    <li>
+                      Para contas P2P, use <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e escolha o aplicativo para Android TV Box ou Fire TV Stick. Depois, preencha os dados de acesso mostrados na tela para concluir a configuração.
+                    </li>
+                  ) : (
+                    <>
+                      <li>
+                        Atualize seu cadastro, clique em <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e selecione o <strong className="text-foreground">aplicativo</strong> que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais de um acesso, saiba que é possível, basta adicionar o aplicativo seguindo as instruções da tela.
+                      </li>
 
-                  <li>
-                    Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados no Portal; os demais são configurados no dispositivo com os dados exibidos após a escolha do app.
-                  </li>
+                      <li>
+                        Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados no Portal; os demais são configurados no dispositivo com os dados exibidos após a escolha do app.
+                      </li>
 
-                  <li>
-                    Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Ver validade</span> para conferir a validade. Se estiver próximo do vencimento, você pode pagar a licença aqui no portal ou direto no site do desenvolvedor.
-                  </li>
+                      <li>
+                        Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Ver validade</span> para conferir a validade. Se estiver próximo do vencimento, você pode pagar a licença aqui no portal ou direto no site do desenvolvedor.
+                      </li>
 
-                  <li>
-                    Quando uma licença já foi paga e ainda depende de conclusão manual do suporte, o aplicativo aparece com a indicação <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">Licença paga • renovação em andamento</span>. Apenas aguarde a conclusão da renovação e a validade será atualizada automaticamente.
-                  </li>
+                      <li>
+                        Quando uma licença já foi paga e ainda depende de conclusão manual do suporte, o aplicativo aparece com a indicação <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">Licença paga • renovação em andamento</span>. Apenas aguarde a conclusão da renovação e a validade será atualizada automaticamente.
+                      </li>
+                    </>
+                  )}
                 </ol>
               )}
             </div>
@@ -4007,6 +4017,8 @@ export default function RenewClient() {
                 onSelectApp={(appId) => handleAddApp(appId)}
                 title="Adicionar aplicativo"
                 variant="portal"
+                subtitle={isP2PAccount ? "Escolha o aplicativo" : "Em qual aparelho você vai usar?"}
+                presetDeviceTypes={isP2PAccount ? ["ANDROID_TVBOX", "FIRE_TV"] : undefined}
               />
 
               <ConfigureResultModal
