@@ -280,7 +280,7 @@ export function RankingCard({
                     {/* Previsto (esmaecido) x Executado (cor cheia / âmbar se estourar) */}
                     <span className="text-[12px] tabular-nums flex-shrink-0 whitespace-nowrap">
                       <span style={{ color: PREVISTO_COLOR }}>
-                        (Previsto: {fmt(item.previsto)} -{" "}
+                        {fmt(item.previsto)} -{" "}
                       </span>
                       <span
                         className="font-medium"
@@ -288,9 +288,8 @@ export function RankingCard({
                           color: isOver ? OVERFLOW_COLOR : c.execColor,
                         }}
                       >
-                        Executado: {fmt(item.executado)}
+                        {fmt(item.executado)}
                       </span>
-                      <span style={{ color: PREVISTO_COLOR }}>)</span>
                     </span>
                   </div>
 

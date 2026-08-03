@@ -1,5 +1,4 @@
 // components/charts/evolucao-chart.tsx
-import { createClient } from "@/lib/supabase/server";
 import { EvolucaoFinanceiraClient } from "./evolucao-client";
 import { toBRDateStr } from "@/lib/date-br";
 
@@ -14,14 +13,37 @@ export type MonthData = {
   ajuste2: number; // Despesa: surgiu depois da fotografia
 };
 
-export default async function EvolucaoFinanceira({
-  myTenantId,
-}: {
-  myTenantId: string | null;
-}) {
-  if (!myTenantId) return null;
+type EvolucaoTrx = {
+  id: string;
+  tipo: "RECEITA" | "DESPESA";
+  valor: number | string;
+  status: string;
+  data_vencimento: string;
+  data_pagamento: string | null;
+};
 
-  const supabase = await createClient();
+type EvolucaoSnapshot = {
+  ano_mes: string;
+  transacao_id: string | null;
+  origem: string;
+  tipo: "RECEITA" | "DESPESA";
+  valor: number | string;
+};
+
+// Dados já vêm prontos de get_dashboard_finance_bundle() (chamado uma vez em
+// app/admin/page.tsx, em paralelo com o resto do dashboard) — este
+// componente não busca mais nada sozinho, só agrega e desenha.
+export default function EvolucaoFinanceira({
+  transacoes,
+  snapshot,
+}: {
+  transacoes: EvolucaoTrx[];
+  snapshot: EvolucaoSnapshot[];
+}) {
+  if (transacoes.length === 0 && snapshot.length === 0) return null;
+
+  const finData = transacoes;
+  const snapData = snapshot;
 
   // 1. Gerar os últimos 12 meses
   const today = new Date();
@@ -42,42 +64,21 @@ export default async function EvolucaoFinanceira({
     });
   }
 
-  const startDate = months[0].start;
-  const endDate = months[11].end;
-
-  // 2. Buscar transações
-  const { data: finData, error } = await supabase
-    .from("fin_transacoes")
-    .select("id, tipo, valor, status, data_vencimento, data_pagamento")
-    .eq("tenant_id", myTenantId)
-    .or(
-      `and(data_vencimento.gte.${startDate},data_vencimento.lte.${endDate}),` +
-        `and(status.eq.PAGO,data_pagamento.gte.${startDate},data_pagamento.lte.${endDate}T23:59:59)`,
-    );
-
-  if (error) console.error("[EvolucaoFinanceira]", error);
-
-  // 2b. Buscar fotografias já tiradas (Previsto congelado) pros meses do período
-  const { data: snapData, error: snapError } = await supabase
-    .from("fin_previsao_snapshot")
-    .select("ano_mes, transacao_id, origem, tipo, valor")
-    .eq("tenant_id", myTenantId)
-    .in("ano_mes", months.map((m) => m.key));
-
-  if (snapError) console.error("[EvolucaoFinanceira][snapshot]", snapError);
-
   const snapByMonth = new Map<
     string,
     { receita: number; despesa: number; transacaoIds: Set<string> }
   >();
   snapData?.forEach((s) => {
-    const bucket =
-      snapByMonth.get(s.ano_mes) ??
-      { receita: 0, despesa: 0, transacaoIds: new Set<string>() };
+    const bucket = snapByMonth.get(s.ano_mes) ?? {
+      receita: 0,
+      despesa: 0,
+      transacaoIds: new Set<string>(),
+    };
     const val = Number(s.valor) || 0;
     if (s.tipo === "RECEITA") bucket.receita += val;
     if (s.tipo === "DESPESA") bucket.despesa += val;
-    if (s.origem === "fin_transacoes" && s.transacao_id) bucket.transacaoIds.add(s.transacao_id);
+    if (s.origem === "fin_transacoes" && s.transacao_id)
+      bucket.transacaoIds.add(s.transacao_id);
     snapByMonth.set(s.ano_mes, bucket);
   });
 
@@ -133,7 +134,16 @@ export default async function EvolucaoFinanceira({
       ajuste2 = Math.max(0, line2 - bar2);
     }
 
-    return { label: m.label, key: m.key, bar1, bar2, line1, line2, ajuste1, ajuste2 };
+    return {
+      label: m.label,
+      key: m.key,
+      bar1,
+      bar2,
+      line1,
+      line2,
+      ajuste1,
+      ajuste2,
+    };
   });
 
   return <EvolucaoFinanceiraClient data={chartData} />;

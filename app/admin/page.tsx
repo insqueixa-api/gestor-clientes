@@ -207,20 +207,15 @@ export default async function AdminDashboardPage({
   const supabase = await createClient();
   const resolvedParams = await searchParams;
 
-  // Sessão (single-user)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Tenant id pra filtrar consultas diretas (server_credit_purchases, fin_*)
-  const memberResult = user
-    ? await supabase
-        .from("tenant_members")
-        .select("tenant_id")
-        .eq("user_id", user.id)
-        .maybeSingle()
-    : null;
-  const myTenantId = (memberResult?.data as any)?.tenant_id ?? null;
+  // Os dois bundles (IPTV / Finanças) em paralelo — cada RPC resolve o
+  // tenant internamente via auth.uid() (app/admin/layout.tsx já garantiu a
+  // sessão antes de chegar aqui, via getAdminTenantContext), então não
+  // precisa de um getUser()/tenant_members próprio nesta página.
+  // Ver docs/sql/add_dashboard_bundle_rpcs.sql.
+  const [iptvRes, financeRes] = await Promise.all([
+    supabase.rpc("get_dashboard_iptv_bundle"),
+    supabase.rpc("get_dashboard_finance_bundle"),
+  ]);
 
   // Filtro: apenas IPTV e Financeiro
   const availableModules = ["iptv", "financeiro"] as const;
@@ -246,71 +241,24 @@ export default async function AdminDashboardPage({
     _finMonth,
     new Date(_finYear, _finMonth, 0).getDate(),
   );
-  const _finAnoMes = `${_finYear}-${String(_finMonth).padStart(2, "0")}`;
+  // ── Bundle IPTV (get_dashboard_iptv_bundle — embrulha as 7 views + purchases) ──
+  type IptvBundle = {
+    kpis: VwKpis | null;
+    finance_cards: VwFinanceCards | null;
+    due: VwDue5Days[];
+    regs_daily: VwNewRegsDaily[];
+    payments_daily: VwPaymentsDaily[];
+    top_servers: VwTopServers[];
+    top_apps: VwTopApps[];
+    purchases: { created_at: string; total_amount_brl: number }[];
+  };
+  const iptvBundle = (iptvRes.data ?? null) as IptvBundle | null;
 
-  const [
-    kpisRes,
-    dueRes,
-    financeRes,
-    regsRes,
-    paymentsRes,
-    topServersRes,
-    topAppsRes,
-    purchasesRes,
-  ] = await Promise.all([
-    supabase.from("vw_dashboard_kpis_current_month").select("*").limit(1),
-    supabase.from("vw_dashboard_due_5_days").select("*"),
-    supabase.from("vw_dashboard_finance_cards").select("*").limit(1),
-    supabase
-      .from("vw_dashboard_new_registrations_daily_current_month")
-      .select("*")
-      .order("day", { ascending: true }),
-    supabase
-      .from("vw_dashboard_payments_daily_current_month")
-      .select("*")
-      .order("day", { ascending: true }),
-    supabase
-      .from("vw_dashboard_top_servers_current_month")
-      .select("*")
-      .order("clients_created", { ascending: false })
-      .limit(5),
-    supabase
-      .from("vw_dashboard_top_apps_current_month")
-      .select("*")
-      .order("clients_count", { ascending: false })
-      .limit(5),
-    (myTenantId
-      ? supabase
-          .from("server_credit_purchases")
-          .select("created_at, total_amount_brl")
-          .eq("tenant_id", myTenantId)
-          .gte(
-            "created_at",
-            isoDateFromYMD(
-              new Date(
-                todayInSaoPaulo().getFullYear(),
-                todayInSaoPaulo().getMonth() - 1,
-                1,
-              ).getFullYear(),
-              new Date(
-                todayInSaoPaulo().getFullYear(),
-                todayInSaoPaulo().getMonth() - 1,
-                1,
-              ).getMonth() + 1,
-              1,
-            ),
-          )
-      : Promise.resolve({ data: null })) as Promise<any>,
-  ]);
-
-  const kpis = (kpisRes.data?.[0] ?? null) as VwKpis | null;
-  const finance = (financeRes.data?.[0] ?? null) as VwFinanceCards | null;
+  const kpis = iptvBundle?.kpis ?? null;
+  const finance = iptvBundle?.finance_cards ?? null;
 
   // Despesas (server_credit_purchases) para cálculo de Lucro
-  const purchasesRows = (purchasesRes?.data ?? []) as {
-    created_at: string;
-    total_amount_brl: number;
-  }[];
+  const purchasesRows = iptvBundle?.purchases ?? [];
   let expensesMonthVal = 0;
   let expensesPrevMonthVal = 0;
 
@@ -327,7 +275,7 @@ export default async function AdminDashboardPage({
     }
   }
 
-  // ── Finanças Pessoais ───────
+  // ── Finanças Pessoais (get_dashboard_finance_bundle) ───────
   type FinTrx = {
     id: string;
     tipo: "RECEITA" | "DESPESA";
@@ -337,10 +285,6 @@ export default async function AdminDashboardPage({
     data_pagamento: string | null;
     categoria_id: string | null;
   };
-
-  const finTrxRows: FinTrx[] = [];
-  const finCatById = new Map<string, { nome: string; icone: string }>();
-  let finSaldoAtual = 0;
 
   // ✅ Previsto "congelado": fotografia tirada na virada do mês (ver
   // app/api/finance/snapshot-previsao). Se não existir ainda pro mês (ex: mês
@@ -354,78 +298,49 @@ export default async function AdminDashboardPage({
     valor: number | string;
     categoria_id: string | null;
   };
-  let finSnapshotRows: SnapshotRow[] = [];
 
-  if (myTenantId) {
-    const _finNextMonthStart = isoDateFromYMD(
-      _finMonth === 12 ? _finYear + 1 : _finYear,
-      _finMonth === 12 ? 1 : _finMonth + 1,
-      1,
-    );
+  type EvolucaoTrx = {
+    id: string;
+    tipo: "RECEITA" | "DESPESA";
+    valor: number | string;
+    status: string;
+    data_vencimento: string;
+    data_pagamento: string | null;
+  };
+  type EvolucaoSnapshotRow = {
+    ano_mes: string;
+    transacao_id: string | null;
+    origem: string;
+    tipo: "RECEITA" | "DESPESA";
+    valor: number | string;
+  };
 
-    const [trxRes, catRes, snapRes] = await Promise.allSettled([
-      supabase
-        .from("fin_transacoes")
-        .select(
-          "id, tipo, valor, status, data_vencimento, data_pagamento, categoria_id",
-        )
-        .eq("tenant_id", myTenantId)
-        .or(
-          `and(data_vencimento.gte.${_finMonthStart},data_vencimento.lte.${_finMonthEnd}),` +
-            `and(status.eq.PAGO,data_pagamento.gte.${_finMonthStart},data_pagamento.lt.${_finNextMonthStart})`,
-        ),
-      supabase
-        .from("fin_categorias")
-        .select("id, nome, icone")
-        .eq("tenant_id", myTenantId),
-      supabase
-        .from("fin_previsao_snapshot")
-        .select("transacao_id, client_id, origem, tipo, valor, categoria_id")
-        .eq("tenant_id", myTenantId)
-        .eq("ano_mes", _finAnoMes),
-    ]);
+  type FinanceBundle = {
+    categorias: { id: string; nome: string; icone: string }[];
+    transacoes: FinTrx[];
+    snapshot: SnapshotRow[];
+    evolucao_transacoes: EvolucaoTrx[];
+    evolucao_snapshot: EvolucaoSnapshotRow[];
+    saldo_atual: number | string | null;
+  };
+  const financeBundle = (financeRes.data ?? null) as FinanceBundle | null;
 
-    if (trxRes.status === "fulfilled" && !trxRes.value.error) {
-      const seen = new Set<string>();
-      for (const t of trxRes.value.data ?? []) {
-        if (!seen.has(t.id)) {
-          seen.add(t.id);
-          finTrxRows.push(t as FinTrx);
-        }
-      }
-    } else {
-    }
-
-    if (catRes.status === "fulfilled" && !catRes.value.error) {
-      for (const c of catRes.value.data ?? []) {
-        finCatById.set(c.id, { nome: c.nome, icone: c.icone });
-      }
-    } else {
-    }
-
-    if (snapRes.status === "fulfilled" && !snapRes.value.error) {
-      finSnapshotRows = (snapRes.value.data ?? []) as SnapshotRow[];
-    }
-
-    // Saldo atual: soma de todas as contas via RPC
-    const contasRes = await supabase
-      .from("fin_contas_bancarias")
-      .select("id")
-      .eq("tenant_id", myTenantId);
-
-    if (contasRes.data && contasRes.data.length > 0) {
-      const saldos = await Promise.allSettled(
-        contasRes.data.map((c) =>
-          supabase.rpc("get_saldo_conta", { p_conta_id: c.id }),
-        ),
-      );
-      for (const s of saldos) {
-        if (s.status === "fulfilled" && !s.value.error) {
-          finSaldoAtual += toNumber(s.value.data);
-        }
-      }
+  const finTrxRows: FinTrx[] = [];
+  const seenTrxIds = new Set<string>();
+  for (const t of financeBundle?.transacoes ?? []) {
+    if (!seenTrxIds.has(t.id)) {
+      seenTrxIds.add(t.id);
+      finTrxRows.push(t);
     }
   }
+
+  const finCatById = new Map<string, { nome: string; icone: string }>();
+  for (const c of financeBundle?.categorias ?? []) {
+    finCatById.set(c.id, { nome: c.nome, icone: c.icone });
+  }
+
+  const finSnapshotRows: SnapshotRow[] = financeBundle?.snapshot ?? [];
+  const finSaldoAtual = toNumber(financeBundle?.saldo_atual);
 
   const isFinPagoNoMes = (t: FinTrx) => {
     if (t.status !== "PAGO" || !t.data_pagamento) return false;
@@ -671,11 +586,11 @@ export default async function AdminDashboardPage({
     catExpExecMap,
   );
 
-  const dueRows = (dueRes.data ?? []) as VwDue5Days[];
-  const regsRows = (regsRes.data ?? []) as VwNewRegsDaily[];
-  const paymentsRows = (paymentsRes.data ?? []) as VwPaymentsDaily[];
-  const topServers = (topServersRes.data ?? []) as VwTopServers[];
-  const topApps = (topAppsRes.data ?? []) as VwTopApps[];
+  const dueRows = iptvBundle?.due ?? [];
+  const regsRows = iptvBundle?.regs_daily ?? [];
+  const paymentsRows = iptvBundle?.payments_daily ?? [];
+  const topServers = iptvBundle?.top_servers ?? [];
+  const topApps = iptvBundle?.top_apps ?? [];
 
   // KPIs
   const activeClients = toNumber(kpis?.active_clients);
@@ -1179,7 +1094,7 @@ export default async function AdminDashboardPage({
           <div className="bg-card rounded-xl border border-border p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-foreground">
+                <h3 className="text-sm font-medium text-foreground tracking-tight">
                   Novos clientes
                 </h3>
               </div>
@@ -1202,7 +1117,7 @@ export default async function AdminDashboardPage({
           <div className="bg-card rounded-xl border border-border p-3 sm:p-6 shadow-sm">
             <div className="flex justify-between items-center mb-2 sm:mb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-bold text-foreground">
+                <h3 className="text-sm font-medium text-foreground tracking-tight">
                   Pagamentos Recebidos
                 </h3>
               </div>
@@ -1247,7 +1162,10 @@ export default async function AdminDashboardPage({
       {/* EVOLUÇÃO 12 MESES (Apenas na visão exclusiva do Financeiro) */}
       {activeViews.length === 1 && activeViews.includes("financeiro") && (
         <div id="evolucao-financeira" className="scroll-mt-24 sv">
-          <EvolucaoFinanceira myTenantId={myTenantId} />
+          <EvolucaoFinanceira
+            transacoes={financeBundle?.evolucao_transacoes ?? []}
+            snapshot={financeBundle?.evolucao_snapshot ?? []}
+          />
         </div>
       )}
     </div>
