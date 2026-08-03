@@ -325,6 +325,73 @@ function formatMoney(amount: number | null, currency: string | null) {
   };
 }
 
+// ✅ Única fonte de verdade pra converter uma linha da view (dado real, do
+// banco) em ClientRow — usada tanto no carregamento da lista (loadData)
+// quanto no fallback do openEditById (cliente fora da página carregada).
+// Extraído pra função só pra garantir que os DOIS caminhos produzem
+// exatamente o mesmo resultado a partir do mesmo dado real — nenhum campo
+// inventado/placeholder em nenhum dos dois.
+function mapVwClientRow(r: VwClientRow): ClientRow {
+  const due = formatDue(r.vencimento);
+  const money = formatMoney(r.price_amount, r.price_currency);
+
+  return {
+    id: String(r.id),
+    name: String(r.client_name ?? "Sem Nome"),
+    username: String(r.username ?? "—"),
+
+    dueISODate: due.dueISODate,
+    dueLabelDate: due.dueLabelDate,
+    dueTime: due.dueTime,
+
+    planPeriod: extractPeriod(String(r.plan_name ?? "—")),
+    rawPlanName: String(r.plan_name ?? "—"),
+
+    valueCents: Math.round(money.value * 100),
+    valueLabel: money.label,
+
+    status: mapStatus(String(r.computed_status)),
+    server: String(r.server_name ?? r.server_id ?? "—"),
+    technology: String(r.technology || "—"),
+    screens: Number(r.screens || 1),
+
+    archived: Boolean(r.client_is_archived),
+    alertsCount: Number(r.alerts_open || 0),
+    apps: r.apps_names || [],
+    appsData:
+      (r.apps_data as Array<{
+        name: string;
+        integration_type: string;
+        expire_date: string | null;
+      }> | null) || null,
+
+    server_id: String(r.server_id ?? ""),
+    plan_table_id: r.plan_table_id ?? undefined,
+    technology_edit: String(r.technology || "IPTV"),
+    whatsapp: String(r.whatsapp_e164 ?? ""),
+    whatsapp_username: r.whatsapp_username ?? undefined,
+    server_password: r.server_password ?? undefined,
+    price_amount: r.price_amount ?? undefined,
+    m3u_url: r.m3u_url ?? undefined,
+    name_prefix: r.name_prefix ?? undefined,
+
+    secondary_display_name: (r as any).secondary_display_name ?? undefined,
+    secondary_name_prefix: (r as any).secondary_name_prefix ?? undefined,
+    secondary_phone_e164: (r as any).secondary_phone_e164 ?? undefined,
+    secondary_whatsapp_username:
+      (r as any).secondary_whatsapp_username ?? undefined,
+
+    expires_at: r.vencimento ? r.vencimento.split("T")[0] : undefined,
+    rawVencimento: r.vencimento,
+
+    whatsapp_opt_in:
+      typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
+    price_currency: r.price_currency ?? undefined,
+    dont_message_until: r.dont_message_until ?? undefined,
+    notes: r.notes ?? "",
+  };
+}
+
 function ClientePageContent() {
   const resolvedTenantId = useTenantId();
   const searchParams = useSearchParams();
@@ -386,6 +453,27 @@ function ClientePageContent() {
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [isDefaultSort, setIsDefaultSort] = useState(true); // <--- ADICIONAR ISSO
+
+  // ✅ Paginação/filtro/busca real no banco (get_clients_list_page) — total
+  // vem da RPC, não é mais `filtered.length` de um array já carregado
+  // inteiro. `search` fica com debounce pra não bater no banco a cada tecla.
+  const [totalCount, setTotalCount] = useState(0);
+  const [fetchingPage, setFetchingPage] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Opções dos dropdowns — vêm direto do banco (servers/plan periods/apps
+  // usados), não mais derivadas das linhas já carregadas na página.
+  const [dropdownServers, setDropdownServers] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [dropdownPlanPeriods, setDropdownPlanPeriods] = useState<string[]>([]);
+  const [dropdownApps, setDropdownApps] = useState<
+    { id: string; name: string; integration_type: string | null }[]
+  >([]);
 
   // --- ADICIONAR ESTE useEffect ---
   // Captura o clique vindo do Dashboard
@@ -708,11 +796,17 @@ function ClientePageContent() {
   }
 
   // --- CARREGAMENTO ---
+  // ✅ Paginação/filtro/busca real no banco: get_clients_list_page já
+  // devolve só a página atual (com as 3 subconsultas caras calculadas só
+  // pra essas linhas, não pro tenant inteiro) + o total do conjunto
+  // filtrado. Ver docs/sql/add_clients_list_page_rpc.sql.
   async function loadData() {
     if (loadingRef.current) return;
 
     loadingRef.current = true;
-    setLoading(true);
+    const isFirstLoad = rows.length === 0;
+    if (isFirstLoad) setLoading(true);
+    setFetchingPage(true);
 
     try {
       const tid = tenantId;
@@ -720,94 +814,43 @@ function ClientePageContent() {
 
       if (!tid) {
         setRows([]);
+        setTotalCount(0);
         return;
       }
 
-      const viewName =
-        archivedFilter === "Sim"
-          ? "vw_clients_list_archived"
-          : "vw_clients_list_active";
-
-      // ✅ SÓ isso é essencial pra tabela aparecer. Templates e WhatsApp saíram
-      // completamente daqui — só carregam quando você abre o modal de mensagem.
-      const { data, error } = await supabaseBrowser
-        .from(viewName)
-        .select("*")
-        .eq("tenant_id", tid)
-        .neq("computed_status", "TRIAL")
-        .order("vencimento", { ascending: true });
+      const { data, error } = await supabaseBrowser.rpc(
+        "get_clients_list_page",
+        {
+          p_archived: archivedFilter === "Sim",
+          p_status: statusFilter === "Todos" ? null : statusFilter,
+          p_search: debouncedSearch.trim() || null,
+          p_server_id: serverFilter === "Todos" ? null : serverFilter,
+          p_plan_period: planFilter === "Todos" ? null : planFilter,
+          p_due_filter: dueFilter === "Todos" ? null : dueFilter,
+          p_app_filter: appFilter === "Todos" ? null : appFilter,
+          p_sort_key: sortKey,
+          p_sort_dir: sortDir,
+          p_is_default_sort: isDefaultSort,
+          p_page: page,
+          p_page_size: pageSize,
+        },
+      );
 
       if (error) {
         addToast("error", "Erro ao carregar clientes", error.message);
         setRows([]);
+        setTotalCount(0);
         return;
       }
 
-      const typed = (data || []) as VwClientRow[];
+      const result = (data ?? { total_count: 0, rows: [] }) as {
+        total_count: number;
+        rows: VwClientRow[];
+      };
+      setTotalCount(Number(result.total_count) || 0);
+      const typed = result.rows || [];
 
-      const mapped: ClientRow[] = typed.map((r) => {
-        const due = formatDue(r.vencimento);
-        const money = formatMoney(r.price_amount, r.price_currency);
-
-        return {
-          id: String(r.id),
-          name: String(r.client_name ?? "Sem Nome"),
-          username: String(r.username ?? "—"),
-
-          dueISODate: due.dueISODate,
-          dueLabelDate: due.dueLabelDate,
-          dueTime: due.dueTime,
-
-          planPeriod: extractPeriod(String(r.plan_name ?? "—")),
-          rawPlanName: String(r.plan_name ?? "—"),
-
-          valueCents: Math.round(money.value * 100),
-          valueLabel: money.label,
-
-          status: mapStatus(String(r.computed_status)),
-          server: String(r.server_name ?? r.server_id ?? "—"),
-          technology: String(r.technology || "—"),
-          screens: Number(r.screens || 1),
-
-          archived: Boolean(r.client_is_archived),
-          alertsCount: Number(r.alerts_open || 0),
-          apps: r.apps_names || [],
-          appsData:
-            (r.apps_data as Array<{
-              name: string;
-              integration_type: string;
-              expire_date: string | null;
-            }> | null) || null,
-
-          server_id: String(r.server_id ?? ""),
-          plan_table_id: r.plan_table_id ?? undefined,
-          technology_edit: String(r.technology || "IPTV"),
-          whatsapp: String(r.whatsapp_e164 ?? ""),
-          whatsapp_username: r.whatsapp_username ?? undefined,
-          server_password: r.server_password ?? undefined,
-          price_amount: r.price_amount ?? undefined,
-          m3u_url: r.m3u_url ?? undefined,
-          name_prefix: r.name_prefix ?? undefined,
-
-          secondary_display_name:
-            (r as any).secondary_display_name ?? undefined,
-          secondary_name_prefix: (r as any).secondary_name_prefix ?? undefined,
-          secondary_phone_e164: (r as any).secondary_phone_e164 ?? undefined,
-          secondary_whatsapp_username:
-            (r as any).secondary_whatsapp_username ?? undefined,
-
-          expires_at: r.vencimento ? r.vencimento.split("T")[0] : undefined,
-          rawVencimento: r.vencimento,
-
-          whatsapp_opt_in:
-            typeof r.whatsapp_opt_in === "boolean"
-              ? r.whatsapp_opt_in
-              : undefined,
-          price_currency: r.price_currency ?? undefined,
-          dont_message_until: r.dont_message_until ?? undefined,
-          notes: r.notes ?? "",
-        };
-      });
+      const mapped: ClientRow[] = typed.map(mapVwClientRow);
 
       // ✅ A tabela já pode aparecer aqui — tudo abaixo roda em segundo plano,
       // sem bloquear, e atualiza sozinho (sem precisar de refresh)
@@ -840,6 +883,8 @@ function ClientePageContent() {
           if (appInts) setAppIntegrations(appInts);
         });
 
+      // ✅ Escopo mudou pra só a página atual (get_clients_list_page já
+      // devolve só ela) — antes buscava pro tenant inteiro numa passada só.
       loadScheduledForClients(
         tid,
         mapped.map((m) => m.id),
@@ -847,6 +892,7 @@ function ClientePageContent() {
     } finally {
       loadingRef.current = false;
       setLoading(false);
+      setFetchingPage(false);
     }
   }
 
@@ -915,10 +961,27 @@ function ClientePageContent() {
     return s;
   }
 
+  // ✅ Qualquer mudança em filtro/busca/ordenação/página dispara a RPC de
+  // novo — antes só `archivedFilter` recarregava (o resto era filtrado em
+  // memória sobre o array já carregado inteiro).
   useEffect(() => {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [archivedFilter]);
+  }, [
+    tenantId,
+    archivedFilter,
+    statusFilter,
+    debouncedSearch,
+    serverFilter,
+    planFilter,
+    dueFilter,
+    appFilter,
+    sortKey,
+    sortDir,
+    isDefaultSort,
+    page,
+    pageSize,
+  ]);
 
   useEffect(() => {
     if (loading) return;
@@ -944,227 +1007,76 @@ function ClientePageContent() {
     }
   }, [loading]); // quando terminar o loadData (loading=false), mostra o toast
 
-  // --- FILTROS ---
-  const uniqueServers = useMemo(
-    () =>
-      Array.from(
-        new Set(rows.map((r) => r.server).filter((s) => s !== "—")),
-      ).sort(),
-    [rows],
-  );
-  const uniqueplano = useMemo(
-    () =>
-      Array.from(
-        new Set(rows.map((r) => r.planPeriod).filter((p) => p !== "—")),
-      ).sort(),
-    [rows],
-  );
+  // --- FILTROS, BUSCA E ORDENAÇÃO ---
+  // ✅ Tudo isso agora acontece no banco (get_clients_list_page, disparada
+  // pelo useEffect lá em cima) — rows já chega filtrada/ordenada/paginada.
+  // `visible` continua existindo só pra não precisar tocar em todo lugar
+  // que já lia esse nome (tabela, checkbox de selecionar-tudo, etc.).
+  const visible = rows;
 
-  const filtered = useMemo(() => {
-    // ✅ Normaliza a busca: remove espaços, joga pra minúsculo e arranca todos os acentos
-    const q = search
-      .trim()
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
+  // Opções dos dropdowns de Servidor/Plano/Aplicativos — vêm do banco (não
+  // mais derivadas das linhas já carregadas), refeitas só quando o tenant
+  // ou o toggle Ativos/Lixeira mudam (não a cada tecla/filtro).
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
 
-    const today = isoDateInSaoPaulo();
-    const end3 = addDaysIsoInSaoPaulo(today, 3);
+    supabaseBrowser
+      .from("servers")
+      .select("id, name")
+      .eq("tenant_id", tenantId)
+      .order("name", { ascending: true })
+      .then(({ data }) => {
+        if (alive && data)
+          setDropdownServers(data as { id: string; name: string }[]);
+      });
 
-    return rows.filter((r) => {
-      if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
-      if (serverFilter !== "Todos" && r.server !== serverFilter) return false;
-      if (planFilter !== "Todos" && r.planPeriod !== planFilter) return false;
-
-      // ✅ Filtro Único de Aplicativos (Vencimento ou Nome do App)
-      if (appFilter !== "Todos") {
-        if (appFilter === "15_dias" || appFilter === "30_dias") {
-          const minExpiry =
-            r.appsData
-              ?.filter((a) => a.expire_date)
-              .map((a) => a.expire_date!)
-              .sort()[0] ?? null;
-          if (!minExpiry) return false;
-          const diff = getDiffDays(minExpiry);
-          if (appFilter === "15_dias" && diff > 15) return false;
-          if (appFilter === "30_dias" && diff > 30) return false;
-        } else {
-          if (!r.apps?.includes(appFilter)) return false;
+    supabaseBrowser
+      .rpc("get_client_plan_periods", {
+        p_archived: archivedFilter === "Sim",
+      })
+      .then(({ data }) => {
+        if (alive && data) {
+          setDropdownPlanPeriods(
+            (data as { plan_period: string }[]).map((r) => r.plan_period),
+          );
         }
-      }
+      });
 
-      if (dueFilter !== "Todos") {
-        const diff = getDiffDays(r.dueISODate);
+    supabaseBrowser
+      .rpc("get_client_used_apps", { p_archived: archivedFilter === "Sim" })
+      .then(({ data }) => {
+        if (alive && data) setDropdownApps(data as typeof dropdownApps);
+      });
 
-        switch (dueFilter) {
-          case "Venceu há 2 dias":
-            if (diff !== -2) return false;
-            break;
-          case "Venceu Ontem":
-            if (diff !== -1) return false;
-            break;
-          case "Hoje":
-            if (diff !== 0) return false;
-            break;
-          case "Vence Amanhã":
-            if (diff !== 1) return false;
-            break;
-          case "Vence em 2 dias":
-            if (diff !== 2) return false;
-            break;
-          case "Mês Atual":
-            const currentMonth = isoDateInSaoPaulo().slice(0, 7);
-            if (!r.dueISODate.startsWith(currentMonth)) return false;
-            break;
-        }
-      }
+    return () => {
+      alive = false;
+    };
+  }, [tenantId, archivedFilter]);
 
-      if (q) {
-        // ✅ Normaliza o "palheiro" (dados do cliente): joga pra minúsculo e arranca acentos
-        const hay = [
-          r.name,
-          r.username,
-          r.secondary_display_name ?? "",
-          r.server,
-          r.planPeriod,
-          r.valueLabel,
-          r.status,
-          r.whatsapp_username ?? "",
-          r.secondary_whatsapp_username ?? "",
-        ]
-          .join(" ")
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "");
-
-        if (!hay.includes(q)) return false;
-      }
-
-      return true;
-    });
+  // ✅ Volta pra página 1 sempre que um filtro/busca/ordenação muda (mas não
+  // quando só a página em si muda, senão nunca sairia da página 1).
+  useEffect(() => {
+    setPage(1);
   }, [
-    rows,
-    search,
+    debouncedSearch,
     statusFilter,
     serverFilter,
     planFilter,
     dueFilter,
     appFilter,
-  ]); // ✅ BUG CORRIGIDO: AppFilter adicionado nas dependências
-
-  useEffect(() => {
-    setPage(1);
-  }, [
-    search,
-    statusFilter,
-    serverFilter,
-    planFilter,
-    dueFilter,
     archivedFilter,
+    sortKey,
+    sortDir,
   ]);
 
-  // --- ORDENAÇÃO ---
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-
-    // 🧠 ORDENAÇÃO
-    // Regra Padrão (só na entrada): Prioriza quem vence de -2 dias em diante
-    if (isDefaultSort && sortKey === "due" && sortDir === "asc") {
-      list.sort((a, b) => {
-        const diffA = getDiffDays(a.dueISODate);
-        const diffB = getDiffDays(b.dueISODate);
-
-        // Regra: Lista principal = >= -2 dias
-        const isMainListA = diffA >= -2;
-        const isMainListB = diffB >= -2;
-
-        if (isMainListA && !isMainListB) return -1;
-        if (!isMainListA && isMainListB) return 1;
-
-        // Desempate por data
-        if (a.dueISODate !== b.dueISODate) {
-          return a.dueISODate.localeCompare(b.dueISODate);
-        }
-        return a.dueTime.localeCompare(b.dueTime);
-      });
-      return list;
-    }
-
-    // 🔁 ORDENAÇÃO MANUAL (Pura)
-    // Se o usuário clicou, cai aqui direto e ordena data por data sem agrupar
-    list.sort((a, b) => {
-      let cmp = 0;
-
-      switch (sortKey) {
-        case "name":
-          cmp = compareText(a.name, b.name);
-          break;
-        case "due":
-          cmp = compareText(
-            `${a.dueISODate} ${a.dueTime}`,
-            `${b.dueISODate} ${b.dueTime}`,
-          );
-          break;
-        case "status":
-          cmp = compareNumber(statusRank(a.status), statusRank(b.status));
-          break;
-        case "server":
-          cmp = compareText(a.server, b.server);
-          break;
-        case "technology": // ✅ Adicionado
-          cmp = compareText(a.technology, b.technology);
-          break;
-        case "screens":
-          cmp = compareNumber(a.screens, b.screens);
-          break;
-        case "plan":
-          cmp = compareText(a.planPeriod, b.planPeriod);
-          break;
-        case "value":
-          cmp = compareNumber(a.valueCents, b.valueCents);
-          break;
-        case "alerts":
-          cmp = compareNumber(a.alertsCount, b.alertsCount);
-          break;
-        case "apps": // ✅ Ordena alfabeticamente pelos nomes dos apps
-          const appsA = (a.apps || []).join(", ");
-          const appsB = (b.apps || []).join(", ");
-          cmp = compareText(appsA, appsB);
-          break;
-      }
-
-      if (cmp === 0) {
-        cmp = compareText(
-          `${a.dueISODate} ${a.dueTime}`,
-          `${b.dueISODate} ${b.dueTime}`,
-        );
-      }
-
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-
-    return list;
-  }, [filtered, sortKey, sortDir]);
-
-  const totalPages = useMemo(() => {
-    const n = Math.ceil(sorted.length / pageSize);
-    return Math.max(1, n);
-  }, [sorted.length, pageSize]);
-
-  const safePage = useMemo(() => {
-    return Math.min(Math.max(1, page), totalPages);
-  }, [page, totalPages]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
 
   useEffect(() => {
     if (page !== safePage) setPage(safePage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safePage]);
-
-  const visible = useMemo(() => {
-    const start = (safePage - 1) * pageSize;
-    const end = start + pageSize;
-    return sorted.slice(start, end);
-  }, [sorted, safePage, pageSize]);
 
   useEffect(() => {
     const el = selectAllRef.current;
@@ -1212,23 +1124,47 @@ function ClientePageContent() {
 
   const [editInitialTab, setEditInitialTab] = useState<EditTab>("dados");
 
-  // ✅ abre o modal de edição pelo id (útil pro popup de apps)
+  // ✅ abre o modal de edição pelo id (útil pro popup de apps). Com a
+  // paginação real, o cliente pode não estar na página carregada — nesse
+  // caso busca o registro completo, real, direto nas views (mesmas usadas
+  // pela lista, com servidor/apps/alertas de verdade) e usa a MESMA função
+  // de mapeamento do carregamento normal. Nada de valor inventado/default
+  // aqui — se não achar em nenhuma das duas views, mostra erro, não segue
+  // com dado incompleto.
   function openEditById(clientId: string, initialTab: EditTab = "dados") {
     const r = rows.find((x) => x.id === clientId);
-    if (!r) {
-      addToast(
-        "error",
-        "Cliente não encontrado",
-        "Não foi possível abrir edição deste cliente.",
-      );
+    if (r) {
+      setEditInitialTab(initialTab);
+      handleOpenEdit(r, initialTab);
       return;
     }
 
-    // ✅ define aba
-    setEditInitialTab(initialTab);
+    Promise.all([
+      supabaseBrowser
+        .from("vw_clients_list_active")
+        .select("*")
+        .eq("id", clientId)
+        .maybeSingle(),
+      supabaseBrowser
+        .from("vw_clients_list_archived")
+        .select("*")
+        .eq("id", clientId)
+        .maybeSingle(),
+    ]).then(([activeRes, archivedRes]) => {
+      const found = (activeRes.data ?? archivedRes.data) as VwClientRow | null;
 
-    // ✅ reaproveita a abertura normal
-    handleOpenEdit(r, initialTab);
+      if (!found) {
+        addToast(
+          "error",
+          "Cliente não encontrado",
+          "Não foi possível abrir edição deste cliente.",
+        );
+        return;
+      }
+
+      setEditInitialTab(initialTab);
+      handleOpenEdit(mapVwClientRow(found), initialTab);
+    });
   }
 
   const handleOpenEdit = (r: ClientRow, initialTab: EditTab = "dados") => {
@@ -1707,9 +1643,9 @@ function ClientePageContent() {
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <option value="Todos">Servidor (Todos)</option>
-              {uniqueServers.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {dropdownServers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </Select>
@@ -1721,7 +1657,7 @@ function ClientePageContent() {
               onChange={(e) => setPlanFilter(e.target.value)}
             >
               <option value="Todos">Plano (Todos)</option>
-              {uniqueplano.map((p) => (
+              {dropdownPlanPeriods.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
@@ -1753,38 +1689,33 @@ function ClientePageContent() {
               <option value="Todos">Aplicativos (Todos)</option>
               <option value="15_dias">Vencendo em 15 dias</option>
               <option value="30_dias">Vencendo em 30 dias</option>
+              <option value="mais_30_dias">Vencendo em mais de 30 dias</option>
               <optgroup label="Filtrar por nome">
-                {Object.values(appsIndex.byId)
-                  .filter((app) =>
-                    // Mostra apenas se algum cliente da lista possui este aplicativo (comparando o nome)
-                    rows.some((r) => r.apps && r.apps.includes(app.name)),
-                  )
-                  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-                  .map((app) => {
-                    // Verifica se tem integração para adicionar o indicador visual
-                    const temIntegracao =
-                      app.integration_type &&
-                      app.integration_type !== "SEM_INTEGRACAO";
-                    const intLabel =
-                      app.integration_type === "GERENCIAAPP"
-                        ? "GerenciaApp"
-                        : app.integration_type === "DUPLECAST"
-                          ? "DupleCast"
-                          : app.integration_type === "IBOSOL"
-                            ? "IBO Sol"
-                            : app.integration_type === "IBOPRO"
-                              ? "IBO Pro"
-                              : app.integration_type;
-                    const label = temIntegracao
-                      ? `⚡ ${app.name} (${intLabel})`
-                      : app.name;
+                {dropdownApps.map((app) => {
+                  // Verifica se tem integração para adicionar o indicador visual
+                  const temIntegracao =
+                    app.integration_type &&
+                    app.integration_type !== "SEM_INTEGRACAO";
+                  const intLabel =
+                    app.integration_type === "GERENCIAAPP"
+                      ? "GerenciaApp"
+                      : app.integration_type === "DUPLECAST"
+                        ? "DupleCast"
+                        : app.integration_type === "IBOSOL"
+                          ? "IBO Sol"
+                          : app.integration_type === "IBOPRO"
+                            ? "IBO Pro"
+                            : app.integration_type;
+                  const label = temIntegracao
+                    ? `⚡ ${app.name} (${intLabel})`
+                    : app.name;
 
-                    return (
-                      <option key={app.id} value={app.name}>
-                        {label}
-                      </option>
-                    );
-                  })}
+                  return (
+                    <option key={app.id} value={app.name}>
+                      {label}
+                    </option>
+                  );
+                })}
               </optgroup>
             </Select>
           </div>
@@ -1854,9 +1785,9 @@ function ClientePageContent() {
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <option value="Todos">Servidor (Todos)</option>
-              {uniqueServers.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {dropdownServers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </Select>
@@ -1867,7 +1798,7 @@ function ClientePageContent() {
               onChange={(e) => setPlanFilter(e.target.value)}
             >
               <option value="Todos">Plano (Todos)</option>
-              {uniqueplano.map((p) => (
+              {dropdownPlanPeriods.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
@@ -1896,35 +1827,31 @@ function ClientePageContent() {
               <option value="Todos">Aplicativos (Todos)</option>
               <option value="15_dias">Vencendo em 15 dias</option>
               <option value="30_dias">Vencendo em 30 dias</option>
+              <option value="mais_30_dias">Vencendo em mais de 30 dias</option>
               <optgroup label="Filtrar por nome">
-                {Object.values(appsIndex.byId)
-                  .filter((app) =>
-                    rows.some((r) => r.apps && r.apps.includes(app.name)),
-                  )
-                  .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
-                  .map((app) => {
-                    const temIntegracao =
-                      app.integration_type &&
-                      app.integration_type !== "SEM_INTEGRACAO";
-                    const intLabel =
-                      app.integration_type === "GERENCIAAPP"
-                        ? "GerenciaApp"
-                        : app.integration_type === "DUPLECAST"
-                          ? "DupleCast"
-                          : app.integration_type === "IBOSOL"
-                            ? "IBO Sol"
-                            : app.integration_type === "IBOPRO"
-                              ? "IBO Pro"
-                              : app.integration_type;
-                    const label = temIntegracao
-                      ? `⚡ ${app.name} (${intLabel})`
-                      : app.name;
-                    return (
-                      <option key={app.id} value={app.name}>
-                        {label}
-                      </option>
-                    );
-                  })}
+                {dropdownApps.map((app) => {
+                  const temIntegracao =
+                    app.integration_type &&
+                    app.integration_type !== "SEM_INTEGRACAO";
+                  const intLabel =
+                    app.integration_type === "GERENCIAAPP"
+                      ? "GerenciaApp"
+                      : app.integration_type === "DUPLECAST"
+                        ? "DupleCast"
+                        : app.integration_type === "IBOSOL"
+                          ? "IBO Sol"
+                          : app.integration_type === "IBOPRO"
+                            ? "IBO Pro"
+                            : app.integration_type;
+                  const label = temIntegracao
+                    ? `⚡ ${app.name} (${intLabel})`
+                    : app.name;
+                  return (
+                    <option key={app.id} value={app.name}>
+                      {label}
+                    </option>
+                  );
+                })}
               </optgroup>
             </Select>
 
@@ -1969,7 +1896,7 @@ function ClientePageContent() {
             <div className="text-sm font-medium tracking-tight text-foreground whitespace-nowrap">
               Lista de Clientes
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-medium">
-                {filtered.length}
+                {totalCount}
               </span>
             </div>
           </div>
