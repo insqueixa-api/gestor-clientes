@@ -866,6 +866,13 @@ function EditorModal({
   const [variants, setVariants] = useState<{ id: string; content: string }[]>(
     [],
   );
+  // ✅ Guarda o último texto de cada variação já confirmado no banco (via
+  // carregamento, "Salvar variação" individual, ou "Atualizar Modelo") — usado
+  // só pra decidir se o botão "Salvar variação" aparece (só quando o texto em
+  // tela difere do que está salvo). Não usado pra nada além disso.
+  const [originalVariants, setOriginalVariants] = useState<
+    Record<string, string>
+  >({});
   const [variantsLoading, setVariantsLoading] = useState(false);
   const [savingVariantId, setSavingVariantId] = useState<string | null>(null);
   const { confirm: confirmVariant } = useConfirm();
@@ -880,6 +887,9 @@ function EditorModal({
         .eq("template_id", templateToEdit.id)
         .order("created_at", { ascending: true });
       setVariants(data || []);
+      setOriginalVariants(
+        Object.fromEntries((data || []).map((v) => [v.id, v.content])),
+      );
       setVariantsLoading(false);
     })();
   }, [templateToEdit?.id]);
@@ -902,6 +912,7 @@ function EditorModal({
       return;
     }
     setVariants((prev) => [...prev, data]);
+    setOriginalVariants((prev) => ({ ...prev, [data.id]: data.content }));
   }
 
   // ✅ Gera uma variação com IA (Gemini) a partir do texto principal —
@@ -948,6 +959,7 @@ function EditorModal({
       if (error) throw error;
 
       setVariants((prev) => [...prev, data]);
+      setOriginalVariants((prev) => ({ ...prev, [data.id]: data.content }));
     } catch (e: any) {
       onError(e.message || "Falha ao gerar variação com IA.");
     } finally {
@@ -966,7 +978,11 @@ function EditorModal({
       .update({ content: text })
       .eq("id", id);
     setSavingVariantId(null);
-    if (error) onError(error.message);
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    setOriginalVariants((prev) => ({ ...prev, [id]: text }));
   }
 
   async function handleDeleteVariant(id: string) {
@@ -987,6 +1003,11 @@ function EditorModal({
       return;
     }
     setVariants((prev) => prev.filter((v) => v.id !== id));
+    setOriginalVariants((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   // ✅ Motor de Compressão Frontend (Gera JPEGs super leves)
@@ -1063,6 +1084,16 @@ function EditorModal({
       onError("Preencha o nome e o conteúdo da mensagem.");
       return;
     }
+    // ✅ Mesma validação do "Salvar variação" individual, mas em bloco —
+    // antes disso "Atualizar Modelo" só gravava nome/conteúdo/categoria e
+    // ignorava por completo o texto editado nas variações, que só ia pro
+    // banco se cada uma fosse salva com o botão próprio antes de fechar o
+    // modal (perdendo silenciosamente qualquer edição não salva individual).
+    const emptyIdx = variants.findIndex((v) => !v.content.trim());
+    if (emptyIdx !== -1) {
+      onError(`A variação ${emptyIdx + 1} não pode ficar vazia.`);
+      return;
+    }
     setLoading(true);
     try {
       const tid = tenantId;
@@ -1132,6 +1163,26 @@ function EditorModal({
           .insert(payload);
 
         if (error) throw error;
+      }
+
+      // ✅ Salva junto TODAS as variações (não só a que teve "Salvar
+      // variação" clicado individualmente) — cada uma já tem id real (a
+      // variação só entra em `variants` depois de já ter sido inserida no
+      // banco, seja carregada, seja criada via "+ Adicionar"/"Gerar com IA").
+      if (variants.length > 0) {
+        const results = await Promise.all(
+          variants.map((v) =>
+            supabaseBrowser
+              .from("message_template_variants")
+              .update({ content: v.content })
+              .eq("id", v.id),
+          ),
+        );
+        const failed = results.find((r) => r.error);
+        if (failed?.error) throw failed.error;
+        setOriginalVariants(
+          Object.fromEntries(variants.map((v) => [v.id, v.content])),
+        );
       }
 
       onSuccess();
@@ -1427,17 +1478,20 @@ function EditorModal({
                           }}
                           className="w-full min-h-[96px] p-2.5 bg-transparent border border-border rounded-lg text-foreground/90 outline-none focus:border-emerald-500 transition-colors resize-none text-xs font-mono"
                         />
-                        <div className="flex justify-end mt-2">
-                          <button
-                            onClick={() => handleSaveVariant(v.id, v.content)}
-                            disabled={savingVariantId === v.id}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-[11px] font-medium disabled:opacity-50 transition-colors"
-                          >
-                            {savingVariantId === v.id
-                              ? "Salvando..."
-                              : "Salvar variação"}
-                          </button>
-                        </div>
+                        {(v.content !== (originalVariants[v.id] ?? "") ||
+                          savingVariantId === v.id) && (
+                          <div className="flex justify-end mt-2">
+                            <button
+                              onClick={() => handleSaveVariant(v.id, v.content)}
+                              disabled={savingVariantId === v.id}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 text-[11px] font-medium disabled:opacity-50 transition-colors"
+                            >
+                              {savingVariantId === v.id
+                                ? "Salvando..."
+                                : "Salvar variação"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

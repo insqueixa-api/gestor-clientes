@@ -17,7 +17,7 @@ import {
   Check,
 } from "lucide-react";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -53,7 +53,17 @@ const APP_FIELD_LABELS: Record<string, string> = {
 
 // --- TIPOS ---
 type TrialStatus = "Ativo" | "Vencido" | "Arquivado";
-type SortKey = "name" | "due" | "status" | "server";
+type SortKey =
+  | "name"
+  | "due"
+  | "status"
+  | "server"
+  | "technology"
+  | "screens"
+  | "plan"
+  | "value"
+  | "alerts"
+  | "apps";
 type SortDir = "asc" | "desc";
 
 type VwClientRow = {
@@ -64,15 +74,17 @@ type VwClientRow = {
   server_password?: string | null;
   m3u_url?: string | null;
   vencimento: string | null;
-  computed_status: "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string;
+  computed_status: "ACTIVE" | "OVERDUE" | "ARCHIVED" | string;
   client_is_archived: boolean | null;
+  screens: number | null;
   server_id: string | null;
   server_name: string | null;
   technology: string | null;
   price_amount: number | null;
   price_currency: string | null;
   plan_name: string | null;
-  plan_table_id?: string | null; // ✅ ADICIONADO
+  plan_table_id?: string | null;
+  plan_table_name?: string | null;
   whatsapp_e164: string | null;
   whatsapp_username: string | null;
   whatsapp_opt_in: boolean | null;
@@ -86,6 +98,11 @@ type VwClientRow = {
   notes: string | null;
   converted_client_id?: string | null;
   alerts_open?: number | null;
+  apps_data: Array<{
+    name: string;
+    integration_type: string;
+    expire_date: string | null;
+  }> | null;
 };
 
 type TrialRow = {
@@ -95,10 +112,20 @@ type TrialRow = {
   dueISODate: string;
   dueLabelDate: string;
   dueTime: string;
+  planPeriod: string;
+  rawPlanName: string;
+  valueCents: number;
+  valueLabel: string;
   status: TrialStatus;
   server: string;
   technology: string;
+  screens: number;
   apps_names: string[];
+  appsData: Array<{
+    name: string;
+    integration_type: string;
+    expire_date: string | null;
+  }> | null;
   archived: boolean;
   server_id: string;
   whatsapp: string;
@@ -115,7 +142,7 @@ type TrialRow = {
   price_amount?: number;
   price_currency?: string;
   plan_name?: string;
-  plan_table_id?: string; // ✅ ADICIONADO
+  plan_table_id?: string;
   vencimento?: string;
   notes?: string;
   converted: boolean;
@@ -135,22 +162,42 @@ function statusRank(s: TrialStatus) {
   return 1;
 }
 
-function mapStatus(
-  computed: string,
-  archived: boolean,
-  vencimento: string | null,
-): TrialStatus {
-  if (archived) return "Arquivado";
-  if (vencimento) {
-    const t = new Date(vencimento).getTime();
-    if (!Number.isNaN(t) && Date.now() > t) return "Vencido";
-  }
+// ✅ Igual Clientes: a RPC (get_trials_list_page) já manda status_label/
+// computed_status prontos — não precisa mais recalcular vencido/arquivado
+// no front (era o que a versão de 3 argumentos fazia).
+function mapStatus(computed: string): TrialStatus {
   const map: Record<string, TrialStatus> = {
-    TRIAL: "Ativo",
+    ACTIVE: "Ativo",
     OVERDUE: "Vencido",
     ARCHIVED: "Arquivado",
   };
   return map[computed] || "Ativo";
+}
+
+// ✅ Duplicado de cliente/page.tsx (decisão do usuário: duplicar em vez de
+// extrair módulo compartilhado — mesmo padrão já usado por compareText/
+// formatDue/etc nessas duas páginas).
+function extractPeriod(planName: string) {
+  const p = (planName || "").trim();
+  if (!p || p === "—") return "—";
+  if (p.toLowerCase().includes("personalizado")) return "Mensal";
+  if (p.includes("-")) {
+    const parts = p.split("-");
+    return parts[parts.length - 1].trim();
+  }
+  return p;
+}
+
+function formatMoney(amount: number | null, currency: string | null) {
+  if (!amount || amount <= 0) return { value: 0, label: "—" };
+  const cur = currency || "BRL";
+  return {
+    value: amount,
+    label: new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: cur,
+    }).format(amount),
+  };
 }
 
 function getDiffDays(isoDateTarget: string) {
@@ -184,6 +231,65 @@ function formatDue(rawDue: string | null) {
     dueISODate: isoDate,
     dueLabelDate: `${get("day")}/${get("month")}/${get("year")}`,
     dueTime: `${get("hour")}:${get("minute")}`,
+  };
+}
+
+// ✅ Única fonte de verdade pra converter uma linha da view/RPC (dado real,
+// do banco) em TrialRow — usada tanto no carregamento da lista (loadData)
+// quanto no fallback do openEditById (teste fora da página carregada).
+// Modelada em mapVwClientRow (cliente/page.tsx): nenhum campo inventado/
+// placeholder em nenhum dos dois caminhos.
+function mapVwTrialRow(r: VwClientRow): TrialRow {
+  const due = formatDue(r.vencimento);
+  const money = formatMoney(r.price_amount, r.price_currency);
+  const archived = Boolean(r.client_is_archived);
+
+  return {
+    id: String(r.id),
+    name: String(r.client_name ?? "Sem Nome"),
+    username: String(r.username ?? "—"),
+
+    dueISODate: due.dueISODate,
+    dueLabelDate: due.dueLabelDate,
+    dueTime: due.dueTime,
+
+    planPeriod: extractPeriod(String(r.plan_name ?? "—")),
+    rawPlanName: String(r.plan_name ?? "—"),
+    valueCents: Math.round(money.value * 100),
+    valueLabel: money.label,
+
+    status: mapStatus(String(r.computed_status)),
+    server: String(r.server_name ?? r.server_id ?? "—"),
+    technology: String(r.technology ?? "—"),
+    screens: Number(r.screens || 1),
+
+    apps_names: Array.isArray(r.apps_names) ? r.apps_names.filter(Boolean) : [],
+    appsData: r.apps_data ?? null,
+
+    archived,
+    server_id: String(r.server_id ?? ""),
+    whatsapp: String(r.whatsapp_e164 ?? ""),
+    whatsapp_username: r.whatsapp_username ?? undefined,
+    whatsapp_opt_in:
+      typeof r.whatsapp_opt_in === "boolean" ? r.whatsapp_opt_in : undefined,
+    name_prefix: r.name_prefix ?? undefined,
+    dont_message_until: r.dont_message_until ?? undefined,
+    secondary_display_name: r.secondary_display_name ?? undefined,
+    secondary_name_prefix: r.secondary_name_prefix ?? undefined,
+    secondary_phone_e164: r.secondary_phone_e164 ?? undefined,
+    secondary_whatsapp_username: r.secondary_whatsapp_username ?? undefined,
+    server_password: r.server_password ?? undefined,
+    m3u_url: r.m3u_url || undefined,
+    price_amount: r.price_amount ?? undefined,
+    price_currency: r.price_currency ?? undefined,
+    plan_name: r.plan_name ?? undefined,
+    plan_table_id: r.plan_table_id ?? undefined,
+    vencimento: r.vencimento ?? undefined,
+
+    notes: (r.notes ?? "") as any,
+
+    converted: Boolean(r.converted_client_id),
+    alertsCount: Number(r.alerts_open || 0),
   };
 }
 
@@ -287,18 +393,44 @@ export default function TrialsPage() {
   type EditTab = "dados" | "pagamento" | "apps";
   const [editInitialTab, setEditInitialTab] = useState<EditTab>("dados");
 
-  // ✅ Função para abrir o modal direto por ID
+  // ✅ Abre o modal de edição pelo id. Com paginação real, o teste pode não
+  // estar na página carregada — nesse caso busca o registro completo, real,
+  // direto nas views (mesmas usadas pela lista) e usa a MESMA função de
+  // mapeamento do carregamento normal (mapVwTrialRow). Nada de valor
+  // inventado/default aqui — se não achar em nenhuma das duas views, mostra
+  // erro, não segue com dado incompleto (mesmo padrão de cliente/page.tsx).
   function openEditById(clientId: string, initialTab: EditTab = "dados") {
     const r = rows.find((x) => x.id === clientId);
-    if (!r) {
-      addToast(
-        "error",
-        "Teste não encontrado",
-        "Não foi possível abrir edição deste teste.",
-      );
+    if (r) {
+      handleOpenEdit(r, initialTab);
       return;
     }
-    handleOpenEdit(r, initialTab);
+
+    Promise.all([
+      supabaseBrowser
+        .from("vw_trials_list_active")
+        .select("*")
+        .eq("id", clientId)
+        .maybeSingle(),
+      supabaseBrowser
+        .from("vw_trials_list_archived")
+        .select("*")
+        .eq("id", clientId)
+        .maybeSingle(),
+    ]).then(([activeRes, archivedRes]) => {
+      const found = (activeRes.data ?? archivedRes.data) as VwClientRow | null;
+
+      if (!found) {
+        addToast(
+          "error",
+          "Teste não encontrado",
+          "Não foi possível abrir edição deste teste.",
+        );
+        return;
+      }
+
+      handleOpenEdit(mapVwTrialRow(found), initialTab);
+    });
   }
 
   // modal de conversão
@@ -317,16 +449,41 @@ export default function TrialsPage() {
     if (typeof window === "undefined") return "";
     return new URLSearchParams(window.location.search).get("search") || "";
   });
-  const [showCount, setShowCount] = useState(100);
   const [archivedFilter, setArchivedFilter] = useState<"Não" | "Sim">("Não");
   const [serverFilter, setServerFilter] = useState("Todos");
   const [statusFilter, setStatusFilter] = useState<"Todos" | TrialStatus>(
     "Todos",
   );
-  const [appFilter, setAppFilter] = useState("Todos"); // ✅ Adicionado estado do filtro de apps
+  const [planFilter, setPlanFilter] = useState("Todos");
+  const [dueFilter, setDueFilter] = useState("Todos");
+  const [appFilter, setAppFilter] = useState("Todos");
 
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // ✅ Paginação/filtro/busca real no banco (get_trials_list_page) — total
+  // vem da RPC, não é mais um corte de array já carregado inteiro (era o
+  // que "Mostrar N" fazia). `search` fica com debounce pra não bater no
+  // banco a cada tecla (Testes não tinha debounce nenhum antes).
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalCount, setTotalCount] = useState(0);
+  const [fetchingPage, setFetchingPage] = useState(false);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Opções dos dropdowns — vêm direto do banco (servers/plan periods/apps
+  // usados), não mais derivadas das linhas já carregadas na página.
+  const [dropdownServers, setDropdownServers] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [dropdownPlanPeriods, setDropdownPlanPeriods] = useState<string[]>([]);
+  const [dropdownApps, setDropdownApps] = useState<
+    { id: string; name: string; integration_type: string | null }[]
+  >([]);
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
@@ -725,122 +882,166 @@ export default function TrialsPage() {
   }
 
   // --- CARREGAMENTO ---
+  // ✅ Paginação/filtro/busca real no banco: get_trials_list_page já devolve
+  // só a página atual (com a subconsulta cara de apps_data calculada só pra
+  // essas linhas, não pro tenant inteiro) + o total do conjunto filtrado.
+  // Ver docs/sql/add_trials_list_page_rpc.sql.
+  const loadingRef = useRef(false);
   async function loadData() {
-    setLoading(true);
+    if (loadingRef.current) return;
+    loadingRef.current = true;
 
-    const tid = tenantId;
-    setTenantId(tid);
+    const isFirstLoad = rows.length === 0;
+    if (isFirstLoad) setLoading(true);
+    setFetchingPage(true);
 
-    if (!tid) {
-      setRows([]);
-      setLoading(false);
-      return;
-    }
+    try {
+      const tid = tenantId;
+      setTenantId(tid);
 
-    const viewName =
-      archivedFilter === "Sim"
-        ? "vw_trials_list_archived"
-        : "vw_trials_list_active";
+      if (!tid) {
+        setRows([]);
+        setTotalCount(0);
+        return;
+      }
 
-    const { data, error } = await supabaseBrowser
-      .from(viewName)
-      .select("*")
-      .eq("tenant_id", tid)
-      .order("vencimento", { ascending: false, nullsFirst: false });
-
-    if (error) {
-      addToast("error", "Erro ao carregar testes", error.message);
-      setRows([]);
-      setLoading(false);
-      return;
-    }
-
-    const typed = (data || []) as VwClientRow[];
-
-    const mapped: TrialRow[] = typed.map((r) => {
-      const due = formatDue(r.vencimento);
-      const archived = Boolean(r.client_is_archived);
-
-      const status = mapStatus(
-        String(r.computed_status),
-        archived,
-        r.vencimento,
+      const { data, error } = await supabaseBrowser.rpc(
+        "get_trials_list_page",
+        {
+          p_archived: archivedFilter === "Sim",
+          p_status: statusFilter === "Todos" ? null : statusFilter,
+          p_search: debouncedSearch.trim() || null,
+          p_server_id: serverFilter === "Todos" ? null : serverFilter,
+          p_plan_period: planFilter === "Todos" ? null : planFilter,
+          p_due_filter: dueFilter === "Todos" ? null : dueFilter,
+          p_app_filter: appFilter === "Todos" ? null : appFilter,
+          p_sort_key: sortKey,
+          p_sort_dir: sortDir,
+          p_page: page,
+          p_page_size: pageSize,
+        },
       );
 
-      const converted = Boolean((r as any).converted_client_id);
+      if (error) {
+        addToast("error", "Erro ao carregar testes", error.message);
+        setRows([]);
+        setTotalCount(0);
+        return;
+      }
 
-      const id = String(r.id);
-
-      return {
-        id,
-        name: String(r.client_name ?? "Sem Nome"),
-        username: String(r.username ?? "—"),
-
-        dueISODate: due.dueISODate,
-        dueLabelDate: due.dueLabelDate,
-        dueTime: due.dueTime,
-
-        status,
-        server: String(r.server_name ?? r.server_id ?? "—"),
-
-        technology: String((r as any).technology ?? "—"),
-        apps_names: Array.isArray((r as any).apps_names)
-          ? ((r as any).apps_names as string[]).filter(Boolean)
-          : [],
-
-        archived,
-
-        server_id: String(r.server_id ?? ""),
-        whatsapp: String(r.whatsapp_e164 ?? ""),
-        whatsapp_username: r.whatsapp_username ?? undefined,
-        whatsapp_opt_in:
-          typeof r.whatsapp_opt_in === "boolean"
-            ? r.whatsapp_opt_in
-            : undefined,
-        name_prefix: (r as any).name_prefix ?? undefined,
-        dont_message_until: r.dont_message_until ?? undefined,
-        secondary_display_name: r.secondary_display_name ?? undefined,
-        secondary_name_prefix: r.secondary_name_prefix ?? undefined,
-        secondary_phone_e164: r.secondary_phone_e164 ?? undefined,
-        secondary_whatsapp_username: r.secondary_whatsapp_username ?? undefined,
-        server_password: (r.server_password ?? undefined) as any,
-        m3u_url: r.m3u_url || undefined,
-        price_amount: r.price_amount ?? undefined,
-        price_currency: r.price_currency ?? undefined,
-        plan_name: r.plan_name ?? undefined,
-        plan_table_id: r.plan_table_id ?? undefined, // ✅ ADICIONADO
-        vencimento: r.vencimento ?? undefined,
-
-        notes: (r.notes ?? "") as any,
-
-        converted,
-        alertsCount: Number(r.alerts_open || 0),
+      const result = (data ?? { total_count: 0, rows: [] }) as {
+        total_count: number;
+        rows: VwClientRow[];
       };
-    });
+      setTotalCount(Number(result.total_count) || 0);
+      const typed = result.rows || [];
 
-    // ✅ A tabela já pode aparecer aqui — mensagens agendadas atualizam
-    // sozinhas em segundo plano, sem bloquear. Templates e WhatsApp saíram
-    // completamente daqui — só carregam quando abre o modal de mensagem.
-    setRows(mapped);
-    setLoading(false);
+      const mapped: TrialRow[] = typed.map(mapVwTrialRow);
 
-    if (tid) {
+      // ✅ A tabela já pode aparecer aqui — mensagens agendadas atualizam
+      // sozinhas em segundo plano, sem bloquear. Templates e WhatsApp saíram
+      // completamente daqui — só carregam quando abre o modal de mensagem.
+      setRows(mapped);
+      setLoading(false);
+      loadingRef.current = false;
+
       loadScheduledForClients(
         tid,
         mapped.map((m) => m.id),
       );
+    } finally {
+      loadingRef.current = false;
+      setLoading(false);
+      setFetchingPage(false);
     }
   }
 
+  // ✅ Qualquer mudança em filtro/busca/ordenação/página dispara a RPC de
+  // novo. loadAppsIndex (índice de apps pra estilizar os badges) não
+  // depende de filtro nenhum — carrega só uma vez por tenant.
   useEffect(() => {
-    (async () => {
-      await loadData();
-
-      const tid = tenantId;
-      if (tid) await loadAppsIndex(tid);
-    })();
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [archivedFilter]);
+  }, [
+    tenantId,
+    archivedFilter,
+    statusFilter,
+    debouncedSearch,
+    serverFilter,
+    planFilter,
+    dueFilter,
+    appFilter,
+    sortKey,
+    sortDir,
+    page,
+    pageSize,
+  ]);
+
+  useEffect(() => {
+    if (tenantId) loadAppsIndex(tenantId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId]);
+
+  // Opções dos dropdowns de Servidor/Plano/Aplicativos — vêm do banco,
+  // refeitas só quando o tenant ou o toggle Ativos/Lixeira mudam.
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+
+    supabaseBrowser
+      .from("servers")
+      .select("id, name")
+      .eq("tenant_id", tenantId)
+      .order("name", { ascending: true })
+      .then(({ data }) => {
+        if (alive && data)
+          setDropdownServers(data as { id: string; name: string }[]);
+      });
+
+    supabaseBrowser
+      .rpc("get_trial_plan_periods", { p_archived: archivedFilter === "Sim" })
+      .then(({ data }) => {
+        if (alive && data) {
+          setDropdownPlanPeriods(
+            (data as { plan_period: string }[]).map((r) => r.plan_period),
+          );
+        }
+      });
+
+    supabaseBrowser
+      .rpc("get_trial_used_apps", { p_archived: archivedFilter === "Sim" })
+      .then(({ data }) => {
+        if (alive && data) setDropdownApps(data as typeof dropdownApps);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [tenantId, archivedFilter]);
+
+  // ✅ Volta pra página 1 sempre que um filtro/busca/ordenação muda (mas não
+  // quando só a página em si muda, senão nunca sairia da página 1).
+  useEffect(() => {
+    setPage(1);
+  }, [
+    debouncedSearch,
+    statusFilter,
+    serverFilter,
+    planFilter,
+    dueFilter,
+    appFilter,
+    archivedFilter,
+    sortKey,
+    sortDir,
+  ]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(Math.max(1, page), totalPages);
+
+  useEffect(() => {
+    if (page !== safePage) setPage(safePage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [safePage]);
 
   // ✅ toasts pós-refresh
   useEffect(() => {
@@ -864,83 +1065,9 @@ export default function TrialsPage() {
     }
   }, [loading]);
 
-  // --- FILTROS ---
-  const uniqueServers = useMemo(
-    () =>
-      Array.from(
-        new Set(rows.map((r) => r.server).filter((s) => s !== "—")),
-      ).sort(),
-    [rows],
-  );
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-
-    return rows.filter((r) => {
-      if (statusFilter !== "Todos" && r.status !== statusFilter) return false;
-      if (serverFilter !== "Todos" && r.server !== serverFilter) return false;
-
-      // ✅ Aplica o filtro de Aplicativos usando a propriedade "apps_names"
-      if (appFilter !== "Todos") {
-        if (!r.apps_names?.includes(appFilter)) return false;
-      }
-
-      if (q) {
-        const hay = [r.name, r.username, r.server, r.status]
-          .join(" ")
-          .toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-
-      return true;
-    });
-  }, [rows, search, statusFilter, serverFilter, appFilter]); // ✅ appFilter adicionado nas dependências
-
-  // --- ORDENAÇÃO ---
-  const sorted = useMemo(() => {
-    const list = [...filtered];
-    list.sort((a, b) => {
-      let cmp = 0;
-
-      const getTimestamp = (isoD: string, timeT: string) => {
-        const d = new Date(`${isoD}T${timeT || "00:00"}:00`);
-        return isNaN(d.getTime()) ? 0 : d.getTime();
-      };
-
-      switch (sortKey) {
-        case "name":
-          cmp = compareText(a.name, b.name);
-          break;
-        case "due":
-          cmp = compareNumber(
-            getTimestamp(a.dueISODate, a.dueTime),
-            getTimestamp(b.dueISODate, b.dueTime),
-          );
-          break;
-        case "status":
-          cmp = compareNumber(statusRank(a.status), statusRank(b.status));
-          break;
-        case "server":
-          cmp = compareText(a.server, b.server);
-          break;
-      }
-
-      if (cmp === 0) {
-        cmp = compareNumber(
-          getTimestamp(a.dueISODate, a.dueTime),
-          getTimestamp(b.dueISODate, b.dueTime),
-        );
-      }
-
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return list;
-  }, [filtered, sortKey, sortDir]);
-
-  const visible = useMemo(
-    () => sorted.slice(0, showCount),
-    [sorted, showCount],
-  );
+  // ✅ Tudo isso agora acontece no banco (get_trials_list_page, disparada
+  // pelo useEffect lá em cima) — rows já chega filtrada/ordenada/paginada.
+  const visible = rows;
 
   function toggleSort(nextKey: SortKey) {
     if (sortKey === nextKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -962,7 +1089,7 @@ export default function TrialsPage() {
       name_prefix: r.name_prefix,
       username: r.username,
       server_id: r.server_id,
-      screens: 1,
+      screens: r.screens,
       technology: r.technology,
 
       whatsapp_e164: r.whatsapp,
@@ -1205,6 +1332,8 @@ export default function TrialsPage() {
             className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
               statusFilter !== "Todos" ||
               serverFilter !== "Todos" ||
+              planFilter !== "Todos" ||
+              dueFilter !== "Todos" ||
               archivedFilter === "Sim"
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
                 : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
@@ -1234,7 +1363,7 @@ export default function TrialsPage() {
             )}
           </div>
 
-          <div className="w-[190px]">
+          <div className="w-[180px]">
             <Select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -1246,17 +1375,46 @@ export default function TrialsPage() {
             </Select>
           </div>
 
-          <div className="w-[220px]">
+          <div className="w-[180px]">
             <Select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <option value="Todos">Servidor (Todos)</option>
-              {uniqueServers.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {dropdownServers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
+            </Select>
+          </div>
+
+          <div className="w-[180px]">
+            <Select
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+            >
+              <option value="Todos">Plano (Todos)</option>
+              {dropdownPlanPeriods.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="w-[180px]">
+            <Select
+              value={dueFilter}
+              onChange={(e) => setDueFilter(e.target.value)}
+            >
+              <option value="Todos">Vencimento (Todos)</option>
+              <option value="Venceu há 2 dias">Venceu há 2 dias</option>
+              <option value="Venceu Ontem">Venceu Ontem</option>
+              <option value="Hoje">Hoje</option>
+              <option value="Vence Amanhã">Vence Amanhã</option>
+              <option value="Vence em 2 dias">Vence em 2 dias</option>
+              <option value="Mês Atual">Mês Atual</option>
             </Select>
           </div>
 
@@ -1267,39 +1425,33 @@ export default function TrialsPage() {
               onChange={(e) => setAppFilter(e.target.value)}
             >
               <option value="Todos">Aplicativos (Todos)</option>
+              <option value="15_dias">Vencendo em 15 dias</option>
+              <option value="30_dias">Vencendo em 30 dias</option>
+              <option value="mais_30_dias">Vencendo em mais de 30 dias</option>
               <optgroup label="Filtrar por nome">
-                {Object.values(appsIndex.byId)
-                  .filter((app: any) =>
-                    rows.some(
-                      (r) => r.apps_names && r.apps_names.includes(app.name),
-                    ),
-                  )
-                  .sort((a: any, b: any) =>
-                    String(a.name).localeCompare(String(b.name)),
-                  )
-                  .map((app: any) => {
-                    const temIntegracao =
-                      app.integration_type &&
-                      app.integration_type !== "SEM_INTEGRACAO";
-                    const nomeIntegracao =
-                      app.integration_type === "GERENCIAAPP"
-                        ? "GerenciaApp"
-                        : app.integration_type === "DUPLECAST"
-                          ? "DupleCast"
-                          : app.integration_type === "IBOSOL"
-                            ? "IBO Sol"
-                            : app.integration_type === "IBOPRO"
-                              ? "IBO Pro"
-                              : app.integration_type;
-                    const label = temIntegracao
-                      ? `${app.name} (${nomeIntegracao})`
-                      : app.name;
-                    return (
-                      <option key={app.id} value={app.name}>
-                        {label}
-                      </option>
-                    );
-                  })}
+                {dropdownApps.map((app) => {
+                  const temIntegracao =
+                    app.integration_type &&
+                    app.integration_type !== "SEM_INTEGRACAO";
+                  const nomeIntegracao =
+                    app.integration_type === "GERENCIAAPP"
+                      ? "GerenciaApp"
+                      : app.integration_type === "DUPLECAST"
+                        ? "DupleCast"
+                        : app.integration_type === "IBOSOL"
+                          ? "IBO Sol"
+                          : app.integration_type === "IBOPRO"
+                            ? "IBO Pro"
+                            : app.integration_type;
+                  const label = temIntegracao
+                    ? `${app.name} (${nomeIntegracao})`
+                    : app.name;
+                  return (
+                    <option key={app.id} value={app.name}>
+                      {label}
+                    </option>
+                  );
+                })}
               </optgroup>
             </Select>
           </div>
@@ -1309,7 +1461,9 @@ export default function TrialsPage() {
               setSearch("");
               setStatusFilter("Todos");
               setServerFilter("Todos");
-              setAppFilter("Todos"); // ✅ Resetando o novo filtro
+              setPlanFilter("Todos");
+              setDueFilter("Todos");
+              setAppFilter("Todos");
               setArchivedFilter("Não");
             }}
             className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
@@ -1357,11 +1511,36 @@ export default function TrialsPage() {
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <option value="Todos">Servidor (Todos)</option>
-              {uniqueServers.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+              {dropdownServers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
+            </Select>
+
+            <Select
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+            >
+              <option value="Todos">Plano (Todos)</option>
+              {dropdownPlanPeriods.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </Select>
+
+            <Select
+              value={dueFilter}
+              onChange={(e) => setDueFilter(e.target.value)}
+            >
+              <option value="Todos">Vencimento (Todos)</option>
+              <option value="Venceu há 2 dias">Venceu há 2 dias</option>
+              <option value="Venceu Ontem">Venceu Ontem</option>
+              <option value="Hoje">Hoje</option>
+              <option value="Vence Amanhã">Vence Amanhã</option>
+              <option value="Vence em 2 dias">Vence em 2 dias</option>
+              <option value="Mês Atual">Mês Atual</option>
             </Select>
 
             {/* ✅ Select de Aplicativos Mobile */}
@@ -1370,39 +1549,33 @@ export default function TrialsPage() {
               onChange={(e) => setAppFilter(e.target.value)}
             >
               <option value="Todos">Aplicativos (Todos)</option>
+              <option value="15_dias">Vencendo em 15 dias</option>
+              <option value="30_dias">Vencendo em 30 dias</option>
+              <option value="mais_30_dias">Vencendo em mais de 30 dias</option>
               <optgroup label="Filtrar por nome">
-                {Object.values(appsIndex.byId)
-                  .filter((app: any) =>
-                    rows.some(
-                      (r) => r.apps_names && r.apps_names.includes(app.name),
-                    ),
-                  )
-                  .sort((a: any, b: any) =>
-                    String(a.name).localeCompare(String(b.name)),
-                  )
-                  .map((app: any) => {
-                    const temIntegracao =
-                      app.integration_type &&
-                      app.integration_type !== "SEM_INTEGRACAO";
-                    const nomeIntegracao =
-                      app.integration_type === "GERENCIAAPP"
-                        ? "GerenciaApp"
-                        : app.integration_type === "DUPLECAST"
-                          ? "DupleCast"
-                          : app.integration_type === "IBOSOL"
-                            ? "IBO Sol"
-                            : app.integration_type === "IBOPRO"
-                              ? "IBO Pro"
-                              : app.integration_type;
-                    const label = temIntegracao
-                      ? `${app.name} (${nomeIntegracao})`
-                      : app.name;
-                    return (
-                      <option key={app.id} value={app.name}>
-                        {label}
-                      </option>
-                    );
-                  })}
+                {dropdownApps.map((app) => {
+                  const temIntegracao =
+                    app.integration_type &&
+                    app.integration_type !== "SEM_INTEGRACAO";
+                  const nomeIntegracao =
+                    app.integration_type === "GERENCIAAPP"
+                      ? "GerenciaApp"
+                      : app.integration_type === "DUPLECAST"
+                        ? "DupleCast"
+                        : app.integration_type === "IBOSOL"
+                          ? "IBO Sol"
+                          : app.integration_type === "IBOPRO"
+                            ? "IBO Pro"
+                            : app.integration_type;
+                  const label = temIntegracao
+                    ? `${app.name} (${nomeIntegracao})`
+                    : app.name;
+                  return (
+                    <option key={app.id} value={app.name}>
+                      {label}
+                    </option>
+                  );
+                })}
               </optgroup>
             </Select>
 
@@ -1411,7 +1584,9 @@ export default function TrialsPage() {
                 setSearch("");
                 setStatusFilter("Todos");
                 setServerFilter("Todos");
-                setAppFilter("Todos"); // ✅ Resetando o novo filtro
+                setPlanFilter("Todos");
+                setDueFilter("Todos");
+                setAppFilter("Todos");
                 setArchivedFilter("Não");
                 setMobileFiltersOpen(false);
               }}
@@ -1438,23 +1613,8 @@ export default function TrialsPage() {
             <div className="text-sm font-medium text-foreground/90 whitespace-nowrap">
               Lista de Testes{" "}
               <span className="ml-2 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-xs">
-                {filtered.length}
+                {totalCount}
               </span>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground shrink-0">
-              <div className="flex items-center gap-2">
-                <span>Mostrar</span>
-                <select
-                  value={showCount}
-                  onChange={(e) => setShowCount(Number(e.target.value))}
-                  className="bg-transparent border border-border rounded px-1 py-0.5 outline-none text-foreground/90 cursor-pointer hover:border-emerald-500/50 transition-colors"
-                >
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-              </div>
             </div>
           </div>
 
@@ -1487,9 +1647,36 @@ export default function TrialsPage() {
                     dir={sortDir}
                     onClick={() => toggleSort("server")}
                   />
-
-                  <Th>Tecnologia</Th>
-                  <Th>Apps</Th>
+                  <ThSort
+                    label="Tecnologia"
+                    active={sortKey === "technology"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("technology")}
+                  />
+                  <ThSort
+                    label="Telas"
+                    active={sortKey === "screens"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("screens")}
+                  />
+                  <ThSort
+                    label="Plano"
+                    active={sortKey === "plan"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("plan")}
+                  />
+                  <ThSort
+                    label="Valor"
+                    active={sortKey === "value"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("value")}
+                  />
+                  <ThSort
+                    label="Apps"
+                    active={sortKey === "apps"}
+                    dir={sortDir}
+                    onClick={() => toggleSort("apps")}
+                  />
 
                   <Th align="right">Ações</Th>
                 </tr>
@@ -1670,6 +1857,26 @@ export default function TrialsPage() {
                         })()}
                       </Td>
 
+                      <Td>
+                        <span className="text-muted-foreground">
+                          {r.screens}
+                        </span>
+                      </Td>
+
+                      <Td>
+                        <span className="text-muted-foreground">
+                          {r.planPeriod}
+                        </span>
+                      </Td>
+
+                      <Td>
+                        <span
+                          className={`font-medium text-foreground/90 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                        >
+                          {r.valueLabel}
+                        </span>
+                      </Td>
+
                       {/* ✅ Apps */}
                       <Td>
                         {r.apps_names.length > 0 ? (
@@ -1847,7 +2054,7 @@ export default function TrialsPage() {
                 {visible.length === 0 && (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={11}
                       className="p-8 text-center text-muted-foreground italic"
                     >
                       Nenhum teste encontrado.
@@ -1859,6 +2066,18 @@ export default function TrialsPage() {
 
             <div className="h-40 md:h-32" />
           </div>
+
+          <Pagination
+            page={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={[50, 100, 200]}
+          />
         </div>
       )}
 
