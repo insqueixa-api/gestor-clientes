@@ -719,8 +719,8 @@ function PreviewModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-3 animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-auto sm:max-w-lg bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[100dvh] sm:max-h-[78vh]">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 animate-in fade-in duration-200">
+      <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[78vh]">
         {/* Cabeçalho */}
         <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-b border-border flex justify-between items-center bg-transparent shrink-0">
           <h3 className="font-medium text-foreground truncate pr-3 text-sm sm:text-base">
@@ -1215,9 +1215,9 @@ function EditorModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-stretch sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-3 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 animate-in fade-in duration-200">
       <div
-        className="w-full h-full sm:h-auto max-w-5xl bg-card border-0 sm:border border-border rounded-none sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[100dvh] sm:max-h-[86vh]"
+        className="w-full max-w-5xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[86vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-3 py-2.5 sm:px-4 sm:py-3 border-b border-border flex justify-between items-center bg-transparent">

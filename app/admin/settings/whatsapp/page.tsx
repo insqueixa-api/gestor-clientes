@@ -1158,8 +1158,8 @@ function BotMonitor({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm sm:p-4">
-      <div className="bg-card w-full h-full sm:h-[600px] sm:max-w-3xl border-0 sm:border border-border sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-card w-full h-[600px] max-h-[90vh] max-w-3xl border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-5 py-4 border-b border-border flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">

@@ -240,8 +240,8 @@ export default function VincularServidor({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-auto sm:max-w-xl bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <h2 className="text-lg font-medium text-foreground tracking-tight">

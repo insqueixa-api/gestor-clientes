@@ -4331,19 +4331,19 @@ export default function NovoCliente({
         </div>
       </div>
       <div
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
+        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
         onPointerDown={(e) => {
           // ✅ CORREÇÃO: Só fecha se clicar (começar o clique) exatamente no fundo, não se arrastar pra fora.
           if (e.target === e.currentTarget) onClose();
         }}
       >
         <div
-          className="w-full h-full sm:h-auto sm:max-w-3xl bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-full sm:max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200 sm:max-h-[90dvh]"
+          className="w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"
           onPointerDown={(e) => e.stopPropagation()} // Impede que o clique dentro do modal vaze para o fundo
         >
           {/* HEADER */}
 
-          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent sm:rounded-t-xl shrink-0">
+          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl shrink-0">
             <h2 className="text-base font-medium text-foreground truncate">
               {isEditing
                 ? isTrialMode

@@ -677,8 +677,8 @@ export default function QuickRechargeModal({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full h-full sm:h-auto sm:max-w-2xl max-h-full sm:max-h-[90vh] bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
           <div>

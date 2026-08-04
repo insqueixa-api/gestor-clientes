@@ -1331,7 +1331,7 @@ export default function AppManagerPage() {
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
           onMouseDown={(e) => {
             // ✅ onMouseDown (não onClick) + checagem do alvo exatamente no
             // fundo — só fecha se o clique COMEÇAR no backdrop. Com onClick
@@ -1341,10 +1341,10 @@ export default function AppManagerPage() {
           }}
         >
           <div
-            className="w-full h-full sm:h-auto sm:max-w-3xl bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh] animate-in zoom-in-95 duration-200"
+            className="w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent sm:rounded-t-xl">
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl">
               <h2 className="text-lg font-medium text-foreground">
                 {editingId ? "Editar Aplicativo" : "Novo Aplicativo"}
               </h2>

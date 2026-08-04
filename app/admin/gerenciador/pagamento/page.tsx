@@ -422,17 +422,17 @@ function HelpModal({ type, onClose }: { type: string; onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="w-full h-full sm:h-auto sm:max-w-lg bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]"
+        className="w-full max-w-lg max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 py-4 border-b border-border bg-transparent sm:rounded-t-xl flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-border bg-transparent rounded-t-xl flex items-center justify-between">
           <div>
             <h2 className="text-base font-medium text-foreground">
               📖 {help.title}
@@ -650,17 +650,17 @@ function GatewayModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
-        className="w-full h-full sm:h-auto sm:max-w-2xl bg-card border-0 sm:border border-border sm:rounded-xl shadow-2xl flex flex-col max-h-full sm:max-h-[90vh]"
+        className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
         onMouseDown={(e) => e.stopPropagation()}
       >
         {/* HEADER MODAL */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent sm:rounded-t-xl">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl">
           <div>
             <h2 className="text-lg font-medium text-foreground">
               {isEdit ? "Editar Integração" : "Nova Integração de Pagamento"}
