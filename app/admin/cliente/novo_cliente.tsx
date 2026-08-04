@@ -190,6 +190,44 @@ function toBRDate(dateISO: string) {
   return `${d}/${m}/${y}`;
 }
 
+// ✅ Sufixo de "marca" do servidor a colar no fim do username — usado tanto
+// no Teste Rápido (troca o sufixo antigo pelo do servidor escolhido) quanto
+// na criação de teste/cliente do zero (monta usuário sugerido a partir do
+// nome + servidor). Curto de propósito (Elite/Fast/NaTV, não EliteTV/FastTV)
+// — é assim que o Márcio nomeia na prática hoje.
+const SERVER_BRAND_SUFFIX_BY_KEYWORD: [RegExp, string][] = [
+  [/elite/i, "Elite"],
+  [/fast/i, "Fast"],
+  [/natv/i, "NaTV"],
+];
+
+function getServerBrandSuffix(serverName: string | null | undefined): string {
+  const raw = (serverName || "").trim();
+  for (const [re, suffix] of SERVER_BRAND_SUFFIX_BY_KEYWORD) {
+    if (re.test(raw)) return suffix;
+  }
+  // servidor desconhecido (ex: UniGestor, ou um novo cadastrado depois) —
+  // usa o próprio nome, só limpando espaço/acento/símbolo.
+  return raw
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "");
+}
+
+// ✅ Reconhece se o username atual termina com um sufixo de servidor
+// conhecido (Elite/EliteTV/Fast/FastTV/NaTV, com dígitos opcionais logo
+// depois, ex: "ArthurElite1") e devolve a base sem esse sufixo — preservando
+// os dígitos, se houver (ex: "LeticiaNaTV3" -> "Leticia3"). Se não reconhecer
+// nada no fim do username, devolve null (nunca inventa/força uma troca em
+// cima de um username que não segue esse padrão).
+function stripKnownServerSuffix(rawUsername: string): string | null {
+  const m = rawUsername.match(/^(.*?)(elitetv|elite|fasttv|fast|natv)(\d*)$/i);
+  if (!m) return null;
+  const [, base, , trailingDigits] = m;
+  if (!base.trim()) return null; // username é SÓ o sufixo — nada de nome pra manter
+  return base + trailingDigits;
+}
+
 // --- DDI ---
 
 type DdiOption = { code: string; label: string; flag: string };
@@ -762,6 +800,11 @@ export default function NovoCliente({
   // --- PAGAMENTO (TAB 2) ---
   const [serverId, setServerId] = useState("");
   const [username, setUsername] = useState("");
+  // ✅ Vira true assim que o admin edita o campo Usuário na mão — trava as
+  // sugestões automáticas de username (troca de sufixo no Teste Rápido /
+  // montagem nome+servidor na criação do zero) pra não sobrescrever o que
+  // ele já ajustou manualmente. Mesmo padrão do whatsUserTouched acima.
+  const [usernameTouched, setUsernameTouched] = useState(false);
   // Força o estado inicial como string vazia e garante que qualquer set será string
   const [password, setPassword] = useState<string>("");
 
@@ -1140,6 +1183,59 @@ export default function NovoCliente({
       }
     })();
   }, [serverId]);
+
+  // ✅ Teste Rápido (clona um cliente existente, sourceClientId presente):
+  // ao trocar de servidor, atualiza o SUFIXO de marca do username pro
+  // servidor novo (ex: "JoaoNaTV" + escolheu Elite -> "JoaoElite"). Só
+  // troca quando o username atual reconhecidamente termina com um sufixo
+  // de servidor conhecido — nunca mexe em usernames que não seguem esse
+  // padrão (pedido do Márcio: poupar o trabalho manual sem arriscar
+  // bagunçar um username que já está certo por outro motivo).
+  useEffect(() => {
+    if (!sourceClientId) return;
+    if (usernameTouched) return;
+    if (!serverId) return;
+
+    const server = servers.find((s) => s.id === serverId);
+    if (!server) return;
+
+    const newSuffix = getServerBrandSuffix(server.name);
+    if (!newSuffix) return;
+
+    const base = stripKnownServerSuffix(username);
+    if (base === null) return; // username não segue o padrão -- não mexe
+
+    setUsername(base + newSuffix);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId, sourceClientId]);
+
+  // ✅ Criação do zero (sem clonar, sem editar): sugere o username juntando
+  // o nome do cliente com o servidor escolhido (ex: nome "Maria" + servidor
+  // Elite -> "MariaElite") — o admin só confirma ou ajusta. Recalcula tanto
+  // ao trocar o servidor quanto ao editar o nome, sempre que o username
+  // ainda não foi tocado na mão.
+  useEffect(() => {
+    if (isEditing) return;
+    if (sourceClientId) return; // Teste Rápido tem a regra própria acima
+    if (usernameTouched) return;
+    if (!serverId) return;
+
+    const firstName = name.trim().split(/\s+/)[0] || "";
+    const cleanName = firstName
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-zA-Z0-9]/g, "");
+    if (!cleanName) return;
+
+    const server = servers.find((s) => s.id === serverId);
+    if (!server) return;
+
+    const suffix = getServerBrandSuffix(server.name);
+    if (!suffix) return;
+
+    setUsername(cleanName + suffix);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverId, name, isEditing, sourceClientId]);
 
   useEffect(() => {
     let alive = true;
@@ -3117,12 +3213,22 @@ export default function NovoCliente({
         // ✅ NOVO: Variáveis para dados da API
 
         // ✅ Normalização: Remove espaços e acentos, mas MANTÉM maiúsculas e minúsculas
-
-        let apiUsername = username
-          .trim()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-zA-Z0-9]/g, "");
+        // — EXCETO no "Teste Rápido" (sourceClientId presente, único
+        // chamador hoje: cliente/[id]/page.tsx clonando o cliente atual).
+        // Ali o username já veio de uma conta real e válida em outro
+        // servidor — tem que ficar IDÊNTICO ao original, não passar pela
+        // mesma limpeza pensada pra usuário digitado na mão (que podia
+        // trazer acento/espaço/símbolo). Sem essa exceção, um username com
+        // "." ou acento (ex: "joao.silva") virava outro no teste clonado
+        // ("joaosilva"), quebrando a regra de "tem que ser o mesmo do
+        // cliente normal".
+        let apiUsername = sourceClientId
+          ? username.trim()
+          : username
+              .trim()
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .replace(/[^a-zA-Z0-9]/g, "");
 
         let apiPassword = password?.trim() || "";
 
@@ -4840,7 +4946,10 @@ export default function NovoCliente({
                       <div className="relative">
                         <Input
                           value={username}
-                          onChange={(e) => setUsername(e.target.value)}
+                          onChange={(e) => {
+                            setUsernameTouched(true);
+                            setUsername(e.target.value);
+                          }}
                           className="pr-10"
                         />
                         {username && (
