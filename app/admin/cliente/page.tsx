@@ -984,7 +984,14 @@ function ClientePageContent() {
   ]);
 
   useEffect(() => {
-    if (loading) return;
+    // ✅ Depende de `fetchingPage`, não de `loading` — desde a migração pra
+    // paginação real, `loadData()` só liga `loading` no PRIMEIRO carregamento
+    // (`isFirstLoad`, pra não piscar o spinner de página inteira a cada
+    // refetch). Em qualquer reload seguinte (ex: fechar o modal de
+    // renovação) `loading` já está false e nunca muda de valor — o efeito
+    // não dispara de novo. `fetchingPage` liga/desliga em TODO loadData(),
+    // então é o sinal certo de "acabou de recarregar".
+    if (fetchingPage) return;
 
     try {
       const key = "clients_list_toasts";
@@ -1005,7 +1012,7 @@ function ClientePageContent() {
     } catch {
       // ignora
     }
-  }, [loading]); // quando terminar o loadData (loading=false), mostra o toast
+  }, [fetchingPage]);
 
   // --- FILTROS, BUSCA E ORDENAÇÃO ---
   // ✅ Tudo isso agora acontece no banco (get_clients_list_page, disparada

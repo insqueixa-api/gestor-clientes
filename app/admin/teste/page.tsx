@@ -1043,9 +1043,14 @@ export default function TrialsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [safePage]);
 
-  // ✅ toasts pós-refresh
+  // ✅ toasts pós-refresh — depende de `fetchingPage`, não de `loading`.
+  // `loadData()` só liga `loading` no primeiro carregamento (`isFirstLoad`,
+  // pra não piscar o spinner de página inteira a cada refetch); em qualquer
+  // reload seguinte (ex: fechar o modal de renovação/conversão) `loading` já
+  // está false e nunca muda de valor, então esse efeito nunca disparava de
+  // novo. `fetchingPage` liga/desliga em TODO loadData(), é o sinal certo.
   useEffect(() => {
-    if (loading) return;
+    if (fetchingPage) return;
 
     try {
       const key = "trials_list_toasts";
@@ -1063,7 +1068,7 @@ export default function TrialsPage() {
     } catch {
       // ignora
     }
-  }, [loading]);
+  }, [fetchingPage]);
 
   // ✅ Tudo isso agora acontece no banco (get_trials_list_page, disparada
   // pelo useEffect lá em cima) — rows já chega filtrada/ordenada/paginada.

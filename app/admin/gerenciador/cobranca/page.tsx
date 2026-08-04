@@ -634,7 +634,7 @@ function CampaignWindowCard({
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground max-w-3xl">
                 Disparo embaralhado entre as regras, respeitando a faixa de 2 a
-                5 minutos entre envios.
+                30 minutos entre envios.
               </p>
             </div>
 
@@ -681,7 +681,7 @@ function CampaignWindowCard({
               <Input
                 type="number"
                 min={2}
-                max={5}
+                max={30}
                 step={1}
                 value={Math.round(settings.delay_min_secs / 60)}
                 onChange={(e) =>
@@ -704,7 +704,7 @@ function CampaignWindowCard({
               <Input
                 type="number"
                 min={2}
-                max={5}
+                max={30}
                 step={1}
                 value={Math.round(settings.delay_max_secs / 60)}
                 onChange={(e) =>

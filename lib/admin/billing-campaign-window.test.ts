@@ -1,16 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { MAX_DELAY_SECS, MIN_DELAY_SECS, normalizeBillingDelayWindow } from "./billing-campaign-window";
+import {
+  MAX_DELAY_SECS,
+  MIN_DELAY_SECS,
+  normalizeBillingDelayWindow,
+} from "./billing-campaign-window";
 
 describe("normalizeBillingDelayWindow", () => {
-  it("mantém o intervalo dentro do padrão de 2 a 5 minutos", () => {
+  it("mantém o intervalo dentro do padrão de 2 a 30 minutos", () => {
     expect(normalizeBillingDelayWindow(120, 300)).toEqual({
       minSecs: 120,
       maxSecs: 300,
     });
   });
 
-  it("clampa valores fora da faixa para 2 ou 5 minutos", () => {
-    expect(normalizeBillingDelayWindow(30, 900)).toEqual({
+  it("clampa valores fora da faixa para 2 ou 30 minutos", () => {
+    expect(normalizeBillingDelayWindow(30, 3000)).toEqual({
       minSecs: MIN_DELAY_SECS,
       maxSecs: MAX_DELAY_SECS,
     });
