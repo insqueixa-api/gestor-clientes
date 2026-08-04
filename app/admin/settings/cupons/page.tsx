@@ -614,7 +614,7 @@ function ImpactListModal({
   const filteredGroups = statusFilter === "used" ? [] : searchedGroups;
 
   return createPortal(
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
       <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
         <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
           <div className="min-w-0">
@@ -878,7 +878,7 @@ function UsageLogModal({
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
       <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
         <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
           <div className="min-w-0">

@@ -14,8 +14,12 @@ import {
   ChevronUp,
 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
-import ConfigureResultModal, { ConfigureResultData } from "./ConfigureResultModal";
-import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
+import ConfigureResultModal, {
+  ConfigureResultData,
+} from "./ConfigureResultModal";
+import ReconfigureModeModal, {
+  ReconfigureMode,
+} from "@/components/apps/ReconfigureModeModal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 
@@ -67,10 +71,10 @@ const PERIOD_MONTHS: Record<string, number> = {
 };
 
 const SERVER_GUIA_MAP: Record<string, string> = {
-  "EliteTV": "ELITE",
-  "NaTV": "NATV",
-  "FastTV": "FAST",
-  "UniGestor": "TODOS",
+  EliteTV: "ELITE",
+  NaTV: "NATV",
+  FastTV: "FAST",
+  UniGestor: "TODOS",
 };
 
 function getStoredSession() {
@@ -166,7 +170,8 @@ function linkifyText(text: string) {
     let idx = 0;
 
     while ((m = re.exec(input)) !== null) {
-      if (m.index > last) out.push(<span key={`t-${idx++}`}>{input.slice(last, m.index)}</span>);
+      if (m.index > last)
+        out.push(<span key={`t-${idx++}`}>{input.slice(last, m.index)}</span>);
       out.push(
         <strong key={`b-${idx++}`} className="text-foreground font-bold">
           {m[1]}
@@ -175,19 +180,26 @@ function linkifyText(text: string) {
       last = re.lastIndex;
     }
 
-    if (last < input.length) out.push(<span key={`t-${idx++}`}>{input.slice(last)}</span>);
+    if (last < input.length)
+      out.push(<span key={`t-${idx++}`}>{input.slice(last)}</span>);
     return out;
   };
 
   const parts = text.split(/(https?:\/\/[^\s]+)/g);
   return parts.map((part, i) => {
-    if (!/^https?:\/\//.test(part)) return <Fragment key={i}>{renderBold(part)}</Fragment>;
+    if (!/^https?:\/\//.test(part))
+      return <Fragment key={i}>{renderBold(part)}</Fragment>;
     const trailingMatch = part.match(/[.,;:!?)\]}'"]+$/);
     const trailing = trailingMatch ? trailingMatch[0] : "";
     const url = trailing ? part.slice(0, -trailing.length) : part;
     return (
       <span key={i}>
-        <a href={url} target="_blank" rel="noopener noreferrer" className="text-sky-500 underline hover:text-sky-400 break-all">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sky-500 underline hover:text-sky-400 break-all"
+        >
           {url}
         </a>
         {trailing}
@@ -306,7 +318,12 @@ export default function RenewClient() {
   const [activeSection, setActiveSection] = useState<
     "menu" | "payment" | "apps"
   >("menu");
-  type InstalledAppField = { id: string; type: string; label: string; value: string };
+  type InstalledAppField = {
+    id: string;
+    type: string;
+    label: string;
+    value: string;
+  };
   type InstalledApp = {
     id: string;
     app_id: string;
@@ -334,7 +351,9 @@ export default function RenewClient() {
   // a página de detalhe (/renew/apps/[id]), que ficou redundante depois
   // que o card da lista passou a mostrar tudo. Só o texto curado pelo admin
   // (apps.portal_setup_instructions) ainda não estava na lista.
-  const [instructionsAppId, setInstructionsAppId] = useState<string | null>(null);
+  const [instructionsAppId, setInstructionsAppId] = useState<string | null>(
+    null,
+  );
   const [showAppsGuide, setShowAppsGuide] = useState(true);
   const [installedAppsLoading, setInstalledAppsLoading] = useState(false);
   const [installedAppsError, setInstalledAppsError] = useState<string | null>(
@@ -343,18 +362,30 @@ export default function RenewClient() {
 
   // Edição inline de um card de app instalado
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
-  const [editingValues, setEditingValues] = useState<Record<string, string>>({});
+  const [editingValues, setEditingValues] = useState<Record<string, string>>(
+    {},
+  );
   const [appActionBusy, setAppActionBusy] = useState<string | null>(null);
 
   // ✅ Pagamento avulso de licença — pedido do Márcio (25/07/2026): movido da
   // página de detalhe pra cá (tela principal), embaixo do "Excluir
   // Aplicativo" no mesmo card. Não mexe na assinatura IPTV.
-  type AppPayment = { clientAppId: string; payment_id: string; pix_qr_code?: string; pix_qr_code_base64?: string; price_amount: number };
+  type AppPayment = {
+    clientAppId: string;
+    payment_id: string;
+    pix_qr_code?: string;
+    pix_qr_code_base64?: string;
+    price_amount: number;
+  };
   const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
-  const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(null);
+  const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(
+    null,
+  );
   const [renewPaymentDone, setRenewPaymentDone] = useState(false);
   const [copiedAppPixCode, setCopiedAppPixCode] = useState(false);
-  const [renewPollInterval, setRenewPollInterval] = useState<ReturnType<typeof setInterval> | null>(null);
+  const [renewPollInterval, setRenewPollInterval] = useState<ReturnType<
+    typeof setInterval
+  > | null>(null);
 
   useEffect(() => {
     return () => {
@@ -370,7 +401,10 @@ export default function RenewClient() {
         const res = await fetch("/api/client-portal/payment-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_token: session, payment_id: paymentId }),
+          body: JSON.stringify({
+            session_token: session,
+            payment_id: paymentId,
+          }),
           cache: "no-store",
         });
         const result = await res.json().catch(() => null);
@@ -394,10 +428,15 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/renew-payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+        }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Falha ao gerar pagamento.");
+      if (!result?.ok)
+        throw new Error(result?.error || "Falha ao gerar pagamento.");
       setRenewPaymentDone(false);
       setRenewPayment({
         clientAppId,
@@ -408,7 +447,9 @@ export default function RenewClient() {
       });
       startPollingAppPayment(result.payment_id);
     } catch (err: any) {
-      await alertError("Não foi possível gerar o pagamento agora. Tente novamente em instantes.");
+      await alertError(
+        "Não foi possível gerar o pagamento agora. Tente novamente em instantes.",
+      );
     } finally {
       setRenewPaymentBusyId(null);
     }
@@ -443,8 +484,15 @@ export default function RenewClient() {
 
   // Toasts (feedback de sucesso/erro nas ações do Bloco 3)
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  function addToast(type: ToastMessage["type"], title: string, message?: string) {
-    setToasts((prev) => [...prev, { id: Date.now() + Math.random(), type, title, message }]);
+  function addToast(
+    type: ToastMessage["type"],
+    title: string,
+    message?: string,
+  ) {
+    setToasts((prev) => [
+      ...prev,
+      { id: Date.now() + Math.random(), type, title, message },
+    ]);
   }
   function removeToast(id: number) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -452,8 +500,11 @@ export default function RenewClient() {
 
   // Picker "+ Adicionar aplicativo" (modal por tipo de equipamento)
   const [showAddAppPicker, setShowAddAppPicker] = useState(false);
-  const [configureResult, setConfigureResult] = useState<ConfigureResultData | null>(null);
-  const [reconfigureModeTarget, setReconfigureModeTarget] = useState<string | null>(null);
+  const [configureResult, setConfigureResult] =
+    useState<ConfigureResultData | null>(null);
+  const [reconfigureModeTarget, setReconfigureModeTarget] = useState<
+    string | null
+  >(null);
   const [appCatalog, setAppCatalog] = useState<
     {
       id: string;
@@ -693,7 +744,11 @@ export default function RenewClient() {
         );
         if (currentPeriod) setSelectedPeriod(currentPeriod);
       } catch (err: any) {
-        addToast("error", "Não foi possível carregar os planos", "Tente novamente.");
+        addToast(
+          "error",
+          "Não foi possível carregar os planos",
+          "Tente novamente.",
+        );
       }
     }
 
@@ -709,16 +764,22 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/list", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+        }),
         cache: "no-store",
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error("Não foi possível carregar seus aplicativos");
+      if (!result?.ok)
+        throw new Error("Não foi possível carregar seus aplicativos");
       const data: InstalledApp[] = result.data || [];
       setInstalledApps(data);
       return data;
     } catch (err: any) {
-      setInstalledAppsError("Não foi possível carregar os aplicativos. Tente novamente.");
+      setInstalledAppsError(
+        "Não foi possível carregar os aplicativos. Tente novamente.",
+      );
       return [];
     } finally {
       setInstalledAppsLoading(false);
@@ -746,7 +807,10 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+        }),
         cache: "no-store",
       });
       const result = await res.json().catch(() => null);
@@ -786,7 +850,8 @@ export default function RenewClient() {
         }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Não foi possível salvar.");
+      if (!result?.ok)
+        throw new Error(result?.error || "Não foi possível salvar.");
     } catch (err: any) {
       addToast("error", "Não foi possível salvar", err?.message);
       setAppActionBusy(null);
@@ -821,7 +886,11 @@ export default function RenewClient() {
       // ✅ Parceria/gratuito sem integração — self-service, não tem o que
       // "solicitar". Os dados já ficam visíveis (badges/instruções); o
       // cliente configura sozinho no app dele, sem envolver o suporte.
-      addToast("success", "Salvo!", "Dados atualizados — configure direto no app com as informações acima.");
+      addToast(
+        "success",
+        "Salvo!",
+        "Dados atualizados — configure direto no app com as informações acima.",
+      );
     }
   }
 
@@ -848,7 +917,10 @@ export default function RenewClient() {
     performConfigureApp(clientAppId, "principal");
   }
 
-  async function performConfigureApp(clientAppId: string, mode: ReconfigureMode) {
+  async function performConfigureApp(
+    clientAppId: string,
+    mode: ReconfigureMode,
+  ) {
     if (!selectedAccountId || !session) return;
 
     const targetApp = installedApps.find((a) => a.id === clientAppId);
@@ -860,7 +932,12 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/configure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId, mode }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+          mode,
+        }),
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok) {
@@ -868,7 +945,8 @@ export default function RenewClient() {
           kind: result?.blocked ? "blocked" : "error",
           isReconfigure,
           appName,
-          errorMessage: "Não foi possível concluir a configuração. Tente novamente.",
+          errorMessage:
+            "Não foi possível concluir a configuração. Tente novamente.",
           escalate: !!result?.escalate,
           suggestSecondary: !!result?.suggest_secondary,
         });
@@ -888,7 +966,8 @@ export default function RenewClient() {
         kind: "error",
         isReconfigure,
         appName,
-        errorMessage: "Não foi possível concluir a configuração. Tente novamente ou fale com o suporte.",
+        errorMessage:
+          "Não foi possível concluir a configuração. Tente novamente ou fale com o suporte.",
         escalate: false,
       });
     } finally {
@@ -910,14 +989,21 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/renew-gerenciaapp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+        }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Não foi possível renovar agora.");
+      if (!result?.ok)
+        throw new Error(result?.error || "Não foi possível renovar agora.");
       addToast(
         "success",
         "Licença renovada!",
-        result.expireDate ? `Novo vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : undefined,
+        result.expireDate
+          ? `Novo vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
+          : undefined,
       );
       await refreshInstalledApps();
     } catch (err: any) {
@@ -947,10 +1033,15 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/request-setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+        }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Não foi possível enviar o pedido.");
+      if (!result?.ok)
+        throw new Error(result?.error || "Não foi possível enviar o pedido.");
       addToast(
         "success",
         result.data?.already_pending ? "Já solicitado" : "Pedido enviado",
@@ -971,14 +1062,31 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/check-validity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+        }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Não foi possível atualizar a validade.");
-      addToast("success", "Validade atualizada", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "Ainda não encontramos essa informação.");
+      if (!result?.ok)
+        throw new Error(
+          result?.error || "Não foi possível atualizar a validade.",
+        );
+      addToast(
+        "success",
+        "Validade atualizada",
+        result.expireDate
+          ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
+          : "Ainda não encontramos essa informação.",
+      );
       await refreshInstalledApps();
     } catch (err: any) {
-      addToast("error", "Não foi possível atualizar a validade", "Tente novamente.");
+      addToast(
+        "error",
+        "Não foi possível atualizar a validade",
+        "Tente novamente.",
+      );
     } finally {
       setAppActionBusy(null);
     }
@@ -998,7 +1106,12 @@ export default function RenewClient() {
     }
   }
 
-  async function handleRemoveApp(clientAppId: string, appName: string, hasIntegration: boolean, requiresAdminSetup: boolean) {
+  async function handleRemoveApp(
+    clientAppId: string,
+    appName: string,
+    hasIntegration: boolean,
+    requiresAdminSetup: boolean,
+  ) {
     if (!selectedAccountId || !session) return;
     // ✅ Mensagem direta e diferente por tipo de app (pedido do Márcio,
     // 31/07/2026) — antes era um texto único e condicional ("se tiver...
@@ -1024,10 +1137,15 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/remove", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, client_app_id: clientAppId }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+        }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok) throw new Error(result?.error || "Não foi possível excluir.");
+      if (!result?.ok)
+        throw new Error(result?.error || "Não foi possível excluir.");
       if (result.data?.pending_admin) {
         addToast(
           "success",
@@ -1035,7 +1153,11 @@ export default function RenewClient() {
           "Nossa equipe vai remover esse aplicativo em breve.",
         );
       } else {
-        addToast("success", "Excluído!", `"${appName}" foi removido dessa conta.`);
+        addToast(
+          "success",
+          "Excluído!",
+          `"${appName}" foi removido dessa conta.`,
+        );
       }
       await refreshInstalledApps();
     } catch (err: any) {
@@ -1066,7 +1188,11 @@ export default function RenewClient() {
       const res = await fetch("/api/client-portal/apps/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_token: session, client_id: selectedAccountId, app_id: appId }),
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          app_id: appId,
+        }),
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Falha ao adicionar.");
@@ -1080,7 +1206,11 @@ export default function RenewClient() {
       const newApp = newAppId ? refreshed.find((a) => a.id === newAppId) : null;
       if (newApp && newApp.fields.length > 0) {
         startEditingApp(newApp);
-        addToast("success", "Adicionado!", "Preencha os dados abaixo pra continuar.");
+        addToast(
+          "success",
+          "Adicionado!",
+          "Preencha os dados abaixo pra continuar.",
+        );
       } else {
         addToast("success", "Adicionado!", "Configure quando estiver pronto.");
       }
@@ -1195,7 +1325,9 @@ export default function RenewClient() {
         setCouponError(result?.reason || result?.error || "Cupom inválido.");
       }
     } catch {
-      setCouponError("Não foi possível validar o cupom agora. Confira o código e tente novamente.");
+      setCouponError(
+        "Não foi possível validar o cupom agora. Confira o código e tente novamente.",
+      );
     } finally {
       setCouponChecking(false);
     }
@@ -1341,7 +1473,8 @@ export default function RenewClient() {
             (window as any).__cp_done_scheduled = true;
 
             const isManual = phaseRaw === "manual_pending";
-            if (isManual && selectedAccountId) markAccountManualRenewalPending(selectedAccountId);
+            if (isManual && selectedAccountId)
+              markAccountManualRenewalPending(selectedAccountId);
 
             setPaymentPhase("done");
             setPaymentStatus("approved");
@@ -1366,7 +1499,9 @@ export default function RenewClient() {
             setPaymentPhase("error");
             setPaymentStatus("rejected");
 
-            alertError("Pagamento aprovado, mas não foi possível concluir a renovação.\nProcure o suporte.");
+            alertError(
+              "Pagamento aprovado, mas não foi possível concluir a renovação.\nProcure o suporte.",
+            );
 
             clearInterval(interval);
             setPollingInterval(null);
@@ -1392,7 +1527,8 @@ export default function RenewClient() {
             (window as any).__cp_done_scheduled = true;
 
             const isManual = fulfillment === "manual_pending";
-            if (isManual && selectedAccountId) markAccountManualRenewalPending(selectedAccountId);
+            if (isManual && selectedAccountId)
+              markAccountManualRenewalPending(selectedAccountId);
 
             setPaymentPhase("done");
             setPaymentStatus("approved");
@@ -1417,7 +1553,9 @@ export default function RenewClient() {
             setPaymentPhase("error");
             setPaymentStatus("rejected");
 
-            alertError("Pagamento aprovado, mas não foi possível concluir a renovação.\nProcure o suporte.");
+            alertError(
+              "Pagamento aprovado, mas não foi possível concluir a renovação.\nProcure o suporte.",
+            );
 
             clearInterval(interval);
             setPollingInterval(null);
@@ -1611,7 +1749,9 @@ export default function RenewClient() {
             paymentData.client_secret,
           );
           if (actionError) {
-            await alertError("Não foi possível concluir a autenticação do pagamento.");
+            await alertError(
+              "Não foi possível concluir a autenticação do pagamento.",
+            );
             return;
           }
           setPaymentPhase("renewing");
@@ -1676,7 +1816,9 @@ export default function RenewClient() {
       const result = await res.json().catch(() => null);
 
       if (!result?.ok) {
-        await alertError("Não foi possível criar o pagamento. Tente novamente.");
+        await alertError(
+          "Não foi possível criar o pagamento. Tente novamente.",
+        );
         return;
       }
 
@@ -1694,7 +1836,9 @@ export default function RenewClient() {
         startPolling(String(payment.payment_id));
       }
     } catch {
-      await alertError("Não foi possível processar a renovação. Tente novamente.");
+      await alertError(
+        "Não foi possível processar a renovação. Tente novamente.",
+      );
     } finally {
       setIsProcessingPayment(false);
       setPendingRenew(null);
@@ -1713,7 +1857,9 @@ export default function RenewClient() {
       );
 
       if (result.error) {
-        await alertError("Não foi possível processar o cartão. Tente novamente.");
+        await alertError(
+          "Não foi possível processar o cartão. Tente novamente.",
+        );
         return;
       }
 
@@ -1723,7 +1869,9 @@ export default function RenewClient() {
         startPolling(String(paymentData.payment_id));
       }
     } catch (e: any) {
-      await alertError("Não foi possível processar o pagamento. Tente novamente.");
+      await alertError(
+        "Não foi possível processar o pagamento. Tente novamente.",
+      );
     } finally {
       setStripeLoading(false);
     }
@@ -1734,8 +1882,8 @@ export default function RenewClient() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card rounded-3xl shadow-2xl overflow-hidden">
-          <div className="bg-gradient-to-r from-slate-800 to-slate-900 py-4 px-6 text-white text-center">
+        <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-gradient-to-r from-slate-800 to-slate-900 py-4 px-6 text-white text-center shrink-0">
             <h2 className="text-lg font-bold">Como deseja pagar?</h2>
             <p className="text-sm text-white/70 mt-0.5">
               {formatMoney(
@@ -1745,7 +1893,7 @@ export default function RenewClient() {
             </p>
           </div>
 
-          <div className="p-4 space-y-3">
+          <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
             <button
               onClick={() => handleMethodConfirmDirect("card")}
               className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-border hover:border-indigo-500 hover:bg-indigo-500/10 transition-all text-left"
@@ -1836,22 +1984,30 @@ export default function RenewClient() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card rounded-3xl shadow-2xl overflow-hidden">
-          <div className="bg-gradient-to-r from-amber-600 to-amber-700 py-4 px-6 text-white text-center">
+        <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="bg-gradient-to-r from-amber-600 to-amber-700 py-4 px-6 text-white text-center shrink-0">
             <h2 className="text-lg font-bold">📋 Pendência identificada</h2>
           </div>
 
-          <div className="p-5 space-y-3">
+          <div className="p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
             {summaryBase != null && selectedAccount && (
               <div className="space-y-1 pb-3 border-b border-border text-sm">
                 <div className="flex justify-between text-foreground/80">
                   <span>Plano</span>
-                  <span>{formatMoney(summaryBase, selectedAccount.price_currency)}</span>
+                  <span>
+                    {formatMoney(summaryBase, selectedAccount.price_currency)}
+                  </span>
                 </div>
                 {summaryCouponDiscount > 0 && (
                   <div className="flex justify-between text-emerald-600">
                     <span>Desconto (cupom {appliedCoupon?.code})</span>
-                    <span>-{formatMoney(summaryCouponDiscount, selectedAccount.price_currency)}</span>
+                    <span>
+                      -
+                      {formatMoney(
+                        summaryCouponDiscount,
+                        selectedAccount.price_currency,
+                      )}
+                    </span>
                   </div>
                 )}
               </div>
@@ -1859,7 +2015,9 @@ export default function RenewClient() {
             <div className="space-y-2">
               {pendingCharges.items.map((it, idx) => {
                 const dateLabel = it.activationDate
-                  ? new Date(`${it.activationDate}T12:00:00`).toLocaleDateString("pt-BR")
+                  ? new Date(
+                      `${it.activationDate}T12:00:00`,
+                    ).toLocaleDateString("pt-BR")
                   : "";
                 return (
                   <div
@@ -1890,16 +2048,21 @@ export default function RenewClient() {
 
             {summaryBase != null && selectedAccount && (
               <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-foreground">Total Geral</span>
+                <span className="text-sm font-bold text-foreground">
+                  Total Geral
+                </span>
                 <span className="text-lg font-bold text-foreground">
-                  {formatMoney(summaryGrandTotal, selectedAccount.price_currency)}
+                  {formatMoney(
+                    summaryGrandTotal,
+                    selectedAccount.price_currency,
+                  )}
                 </span>
               </div>
             )}
 
             <div className="p-3 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground leading-relaxed">
-              Se você já regularizou essa pendência, entre em contato direto
-              com o Márcio
+              Se você já regularizou essa pendência, entre em contato direto com
+              o Márcio
               {supportPhone && (
                 <>
                   {" "}
@@ -1990,7 +2153,9 @@ export default function RenewClient() {
       <div className="px-5 pt-4 space-y-1.5 text-sm">
         <div className="flex justify-between text-foreground/80">
           <span>Plano {summaryPeriodLabel}</span>
-          <span>{formatMoney(confirmedBasePrice as number, summaryCurrency)}</span>
+          <span>
+            {formatMoney(confirmedBasePrice as number, summaryCurrency)}
+          </span>
         </div>
         {summaryCouponDiscount > 0 && (
           <div className="flex justify-between text-emerald-600">
@@ -2011,26 +2176,28 @@ export default function RenewClient() {
       </div>
     );
 
-    const securityNote = !isApproved && !isRejected && paymentPhase !== "renewing" && (
-      <div className="px-5 pb-4 pt-2">
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-left">
-          <div className="flex items-start gap-2.5 text-[11px] text-muted-foreground">
-            <ShieldCheck className="mt-0.5 w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <div className="space-y-1">
-              <p className="font-semibold text-foreground">
-                Pagamento protegido pelo {isStripe ? "Stripe" : "Mercado Pago"}
-              </p>
-              <p>
-                Este portal não armazena dados de pagamento. O processamento é feito por {isStripe ? "Stripe" : "Mercado Pago"}.
-              </p>
-              <p>
-                Conexão segura com SSL (cadeado de segurança).
-              </p>
+    const securityNote = !isApproved &&
+      !isRejected &&
+      paymentPhase !== "renewing" && (
+        <div className="px-5 pb-4 pt-2">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-left">
+            <div className="flex items-start gap-2.5 text-[11px] text-muted-foreground">
+              <ShieldCheck className="mt-0.5 w-3.5 h-3.5 text-emerald-500 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-semibold text-foreground">
+                  Pagamento protegido pelo{" "}
+                  {isStripe ? "Stripe" : "Mercado Pago"}
+                </p>
+                <p>
+                  Este portal não armazena dados de pagamento. O processamento é
+                  feito por {isStripe ? "Stripe" : "Mercado Pago"}.
+                </p>
+                <p>Conexão segura com SSL (cadeado de segurança).</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    );
+      );
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -2256,7 +2423,9 @@ export default function RenewClient() {
               <div className="px-5 pt-4 pb-3 space-y-3">
                 {paymentPhase !== "renewing" && (
                   <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm text-muted-foreground space-y-1.5">
-                    <p className="font-semibold text-foreground">Antes de pagar, confira:</p>
+                    <p className="font-semibold text-foreground">
+                      Antes de pagar, confira:
+                    </p>
                     <ul className="list-disc list-inside space-y-1 pl-1">
                       <li>o valor mostrado na tela</li>
                       <li>o nome do recebedor no app do seu banco</li>
@@ -2290,7 +2459,8 @@ export default function RenewClient() {
                       Ou copie o código:
                     </p>
                     <p className="text-[11px] text-muted-foreground text-center">
-                      Copie apenas no app oficial do seu banco e confirme se o recebedor e o valor estão corretos antes de concluir.
+                      Copie apenas no app oficial do seu banco e confirme se o
+                      recebedor e o valor estão corretos antes de concluir.
                     </p>
                     <div className="relative group">
                       <input
@@ -2329,7 +2499,9 @@ export default function RenewClient() {
                       <li>Abra o app do seu banco ou carteira digital</li>
                       <li>Escaneie o QR Code ou copie o código acima</li>
                       <li>Confira valor e recebedor antes de confirmar</li>
-                      <li>Finalize o pagamento e aguarde a confirmação automática</li>
+                      <li>
+                        Finalize o pagamento e aguarde a confirmação automática
+                      </li>
                     </ol>
                   </div>
                 )}
@@ -2395,13 +2567,22 @@ export default function RenewClient() {
                 {paymentPhase !== "renewing" && (
                   <>
                     <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-3 text-sm text-muted-foreground space-y-1.5">
-                      <p className="font-semibold text-foreground">Antes de confirmar o cartão:</p>
+                      <p className="font-semibold text-foreground">
+                        Antes de confirmar o cartão:
+                      </p>
                       <ul className="list-disc list-inside space-y-1 pl-1">
                         <li>revise o valor final mostrado acima</li>
-                        <li>confira o nome do recebedor no cartão ou na carteira</li>
-                        <li>use apenas este formulário para continuar o pagamento</li>
+                        <li>
+                          confira o nome do recebedor no cartão ou na carteira
+                        </li>
+                        <li>
+                          use apenas este formulário para continuar o pagamento
+                        </li>
                       </ul>
-                      <p>Os dados do cartão são enviados direto ao provedor de pagamento e não ficam salvos neste portal.</p>
+                      <p>
+                        Os dados do cartão são enviados direto ao provedor de
+                        pagamento e não ficam salvos neste portal.
+                      </p>
                     </div>
 
                     {/* Trust signals */}
@@ -2528,7 +2709,8 @@ export default function RenewClient() {
                     </div>
 
                     <p className="text-center text-[10px] text-muted-foreground">
-                      Processamento seguro pelo Stripe. Não compartilhe o código do cartão com ninguém.
+                      Processamento seguro pelo Stripe. Não compartilhe o código
+                      do cartão com ninguém.
                     </p>
 
                     <button
@@ -2546,7 +2728,7 @@ export default function RenewClient() {
                   </>
                 )}
 
-{/* Renovando */}
+                {/* Renovando */}
                 {paymentPhase === "renewing" && (
                   <div className="p-4 bg-muted/50 rounded-xl border border-border flex items-center gap-3">
                     <div className="w-6 h-6 border-4 border-muted-foreground/30 border-t-transparent rounded-full animate-spin shrink-0" />
@@ -2586,13 +2768,18 @@ export default function RenewClient() {
                   {paymentPhase !== "renewing" && (
                     <>
                       <div className="rounded-xl border border-slate-500/20 bg-slate-500/5 p-3 text-sm text-muted-foreground space-y-1.5">
-                        <p className="font-semibold text-foreground">Antes de concluir com a carteira digital:</p>
+                        <p className="font-semibold text-foreground">
+                          Antes de concluir com a carteira digital:
+                        </p>
                         <ul className="list-disc list-inside space-y-1 pl-1">
                           <li>confira o valor final</li>
                           <li>veja se o nome do recebedor está correto</li>
                           <li>confirme só quando estiver tudo certo</li>
                         </ul>
-                        <p>O pagamento é processado diretamente pela Apple Pay ou Google Pay, sem salvar seus dados neste portal.</p>
+                        <p>
+                          O pagamento é processado diretamente pela Apple Pay ou
+                          Google Pay, sem salvar seus dados neste portal.
+                        </p>
                       </div>
 
                       <div className="text-center">
@@ -2645,7 +2832,8 @@ export default function RenewClient() {
                       )}
 
                       <p className="text-center text-[10px] text-muted-foreground">
-                        Processamento seguro pela Stripe. Seus dados são tratados pelo provedor de pagamento.
+                        Processamento seguro pela Stripe. Seus dados são
+                        tratados pelo provedor de pagamento.
                       </p>
 
                       <button
@@ -2795,7 +2983,6 @@ export default function RenewClient() {
                 {/* 2. DADOS PARA TRANSFERÊNCIA EUR */}
                 {effectiveGatewayType === "transfer_manual_eur" && (
                   <div className="space-y-4 bg-muted/50 p-4 rounded-xl border border-border">
-                    
                     {/* --- DADOS COMPARTILHADOS (Topo) --- */}
                     <div>
                       <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">
@@ -2806,10 +2993,14 @@ export default function RenewClient() {
                           {paymentData.beneficiary_name}
                         </p>
                         <button
-                          onClick={() => copyField("eur_name", paymentData.beneficiary_name)}
+                          onClick={() =>
+                            copyField("eur_name", paymentData.beneficiary_name)
+                          }
                           className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_name" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                         >
-                          {copiedField === "eur_name" ? "✅ Copiado" : "📋 Copiar"}
+                          {copiedField === "eur_name"
+                            ? "✅ Copiado"
+                            : "📋 Copiar"}
                         </button>
                       </div>
                     </div>
@@ -2824,10 +3015,14 @@ export default function RenewClient() {
                             {paymentData.bank_name}
                           </p>
                           <button
-                            onClick={() => copyField("eur_bank", paymentData.bank_name)}
+                            onClick={() =>
+                              copyField("eur_bank", paymentData.bank_name)
+                            }
                             className={`shrink-0 px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bank" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                           >
-                            {copiedField === "eur_bank" ? "✅ Copiado" : "📋 Copiar"}
+                            {copiedField === "eur_bank"
+                              ? "✅ Copiado"
+                              : "📋 Copiar"}
                           </button>
                         </div>
                       </div>
@@ -2851,10 +3046,17 @@ export default function RenewClient() {
                                 </p>
                                 {paymentData.iban_local && (
                                   <button
-                                    onClick={() => copyField("eur_iban_local", paymentData.iban_local)}
+                                    onClick={() =>
+                                      copyField(
+                                        "eur_iban_local",
+                                        paymentData.iban_local,
+                                      )
+                                    }
                                     className={`self-start px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_iban_local" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                                   >
-                                    {copiedField === "eur_iban_local" ? "✅ Copiado" : "📋 Copiar"}
+                                    {copiedField === "eur_iban_local"
+                                      ? "✅ Copiado"
+                                      : "📋 Copiar"}
                                   </button>
                                 )}
                               </div>
@@ -2869,10 +3071,17 @@ export default function RenewClient() {
                                 </p>
                                 {paymentData.bic_local && (
                                   <button
-                                    onClick={() => copyField("eur_bic_local", paymentData.bic_local)}
+                                    onClick={() =>
+                                      copyField(
+                                        "eur_bic_local",
+                                        paymentData.bic_local,
+                                      )
+                                    }
                                     className={`self-start px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bic_local" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                                   >
-                                    {copiedField === "eur_bic_local" ? "✅ Copiado" : "📋 Copiar"}
+                                    {copiedField === "eur_bic_local"
+                                      ? "✅ Copiado"
+                                      : "📋 Copiar"}
                                   </button>
                                 )}
                               </div>
@@ -2883,7 +3092,8 @@ export default function RenewClient() {
                     )}
 
                     {/* --- BLOCO: DADOS INTERNACIONAIS (SWIFT) --- */}
-                    {(paymentData.account_number_intl || paymentData.bic_intl) && (
+                    {(paymentData.account_number_intl ||
+                      paymentData.bic_intl) && (
                       <div className="pt-1">
                         <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-xl p-3 space-y-3">
                           <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2 border-b border-indigo-500/20 pb-2 mb-2">
@@ -2900,10 +3110,17 @@ export default function RenewClient() {
                                 </p>
                                 {paymentData.account_number_intl && (
                                   <button
-                                    onClick={() => copyField("eur_acc_intl", paymentData.account_number_intl)}
+                                    onClick={() =>
+                                      copyField(
+                                        "eur_acc_intl",
+                                        paymentData.account_number_intl,
+                                      )
+                                    }
                                     className={`self-start px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_acc_intl" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                                   >
-                                    {copiedField === "eur_acc_intl" ? "✅ Copiado" : "📋 Copiar"}
+                                    {copiedField === "eur_acc_intl"
+                                      ? "✅ Copiado"
+                                      : "📋 Copiar"}
                                   </button>
                                 )}
                               </div>
@@ -2918,10 +3135,17 @@ export default function RenewClient() {
                                 </p>
                                 {paymentData.bic_intl && (
                                   <button
-                                    onClick={() => copyField("eur_bic_intl", paymentData.bic_intl)}
+                                    onClick={() =>
+                                      copyField(
+                                        "eur_bic_intl",
+                                        paymentData.bic_intl,
+                                      )
+                                    }
                                     className={`self-start px-2 py-0.5 text-[10px] font-bold rounded transition-colors ${copiedField === "eur_bic_intl" ? "bg-emerald-500 text-white" : "bg-muted text-foreground hover:bg-muted/70"}`}
                                   >
-                                    {copiedField === "eur_bic_intl" ? "✅ Copiado" : "📋 Copiar"}
+                                    {copiedField === "eur_bic_intl"
+                                      ? "✅ Copiado"
+                                      : "📋 Copiar"}
                                   </button>
                                 )}
                               </div>
@@ -2930,8 +3154,6 @@ export default function RenewClient() {
                         </div>
                       </div>
                     )}
-
-                    
                   </div>
                 )}
 
@@ -3050,11 +3272,10 @@ export default function RenewClient() {
                         </button>
                       </div>
                     </div>
-                    
                   </div>
                 )}
 
-{/* AVISO IMPORTANTE (Piscando) */}
+                {/* AVISO IMPORTANTE (Piscando) */}
                 <div className="pt-2 animate-pulse">
                   <p className="text-xs font-bold text-rose-500 uppercase text-center bg-rose-500/10 p-2 rounded-lg border border-rose-500/20">
                     ⚠️ Importante: Favor não colocar observações na
@@ -3252,7 +3473,8 @@ export default function RenewClient() {
         <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6">
           <div className="mb-4 sm:mb-6 px-3 sm:px-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              {getGreeting()}{clientFirstName ? `, ${clientFirstName}` : ""}! 👋
+              {getGreeting()}
+              {clientFirstName ? `, ${clientFirstName}` : ""}! 👋
             </h1>
             <p className="text-foreground/70 text-sm mt-1">
               Qual conta você deseja gerenciar hoje?
@@ -3276,7 +3498,7 @@ export default function RenewClient() {
           )}
 
           {/* --- CARDS DE CONTAS (Layout 3 Linhas) --- */}
-<div className="space-y-4">
+          <div className="space-y-4">
             {filteredAccounts.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
                 Nenhuma conta encontrada.
@@ -3291,7 +3513,7 @@ export default function RenewClient() {
                     className="w-full text-left bg-card rounded-xl p-4 border border-border hover:border-sky-500 transition-all shadow-sm hover:shadow-md group relative overflow-hidden"
                   >
                     {/* Linha 1: Nome (Esq) | Username (Dir, preservando maiúsculas/minúsculas) */}
-<div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-2">
                       <h3 className="text-base font-bold text-foreground truncate pr-2 flex items-center gap-2">
                         {account.display_name}
                         {account.is_trial && (
@@ -3300,7 +3522,7 @@ export default function RenewClient() {
                           </span>
                         )}
                       </h3>
-<span className="text-xs font-mono font-medium text-muted-foreground shrink-0 bg-muted px-2 py-1 rounded border border-border">
+                      <span className="text-xs font-mono font-medium text-muted-foreground shrink-0 bg-muted px-2 py-1 rounded border border-border">
                         {account.server_username}
                       </span>
                     </div>
@@ -3322,8 +3544,8 @@ export default function RenewClient() {
                         account.has_pending_manual_renewal
                           ? "bg-amber-500/10 border-amber-500/20 text-amber-700"
                           : time?.expired
-                          ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
-                          : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                            ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
+                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-center gap-2 px-2">
@@ -3331,7 +3553,7 @@ export default function RenewClient() {
                           {time?.text}
                         </span>
                         {account.has_pending_manual_renewal && (
-                            <span className="text-xs font-bold text-amber-700 sm:text-sm">
+                          <span className="text-xs font-bold text-amber-700 sm:text-sm">
                             Renovação em andamento
                           </span>
                         )}
@@ -3352,9 +3574,7 @@ export default function RenewClient() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="max-w-md w-full bg-card rounded-2xl shadow-2xl p-8 text-center">
-          <p className="text-foreground/70">
-            Nenhuma conta encontrada
-          </p>
+          <p className="text-foreground/70">Nenhuma conta encontrada</p>
         </div>
       </div>
     );
@@ -3364,10 +3584,15 @@ export default function RenewClient() {
   if (!selectedAccount) return null;
 
   // ========= TOPO FIXO REUTILIZÁVEL (menu / apps) =========
-  function renderTopBar(onBack: (() => void) | null, widthClass: string = "max-w-6xl") {
+  function renderTopBar(
+    onBack: (() => void) | null,
+    widthClass: string = "max-w-6xl",
+  ) {
     return (
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-        <div className={`mx-auto flex w-full ${widthClass} items-center gap-2 px-4 py-2`}>
+        <div
+          className={`mx-auto flex w-full ${widthClass} items-center gap-2 px-4 py-2`}
+        >
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {onBack && (
               <button
@@ -3453,12 +3678,15 @@ export default function RenewClient() {
 
     return (
       <div className="min-h-screen bg-background">
-        {renderTopBar(accounts.length > 1 ? () => setSelectedAccountId(null) : null)}
+        {renderTopBar(
+          accounts.length > 1 ? () => setSelectedAccountId(null) : null,
+        )}
 
         <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6 space-y-4">
           <div className="mb-2 px-3 sm:px-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-              {getGreeting()}{clientFirstName ? `, ${clientFirstName}` : ""}! 👋
+              {getGreeting()}
+              {clientFirstName ? `, ${clientFirstName}` : ""}! 👋
             </h1>
             <p className="text-foreground/70 text-sm mt-1">
               Escolha abaixo o que você quer resolver agora.
@@ -3479,7 +3707,8 @@ export default function RenewClient() {
                   Pagamentos e Renovação
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                  Veja o vencimento, escolha como pagar e acompanhe a renovação até o fim.
+                  Veja o vencimento, escolha como pagar e acompanhe a renovação
+                  até o fim.
                 </p>
               </div>
               <span className="text-emerald-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -3503,7 +3732,8 @@ export default function RenewClient() {
                     Novidades e Conteúdo
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                    Consulte a grade, veja jogos do dia e explore o catálogo de filmes e séries.
+                    Consulte a grade, veja jogos do dia e explore o catálogo de
+                    filmes e séries.
                   </p>
                 </div>
                 <span className="text-sky-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
@@ -3542,7 +3772,8 @@ export default function RenewClient() {
 
   // ========= RENDER: APPS (BLOCO 3) =========
   if (activeSection === "apps") {
-    const isP2PAccount = String(selectedAccount.technology || "").toUpperCase() === "P2P";
+    const isP2PAccount =
+      String(selectedAccount.technology || "").toUpperCase() === "P2P";
 
     return (
       <div className="min-h-screen bg-background">
@@ -3581,7 +3812,8 @@ export default function RenewClient() {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    Explicação simples sobre configuração e renovação de licença.
+                    Explicação simples sobre configuração e renovação de
+                    licença.
                   </p>
                 </div>
 
@@ -3590,7 +3822,11 @@ export default function RenewClient() {
                   className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:bg-muted"
                 >
                   {showAppsGuide ? "Compactar" : "Expandir"}
-                  {showAppsGuide ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  {showAppsGuide ? (
+                    <ChevronUp className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  )}
                 </button>
               </div>
 
@@ -3598,24 +3834,64 @@ export default function RenewClient() {
                 <ol className="mt-3 list-decimal space-y-2 pl-5 text-xs sm:text-sm text-muted-foreground marker:font-bold marker:text-foreground/70">
                   {isP2PAccount ? (
                     <li>
-                      Para contas P2P, use <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e escolha o aplicativo para Android TV Box ou Fire TV Stick. Depois, preencha os dados de acesso mostrados na tela para concluir a configuração.
+                      Para contas P2P, use{" "}
+                      <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                        + Adicionar aplicativo
+                      </span>{" "}
+                      e escolha o aplicativo para Android TV Box ou Fire TV
+                      Stick. Depois, preencha os dados de acesso mostrados na
+                      tela para concluir a configuração.
                     </li>
                   ) : (
                     <>
                       <li>
-                        Atualize seu cadastro, clique em <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">+ Adicionar aplicativo</span> e selecione o <strong className="text-foreground">aplicativo</strong> que você usa na Smart TV, celular ou outro dispositivo. Se quiser dividir o ponto e configurar mais de um acesso, saiba que é possível, basta adicionar o aplicativo seguindo as instruções da tela.
+                        Atualize seu cadastro, clique em{" "}
+                        <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                          + Adicionar aplicativo
+                        </span>{" "}
+                        e selecione o{" "}
+                        <strong className="text-foreground">aplicativo</strong>{" "}
+                        que você usa na Smart TV, celular ou outro dispositivo.
+                        Se quiser dividir o ponto e configurar mais de um
+                        acesso, saiba que é possível, basta adicionar o
+                        aplicativo seguindo as instruções da tela.
                       </li>
 
                       <li>
-                        Aplicativos com a tag <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">⚡ Configuração automática</span> são configurados no Portal; os demais são configurados no dispositivo com os dados exibidos após a escolha do app.
+                        Aplicativos com a tag{" "}
+                        <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">
+                          ⚡ Configuração automática
+                        </span>{" "}
+                        são configurados no Portal; os demais são configurados
+                        no dispositivo com os dados exibidos após a escolha do
+                        app.
                       </li>
 
                       <li>
-                        Aplicativos <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">Pagos</span> costumam ter melhor desempenho e normalmente usam licença anual. Depois de inserir os dados, você pode usar o botão <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">Ver validade</span> para conferir a validade. Se estiver próximo do vencimento, você pode pagar a licença aqui no portal ou direto no site do desenvolvedor.
+                        Aplicativos{" "}
+                        <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">
+                          Pagos
+                        </span>{" "}
+                        costumam ter melhor desempenho e normalmente usam
+                        licença anual. Depois de inserir os dados, você pode
+                        usar o botão{" "}
+                        <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">
+                          Ver validade
+                        </span>{" "}
+                        para conferir a validade. Se estiver próximo do
+                        vencimento, você pode pagar a licença aqui no portal ou
+                        direto no site do desenvolvedor.
                       </li>
 
                       <li>
-                        Quando uma licença já foi paga e ainda depende de conclusão manual do suporte, o aplicativo aparece com a indicação <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">Licença paga • renovação em andamento</span>. Apenas aguarde a conclusão da renovação e a validade será atualizada automaticamente.
+                        Quando uma licença já foi paga e ainda depende de
+                        conclusão manual do suporte, o aplicativo aparece com a
+                        indicação{" "}
+                        <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">
+                          Licença paga • renovação em andamento
+                        </span>
+                        . Apenas aguarde a conclusão da renovação e a validade
+                        será atualizada automaticamente.
                       </li>
                     </>
                   )}
@@ -3625,138 +3901,194 @@ export default function RenewClient() {
           </div>
 
           <div className="space-y-4">
-              {installedAppsLoading && (
-                <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-              )}
-              {!installedAppsLoading && installedAppsError && (
-                <div className="text-center py-8 text-rose-500 bg-rose-500/10 rounded-xl border border-dashed border-rose-500/30">
-                  {installedAppsError}
-                </div>
-              )}
-              {!installedAppsLoading && !installedAppsError && installedApps.length === 0 && (
+            {installedAppsLoading && (
+              <div className="text-center py-8 text-muted-foreground">
+                Carregando...
+              </div>
+            )}
+            {!installedAppsLoading && installedAppsError && (
+              <div className="text-center py-8 text-rose-500 bg-rose-500/10 rounded-xl border border-dashed border-rose-500/30">
+                {installedAppsError}
+              </div>
+            )}
+            {!installedAppsLoading &&
+              !installedAppsError &&
+              installedApps.length === 0 && (
                 <div className="text-center py-8 px-4 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
                   Ainda não identificamos nenhum aplicativo nesta conta. Use{" "}
-                  <strong className="text-foreground">"+ Adicionar aplicativo"</strong> para escolher o app que você usa ou para começar uma nova configuração.
+                  <strong className="text-foreground">
+                    "+ Adicionar aplicativo"
+                  </strong>{" "}
+                  para escolher o app que você usa ou para começar uma nova
+                  configuração.
                 </div>
               )}
 
-              {!installedAppsLoading &&
-                !installedAppsError &&
-                installedApps.map((app) => {
-                  const isEditing = editingAppId === app.id;
-                  const busy = appActionBusy === app.id;
-                  const ambienteField = app.fields.find((f) => f.type === "obs");
-                  const otherFields = app.fields.filter((f) => f.type !== "obs");
-                  const expirationDatePart = app.expiration ? String(app.expiration).split("T")[0] : "";
-                  // ✅ 3 estados (pedido do Marcio, 25/07/2026): já vencido
-                  // fica vermelho ("Vencido"), vencendo em menos de 30 dias
-                  // (mesmo limiar do admin em cliente/[id]/page.tsx) fica
-                  // âmbar ("Vencendo"), resto fica neutro ("Validade").
-                  const expirationDiffDays = expirationDatePart
-                    ? (new Date(`${expirationDatePart}T12:00:00`).getTime() - Date.now()) / 86400000
-                    : null;
-                  const isExpired = expirationDiffDays !== null && expirationDiffDays < 0;
-                  const isExpiringSoon = expirationDiffDays !== null && expirationDiffDays >= 0 && expirationDiffDays < 30;
-                  return (
-                    <div key={app.id} className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          {app.icon_url ? (
-                            <img src={app.icon_url} alt={app.name} className="w-12 h-12 rounded-lg object-cover border border-border shrink-0" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-xl shrink-0">📱</div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-foreground truncate">
-                              {app.name}
-                              {ambienteField?.value ? (
-                                <span className="font-normal text-muted-foreground"> ({ambienteField.value})</span>
-                              ) : null}
-                            </p>
-                            {app.is_partnership ? (
-                              <p className="text-xs text-muted-foreground mt-0.5">Vencimento: Parceria (gratuito)</p>
-                            ) : app.expiration ? (
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <p className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
-                                  {isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: {expirationDatePart.split("-").reverse().join("/")}
-                                </p>
-                                {app.has_pending_manual_renewal && (
-                                  <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
-                                    Licença paga • renovação em andamento
-                                  </span>
-                                )}
-                                {app.can_check_validity && (
-                                  <button
-                                    disabled={busy}
-                                    onClick={() => handleCheckValidity(app.id)}
-                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                  >
-                                    {busy && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                                    Ver validade
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              // ✅ Sem data configurada ainda (pedido do Márcio, 26/07/2026) — antes
-                              // não mostrava nada, e sem o botão Atualizar aqui, só reconfigurando
-                              // o app inteiro dava pra popular a validade. Agora mostra "vazio" +
-                              // Atualizar (quando disponível) pra checar sem precisar reconfigurar.
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <p className="text-xs text-muted-foreground">Vencimento: —</p>
-                                {app.has_pending_manual_renewal && (
-                                  <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
-                                    Licença paga • renovação em andamento
-                                  </span>
-                                )}
-                                {app.can_check_validity && (
-                                  <button
-                                    disabled={busy}
-                                    onClick={() => handleCheckValidity(app.id)}
-                                    className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                  >
-                                    {busy && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                                    Ver validade
-                                  </button>
-                                )}
-                              </div>
-                            )}
+            {!installedAppsLoading &&
+              !installedAppsError &&
+              installedApps.map((app) => {
+                const isEditing = editingAppId === app.id;
+                const busy = appActionBusy === app.id;
+                const ambienteField = app.fields.find((f) => f.type === "obs");
+                const otherFields = app.fields.filter((f) => f.type !== "obs");
+                const expirationDatePart = app.expiration
+                  ? String(app.expiration).split("T")[0]
+                  : "";
+                // ✅ 3 estados (pedido do Marcio, 25/07/2026): já vencido
+                // fica vermelho ("Vencido"), vencendo em menos de 30 dias
+                // (mesmo limiar do admin em cliente/[id]/page.tsx) fica
+                // âmbar ("Vencendo"), resto fica neutro ("Validade").
+                const expirationDiffDays = expirationDatePart
+                  ? (new Date(`${expirationDatePart}T12:00:00`).getTime() -
+                      Date.now()) /
+                    86400000
+                  : null;
+                const isExpired =
+                  expirationDiffDays !== null && expirationDiffDays < 0;
+                const isExpiringSoon =
+                  expirationDiffDays !== null &&
+                  expirationDiffDays >= 0 &&
+                  expirationDiffDays < 30;
+                return (
+                  <div
+                    key={app.id}
+                    className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {app.icon_url ? (
+                          <img
+                            src={app.icon_url}
+                            alt={app.name}
+                            className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-xl shrink-0">
+                            📱
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {app.portal_setup_instructions && (
-                            <button
-                              onClick={() => setInstructionsAppId(app.id)}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted text-foreground border border-border hover:bg-muted/70 transition-colors"
-                              title="Como configurar"
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <line x1="12" y1="16" x2="12" y2="12"></line>
-                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                              </svg>
-                            </button>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">
+                            {app.name}
+                            {ambienteField?.value ? (
+                              <span className="font-normal text-muted-foreground">
+                                {" "}
+                                ({ambienteField.value})
+                              </span>
+                            ) : null}
+                          </p>
+                          {app.is_partnership ? (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Vencimento: Parceria (gratuito)
+                            </p>
+                          ) : app.expiration ? (
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <p
+                                className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}
+                              >
+                                {isExpired
+                                  ? "Vencido"
+                                  : isExpiringSoon
+                                    ? "Vencendo"
+                                    : "Validade"}
+                                :{" "}
+                                {expirationDatePart
+                                  .split("-")
+                                  .reverse()
+                                  .join("/")}
+                              </p>
+                              {app.has_pending_manual_renewal && (
+                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
+                                  Licença paga • renovação em andamento
+                                </span>
+                              )}
+                              {app.can_check_validity && (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => handleCheckValidity(app.id)}
+                                  className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {busy && (
+                                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                  )}
+                                  Ver validade
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            // ✅ Sem data configurada ainda (pedido do Márcio, 26/07/2026) — antes
+                            // não mostrava nada, e sem o botão Atualizar aqui, só reconfigurando
+                            // o app inteiro dava pra popular a validade. Agora mostra "vazio" +
+                            // Atualizar (quando disponível) pra checar sem precisar reconfigurar.
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <p className="text-xs text-muted-foreground">
+                                Vencimento: —
+                              </p>
+                              {app.has_pending_manual_renewal && (
+                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
+                                  Licença paga • renovação em andamento
+                                </span>
+                              )}
+                              {app.can_check_validity && (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => handleCheckValidity(app.id)}
+                                  className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                >
+                                  {busy && (
+                                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                  )}
+                                  Ver validade
+                                </button>
+                              )}
+                            </div>
                           )}
-                          <button
-                            onClick={() => startEditingApp(app)}
-                            className="shrink-0 px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
-                          >
-                            Editar
-                          </button>
                         </div>
                       </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {app.portal_setup_instructions && (
+                          <button
+                            onClick={() => setInstructionsAppId(app.id)}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted text-foreground border border-border hover:bg-muted/70 transition-colors"
+                            title="Como configurar"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <line x1="12" y1="16" x2="12" y2="12"></line>
+                              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => startEditingApp(app)}
+                          className="shrink-0 px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
+                        >
+                          Editar
+                        </button>
+                      </div>
+                    </div>
 
-                      {/* Instruções — fora do isEditing de propósito (pedido do
+                    {/* Instruções — fora do isEditing de propósito (pedido do
                           Márcio, 31/07/2026): antes sumiam assim que o
                           formulário de edição abria, mas é justamente aí que
                           o cliente mais precisa delas (preenchendo os campos
                           pela primeira vez). Ficam visíveis nos dois estados. */}
-                      {!app.has_integration && app.portal_setup_instructions && (
-                        <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 whitespace-pre-line">
-                          {linkifyText(app.portal_setup_instructions)}
-                        </p>
-                      )}
+                    {!app.has_integration && app.portal_setup_instructions && (
+                      <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 whitespace-pre-line">
+                        {linkifyText(app.portal_setup_instructions)}
+                      </p>
+                    )}
 
-                      {/* Campos-variável citados nas instruções (Código,
+                    {/* Campos-variável citados nas instruções (Código,
                           Usuário, Senha, DNS) — mesmo texto acima já
                           substitui o valor inline, mas isso aqui dá um botão
                           de copiar de verdade, igual Device ID/MAC/Key
@@ -3768,196 +4100,299 @@ export default function RenewClient() {
                           (ex: GPC Computador) mostraria os badges soltos, sem
                           o texto que explica pra que servem (esse só aparece
                           no popup (i) quando has_integration é true). */}
-                      {!app.has_integration && app.variable_fields.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {app.variable_fields.map((f) => (
-                            <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
-                              <span className="font-bold text-foreground/80">{f.label}</span>: {f.value}
+                    {!app.has_integration && app.variable_fields.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {app.variable_fields.map((f) => (
+                          <span
+                            key={f.id}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded"
+                          >
+                            <span className="font-bold text-foreground/80">
+                              {f.label}
+                            </span>
+                            : {f.value}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard?.writeText(f.value);
+                                addToast(
+                                  "success",
+                                  "Copiado!",
+                                  `${f.label} copiado.`,
+                                );
+                              }}
+                              className="text-muted-foreground hover:text-sky-500 transition-colors"
+                              title="Copiar"
+                            >
+                              <svg
+                                width="11"
+                                height="11"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <rect
+                                  x="9"
+                                  y="9"
+                                  width="13"
+                                  height="13"
+                                  rx="2"
+                                  ry="2"
+                                ></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </svg>
+                            </button>
+                            {(f.id === "dns_servidor" ||
+                              f.id === "dns_servidor_r2" ||
+                              f.id === "m3u_url" ||
+                              f.id === "m3u_url_r2") && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  navigator.clipboard?.writeText(f.value);
-                                  addToast("success", "Copiado!", `${f.label} copiado.`);
-                                }}
-                                className="text-muted-foreground hover:text-sky-500 transition-colors"
-                                title="Copiar"
+                                disabled={busy}
+                                onClick={() => handleRerollDns(app.id)}
+                                className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
+                                title="Sortear outro"
                               >
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                </svg>
+                                <RefreshCw
+                                  className={`w-2.5 h-2.5 ${busy ? "animate-spin" : ""}`}
+                                />
                               </button>
-                              {(f.id === "dns_servidor" || f.id === "dns_servidor_r2" || f.id === "m3u_url" || f.id === "m3u_url_r2") && (
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  onClick={() => handleRerollDns(app.id)}
-                                  className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
-                                  title="Sortear outro"
-                                >
-                                  <RefreshCw className={`w-2.5 h-2.5 ${busy ? "animate-spin" : ""}`} />
-                                </button>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
-                      {isEditing ? (
-                        <div className="space-y-2">
-                          {app.fields.map((f) => (
-                            <div key={f.id}>
-                              <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{f.label}</label>
-                              <input
-                                type="text"
-                                value={editingValues[f.id] ?? ""}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
-                                  setEditingValues((prev) => ({ ...prev, [f.id]: next }));
-                                }}
-                                placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório, Celular..." : undefined}
-                                autoCapitalize={f.type === "mac" ? "characters" : "none"}
-                                spellCheck={false}
-                                className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
-                              />
-                            </div>
-                          ))}
-                          <div className="flex gap-2 pt-1">
-                            <button
-                              disabled={busy}
-                              onClick={() => handleSaveAndConfigure(app.id)}
-                              className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1.5"
-                            >
-                              {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                              {busy ? "Configurando..." : "Configurar"}
-                            </button>
-                            <button
-                              disabled={busy}
-                              onClick={() => setEditingAppId(null)}
-                              className="flex-1 h-9 rounded-lg bg-muted text-foreground border border-border text-xs font-bold"
-                            >
-                              Cancelar
-                            </button>
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        {app.fields.map((f) => (
+                          <div key={f.id}>
+                            <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                              {f.label}
+                            </label>
+                            <input
+                              type="text"
+                              value={editingValues[f.id] ?? ""}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                const next =
+                                  f.type === "mac"
+                                    ? normalizeMacInput(raw)
+                                    : raw;
+                                setEditingValues((prev) => ({
+                                  ...prev,
+                                  [f.id]: next,
+                                }));
+                              }}
+                              placeholder={
+                                f.type === "obs"
+                                  ? "Ex: Sala, Quarto, Escritório, Celular..."
+                                  : undefined
+                              }
+                              autoCapitalize={
+                                f.type === "mac" ? "characters" : "none"
+                              }
+                              spellCheck={false}
+                              className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
+                            />
                           </div>
+                        ))}
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            disabled={busy}
+                            onClick={() => handleSaveAndConfigure(app.id)}
+                            className="flex-1 h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold disabled:opacity-50 flex items-center justify-center gap-1.5"
+                          >
+                            {busy && (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            )}
+                            {busy ? "Configurando..." : "Configurar"}
+                          </button>
+                          <button
+                            disabled={busy}
+                            onClick={() => setEditingAppId(null)}
+                            className="flex-1 h-9 rounded-lg bg-muted text-foreground border border-border text-xs font-bold"
+                          >
+                            Cancelar
+                          </button>
                         </div>
-                      ) : (
-                        <>
-                          {/* Linha 2: campos (Device ID, Device Key, Ambiente...) à
+                      </div>
+                    ) : (
+                      <>
+                        {/* Linha 2: campos (Device ID, Device Key, Ambiente...) à
                               esquerda, Excluir à direita (Editar subiu pro
                               cabeçalho, Ambiente saiu daqui — vai junto do nome).
                               Instruções (quando existem) já apareceram acima,
                               fora deste bloco. */}
-                          <div className="flex items-start justify-between gap-2">
-                              <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                                {otherFields.map((f) => (
-                                  <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
-                                    <span className="font-bold text-foreground/80">{f.label}</span>: {f.value || "—"}
-                                    {f.value && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          navigator.clipboard?.writeText(f.value);
-                                          addToast("success", "Copiado!", `${f.label} copiado.`);
-                                        }}
-                                        className="text-muted-foreground hover:text-sky-500 transition-colors"
-                                        title="Copiar"
-                                      >
-                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                        </svg>
-                                      </button>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-                            {app.has_pending_removal_request ? (
-                              <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
-                                Exclusão solicitada
-                              </span>
-                            ) : (
-                              <button
-                                disabled={busy}
-                                onClick={() => handleRemoveApp(app.id, app.name, app.has_integration, app.requires_admin_setup)}
-                                className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                            {otherFields.map((f) => (
+                              <span
+                                key={f.id}
+                                className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded"
                               >
-                                {busy && <Loader2 className="w-3 h-3 animate-spin" />}
-                                {busy ? "Excluindo..." : "Excluir Aplicativo"}
-                              </button>
-                            )}
+                                <span className="font-bold text-foreground/80">
+                                  {f.label}
+                                </span>
+                                : {f.value || "—"}
+                                {f.value && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(f.value);
+                                      addToast(
+                                        "success",
+                                        "Copiado!",
+                                        `${f.label} copiado.`,
+                                      );
+                                    }}
+                                    className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                    title="Copiar"
+                                  >
+                                    <svg
+                                      width="11"
+                                      height="11"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <rect
+                                        x="9"
+                                        y="9"
+                                        width="13"
+                                        height="13"
+                                        rx="2"
+                                        ry="2"
+                                      ></rect>
+                                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                  </button>
+                                )}
+                              </span>
+                            ))}
                           </div>
+                          {app.has_pending_removal_request ? (
+                            <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
+                              Exclusão solicitada
+                            </span>
+                          ) : (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                handleRemoveApp(
+                                  app.id,
+                                  app.name,
+                                  app.has_integration,
+                                  app.requires_admin_setup,
+                                )
+                              }
+                              className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {busy && (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              )}
+                              {busy ? "Excluindo..." : "Excluir Aplicativo"}
+                            </button>
+                          )}
+                        </div>
 
-                          {/* Linha 3: Configurar/Reconfigurar à esquerda,
+                        {/* Linha 3: Configurar/Reconfigurar à esquerda,
                               Renovar aplicativo à direita (Verificar virou o
                               "Atualizar" ao lado da validade, lá em cima).
                               Se o app foi descontinuado (apps.is_active=false,
                               ex: DuplexPlay), não faz mais sentido oferecer
                               configurar/renovar — vira um aviso pra trocar. */}
-                          {!app.is_active ? (
-                            <div className="text-xs font-medium text-rose-500/70 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
-                              Aplicativo descontinuado — exclua e configure um novo.
-                              {app.discontinued_replacement_name && (
-                                <>
-                                  {" "}Recomendamos o{" "}
-                                  <span className="font-bold text-rose-500">{app.discontinued_replacement_name}</span>.
-                                </>
+                        {!app.is_active ? (
+                          <div className="text-xs font-medium text-rose-500/70 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                            Aplicativo descontinuado — exclua e configure um
+                            novo.
+                            {app.discontinued_replacement_name && (
+                              <>
+                                {" "}
+                                Recomendamos o{" "}
+                                <span className="font-bold text-rose-500">
+                                  {app.discontinued_replacement_name}
+                                </span>
+                                .
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex flex-wrap gap-2">
+                              {app.has_integration && (
+                                <button
+                                  disabled={busy}
+                                  onClick={() => handleConfigureApp(app.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                                >
+                                  {busy && (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  )}
+                                  {busy
+                                    ? "Configurando..."
+                                    : app.expiration
+                                      ? "Reconfigurar aplicativo"
+                                      : "Configurar aplicativo"}
+                                </button>
                               )}
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <div className="flex flex-wrap gap-2">
-                                {app.has_integration && (
-                                  <button
-                                    disabled={busy}
-                                    onClick={() => handleConfigureApp(app.id)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
-                                  >
-                                    {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                    {busy ? "Configurando..." : app.expiration ? "Reconfigurar aplicativo" : "Configurar aplicativo"}
-                                  </button>
-                                )}
-                                {/* ✅ "Solicitar configuração" só existe pra app PAGO sem
+                              {/* ✅ "Solicitar configuração" só existe pra app PAGO sem
                                     integração automática (ex: extensão do Chrome ainda não
                                     pronta) — pedido do Márcio, 31/07/2026: parceria/gratuito
                                     sem integração é self-service (o cliente configura
                                     sozinho olhando os dados acima), nunca vira pendência
                                     pro suporte. */}
-                                {app.requires_admin_setup && (
-                                  app.has_pending_setup_request ? (
-                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
-                                      ✓ Configuração solicitada
-                                    </span>
-                                  ) : (
-                                    <button
-                                      disabled={busy}
-                                      onClick={() => handleRequestSetup(app.id)}
-                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
-                                    >
-                                      {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                      {busy ? "Solicitando..." : "Solicitar configuração"}
-                                    </button>
-                                  )
-                                )}
-                              </div>
-                              {app.is_gerenciaapp_family ? (
-                                // ✅ Mesmo limiar de 30 dias do botão pago
+                              {app.requires_admin_setup &&
+                                (app.has_pending_setup_request ? (
+                                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
+                                    ✓ Configuração solicitada
+                                  </span>
+                                ) : (
+                                  <button
+                                    disabled={busy}
+                                    onClick={() => handleRequestSetup(app.id)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+                                  >
+                                    {busy && (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    )}
+                                    {busy
+                                      ? "Solicitando..."
+                                      : "Solicitar configuração"}
+                                  </button>
+                                ))}
+                            </div>
+                            {app.is_gerenciaapp_family
+                              ? // ✅ Mesmo limiar de 30 dias do botão pago
                                 // (pedido do Márcio, 28/07/2026) — achado em
                                 // produção: ficava visível mesmo logo depois
                                 // de renovar pra 2028, um ano+ antes de
                                 // precisar de novo.
-                                (expirationDiffDays === null || isExpired || isExpiringSoon) && (
+                                (expirationDiffDays === null ||
+                                  isExpired ||
+                                  isExpiringSoon) && (
                                   <button
                                     disabled={busy}
-                                    onClick={() => handleFreeRenewGerenciaApp(app.id)}
+                                    onClick={() =>
+                                      handleFreeRenewGerenciaApp(app.id)
+                                    }
                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
                                   >
-                                    {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                    {busy ? "Renovando..." : "Renovar licença — Grátis"}
+                                    {busy && (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    )}
+                                    {busy
+                                      ? "Renovando..."
+                                      : "Renovar licença — Grátis"}
                                   </button>
                                 )
-                              ) : (
-                                // ✅ Só aparece perto do vencimento (pedido do
+                              : // ✅ Só aparece perto do vencimento (pedido do
                                 // Márcio, 28/07/2026) — um app válido até
                                 // 2054 não precisa desse botão visível o
                                 // tempo todo. Sem vencimento conhecido
@@ -3966,87 +4401,106 @@ export default function RenewClient() {
                                 // (isExpiringSoon) usado acima nessa mesma
                                 // linha do tempo.
                                 app.license_price != null &&
-                                (expirationDiffDays === null || isExpired || isExpiringSoon) && (
+                                (expirationDiffDays === null ||
+                                  isExpired ||
+                                  isExpiringSoon) && (
                                   <button
                                     disabled={renewPaymentBusyId === app.id}
                                     onClick={() => handleRenewPayment(app.id)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
                                   >
-                                    {renewPaymentBusyId === app.id && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                    {renewPaymentBusyId === app.id && (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    )}
                                     {renewPaymentBusyId === app.id
                                       ? "Gerando pagamento..."
                                       : `Pagar licença ${app.license_period === "annual" ? "Anual" : app.license_period === "lifetime" ? "Vitalícia" : ""}: ${formatMoney(app.license_price, "BRL")}`}
                                   </button>
-                                )
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
+                                )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
 
-              {/* ✅ Volta a linha pontilhada de antes (pedido do Márcio, 26/07/2026)
+            {/* ✅ Volta a linha pontilhada de antes (pedido do Márcio, 26/07/2026)
                   — não é mais o botão de adicionar (isso subiu pro cabeçalho), agora
                   é um convite pro suporte via WhatsApp pra quem não achou o app que
                   usa ou ficou com dúvida. A mensagem padrão tem um marcador
                   ("Vim do Portal do Cliente") que o bot reconhece pra já avisar o
                   cliente que foi transferido, sem tentar rodar o fluxo normal e
                   mandar ele de volta pro portal que ele acabou de sair. */}
-              {supportPhone && (
-                <a
-                  href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
-                    "Olá! Vim do Portal do Cliente e não encontrei o aplicativo que uso, ou tive dúvidas. Pode me ajudar?",
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-border text-xs sm:text-sm font-bold text-muted-foreground hover:border-[#25D366] hover:text-[#25D366] transition-colors"
-                >
-                  <IconWhatsapp />
-                  Não achou o aplicativo ou teve dúvidas? Fale com o suporte
-                </a>
-              )}
+            {supportPhone && (
+              <a
+                href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                  "Olá! Vim do Portal do Cliente e não encontrei o aplicativo que uso, ou tive dúvidas. Pode me ajudar?",
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-border text-xs sm:text-sm font-bold text-muted-foreground hover:border-[#25D366] hover:text-[#25D366] transition-colors"
+              >
+                <IconWhatsapp />
+                Não achou o aplicativo ou teve dúvidas? Fale com o suporte
+              </a>
+            )}
 
-              <AppPickerModal
-                open={showAddAppPicker}
-                onClose={() => setShowAddAppPicker(false)}
-                catalog={appCatalog}
-                catalogLoading={appCatalogLoading}
-                busyAppId={appActionBusy?.startsWith("add-") ? appActionBusy.slice(4) : null}
-                onSelectApp={(appId) => handleAddApp(appId)}
-                title="Adicionar aplicativo"
-                variant="portal"
-                subtitle={isP2PAccount ? "Escolha o aplicativo" : "Em qual aparelho você vai usar?"}
-                presetDeviceTypes={isP2PAccount ? ["ANDROID_TVBOX", "FIRE_TV"] : undefined}
-              />
+            <AppPickerModal
+              open={showAddAppPicker}
+              onClose={() => setShowAddAppPicker(false)}
+              catalog={appCatalog}
+              catalogLoading={appCatalogLoading}
+              busyAppId={
+                appActionBusy?.startsWith("add-")
+                  ? appActionBusy.slice(4)
+                  : null
+              }
+              onSelectApp={(appId) => handleAddApp(appId)}
+              title="Adicionar aplicativo"
+              variant="portal"
+              subtitle={
+                isP2PAccount
+                  ? "Escolha o aplicativo"
+                  : "Em qual aparelho você vai usar?"
+              }
+              presetDeviceTypes={
+                isP2PAccount ? ["ANDROID_TVBOX", "FIRE_TV"] : undefined
+              }
+            />
 
-              <ConfigureResultModal
-                open={!!configureResult}
-                onCloseAction={() => setConfigureResult(null)}
-                data={configureResult}
-                supportPhone={supportPhone}
-              />
+            <ConfigureResultModal
+              open={!!configureResult}
+              onCloseAction={() => setConfigureResult(null)}
+              data={configureResult}
+              supportPhone={supportPhone}
+            />
 
-              <ReconfigureModeModal
-                open={!!reconfigureModeTarget}
-                onClose={() => setReconfigureModeTarget(null)}
-                appName={installedApps.find((a) => a.id === reconfigureModeTarget)?.name || "Aplicativo"}
-                onChoose={(mode) => {
-                  const targetId = reconfigureModeTarget;
-                  setReconfigureModeTarget(null);
-                  if (targetId) performConfigureApp(targetId, mode);
-                }}
-              />
+            <ReconfigureModeModal
+              open={!!reconfigureModeTarget}
+              onClose={() => setReconfigureModeTarget(null)}
+              appName={
+                installedApps.find((a) => a.id === reconfigureModeTarget)
+                  ?.name || "Aplicativo"
+              }
+              onChoose={(mode) => {
+                const targetId = reconfigureModeTarget;
+                setReconfigureModeTarget(null);
+                if (targetId) performConfigureApp(targetId, mode);
+              }}
+            />
 
-              {/* Modal de pagamento avulso da licença — nunca mexe na assinatura.
+            {/* Modal de pagamento avulso da licença — nunca mexe na assinatura.
                   Mesmo padrão visual/informativo do modal de renovação do
                   plano (PaymentModal): cabeçalho, resumo (app + tipo de
                   licença + total), QR, "como pagar", código copia-e-cola
                   visível e nota de SSL — antes esse modal só tinha o QR e um
                   botão de copiar, sem contexto nenhum. */}
-              {renewPayment && (() => {
-                const payingApp = installedApps.find((a) => a.id === renewPayment.clientAppId);
+            {renewPayment &&
+              (() => {
+                const payingApp = installedApps.find(
+                  (a) => a.id === renewPayment.clientAppId,
+                );
                 const licenseLabel =
                   payingApp?.license_period === "annual"
                     ? "Licença anual"
@@ -4057,24 +4511,35 @@ export default function RenewClient() {
                   <div
                     className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
                     onMouseDown={(e) => {
-                      if (e.target === e.currentTarget && renewPaymentDone) closeRenewPaymentModal();
+                      if (e.target === e.currentTarget && renewPaymentDone)
+                        closeRenewPaymentModal();
                     }}
                   >
-                    <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden">
+                    <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl max-h-[90vh] overflow-x-hidden overflow-y-auto">
                       {renewPaymentDone ? (
                         <div className="p-6 flex flex-col gap-4">
                           <div className="flex flex-col items-center gap-2 text-center py-4">
-                            <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">✅</div>
-                            <p className="text-base font-bold text-foreground">Pagamento confirmado!</p>
-                            <p className="text-xs text-muted-foreground">
-                              Recebemos seu pagamento e nosso suporte já foi avisado.
+                            <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">
+                              ✅
+                            </div>
+                            <p className="text-base font-bold text-foreground">
+                              Pagamento confirmado!
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              A renovação dessa licença é feita manualmente por aqui — assim que for concluída, a nova validade aparece sozinha na tela do aplicativo, sem você precisar fazer mais nada.
+                              Recebemos seu pagamento e nosso suporte já foi
+                              avisado.
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              A renovação dessa licença é feita manualmente por
+                              aqui — assim que for concluída, a nova validade
+                              aparece sozinha na tela do aplicativo, sem você
+                              precisar fazer mais nada.
                             </p>
                           </div>
                           <button
-                            onClick={() => tryClosePortalWindow(closeRenewPaymentModal)}
+                            onClick={() =>
+                              tryClosePortalWindow(closeRenewPaymentModal)
+                            }
                             className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
                           >
                             Fechar
@@ -4090,7 +4555,9 @@ export default function RenewClient() {
                               ✕
                             </button>
                             <h2 className="text-lg font-bold">Pague com PIX</h2>
-                            <p className="text-xs text-white/80">Mercado Pago</p>
+                            <p className="text-xs text-white/80">
+                              Mercado Pago
+                            </p>
                           </div>
 
                           <div className="px-5 pt-4 space-y-1.5 text-sm">
@@ -4100,7 +4567,9 @@ export default function RenewClient() {
                             </div>
                             <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
                               <span>Total a Pagar</span>
-                              <span>{formatMoney(renewPayment.price_amount, "BRL")}</span>
+                              <span>
+                                {formatMoney(renewPayment.price_amount, "BRL")}
+                              </span>
                             </div>
                           </div>
 
@@ -4140,9 +4609,14 @@ export default function RenewClient() {
                                   />
                                   <button
                                     onClick={() => {
-                                      navigator.clipboard?.writeText(renewPayment.pix_qr_code || "");
+                                      navigator.clipboard?.writeText(
+                                        renewPayment.pix_qr_code || "",
+                                      );
                                       setCopiedAppPixCode(true);
-                                      setTimeout(() => setCopiedAppPixCode(false), 3000);
+                                      setTimeout(
+                                        () => setCopiedAppPixCode(false),
+                                        3000,
+                                      );
                                     }}
                                     className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
                                       copiedAppPixCode
@@ -4150,7 +4624,9 @@ export default function RenewClient() {
                                         : "bg-sky-500 hover:bg-sky-600 shadow-sm"
                                     }`}
                                   >
-                                    {copiedAppPixCode ? "✅ Copiado" : "📋 Copiar"}
+                                    {copiedAppPixCode
+                                      ? "✅ Copiado"
+                                      : "📋 Copiar"}
                                   </button>
                                 </div>
                               </div>
@@ -4159,8 +4635,12 @@ export default function RenewClient() {
                             <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 flex items-center gap-3">
                               <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
                               <div className="flex-1">
-                                <p className="text-sm font-bold text-sky-500">Aguardando pagamento...</p>
-                                <p className="text-xs text-sky-500/80">Detectaremos automaticamente quando você pagar</p>
+                                <p className="text-sm font-bold text-sky-500">
+                                  Aguardando pagamento...
+                                </p>
+                                <p className="text-xs text-sky-500/80">
+                                  Detectaremos automaticamente quando você pagar
+                                </p>
                               </div>
                             </div>
 
@@ -4175,7 +4655,8 @@ export default function RenewClient() {
                           <div className="px-5 pb-4 pt-2">
                             <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                              Conexão segura (SSL) — pagamento processado direto pelo Mercado Pago
+                              Conexão segura (SSL) — pagamento processado direto
+                              pelo Mercado Pago
                             </div>
                           </div>
                         </>
@@ -4185,44 +4666,78 @@ export default function RenewClient() {
                 );
               })()}
 
-              {/* Modal de instruções de configuração — substitui a página de
+            {/* Modal de instruções de configuração — substitui a página de
                   detalhe (/renew-beta/apps/[id]), que ficou redundante */}
-              {instructionsAppId && (() => {
-                const instrApp = installedApps.find((a) => a.id === instructionsAppId);
+            {instructionsAppId &&
+              (() => {
+                const instrApp = installedApps.find(
+                  (a) => a.id === instructionsAppId,
+                );
                 return (
                   <div
                     className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
                     onMouseDown={(e) => {
-                      if (e.target === e.currentTarget) setInstructionsAppId(null);
+                      if (e.target === e.currentTarget)
+                        setInstructionsAppId(null);
                     }}
                   >
-                    <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3 max-h-[80vh]">
+                    <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
                       <p className="text-sm font-bold text-foreground shrink-0">
                         Como configurar — {instrApp?.name}
                       </p>
-                      <p className="text-xs text-muted-foreground whitespace-pre-line overflow-y-auto">
-                        {instrApp?.portal_setup_instructions && linkifyText(instrApp.portal_setup_instructions)}
+                      <p className="text-xs text-muted-foreground whitespace-pre-line">
+                        {instrApp?.portal_setup_instructions &&
+                          linkifyText(instrApp.portal_setup_instructions)}
                       </p>
                       {instrApp && instrApp.variable_fields.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 shrink-0">
                           {instrApp.variable_fields.map((f) => (
-                            <span key={f.id} className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded">
-                              <span className="font-bold text-foreground/80">{f.label}</span>: {f.value}
+                            <span
+                              key={f.id}
+                              className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded"
+                            >
+                              <span className="font-bold text-foreground/80">
+                                {f.label}
+                              </span>
+                              : {f.value}
                               <button
                                 type="button"
                                 onClick={() => {
                                   navigator.clipboard?.writeText(f.value);
-                                  addToast("success", "Copiado!", `${f.label} copiado.`);
+                                  addToast(
+                                    "success",
+                                    "Copiado!",
+                                    `${f.label} copiado.`,
+                                  );
                                 }}
                                 className="text-muted-foreground hover:text-sky-500 transition-colors"
                                 title="Copiar"
                               >
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <svg
+                                  width="11"
+                                  height="11"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                >
+                                  <rect
+                                    x="9"
+                                    y="9"
+                                    width="13"
+                                    height="13"
+                                    rx="2"
+                                    ry="2"
+                                  ></rect>
                                   <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
                               </button>
-                              {(f.id === "dns_servidor" || f.id === "dns_servidor_r2" || f.id === "m3u_url" || f.id === "m3u_url_r2") && (
+                              {(f.id === "dns_servidor" ||
+                                f.id === "dns_servidor_r2" ||
+                                f.id === "m3u_url" ||
+                                f.id === "m3u_url_r2") && (
                                 <button
                                   type="button"
                                   disabled={appActionBusy === instrApp.id}
@@ -4230,7 +4745,9 @@ export default function RenewClient() {
                                   className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
                                   title="Sortear outro"
                                 >
-                                  <RefreshCw className={`w-2.5 h-2.5 ${appActionBusy === instrApp.id ? "animate-spin" : ""}`} />
+                                  <RefreshCw
+                                    className={`w-2.5 h-2.5 ${appActionBusy === instrApp.id ? "animate-spin" : ""}`}
+                                  />
                                 </button>
                               )}
                             </span>
@@ -4262,7 +4779,7 @@ export default function RenewClient() {
                   </div>
                 );
               })()}
-            </div>
+          </div>
         </div>
       </div>
     );
@@ -4354,16 +4871,16 @@ export default function RenewClient() {
       <div className="max-w-6xl mx-auto space-y-3 sm:space-y-4 px-0 sm:px-4 py-4 sm:py-6">
         {/* ✅ Banner de novidades removido daqui — virou o Bloco 2 do menu */}
 
-{/* Vencimento Centralizado (Substitui Card Azul) */}
-<div
-  className={`w-full text-center py-2.5 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
+        {/* Vencimento Centralizado (Substitui Card Azul) */}
+        <div
+          className={`w-full text-center py-2.5 sm:py-4 rounded-xl shadow-sm border-2 animate-in fade-in zoom-in duration-500 ${
             selectedAccount.has_pending_manual_renewal
               ? "bg-amber-500/10 border-amber-500/30"
               : timeRemaining?.expired
-              ? "bg-rose-500/10 border-rose-500/20"
-              : selectedAccount.is_trial
-                ? "bg-sky-500/10 border-sky-500/20"
-                : "bg-emerald-500/10 border-emerald-500/20"
+                ? "bg-rose-500/10 border-rose-500/20"
+                : selectedAccount.is_trial
+                  ? "bg-sky-500/10 border-sky-500/20"
+                  : "bg-emerald-500/10 border-emerald-500/20"
           }`}
         >
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
@@ -4375,10 +4892,10 @@ export default function RenewClient() {
                 selectedAccount.has_pending_manual_renewal
                   ? "bg-amber-500"
                   : timeRemaining?.expired
-                  ? "bg-rose-500"
-                  : selectedAccount.is_trial
-                    ? "bg-sky-500"
-                    : "bg-emerald-500"
+                    ? "bg-rose-500"
+                    : selectedAccount.is_trial
+                      ? "bg-sky-500"
+                      : "bg-emerald-500"
               }`}
             />
             <span
@@ -4386,18 +4903,20 @@ export default function RenewClient() {
                 selectedAccount.has_pending_manual_renewal
                   ? "text-amber-600"
                   : timeRemaining?.expired
-                  ? "text-rose-500"
-                  : selectedAccount.is_trial
-                    ? "text-sky-500"
-                    : "text-emerald-500"
+                    ? "text-rose-500"
+                    : selectedAccount.is_trial
+                      ? "text-sky-500"
+                      : "text-emerald-500"
               }`}
             >
-              {selectedAccount.has_pending_manual_renewal
-                ? "Em processo de renovação"
-                : <>
-                    {selectedAccount.is_trial && "Teste • "}
-                    {timeRemaining?.text}
-                  </>}
+              {selectedAccount.has_pending_manual_renewal ? (
+                "Em processo de renovação"
+              ) : (
+                <>
+                  {selectedAccount.is_trial && "Teste • "}
+                  {timeRemaining?.text}
+                </>
+              )}
             </span>
           </div>
           {selectedAccount.has_pending_manual_renewal && (
@@ -4513,7 +5032,7 @@ export default function RenewClient() {
                             </svg>
                           )}
                         </div>
-<span className="font-bold text-foreground">
+                        <span className="font-bold text-foreground">
                           {selectedAccount.plan_label}{" "}
                           <span className="text-xs font-normal text-sky-500 uppercase tracking-wider ml-1">
                             (Atual)
@@ -4620,7 +5139,7 @@ export default function RenewClient() {
 
             {/* Expansível de Ofertas */}
             {showOtherPlans && (
-<div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
+              <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
                   Todas as Opções
                 </p>
@@ -4748,14 +5267,21 @@ export default function RenewClient() {
                 <div className="flex items-center justify-between gap-2 h-10 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3">
                   <span className="text-sm font-medium text-emerald-600 truncate">
                     🎉 {appliedCoupon.code} aplicado:{" "}
-                    {appliedCoupon.discountType === "percent" && appliedCoupon.discountValue != null ? (
+                    {appliedCoupon.discountType === "percent" &&
+                    appliedCoupon.discountValue != null ? (
                       <strong className="font-bold">
-                        {String(appliedCoupon.discountValue).replace(".", ",")}% de desconto
+                        {String(appliedCoupon.discountValue).replace(".", ",")}%
+                        de desconto
                       </strong>
                     ) : (
                       <strong className="font-bold">desconto</strong>
                     )}{" "}
-                    (-{formatMoney(appliedCoupon.discountAmount, selectedAccount.price_currency)})
+                    (-
+                    {formatMoney(
+                      appliedCoupon.discountAmount,
+                      selectedAccount.price_currency,
+                    )}
+                    )
                   </span>
                   <button
                     onClick={handleRemoveCoupon}
@@ -4769,8 +5295,12 @@ export default function RenewClient() {
                   <div className="flex gap-2">
                     <input
                       value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                      onChange={(e) =>
+                        setCouponInput(e.target.value.toUpperCase())
+                      }
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && handleApplyCoupon()
+                      }
                       placeholder="Código do cupom"
                       className="flex-1 h-10 rounded-xl border border-border bg-muted px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-emerald-500/30"
                     />
@@ -4779,11 +5309,15 @@ export default function RenewClient() {
                       disabled={!couponInput.trim() || couponChecking}
                       className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 transition-colors shrink-0 flex items-center justify-center gap-1.5"
                     >
-                      {couponChecking && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {couponChecking && (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      )}
                       Aplicar
                     </button>
                   </div>
-                  {couponError && <p className="text-xs text-rose-500">{couponError}</p>}
+                  {couponError && (
+                    <p className="text-xs text-rose-500">{couponError}</p>
+                  )}
                 </div>
               )}
             </div>
@@ -4800,7 +5334,11 @@ export default function RenewClient() {
                 );
           const displayTotal =
             renewPrice && renewPrice.price_amount > 0
-              ? Math.max(0, renewPrice.price_amount - (appliedCoupon?.discountAmount || 0))
+              ? Math.max(
+                  0,
+                  renewPrice.price_amount -
+                    (appliedCoupon?.discountAmount || 0),
+                )
               : null;
 
           return (

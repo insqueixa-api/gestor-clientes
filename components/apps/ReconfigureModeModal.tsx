@@ -44,11 +44,16 @@ export default function ReconfigureModeModal({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200"
+        className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
       >
-        <h3 className="text-lg font-bold text-foreground mb-1">Reconfigurar {appName}</h3>
+        <h3 className="text-lg font-bold text-foreground mb-1">
+          Reconfigurar {appName}
+        </h3>
         <p className="text-xs text-muted-foreground mb-4">
-          Isso vai apagar a configuração atual desse app no painel e criar uma nova, do zero. Use essa opção quando o aplicativo estiver apresentando alguma falha — não é necessário reconfigurar um app que já está funcionando bem.
+          Isso vai apagar a configuração atual desse app no painel e criar uma
+          nova, do zero. Use essa opção quando o aplicativo estiver apresentando
+          alguma falha — não é necessário reconfigurar um app que já está
+          funcionando bem.
         </p>
 
         <div className="space-y-2">
@@ -69,7 +74,8 @@ export default function ReconfigureModeModal({
           >
             <p className="text-sm font-bold text-foreground">Secundária</p>
             <p className="text-xs text-muted-foreground">
-              Troca o servidor de conexão usado pelo app por outro disponível. Se já tentou a Principal e o problema continuou, tente essa agora.
+              Troca o servidor de conexão usado pelo app por outro disponível.
+              Se já tentou a Principal e o problema continuou, tente essa agora.
             </p>
           </button>
         </div>

@@ -5,14 +5,14 @@
 /* === MODO CLARO (FUNDO CINZA CLARINHO) === */
 :root {
   color-scheme: light;
-  --background: #f1f5f9;   /* slate-100 – fundo cinza clarinho */
-  --foreground: #0f172a;   /* slate-900 – texto escuro */
-  --card: #ffffff;         /* white - cards brancos sobre fundo cinza */
+  --background: #f1f5f9; /* slate-100 – fundo cinza clarinho */
+  --foreground: #0f172a; /* slate-900 – texto escuro */
+  --card: #ffffff; /* white - cards brancos sobre fundo cinza */
   --card-foreground: #0f172a; /* slate-900 */
-  --border: #e2e8f0;       /* slate-200 */
-  --muted: #f8fafc;        /* slate-50 */
+  --border: #e2e8f0; /* slate-200 */
+  --muted: #f8fafc; /* slate-50 */
   --muted-foreground: #475569; /* slate-600 */
-  
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
@@ -21,24 +21,24 @@
   --color-emerald-500: #047857; /* emerald-700 */
   --color-green-400: #059669;
   --color-green-500: #047857;
-  --color-sky-400: #0284c7;     /* sky-600 */
-  --color-sky-500: #0369a1;     /* sky-700 */
-  --color-amber-400: #d97706;   /* amber-600 */
-  --color-amber-500: #b45309;   /* amber-700 */
-  --color-purple-400: #9333ea;  /* purple-600 */
-  --color-purple-500: #7e22ce;  /* purple-700 */
-  --color-rose-400: #e11d48;    /* rose-600 */
-  --color-rose-500: #be123c;    /* rose-700 */
+  --color-sky-400: #0284c7; /* sky-600 */
+  --color-sky-500: #0369a1; /* sky-700 */
+  --color-amber-400: #d97706; /* amber-600 */
+  --color-amber-500: #b45309; /* amber-700 */
+  --color-purple-400: #9333ea; /* purple-600 */
+  --color-purple-500: #7e22ce; /* purple-700 */
+  --color-rose-400: #e11d48; /* rose-600 */
+  --color-rose-500: #be123c; /* rose-700 */
 
-  --dark-surface: #18181b;      /* zinc-900 – fundo sempre escuro (logos transparentes) */
+  --dark-surface: #18181b; /* zinc-900 – fundo sempre escuro (logos transparentes) */
 }
 
 /* === MODO ESCURO === */
 :root.dark {
   color-scheme: dark;
-  --background: #0f141b;   /* bg-app oficializado */
-  --foreground: #e5e7eb;   /* text zinc-200 */
-  --card: #161b22;         /* bg-card oficializado */
+  --background: #0f141b; /* bg-app oficializado */
+  --foreground: #e5e7eb; /* text zinc-200 */
+  --card: #161b22; /* bg-card oficializado */
   --card-foreground: #e5e7eb;
   --border: rgba(255, 255, 255, 0.1); /* alinhado ao alpha do theme.css */
   --muted: rgba(255, 255, 255, 0.05); /* bg-muted e headers */
@@ -58,7 +58,7 @@
   --color-rose-400: #fb7185;
   --color-rose-500: #f43f5e;
 
-  --dark-surface: #18181b;      /* zinc-900 – fundo sempre escuro (logos transparentes) */
+  --dark-surface: #18181b; /* zinc-900 – fundo sempre escuro (logos transparentes) */
 }
 
 /* ── CONECTA AO TAILWIND ── */
@@ -76,26 +76,31 @@
   --font-mono: var(--font-mono);
 }
 
-/* Aplica */
-html,
 body {
   /* Sem isso, qualquer conteúdo mais largo que a tela (ex: tabela com
      min-w grande) empurra a PÁGINA inteira pra rolar na horizontal —
      inclusive o cabeçalho — em vez de só o container com overflow-x-auto
-     rolar internamente. */
+     rolar internamente.
+     IMPORTANTE: só no body, nunca também no html — com os dois juntos,
+     cada um vira seu próprio scroll container (a spec de overflow força
+     overflow-y:auto quando só overflow-x é setado), o que quebra
+     `position: sticky` de elementos como a TopBar (ela passa a "stickar"
+     contra o container errado). Só no body, o overflow-x propaga pro
+     viewport sem criar esse scroll container aninhado. */
   overflow-x: hidden;
-}
-
-body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
 }
 
 /* ── Dashboard: ocultar valores ── */
 #dashboard-values .sv {
-  transition: filter 0.25s ease, opacity 0.25s ease;
+  transition:
+    filter 0.25s ease,
+    opacity 0.25s ease;
 }
 
 #dashboard-values[data-values-hidden="true"] .sv {

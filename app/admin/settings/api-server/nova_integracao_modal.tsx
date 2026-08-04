@@ -191,8 +191,8 @@ export default function NovaIntegracaoModal({
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onMouseDown={onClose}
       />
-      <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
-        <div className="p-5 border-b border-border bg-transparent">
+      <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="p-5 border-b border-border bg-transparent shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight truncate">
@@ -214,7 +214,7 @@ export default function NovaIntegracaoModal({
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
               Servidor
@@ -392,7 +392,7 @@ export default function NovaIntegracaoModal({
           </div>
         </div>
 
-        <div className="p-5 border-t border-border bg-transparent flex items-center justify-end gap-2">
+        <div className="p-5 border-t border-border bg-transparent flex items-center justify-end gap-2 shrink-0">
           <button
             onClick={onClose}
             className="h-10 px-4 rounded-xl border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"

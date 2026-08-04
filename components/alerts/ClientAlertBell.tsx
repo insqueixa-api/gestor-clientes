@@ -60,7 +60,7 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
       <div className="w-full max-w-md bg-card rounded-2xl shadow-2xl border border-border max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <h3 className="font-bold text-foreground">{title}</h3>
@@ -146,9 +146,7 @@ const ClientAlertBell = forwardRef<
   const [showList, setShowList] = useState(false);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(false);
-  const [toggledPaidIds, setToggledPaidIds] = useState<Set<string>>(
-    new Set(),
-  );
+  const [toggledPaidIds, setToggledPaidIds] = useState<Set<string>>(new Set());
 
   const [showForm, setShowForm] = useState(false);
   const [editingAlertId, setEditingAlertId] = useState<string | null>(null);
@@ -248,7 +246,11 @@ const ClientAlertBell = forwardRef<
 
   function openEdit(alert: any) {
     const inferredKind: AlertKind =
-      alert.amount == null ? "note" : alert.client_app_id ? "app_charge" : "generic_charge";
+      alert.amount == null
+        ? "note"
+        : alert.client_app_id
+          ? "app_charge"
+          : "generic_charge";
     setEditingAlertId(String(alert.id));
     setKind(inferredKind);
     setText(alert.message || "");
@@ -284,13 +286,18 @@ const ClientAlertBell = forwardRef<
 
       if (kind === "app_charge") {
         if (!clientAppId) {
-          addToast("error", "Selecione um app", "Escolha qual app gerou a pendência.");
+          addToast(
+            "error",
+            "Selecione um app",
+            "Escolha qual app gerou a pendência.",
+          );
           return;
         }
         const app = clientApps.find((a) => a.id === clientAppId);
         payload.client_app_id = clientAppId;
         payload.message =
-          text.trim() || buildAppChargeMessage(app?.appName ?? "", activationDate);
+          text.trim() ||
+          buildAppChargeMessage(app?.appName ?? "", activationDate);
         if (activationDate) payload.activation_date = activationDate;
       } else {
         if (!text.trim()) {
@@ -324,7 +331,11 @@ const ClientAlertBell = forwardRef<
         loadAlerts();
       }
     } catch (e: any) {
-      addToast("error", editingAlertId ? "Erro ao atualizar" : "Erro ao criar", e.message);
+      addToast(
+        "error",
+        editingAlertId ? "Erro ao atualizar" : "Erro ao criar",
+        e.message,
+      );
     }
   }
 
@@ -421,8 +432,7 @@ const ClientAlertBell = forwardRef<
               alerts.map((alert) => {
                 const hasAmount = alert.amount != null;
                 const appName = alert.client_apps?.apps?.name as
-                  | string
-                  | undefined;
+                  string | undefined;
                 const isToggledPaid = toggledPaidIds.has(String(alert.id));
                 return (
                   <div
@@ -433,7 +443,10 @@ const ClientAlertBell = forwardRef<
                       <div>
                         {hasAmount && (
                           <div className="text-sm font-bold text-foreground mb-0.5">
-                            {formatMoney(Number(alert.amount), alert.currency || "BRL")}
+                            {formatMoney(
+                              Number(alert.amount),
+                              alert.currency || "BRL",
+                            )}
                             {appName && (
                               <span className="ml-1.5 font-normal text-xs text-muted-foreground">
                                 · {appName}
@@ -447,9 +460,9 @@ const ClientAlertBell = forwardRef<
                         {alert.activation_date && (
                           <p className="text-[11px] text-muted-foreground mt-1">
                             Ativado em{" "}
-                            {new Date(`${alert.activation_date}T12:00:00`).toLocaleDateString(
-                              "pt-BR",
-                            )}
+                            {new Date(
+                              `${alert.activation_date}T12:00:00`,
+                            ).toLocaleDateString("pt-BR")}
                           </p>
                         )}
                       </div>
@@ -466,7 +479,8 @@ const ClientAlertBell = forwardRef<
                           onClick={() =>
                             setToggledPaidIds((prev) => {
                               const next = new Set(prev);
-                              if (next.has(String(alert.id))) next.delete(String(alert.id));
+                              if (next.has(String(alert.id)))
+                                next.delete(String(alert.id));
                               else next.add(String(alert.id));
                               return next;
                             })
@@ -495,7 +509,11 @@ const ClientAlertBell = forwardRef<
                         </button>
                       ) : (
                         <>
-                          <ActionBtn title="Editar" tone="amber" onClick={() => openEdit(alert)}>
+                          <ActionBtn
+                            title="Editar"
+                            tone="amber"
+                            onClick={() => openEdit(alert)}
+                          >
                             <Pencil className="w-4 h-4" />
                           </ActionBtn>
                           <ActionBtn
@@ -540,10 +558,17 @@ const ClientAlertBell = forwardRef<
             <div className="bg-purple-500/10 border border-purple-500/20 p-3 rounded-lg flex items-center gap-3">
               <span className="text-xl">🔔</span>
               <div className="text-sm text-foreground/90">
-                {editingAlertId ? "Editando alerta de" : kind ? "Para" : "Adicionando alerta para"}{" "}
+                {editingAlertId
+                  ? "Editando alerta de"
+                  : kind
+                    ? "Para"
+                    : "Adicionando alerta para"}{" "}
                 <strong>{clientName}</strong>
                 {clientUsername && (
-                  <span className="text-muted-foreground"> ({clientUsername})</span>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    ({clientUsername})
+                  </span>
                 )}
               </div>
             </div>
@@ -613,13 +638,21 @@ const ClientAlertBell = forwardRef<
                       const id = e.target.value;
                       setClientAppId(id);
                       const app = clientApps.find((a) => a.id === id);
-                      if (app?.licensePrice != null) setAmount(String(app.licensePrice));
-                      setText(buildAppChargeMessage(app?.appName ?? "", activationDate));
+                      if (app?.licensePrice != null)
+                        setAmount(String(app.licensePrice));
+                      setText(
+                        buildAppChargeMessage(
+                          app?.appName ?? "",
+                          activationDate,
+                        ),
+                      );
                     }}
                     disabled={loadingApps}
                     className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
                   >
-                    <option value="">{loadingApps ? "Carregando..." : "Selecionar..."}</option>
+                    <option value="">
+                      {loadingApps ? "Carregando..." : "Selecionar..."}
+                    </option>
                     {clientApps.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.appName}
@@ -669,7 +702,8 @@ const ClientAlertBell = forwardRef<
                       const date = e.target.value;
                       setActivationDate(date);
                       const app = clientApps.find((a) => a.id === clientAppId);
-                      if (app) setText(buildAppChargeMessage(app.appName, date));
+                      if (app)
+                        setText(buildAppChargeMessage(app.appName, date));
                     }}
                     className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
                   />

@@ -73,24 +73,58 @@ export default function ConfigureResultModal({
     >
       <div
         onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl p-6 sm:p-7 text-center animate-in zoom-in-95 duration-200"
+        className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl p-6 sm:p-7 text-center animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
       >
         <div
           className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-            isSuccess ? "bg-emerald-500/20" : isBlocked ? "bg-amber-500/20" : "bg-rose-500/10"
+            isSuccess
+              ? "bg-emerald-500/20"
+              : isBlocked
+                ? "bg-amber-500/20"
+                : "bg-rose-500/10"
           }`}
         >
           {isSuccess ? (
-            <svg className="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-8 h-8 text-emerald-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           ) : isBlocked ? (
-            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            <svg
+              className="w-8 h-8 text-amber-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
+              />
             </svg>
           ) : (
-            <svg className="w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-8 h-8 text-rose-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           )}
         </div>
@@ -120,19 +154,25 @@ export default function ConfigureResultModal({
             {data.expireDate && (
               <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                 <p className="text-sm text-emerald-500 font-medium">
-                  Vencimento: {String(data.expireDate).split("-").reverse().join("/")}
+                  Vencimento:{" "}
+                  {String(data.expireDate).split("-").reverse().join("/")}
                 </p>
               </div>
             )}
 
             <p className="text-sm text-muted-foreground">
-              Agora feche o aplicativo <strong className="text-foreground">{data.appName}</strong> na sua TV, abra de novo e procure um botão de{" "}
-              <strong className="text-foreground">Atualizar</strong> ou <strong className="text-foreground">Recarregar</strong> a lista de canais dentro do app.
+              Agora feche o aplicativo{" "}
+              <strong className="text-foreground">{data.appName}</strong> na sua
+              TV, abra de novo e procure um botão de{" "}
+              <strong className="text-foreground">Atualizar</strong> ou{" "}
+              <strong className="text-foreground">Recarregar</strong> a lista de
+              canais dentro do app.
             </p>
 
             {data.isReconfigure && (
               <p className="text-sm text-muted-foreground">
-                Se o problema continuar, desligue a TV e o modem por alguns minutos e tente de novo.
+                Se o problema continuar, desligue a TV e o modem por alguns
+                minutos e tente de novo.
               </p>
             )}
 
@@ -142,7 +182,10 @@ export default function ConfigureResultModal({
           </div>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">{data.errorMessage || "Não foi possível concluir agora. Tente novamente em instantes."}</p>
+            <p className="text-sm text-muted-foreground">
+              {data.errorMessage ||
+                "Não foi possível concluir agora. Tente novamente em instantes."}
+            </p>
             {data.suggestSecondary && (
               <p className="text-xs text-amber-500 font-medium">
                 Se quiser tentar novamente, use a outra opção de configuração.
@@ -154,13 +197,16 @@ export default function ConfigureResultModal({
         {isBlocked && (
           <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-left">
             <p className="text-xs text-amber-500 font-medium">
-              Aguarde alguns minutos antes de tentar de novo. Se preferir, feche esta janela e volte mais tarde.
+              Aguarde alguns minutos antes de tentar de novo. Se preferir, feche
+              esta janela e volte mais tarde.
             </p>
           </div>
         )}
 
         <div className="mt-5 flex flex-col items-center gap-3">
-          {(isSuccess || isBlocked || data.escalate) && <SupportLink supportPhone={supportPhone} />}
+          {(isSuccess || isBlocked || data.escalate) && (
+            <SupportLink supportPhone={supportPhone} />
+          )}
           <button
             onClick={onCloseAction}
             className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-md transition-colors"
