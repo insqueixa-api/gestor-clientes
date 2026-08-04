@@ -490,30 +490,46 @@ function AgendaPageContent() {
     });
   }
 
+  // ✅ Diferente do "Reenviar" — aqui cada telefone ainda passa pela Telein
+  // (API externa de operadora, sem batch possível, consultada 1 por 1 com
+  // pausa) antes do envio ao Google, que esse sim já vai em lote. Por causa
+  // dessa pausa por telefone, o gargalo de tempo continua sendo a Telein —
+  // mantém um chunk menor que o do "Reenviar" pra não estourar o teto de
+  // 10s da Vercel mesmo em uma seleção grande.
   async function handleMassSyncOperadora() {
     if (selectedIds.size === 0) return;
     setIsSyncingOperadora(true);
-    try {
-      const res = await fetch("/api/auth/google/sync-operadora", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_ids: Array.from(selectedIds) }),
-      });
-      const data = await res.json();
+    const ids = Array.from(selectedIds);
+    const CHUNK = 25;
+    let totalMessage = "";
+    const allErrors: string[] = [];
 
-      if (res.ok) {
-        addToast("success", "Operadoras Atualizadas", data.message);
-        if (data.errors?.length)
-          addToast(
-            "warning",
-            "Alguns erros",
-            data.errors.slice(0, 3).join(" | "),
-          );
-        loadData();
-        setSelectedIds(new Set());
-      } else {
-        throw new Error(data.error || "Erro ao consultar.");
+    try {
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const res = await fetch("/api/auth/google/sync-operadora", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contact_ids: slice }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          totalMessage = data.message;
+          if (data.errors?.length) allErrors.push(...data.errors);
+        } else {
+          allErrors.push(data.error || "Erro no lote.");
+        }
       }
+
+      addToast(
+        "success",
+        "Operadoras Atualizadas",
+        totalMessage || "Concluído.",
+      );
+      if (allErrors.length)
+        addToast("warning", "Alguns erros", allErrors.slice(0, 3).join(" | "));
+      loadData();
+      setSelectedIds(new Set());
     } catch (err: any) {
       addToast("error", "Erro", err.message);
     } finally {
@@ -525,12 +541,16 @@ function AgendaPageContent() {
 
   // Reenvia o que JÁ ESTÁ no Supabase pro Google (nome, telefones+operadora,
   // emails, labels/grupos). NÃO consulta a Telein — zero gasto de crédito.
-  // Processa em chunks pra caber no teto de 10s da Vercel grátis.
+  // Processa em chunks pra caber no teto de 10s da Vercel grátis — a rota
+  // agora usa people:batchGet/batchUpdateContacts (poucas chamadas HTTP pro
+  // Google por lote, não mais uma por contato), então 150 por vez ainda cabe
+  // folgado no teto de 10s (antes, com 1 GET+1 PATCH por contato, só dava
+  // pra arriscar 10 por vez).
   async function handleMassPushGoogle() {
     if (selectedIds.size === 0) return;
     setIsPushingGoogle(true);
     const ids = Array.from(selectedIds);
-    const CHUNK = 10;
+    const CHUNK = 150;
     let totalUpdated = 0;
     const allErrors: string[] = [];
 
@@ -567,33 +587,45 @@ function AgendaPageContent() {
     }
   }
 
+  // Mesma lógica de chunking de handleMassPushGoogle — a rota já é batelada
+  // no Google (batchGet/batchUpdateContacts), 150 por vez cabe folgado no
+  // teto de 10s da Vercel grátis.
   async function handleMassAssignGroup(label: string) {
     if (!label.trim() || selectedIds.size === 0) return;
     setIsAssigningGroup(true);
     setShowGroupPopover(false);
     setNewGroupInput("");
+    const ids = Array.from(selectedIds);
+    const CHUNK = 150;
+    let totalUpdated = 0;
+    const allErrors: string[] = [];
     try {
-      const res = await fetch("/api/auth/google/bulk-add-label", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact_ids: Array.from(selectedIds),
-          label: label.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        addToast("success", "Grupo atribuído", data.message);
-        if (data.errors?.length)
-          addToast(
-            "warning",
-            "Alguns erros",
-            data.errors.slice(0, 3).join(" | "),
-          );
-        loadData();
-      } else {
-        addToast("error", "Erro ao atribuir grupo", data.error);
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const res = await fetch("/api/auth/google/bulk-add-label", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contact_ids: slice,
+            label: label.trim(),
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          totalUpdated += data.updated || 0;
+          if (data.errors?.length) allErrors.push(...data.errors);
+        } else {
+          allErrors.push(data.error || "Erro no lote.");
+        }
       }
+      addToast(
+        "success",
+        "Grupo atribuído",
+        `${totalUpdated} contato(s) atribuídos ao grupo "${label.trim()}".`,
+      );
+      if (allErrors.length)
+        addToast("warning", "Alguns erros", allErrors.slice(0, 3).join(" | "));
+      loadData();
     } catch (err: any) {
       addToast("error", "Erro", err.message);
     } finally {
@@ -875,29 +907,60 @@ function AgendaPageContent() {
     }
   }
 
+  // Sem seleção: "sincroniza tudo" continua 1 chamada só, atômica, tratada
+  // inteira no servidor (a rota já filtra localmente quem precisa mudar
+  // antes de gastar chamada de API — não dá pra chunkar isso do frontend
+  // sem antes saber os ids, e o próprio filtro local já reduz bastante o
+  // que sobra pro Google). Com seleção: chunka igual handleMassPushGoogle,
+  // mesma folga de 150 por lote (rota já batelada no Google).
   async function handleSyncLabels() {
     setIsSyncingLabels(true);
     try {
-      const res = await fetch("/api/auth/google/sync-labels-from-clients", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact_ids: selectedIds.size > 0 ? Array.from(selectedIds) : null,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        addToast("success", "Vinculação concluída", data.message);
-        if (data.errors?.length)
-          addToast(
-            "warning",
-            "Alguns erros",
-            data.errors.slice(0, 3).join(" | "),
-          );
-        loadData();
-      } else {
-        addToast("error", "Erro ao vincular", data.error);
+      if (selectedIds.size === 0) {
+        const res = await fetch("/api/auth/google/sync-labels-from-clients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contact_ids: null }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          addToast("success", "Vinculação concluída", data.message);
+          if (data.errors?.length)
+            addToast(
+              "warning",
+              "Alguns erros",
+              data.errors.slice(0, 3).join(" | "),
+            );
+          loadData();
+        } else {
+          addToast("error", "Erro ao vincular", data.error);
+        }
+        return;
       }
+
+      const ids = Array.from(selectedIds);
+      const CHUNK = 150;
+      let lastMessage = "";
+      const allErrors: string[] = [];
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const res = await fetch("/api/auth/google/sync-labels-from-clients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contact_ids: slice }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          lastMessage = data.message;
+          if (data.errors?.length) allErrors.push(...data.errors);
+        } else {
+          allErrors.push(data.error || "Erro no lote.");
+        }
+      }
+      addToast("success", "Vinculação concluída", lastMessage || "Concluído.");
+      if (allErrors.length)
+        addToast("warning", "Alguns erros", allErrors.slice(0, 3).join(" | "));
+      loadData();
     } catch (err: any) {
       addToast("error", "Erro", err.message);
     } finally {

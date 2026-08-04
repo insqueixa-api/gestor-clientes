@@ -28,7 +28,7 @@ function formatPhone(raw: string | null | undefined) {
   } else if (clean.length === 10) {
     return `0${clean.substring(0, 2)} ${clean.substring(2, 6)}-${clean.substring(6)}`;
   }
-  
+
   return raw; // Fallback: Salva como digitou se for estranho
 }
 
@@ -46,17 +46,38 @@ function getGoogleLabel(label: string, defaultType: string) {
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user)
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const body = await req.json();
-    const { id, google_resource_name, display_name, phones, emails, labels, photo_base64 } = body;
+    const {
+      id,
+      google_resource_name,
+      display_name,
+      phones,
+      emails,
+      labels,
+      photo_base64,
+    } = body;
 
-    const { data: tenantData } = await supabase.from("tenant_members").select("tenant_id").eq("user_id", user.id).limit(1).single();
+    const { data: tenantData } = await supabase
+      .from("tenant_members")
+      .select("tenant_id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .single();
     const tenantId = tenantData?.tenant_id;
 
-    const { data: tenantConfig } = await supabase.from("tenants").select("google_refresh_token").eq("id", tenantId).single();
-    if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
+    const { data: tenantConfig } = await supabase
+      .from("tenants")
+      .select("google_refresh_token")
+      .eq("id", tenantId)
+      .single();
+    if (!tenantConfig?.google_refresh_token)
+      throw new Error("Conta do Google não vinculada.");
 
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -72,13 +93,19 @@ export async function POST(req: Request) {
     if (!tokenRes.ok) throw new Error("Falha ao renovar credenciais.");
     const accessToken = tokenData.access_token;
 
-    const getPersonRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}?personFields=metadata,memberships`, { headers: { Authorization: `Bearer ${accessToken}` } });
+    const getPersonRes = await fetch(
+      `https://people.googleapis.com/v1/${google_resource_name}?personFields=metadata,memberships`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
     const personCurrentData = await getPersonRes.json();
     const etag = personCurrentData.etag;
 
     const finalMemberships: any[] = [];
     if (labels !== undefined) {
-      const groupsRes = await fetch("https://people.googleapis.com/v1/contactGroups", { headers: { Authorization: `Bearer ${accessToken}` } });
+      const groupsRes = await fetch(
+        "https://people.googleapis.com/v1/contactGroups",
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
       const groupsData = await groupsRes.json();
       const existingGroups = groupsData.contactGroups || [];
 
@@ -86,47 +113,95 @@ export async function POST(req: Request) {
         const cleanLbl = lbl.trim();
         if (cleanLbl.toLowerCase() === "mycontacts") continue;
 
-        let found = existingGroups.find((g: any) => g.name === cleanLbl || g.formattedName === cleanLbl);
+        let found = existingGroups.find(
+          (g: any) => g.name === cleanLbl || g.formattedName === cleanLbl,
+        );
         if (!found) {
-          const createGrpRes = await fetch("https://people.googleapis.com/v1/contactGroups", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ contactGroup: { name: cleanLbl } })
-          });
+          const createGrpRes = await fetch(
+            "https://people.googleapis.com/v1/contactGroups",
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ contactGroup: { name: cleanLbl } }),
+            },
+          );
           if (createGrpRes.ok) {
             found = await createGrpRes.json();
             existingGroups.push(found);
           }
         }
-        if (found) finalMemberships.push({ contactGroupMembership: { contactGroupResourceName: found.resourceName } });
+        if (found)
+          finalMemberships.push({
+            contactGroupMembership: {
+              contactGroupResourceName: found.resourceName,
+            },
+          });
       }
     }
 
     if (personCurrentData.memberships) {
-      const hasMyContacts = personCurrentData.memberships.some((m: any) => m.contactGroupMembership?.contactGroupResourceName === "contactGroups/myContacts");
+      const hasMyContacts = personCurrentData.memberships.some(
+        (m: any) =>
+          m.contactGroupMembership?.contactGroupResourceName ===
+          "contactGroups/myContacts",
+      );
       if (hasMyContacts) {
-        const alreadyIn = finalMemberships.some(m => m.contactGroupMembership?.contactGroupResourceName === "contactGroups/myContacts");
-        if (!alreadyIn) finalMemberships.push({ contactGroupMembership: { contactGroupResourceName: "contactGroups/myContacts" } });
+        const alreadyIn = finalMemberships.some(
+          (m) =>
+            m.contactGroupMembership?.contactGroupResourceName ===
+            "contactGroups/myContacts",
+        );
+        if (!alreadyIn)
+          finalMemberships.push({
+            contactGroupMembership: {
+              contactGroupResourceName: "contactGroups/myContacts",
+            },
+          });
       }
     }
 
     // Formata TODOS os telefones antes de enviar pro Google
-    const formattedPhones = (phones || []).map((p: any) => ({ label: p.label, value: formatPhone(p.value) }));
+    const formattedPhones = (phones || []).map((p: any) => ({
+      label: p.label,
+      value: formatPhone(p.value),
+    }));
 
     const googlePayload: any = {
       etag: etag,
-      names: [{ givenName: display_name || "Sem Nome" }],
-      emailAddresses: (emails || []).map((e: any) => ({ value: e.value, ...getGoogleLabel(e.label, "other") })),
-      phoneNumbers: formattedPhones.map((p: any) => ({ value: p.value, ...getGoogleLabel(p.label, "mobile") })),
-      memberships: finalMemberships
+      // ✅ familyName explicitamente vazio — sem isso, contatos que já
+      // tinham sobrenome cadastrado num campo separado (era assim que
+      // todo contato era salvo antes) ficavam com esse sobrenome ANTIGO
+      // ainda no familyName, enquanto givenName já vem com o nome completo
+      // (nome + tag do servidor). Resultado: Google/WhatsApp mostra
+      // "givenName familyName" = nome completo + sobrenome antigo de novo
+      // no final, duplicado (ex: "Laressa NaTV NaTV").
+      names: [{ givenName: display_name || "Sem Nome", familyName: "" }],
+      emailAddresses: (emails || []).map((e: any) => ({
+        value: e.value,
+        ...getGoogleLabel(e.label, "other"),
+      })),
+      phoneNumbers: formattedPhones.map((p: any) => ({
+        value: p.value,
+        ...getGoogleLabel(p.label, "mobile"),
+      })),
+      memberships: finalMemberships,
     };
 
-    const updateRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}:updateContact?updatePersonFields=names,emailAddresses,phoneNumbers,memberships`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify(googlePayload),
-    });
-    
+    const updateRes = await fetch(
+      `https://people.googleapis.com/v1/${google_resource_name}:updateContact?updatePersonFields=names,emailAddresses,phoneNumbers,memberships`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(googlePayload),
+      },
+    );
+
     if (!updateRes.ok) {
       const errData = await updateRes.json();
       throw new Error(`Google API: ${errData.error?.message}`);
@@ -136,38 +211,53 @@ export async function POST(req: Request) {
     let finalAvatarUrl = null;
     if (photo_base64 && photo_base64.includes("base64,")) {
       const base64Data = photo_base64.split(",")[1];
-      const photoRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}:updateContactPhoto`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ photoBytes: base64Data })
+      const photoRes = await fetch(
+        `https://people.googleapis.com/v1/${google_resource_name}:updateContactPhoto`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ photoBytes: base64Data }),
+        },
+      );
 
-      });
-      
       if (photoRes.ok) {
-         const getPhotoRes = await fetch(`https://people.googleapis.com/v1/${google_resource_name}?personFields=photos`, {
-           headers: { Authorization: `Bearer ${accessToken}` }
-         });
-         if (getPhotoRes.ok) {
-            const freshData = await getPhotoRes.json();
-            if (freshData.photos?.[ 0 ]?.url) finalAvatarUrl = freshData.photos[ 0 ].url;
-            }
-         }
+        const getPhotoRes = await fetch(
+          `https://people.googleapis.com/v1/${google_resource_name}?personFields=photos`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        );
+        if (getPhotoRes.ok) {
+          const freshData = await getPhotoRes.json();
+          if (freshData.photos?.[0]?.url)
+            finalAvatarUrl = freshData.photos[0].url;
+        }
       }
-    
+    }
 
     // Salva no banco local
     const updateData: any = {
-      display_name, 
-      phones: formattedPhones, 
-      emails, 
+      display_name,
+      phones: formattedPhones,
+      emails,
       labels,
-      phone_e164: formattedPhones.length > 0 ? formattedPhones[0].value.replace(/\D/g, "") : null,
+      phone_e164:
+        formattedPhones.length > 0
+          ? formattedPhones[0].value.replace(/\D/g, "")
+          : null,
 
-      synced_at: new Date().toISOString()
+      synced_at: new Date().toISOString(),
     };
     if (finalAvatarUrl) updateData.avatar_url = finalAvatarUrl;
 
-    await supabase.from("google_contacts").update(updateData).eq("id", id).eq("tenant_id", tenantId);
+    await supabase
+      .from("google_contacts")
+      .update(updateData)
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

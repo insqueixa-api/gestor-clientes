@@ -221,7 +221,15 @@ export async function POST(req: Request) {
           },
           body: JSON.stringify({
             etag,
-            names: [{ givenName: display_name || "Sem Nome" }],
+            // ✅ familyName explicitamente vazio — sem isso, contatos que já
+            // tinham sobrenome cadastrado separado (era assim que o Márcio
+            // sempre salvou os contatos, nome e sobrenome em campos
+            // diferentes) ficavam com o sobrenome ANTIGO ainda no campo
+            // familyName, enquanto givenName já vem com o nome completo
+            // (nome + tag do servidor). Resultado: Google/WhatsApp mostra
+            // "givenName familyName" = nome completo + sobrenome antigo de
+            // novo no final, duplicado (ex: "Laressa NaTV NaTV").
+            names: [{ givenName: display_name || "Sem Nome", familyName: "" }],
             memberships: finalMembershipsExisting,
           }),
         },
@@ -311,7 +319,10 @@ export async function POST(req: Request) {
     }));
 
     const googlePayload: any = {
-      names: [{ givenName: display_name || "Sem Nome" }],
+      // ✅ familyName vazio explícito — ver comentário na outra chamada de
+      // updateContact acima (mesmo motivo, aqui é só por consistência já
+      // que contato novo não tem sobrenome antigo pra duplicar).
+      names: [{ givenName: display_name || "Sem Nome", familyName: "" }],
       emailAddresses: (emails || []).map((e: any) => ({
         value: e.value,
         ...getGoogleLabel(e.label, "other"),

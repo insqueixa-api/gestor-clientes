@@ -1,6 +1,12 @@
 // app/api/auth/google/sync-labels-from-clients/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  batchGetPeople,
+  batchUpdatePeople,
+  getOrCreateContactGroups,
+  getGoogleAccessToken,
+} from "@/lib/google/people-batch";
 
 export const dynamic = "force-dynamic";
 
@@ -23,13 +29,11 @@ function normalizePhone(raw: string | null | undefined): string {
 // E no índice, indexa também a versão sem o 9 para BR:
 function phoneVariants(normalized: string): string[] {
   const variants = [normalized];
-  // BR celular com 9: DDD(2) + 9 + número(8) = 11 dígitos → adiciona sem o 9
   if (normalized.length === 11 && normalized[2] === "9") {
-    variants.push(normalized.slice(0, 2) + normalized.slice(3)); // sem o 9
+    variants.push(normalized.slice(0, 2) + normalized.slice(3));
   }
-  // BR celular sem 9: DDD(2) + número(8) = 10 dígitos → adiciona com o 9
   if (normalized.length === 10) {
-    variants.push(normalized.slice(0, 2) + "9" + normalized.slice(2)); // com o 9
+    variants.push(normalized.slice(0, 2) + "9" + normalized.slice(2));
   }
   return variants;
 }
@@ -37,13 +41,15 @@ function phoneVariants(normalized: string): string[] {
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user)
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
     const contactIds: string[] | null = body.contact_ids ?? null;
 
-    // ── Tenant ──────────────────────────────────────────────────────────────
     const { data: tenantData } = await supabase
       .from("tenant_members")
       .select("tenant_id")
@@ -53,29 +59,17 @@ export async function POST(req: Request) {
     const tenantId = tenantData?.tenant_id;
     if (!tenantId) throw new Error("Tenant não encontrado.");
 
-    // ── Google access token ──────────────────────────────────────────────────
     const { data: tenantConfig } = await supabase
       .from("tenants")
       .select("google_refresh_token")
       .eq("id", tenantId)
       .single();
-    if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
+    if (!tenantConfig?.google_refresh_token)
+      throw new Error("Conta do Google não vinculada.");
+    const accessToken = await getGoogleAccessToken(
+      tenantConfig.google_refresh_token,
+    );
 
-    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        refresh_token: tenantConfig.google_refresh_token,
-        grant_type: "refresh_token",
-      }),
-    });
-    const tokenData = await tokenRes.json();
-    if (!tokenRes.ok) throw new Error("Falha ao renovar credenciais Google.");
-    const accessToken = tokenData.access_token;
-
-    // ── Carrega apenas os contatos selecionados (ou todos se nenhum selecionado) ──
     let gcQuery = supabase
       .from("google_contacts")
       .select("id, google_resource_name, phones, labels, display_name")
@@ -88,10 +82,13 @@ export async function POST(req: Request) {
     const { data: googleContacts, error: gcErr } = await gcQuery;
     if (gcErr) throw new Error(gcErr.message);
     if (!googleContacts?.length) {
-      return NextResponse.json({ success: true, updated: 0, message: "Nenhum contato para processar." });
+      return NextResponse.json({
+        success: true,
+        updated: 0,
+        message: "Nenhum contato para processar.",
+      });
     }
 
-    // ── Carrega clientes com server name ─────────────────────────────────────
     const { data: clients, error: clErr } = await supabase
       .from("clients")
       .select("phone_e164, secondary_phone_e164, servers!inner(name)")
@@ -99,11 +96,13 @@ export async function POST(req: Request) {
       .eq("is_archived", false);
     if (clErr) throw new Error(clErr.message);
     if (!clients?.length) {
-      return NextResponse.json({ success: true, updated: 0, message: "Nenhum cliente cadastrado." });
+      return NextResponse.json({
+        success: true,
+        updated: 0,
+        message: "Nenhum cliente cadastrado.",
+      });
     }
 
-    // ── Índice: dígitos normalizados → conjunto de server names ──────────────
-    // (um telefone pode ter mais de um cliente ativo, em servidores diferentes)
     const phoneIndex = new Map<string, Set<string>>();
     for (const client of clients as any[]) {
       const serverName: string = client.servers?.name ?? "";
@@ -120,37 +119,24 @@ export async function POST(req: Request) {
       }
     }
 
-    // ── Grupos existentes no Google ──────────────────────────────────────────
-    const groupsRes = await fetch("https://people.googleapis.com/v1/contactGroups?pageSize=200", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    const groupsData = await groupsRes.json();
-    const existingGroups: any[] = groupsData.contactGroups || [];
-
-    async function getOrCreateGroup(name: string): Promise<string | null> {
-      const found = existingGroups.find((g: any) => g.name === name || g.formattedName === name);
-      if (found) return found.resourceName;
-      const res = await fetch("https://people.googleapis.com/v1/contactGroups", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ contactGroup: { name } }),
-      });
-      if (!res.ok) return null;
-      const created = await res.json();
-      existingGroups.push(created);
-      return created.resourceName ?? null;
-    }
-
-    // ── Processa cada contato ────────────────────────────────────────────────
-    let updatedCount = 0;
-    const errors: string[] = [];
+    // ── Passo 1 (só local, sem API): decide quem precisa mudar ────────────────
+    type Pending = {
+      contact: (typeof googleContacts)[number];
+      matchedServers: Set<string>;
+      labelsParaAdicionar: string[];
+      labelsParaRemover: string[];
+    };
+    const pending: Pending[] = [];
 
     for (const contact of googleContacts) {
-      const phones: { label: string; value: string }[] = Array.isArray(contact.phones) ? contact.phones : [];
+      const phones: { label: string; value: string }[] = Array.isArray(
+        contact.phones,
+      )
+        ? contact.phones
+        : [];
       if (!phones.length) continue;
+      if (!contact.google_resource_name) continue;
 
-      // Cruza telefones com o índice de clientes — junta TODOS os servidores
-      // ativos batidos (não só o primeiro), pra reconciliar de verdade
       const matchedServers = new Set<string>();
       for (const p of phones) {
         const nat = normalizePhone(p.value);
@@ -159,95 +145,139 @@ export async function POST(req: Request) {
       }
 
       // ✅ Regra: só mexe em labels que são NOME DE SERVIDOR — nunca em grupo
-      // pessoal/outro que o contato já tenha no Google. Como `contact.labels`
-      // (rastreado por nós) só é preenchido com nomes de servidor por essa
-      // própria integração, qualquer valor que sobrar aqui e não bater com
-      // cliente ativo é sempre seguro de remover — não é grupo pessoal, é
-      // relação com servidor que ficou desatualizada (cliente virou arquivado,
-      // por exemplo). Se currentLabels já estiver vazio e não bater com
-      // nenhum servidor, não há nada a fazer (cai no "sem diferença" abaixo).
-      const currentLabels: string[] = Array.isArray(contact.labels) ? contact.labels : [];
-      const labelsParaAdicionar = [...matchedServers].filter((s) => !currentLabels.includes(s));
-      const labelsParaRemover = currentLabels.filter((l) => !matchedServers.has(l));
+      // pessoal/outro que o contato já tenha no Google (ver raciocínio
+      // completo no comentário original desta rota, mantido por baixo).
+      const currentLabels: string[] = Array.isArray(contact.labels)
+        ? contact.labels
+        : [];
+      const labelsParaAdicionar = [...matchedServers].filter(
+        (s) => !currentLabels.includes(s),
+      );
+      const labelsParaRemover = currentLabels.filter(
+        (l) => !matchedServers.has(l),
+      );
 
-      if (labelsParaAdicionar.length === 0 && labelsParaRemover.length === 0) continue;
+      if (labelsParaAdicionar.length === 0 && labelsParaRemover.length === 0)
+        continue;
 
-      try {
-        // GET no Google apenas para pegar o etag (necessário para o PATCH)
-        const personRes = await fetch(
-          `https://people.googleapis.com/v1/${contact.google_resource_name}?personFields=metadata,memberships`,
-          { headers: { Authorization: `Bearer ${accessToken}` } }
-        );
-        if (!personRes.ok) {
-          errors.push(`${contact.display_name}: falha ao buscar etag`);
-          continue;
-        }
-        const personData = await personRes.json();
-        const etag = personData.etag;
+      pending.push({
+        contact,
+        matchedServers,
+        labelsParaAdicionar,
+        labelsParaRemover,
+      });
+    }
 
-        // Resolve o resourceName dos grupos a remover (só grupos que a gente
-        // mesmo rastreia como "servidor" — nunca mexe em grupo pessoal do
-        // usuário no Google que não seja um desses labels conhecidos).
-        const resourceNamesParaRemover = new Set(
-          labelsParaRemover
-            .map((l) => existingGroups.find((g: any) => g.name === l || g.formattedName === l)?.resourceName)
-            .filter(Boolean),
-        );
+    if (pending.length === 0) {
+      return NextResponse.json({
+        success: true,
+        updated: 0,
+        total: googleContacts.length,
+        message: `Nenhum contato precisou de ajuste (${googleContacts.length} verificado(s)).`,
+      });
+    }
 
-        // Mantém memberships existentes, tirando os grupos de servidor que
-        // não valem mais, e adiciona os novos grupos batidos.
-        const existingMemberships: any[] = (personData.memberships || [])
-          .map((m: any) => ({
-            contactGroupMembership: {
-              contactGroupResourceName: m.contactGroupMembership?.contactGroupResourceName,
-            },
-          }))
-          .filter((m: any) => m.contactGroupMembership?.contactGroupResourceName)
-          .filter((m: any) => !resourceNamesParaRemover.has(m.contactGroupMembership.contactGroupResourceName));
+    // ── Grupos: uma listagem + criação só dos labels realmente novos ──────────
+    const allLabelsInvolved = pending.flatMap((p) => [
+      ...p.labelsParaAdicionar,
+      ...p.labelsParaRemover,
+    ]);
+    const groupByLabel = await getOrCreateContactGroups(
+      accessToken,
+      allLabelsInvolved,
+    );
 
-        for (const serverName of labelsParaAdicionar) {
-          const serverGroupResourceName = await getOrCreateGroup(serverName);
-          if (!serverGroupResourceName) continue;
-          const alreadyIn = existingMemberships.some(
-            m => m.contactGroupMembership?.contactGroupResourceName === serverGroupResourceName
-          );
-          if (!alreadyIn) {
-            existingMemberships.push({
-              contactGroupMembership: { contactGroupResourceName: serverGroupResourceName },
-            });
-          }
-        }
+    // ── Busca etag + memberships atuais de todos os pendentes de uma vez ──────
+    const personByResource = await batchGetPeople(
+      accessToken,
+      pending.map((p) => p.contact.google_resource_name as string),
+      "metadata,memberships",
+    );
 
-        // PATCH — SÓ memberships, nada mais
-        const patchRes = await fetch(
-          `https://people.googleapis.com/v1/${contact.google_resource_name}:updateContact?updatePersonFields=memberships`,
-          {
-            method: "PATCH",
-            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ etag, memberships: existingMemberships }),
-          }
-        );
+    const updates = new Map<string, Record<string, any>>();
+    const newLabelsByResource = new Map<string, string[]>();
+    const errors: string[] = [];
 
-        if (!patchRes.ok) {
-          const errData = await patchRes.json();
-          errors.push(`${contact.display_name}: ${errData.error?.message}`);
-          continue;
-        }
-
-        // Atualiza o labels no banco local — reflete exatamente os servidores
-        // ativos de agora, sem os que sobraram de relações antigas/arquivadas.
-        const newLabels = [...matchedServers];
-        await supabase
-          .from("google_contacts")
-          .update({ labels: newLabels, synced_at: new Date().toISOString() })
-          .eq("id", contact.id)
-          .eq("tenant_id", tenantId);
-
-        updatedCount++;
-
-      } catch (err: any) {
-        errors.push(`${contact.display_name}: ${err.message}`);
+    for (const p of pending) {
+      const resourceName = p.contact.google_resource_name as string;
+      const person = personByResource.get(resourceName);
+      if (!person?.etag) {
+        errors.push(`${p.contact.display_name}: falha ao buscar etag`);
+        continue;
       }
+
+      const resourceNamesParaRemover = new Set(
+        p.labelsParaRemover.map((l) => groupByLabel.get(l)).filter(Boolean),
+      );
+
+      const existingMemberships: any[] = (person.memberships || [])
+        .map((m: any) => ({
+          contactGroupMembership: {
+            contactGroupResourceName:
+              m.contactGroupMembership?.contactGroupResourceName,
+          },
+        }))
+        .filter((m: any) => m.contactGroupMembership?.contactGroupResourceName)
+        .filter(
+          (m: any) =>
+            !resourceNamesParaRemover.has(
+              m.contactGroupMembership.contactGroupResourceName,
+            ),
+        );
+
+      for (const serverName of p.labelsParaAdicionar) {
+        const rn = groupByLabel.get(serverName);
+        if (!rn) continue;
+        const alreadyIn = existingMemberships.some(
+          (m) => m.contactGroupMembership?.contactGroupResourceName === rn,
+        );
+        if (!alreadyIn) {
+          existingMemberships.push({
+            contactGroupMembership: { contactGroupResourceName: rn },
+          });
+        }
+      }
+
+      updates.set(resourceName, {
+        etag: person.etag,
+        memberships: existingMemberships,
+      });
+      newLabelsByResource.set(resourceName, [...p.matchedServers]);
+    }
+
+    // ── Envia todas as trocas de grupo de uma vez ──────────────────────────────
+    const results = await batchUpdatePeople(
+      accessToken,
+      updates,
+      "memberships",
+    );
+
+    // ── Grava tudo de volta no banco local numa tacada só (upsert em lote) ────
+    let updatedCount = 0;
+    const nowIso = new Date().toISOString();
+    const rowsToUpsert: { id: string; labels: string[]; synced_at: string }[] =
+      [];
+    for (const [resourceName, outcome] of results) {
+      const p = pending.find(
+        (x) => x.contact.google_resource_name === resourceName,
+      );
+      if (!p) continue;
+
+      if (outcome.ok) {
+        rowsToUpsert.push({
+          id: p.contact.id,
+          labels: newLabelsByResource.get(resourceName) as string[],
+          synced_at: nowIso,
+        });
+        updatedCount++;
+      } else {
+        errors.push(`${p.contact.display_name}: ${outcome.error}`);
+      }
+    }
+    if (rowsToUpsert.length > 0) {
+      await supabase.from("google_contacts").upsert(rowsToUpsert, {
+        onConflict: "id",
+      });
     }
 
     return NextResponse.json({
@@ -255,11 +285,11 @@ export async function POST(req: Request) {
       updated: updatedCount,
       total: googleContacts.length,
       errors: errors.length > 0 ? errors : undefined,
-      message: updatedCount > 0
-        ? `${updatedCount} de ${googleContacts.length} contato(s) atualizado(s) (grupos de servidor sincronizados).`
-        : `Nenhum contato precisou de ajuste (${googleContacts.length} verificado(s)).`,
+      message:
+        updatedCount > 0
+          ? `${updatedCount} de ${googleContacts.length} contato(s) atualizado(s) (grupos de servidor sincronizados).`
+          : `Nenhum contato precisou de ajuste (${googleContacts.length} verificado(s)).`,
     });
-
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

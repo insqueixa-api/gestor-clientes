@@ -1,6 +1,12 @@
 // app/api/auth/google/push-to-google/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  batchGetPeople,
+  batchUpdatePeople,
+  getOrCreateContactGroups,
+  getGoogleAccessToken,
+} from "@/lib/google/people-batch";
 
 export const dynamic = "force-dynamic";
 
@@ -31,40 +37,24 @@ function getGoogleEmailLabel(label: string): { type: string } {
   return { type: label.trim() };
 }
 
-// Sleep util para backoff
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-// Fetch com retry/backoff para 429/503 do Google
-async function fetchWithRetry(
-  url: string,
-  init: RequestInit,
-  maxRetries = 3,
-): Promise<Response> {
-  let attempt = 0;
-  let lastRes: Response | null = null;
-  while (attempt <= maxRetries) {
-    const res = await fetch(url, init);
-    if (res.status !== 429 && res.status !== 503) return res;
-    lastRes = res;
-    const wait = 400 * Math.pow(2, attempt); // 400, 800, 1600...
-    await sleep(wait);
-    attempt++;
-  }
-  return lastRes!;
-}
-
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user)
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const body = await req.json().catch(() => ({}));
-    const contactIds: string[] = Array.isArray(body.contact_ids) ? body.contact_ids : [];
+    const contactIds: string[] = Array.isArray(body.contact_ids)
+      ? body.contact_ids
+      : [];
     if (contactIds.length === 0) {
-      return NextResponse.json({ error: "Nenhum contato selecionado." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Nenhum contato selecionado." },
+        { status: 400 },
+      );
     }
 
     // ── Tenant ────────────────────────────────────────────────────────────────
@@ -83,21 +73,11 @@ export async function POST(req: Request) {
       .select("google_refresh_token")
       .eq("id", tenantId)
       .single();
-    if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
-
-    const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.GOOGLE_CLIENT_ID!,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-        refresh_token: tenantConfig.google_refresh_token,
-        grant_type: "refresh_token",
-      }),
-    });
-    const tokenData = await tokenRes.json();
-    if (!tokenRes.ok) throw new Error("Falha ao renovar credenciais Google.");
-    const accessToken = tokenData.access_token;
+    if (!tenantConfig?.google_refresh_token)
+      throw new Error("Conta do Google não vinculada.");
+    const accessToken = await getGoogleAccessToken(
+      tenantConfig.google_refresh_token,
+    );
 
     // ── Carrega os contatos selecionados ──────────────────────────────────────
     const { data: contacts, error: cErr } = await supabase
@@ -107,47 +87,58 @@ export async function POST(req: Request) {
       .eq("tenant_id", tenantId);
     if (cErr) throw new Error(cErr.message);
     if (!contacts?.length) {
-      return NextResponse.json({ error: "Contatos não encontrados." }, { status: 404 });
-    }
-
-    // ── Grupos existentes no Google (para resolver labels → memberships) ───────
-    const groupsRes = await fetch(
-      "https://people.googleapis.com/v1/contactGroups?pageSize=200",
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
-    const groupsData = await groupsRes.json();
-    const existingGroups: any[] = groupsData.contactGroups || [];
-
-    async function getOrCreateGroup(name: string): Promise<string | null> {
-      const found = existingGroups.find(
-        (g: any) => g.name === name || g.formattedName === name,
+      return NextResponse.json(
+        { error: "Contatos não encontrados." },
+        { status: 404 },
       );
-      if (found) return found.resourceName;
-      const res = await fetch("https://people.googleapis.com/v1/contactGroups", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ contactGroup: { name } }),
-      });
-      if (!res.ok) return null;
-      const created = await res.json();
-      existingGroups.push(created);
-      return created.resourceName ?? null;
     }
 
-    // ── Processa cada contato ──────────────────────────────────────────────────
-    let updatedCount = 0;
+    // ── Grupos existentes no Google (uma listagem só, não uma por contato) ────
+    const allLabels = contacts.flatMap((c) =>
+      Array.isArray(c.labels) ? c.labels : [],
+    );
+    const groupByLabel = await getOrCreateContactGroups(accessToken, allLabels);
+
+    // ── Busca o etag atual de TODOS os contatos numa tacada só (batchGet) ─────
+    const withResource = contacts.filter((c) => c.google_resource_name);
+    const semResource = contacts.filter((c) => !c.google_resource_name);
+
+    const personByResource = await batchGetPeople(
+      accessToken,
+      withResource.map((c) => c.google_resource_name as string),
+      "metadata",
+    );
+
+    // ── Monta o payload de cada contato (mesma lógica de antes, só que
+    //    coletando tudo pra mandar num batchUpdateContacts só) ────────────────
+    const updates = new Map<string, Record<string, any>>();
     const errors: string[] = [];
 
-    for (const contact of contacts) {
-      if (!contact.google_resource_name) {
-        errors.push(`${contact.display_name}: sem resourceName no Google`);
+    for (const c of semResource) {
+      errors.push(`${c.display_name}: sem resourceName no Google`);
+    }
+
+    for (const contact of withResource) {
+      const resourceName = contact.google_resource_name as string;
+      const person = personByResource.get(resourceName);
+      if (!person?.etag) {
+        errors.push(`${contact.display_name}: não encontrado no Google`);
         continue;
       }
 
-      // Monta os campos a partir do que está no Supabase
-      const phones: { label: string; value: string }[] = Array.isArray(contact.phones) ? contact.phones : [];
-      const emails: { label: string; value: string }[] = Array.isArray(contact.emails) ? contact.emails : [];
-      const labels: string[] = Array.isArray(contact.labels) ? contact.labels : [];
+      const phones: { label: string; value: string }[] = Array.isArray(
+        contact.phones,
+      )
+        ? contact.phones
+        : [];
+      const emails: { label: string; value: string }[] = Array.isArray(
+        contact.emails,
+      )
+        ? contact.emails
+        : [];
+      const labels: string[] = Array.isArray(contact.labels)
+        ? contact.labels
+        : [];
 
       const phoneNumbers = phones
         .filter((p) => p.value && onlyDigits(p.value))
@@ -157,82 +148,65 @@ export async function POST(req: Request) {
         .filter((e) => e.value && e.value.trim())
         .map((e) => ({ value: e.value, ...getGoogleEmailLabel(e.label) }));
 
-      const names = [{ displayName: contact.display_name || "", givenName: contact.display_name || "" }];
+      const names = [
+        {
+          displayName: contact.display_name || "",
+          givenName: contact.display_name || "",
+          familyName: "",
+        },
+      ];
 
-      // Resolve labels → memberships (cria grupo se não existir)
-      const memberships: any[] = [];
-      for (const lbl of labels.filter((l) => l && l.trim())) {
-        const grp = await getOrCreateGroup(lbl.trim());
-        if (grp) {
-          memberships.push({ contactGroupMembership: { contactGroupResourceName: grp } });
-        }
-      }
+      const memberships: any[] = labels
+        .filter((l) => l && l.trim())
+        .map((l) => groupByLabel.get(l.trim()))
+        .filter((rn): rn is string => Boolean(rn))
+        .map((rn) => ({
+          contactGroupMembership: { contactGroupResourceName: rn },
+        }));
       // Garante que o contato continue em "myContacts"
       memberships.push({
-        contactGroupMembership: { contactGroupResourceName: "contactGroups/myContacts" },
+        contactGroupMembership: {
+          contactGroupResourceName: "contactGroups/myContacts",
+        },
       });
 
-      // Tenta o PATCH com re-fetch de etag em caso de conflito (até 2 tentativas)
-      let success = false;
-      let lastErrMsg = "";
-      for (let tryNum = 0; tryNum < 2 && !success; tryNum++) {
-        // GET fresco do etag
-        const personRes = await fetchWithRetry(
-          `https://people.googleapis.com/v1/${contact.google_resource_name}?personFields=metadata`,
-          { headers: { Authorization: `Bearer ${accessToken}` } },
-        );
-        if (!personRes.ok) {
-          lastErrMsg = "falha ao buscar etag";
-          continue;
-        }
-        const personData = await personRes.json();
-        const etag = personData.etag;
+      updates.set(resourceName, {
+        etag: person.etag,
+        names,
+        phoneNumbers,
+        emailAddresses,
+        memberships,
+      });
+    }
 
-        const payload = {
-          etag,
-          names,
-          phoneNumbers,
-          emailAddresses,
-          memberships,
-        };
+    // ── Envia tudo num (ou poucos, se >200) batchUpdateContacts ────────────────
+    const results = await batchUpdatePeople(
+      accessToken,
+      updates,
+      "names,phoneNumbers,emailAddresses,memberships",
+    );
 
-        const updateFields = "names,phoneNumbers,emailAddresses,memberships";
-        const patchRes = await fetchWithRetry(
-          `https://people.googleapis.com/v1/${contact.google_resource_name}:updateContact?updatePersonFields=${updateFields}`,
-          {
-            method: "PATCH",
-            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          },
-        );
-
-        if (patchRes.ok) {
-          success = true;
-        } else {
-          const errData = await patchRes.json().catch(() => ({}));
-          lastErrMsg = errData.error?.message || `HTTP ${patchRes.status}`;
-          // etag velho → tenta de novo buscando etag fresco
-          if (patchRes.status === 400 && /etag|precondition/i.test(lastErrMsg)) {
-            await sleep(200);
-            continue;
-          }
-          break; // outro erro: não adianta repetir
-        }
-      }
-
-      if (success) {
-        await supabase
-          .from("google_contacts")
-          .update({ synced_at: new Date().toISOString() })
-          .eq("id", contact.id)
-          .eq("tenant_id", tenantId);
+    // ── Grava tudo de volta no banco local numa tacada só (upsert em lote,
+    //    não 1 UPDATE por contato — pra listas grandes isso sozinho já
+    //    passava de 10s de latência acumulada) ─────────────────────────────
+    let updatedCount = 0;
+    const nowIso = new Date().toISOString();
+    const rowsToUpsert: { id: string; synced_at: string }[] = [];
+    for (const contact of withResource) {
+      const resourceName = contact.google_resource_name as string;
+      const outcome = results.get(resourceName);
+      if (!outcome) continue; // já caiu no "não encontrado" acima
+      if (outcome.ok) {
+        rowsToUpsert.push({ id: contact.id, synced_at: nowIso });
         updatedCount++;
       } else {
-        errors.push(`${contact.display_name}: ${lastErrMsg}`);
+        errors.push(`${contact.display_name}: ${outcome.error}`);
       }
-
-      // Pausa curta entre contatos para aliviar rate limit
-      await sleep(150);
+    }
+    if (rowsToUpsert.length > 0) {
+      await supabase.from("google_contacts").upsert(rowsToUpsert, {
+        onConflict: "id",
+      });
     }
 
     return NextResponse.json({
