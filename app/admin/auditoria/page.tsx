@@ -315,6 +315,99 @@ function AuditoriaPageContent() {
     clientAppId: string;
   } | null>(null);
 
+  // ✅ Id da linha sendo resolvida agora (ver handleConcluirAcao) — só usado
+  // quando client_app_id veio nulo e precisa buscar de novo.
+  const [resolvingAppRenewalId, setResolvingAppRenewalId] = useState<
+    string | null
+  >(null);
+
+  // ✅ Botão "Concluir": decide qual modal abrir. `client_app_id` pode vir
+  // NULO mesmo em payment_type='app_renewal' — a FK client_portal_payments
+  // .client_app_id → client_apps.id é ON DELETE SET NULL, então se o app foi
+  // reconfigurado (Configurar/Reconfigurar apaga a linha antiga de
+  // client_apps e cria uma nova com outro id) DEPOIS do pagamento, a
+  // referência original fica órfã e vira null — sem esse tratamento, a
+  // condição caía no `else` e abria o modal ERRADO (renovação de servidor,
+  // RecargaCliente) pra um pagamento que é de licença de app (achado real,
+  // 04/08/2026). Resolve de novo pelo nome do app (app_name_snapshot, esse
+  // sim nunca muda) + client_id, e já regrava o client_app_id encontrado de
+  // volta na linha, pra não precisar resolver de novo da próxima vez.
+  async function handleConcluirAcao(r: LogRow) {
+    if (r.payment_type !== "app_renewal") {
+      setRenewState({
+        logId: r.id,
+        clientId: r.client_id,
+        clientName: r.client_name,
+        wasAwaitingTransfer: false,
+      });
+      return;
+    }
+
+    if (r.client_app_id) {
+      setAppRenewalState({ logId: r.id, clientAppId: r.client_app_id });
+      return;
+    }
+
+    if (!tenantId || !r.app_name_snapshot) {
+      addToast(
+        "error",
+        "Não foi possível localizar o aplicativo",
+        "Esse pagamento não tem mais um aplicativo vinculado (foi removido/reconfigurado) e não há nome salvo pra buscar de novo. Abra o cliente e confira manualmente.",
+      );
+      return;
+    }
+
+    setResolvingAppRenewalId(r.id);
+    try {
+      const { data: matches, error } = await supabaseBrowser
+        .from("client_apps")
+        .select("id, apps!inner(name)")
+        .eq("tenant_id", tenantId)
+        .eq("client_id", r.client_id)
+        .eq("apps.name", r.app_name_snapshot);
+
+      if (error) throw error;
+
+      if (!matches || matches.length === 0) {
+        addToast(
+          "error",
+          "Aplicativo não encontrado",
+          `"${r.app_name_snapshot}" não está mais na conta desse cliente (foi excluído). Abra o cliente pra conferir o que aconteceu.`,
+        );
+        return;
+      }
+
+      if (matches.length > 1) {
+        addToast(
+          "error",
+          "Mais de um aplicativo encontrado",
+          `O cliente tem mais de um "${r.app_name_snapshot}" cadastrado — abra o card de Aplicativos dele direto pra escolher o certo.`,
+        );
+        return;
+      }
+
+      const resolvedId = matches[0].id as string;
+
+      // Regrava pra não precisar resolver de novo (melhor esforço — se
+      // falhar, não impede o admin de concluir agora mesmo assim).
+      await supabaseBrowser
+        .from("client_portal_payments")
+        .update({ client_app_id: resolvedId })
+        .eq("tenant_id", tenantId)
+        .eq("id", r.id);
+
+      setAppRenewalState({ logId: r.id, clientAppId: resolvedId });
+    } catch (e: any) {
+      addToast(
+        "error",
+        "Erro ao localizar o aplicativo",
+        e?.message || "Tente novamente em instantes.",
+      );
+    } finally {
+      setResolvingAppRenewalId(null);
+    }
+  }
+
   function addToast(
     type: "success" | "error" | "warning",
     title: string,
@@ -1685,24 +1778,15 @@ function AuditoriaPageContent() {
                                 {isManualPending && (
                                   <>
                                     <button
-                                      onClick={() =>
-                                        r.payment_type === "app_renewal" &&
-                                        r.client_app_id
-                                          ? setAppRenewalState({
-                                              logId: r.id,
-                                              clientAppId: r.client_app_id,
-                                            })
-                                          : setRenewState({
-                                              logId: r.id,
-                                              clientId: r.client_id,
-                                              clientName: r.client_name,
-                                              wasAwaitingTransfer: false,
-                                            })
-                                      }
-                                      className="gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-500/30 shadow-sm flex items-center justify-center gap-1"
+                                      disabled={resolvingAppRenewalId === r.id}
+                                      onClick={() => handleConcluirAcao(r)}
+                                      className="gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-purple-500/30 shadow-sm flex items-center justify-center gap-1 disabled:opacity-50"
                                       title="Abrir painel de renovação"
                                     >
-                                      <IconCheckCircle /> Concluir
+                                      <IconCheckCircle />{" "}
+                                      {resolvingAppRenewalId === r.id
+                                        ? "Localizando..."
+                                        : "Concluir"}
                                     </button>
                                     <button
                                       onClick={() => handleCancelarAcao(r)}

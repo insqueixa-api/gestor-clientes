@@ -360,7 +360,10 @@ export default function RenewClient() {
   const [instructionsAppId, setInstructionsAppId] = useState<string | null>(
     null,
   );
-  const [showAppsGuide, setShowAppsGuide] = useState(true);
+  // ✅ Compactado por padrão (pedido do Márcio, 04/08/2026) — a tela é
+  // acessada por pessoas de todas as idades; o guia expandido ocupava a
+  // tela toda antes mesmo de ver os aplicativos.
+  const [showAppsGuide, setShowAppsGuide] = useState(false);
   const [installedAppsLoading, setInstalledAppsLoading] = useState(false);
   const [installedAppsError, setInstalledAppsError] = useState<string | null>(
     null,
@@ -415,7 +418,8 @@ export default function RenewClient() {
       secondsUntilNextPoll -= 1;
       if (secondsUntilNextPoll > 0) return;
       scheduleIndex++;
-      secondsUntilNextPoll = PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? PAYMENT_POLL_FLOOR_SECS;
+      secondsUntilNextPoll =
+        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? PAYMENT_POLL_FLOOR_SECS;
 
       try {
         const res = await fetch("/api/client-portal/payment-status", {
@@ -1457,7 +1461,8 @@ export default function RenewClient() {
       secondsUntilNextPoll -= 1;
       if (secondsUntilNextPoll > 0) return;
       scheduleIndex++;
-      secondsUntilNextPoll = PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? PAYMENT_POLL_FLOOR_SECS;
+      secondsUntilNextPoll =
+        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? PAYMENT_POLL_FLOOR_SECS;
 
       try {
         const res = await fetch("/api/client-portal/payment-status", {
@@ -3852,9 +3857,9 @@ export default function RenewClient() {
 
                 <button
                   onClick={() => setShowAppsGuide((v) => !v)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground transition-colors hover:bg-muted"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 text-xs font-bold text-sky-500 transition-colors hover:bg-sky-500/20"
                 >
-                  {showAppsGuide ? "Compactar" : "Expandir"}
+                  {showAppsGuide ? "Ocultar instruções" : "Ver instruções"}
                   {showAppsGuide ? (
                     <ChevronUp className="h-3.5 w-3.5" />
                   ) : (
@@ -4031,7 +4036,7 @@ export default function RenewClient() {
                                   .join("/")}
                               </p>
                               {app.has_pending_manual_renewal && (
-                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
+                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-1 text-[11px] font-bold text-rose-600">
                                   Licença paga • renovação em andamento
                                 </span>
                               )}
@@ -4039,10 +4044,10 @@ export default function RenewClient() {
                                 <button
                                   disabled={busy}
                                   onClick={() => handleCheckValidity(app.id)}
-                                  className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                  className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                                 >
                                   {busy && (
-                                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                    <Loader2 className="w-3 h-3 animate-spin" />
                                   )}
                                   Ver validade
                                 </button>
@@ -4058,7 +4063,7 @@ export default function RenewClient() {
                                 Vencimento: —
                               </p>
                               {app.has_pending_manual_renewal && (
-                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600">
+                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-1 text-[11px] font-bold text-rose-600">
                                   Licença paga • renovação em andamento
                                 </span>
                               )}
@@ -4066,10 +4071,10 @@ export default function RenewClient() {
                                 <button
                                   disabled={busy}
                                   onClick={() => handleCheckValidity(app.id)}
-                                  className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                  className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                                 >
                                   {busy && (
-                                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                                    <Loader2 className="w-3 h-3 animate-spin" />
                                   )}
                                   Ver validade
                                 </button>
@@ -4154,12 +4159,12 @@ export default function RenewClient() {
                                   `${f.label} copiado.`,
                                 );
                               }}
-                              className="text-muted-foreground hover:text-sky-500 transition-colors"
+                              className="p-1 -m-1 text-muted-foreground hover:text-sky-500 transition-colors"
                               title="Copiar"
                             >
                               <svg
-                                width="11"
-                                height="11"
+                                width="13"
+                                height="13"
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
@@ -4186,11 +4191,11 @@ export default function RenewClient() {
                                 type="button"
                                 disabled={busy}
                                 onClick={() => handleRerollDns(app.id)}
-                                className="text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
+                                className="p-1 -m-1 text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
                                 title="Sortear outro"
                               >
                                 <RefreshCw
-                                  className={`w-2.5 h-2.5 ${busy ? "animate-spin" : ""}`}
+                                  className={`w-3 h-3 ${busy ? "animate-spin" : ""}`}
                                 />
                               </button>
                             )}
@@ -4282,12 +4287,12 @@ export default function RenewClient() {
                                         `${f.label} copiado.`,
                                       );
                                     }}
-                                    className="text-muted-foreground hover:text-sky-500 transition-colors"
+                                    className="p-1 -m-1 text-muted-foreground hover:text-sky-500 transition-colors"
                                     title="Copiar"
                                   >
                                     <svg
-                                      width="11"
-                                      height="11"
+                                      width="13"
+                                      height="13"
                                       viewBox="0 0 24 24"
                                       fill="none"
                                       stroke="currentColor"
@@ -4325,7 +4330,7 @@ export default function RenewClient() {
                                   app.requires_admin_setup,
                                 )
                               }
-                              className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                              className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[11px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
                             >
                               {busy && (
                                 <Loader2 className="w-3 h-3 animate-spin" />
