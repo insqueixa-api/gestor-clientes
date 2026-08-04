@@ -1,5 +1,5 @@
 // app/api/client-portal/pending-charges/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
 import { touchPortalSession } from "@/lib/client-portal/session";
@@ -64,7 +64,9 @@ export async function POST(req: NextRequest) {
 
     if (sessErr || !sess) return jsonError("Sessão inválida", 401);
 
-    await touchPortalSession(supabaseAdmin, session_token);
+    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
+    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
+    after(() => touchPortalSession(supabaseAdmin, session_token));
 
     const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")

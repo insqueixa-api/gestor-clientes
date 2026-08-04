@@ -1,5 +1,5 @@
 // app/api/client-portal/payment-status/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -199,7 +199,11 @@ export async function POST(req: NextRequest) {
     // podia sobreviver à sessão (30min contados do LOGIN, não da geração do
     // PIX), o polling levava 401 e parava silenciosamente, travando a UI
     // em "aguardando pagamento" mesmo que o pagamento fosse aprovado depois.
-    await touchPortalSession(supabaseAdmin, session_token);
+    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
+    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
+    // Especialmente aqui: essa rota é chamada em polling a cada ~3s enquanto
+    // o cliente olha o QR code do PIX, é a rota mais batida do portal.
+    after(() => touchPortalSession(supabaseAdmin, session_token));
 
     const tenantId = String(sess.tenant_id);
     const whatsapp = String(sess.whatsapp_username);

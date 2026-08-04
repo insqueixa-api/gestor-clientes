@@ -1,5 +1,5 @@
 // app/api/client-portal/validate-session/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { touchPortalSession } from "@/lib/client-portal/session";
@@ -79,7 +79,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    await touchPortalSession(supabaseAdmin, session_token);
+    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
+    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
+    after(() => touchPortalSession(supabaseAdmin, session_token));
 
     // ✅ BUSCA O WHATSAPP DO DONO DO SISTEMA COM PERMISSÃO DE ADMIN (Bypassa o RLS)
     let admin_whatsapp = null;

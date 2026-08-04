@@ -1,5 +1,5 @@
 // app/api/client-portal/get-prices/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { touchPortalSession } from "@/lib/client-portal/session";
@@ -96,7 +96,9 @@ export async function POST(req: NextRequest) {
       return jsonError("Sessão inválida", 401);
     }
 
-    await touchPortalSession(supabaseAdmin, session_token);
+    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
+    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
+    after(() => touchPortalSession(supabaseAdmin, session_token));
 
     // 2. Buscar dados do cliente
     // ✅ CRÍTICO: garante que o client_id é do mesmo whatsapp da sessão (Principal ou Secundário)

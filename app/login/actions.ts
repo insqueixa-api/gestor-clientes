@@ -3,6 +3,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createBgClient } from "@supabase/supabase-js";
+import { getAdminTenantContext } from "@/lib/api/auth-server";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { waitUntil } from "@vercel/functions";
@@ -151,6 +152,13 @@ export async function loginAction(
     if (error || !data.user || !data.session) {
       return { error: error?.message || "Erro de autenticação" };
     }
+
+    // ✅ Resolve e cacheia o contexto admin (tenant/role/nomes) num cookie
+    // agora — o layout do admin só vai LER esse cookie depois, sem bater
+    // em tenant_members/tenants/profiles em toda navegação (ver
+    // lib/api/auth-server.ts). Não bloqueia o login se falhar por algum
+    // motivo: o layout recai pra consultar o banco normalmente nesse caso.
+    await getAdminTenantContext();
 
     // ✅ Obtém origin, token e userID ANTES do background task e do redirect
     const h = await headers();

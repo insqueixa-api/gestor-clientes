@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getWAContext } from "@/lib/whatsapp/wa-context";
+import { getAdminTenantContext } from "@/lib/api/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,17 +20,18 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   try {
+    // ✅ Mesmo cache de tenant/role usado no resto do admin (cookie setado
+    // no login) — antes essa rota refazia getUser()+tenant_members do zero.
+    const ctx = await getAdminTenantContext();
+    if (!ctx.ok) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    const tenantId = ctx.tenantId;
+
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
     const { contact_id, jid } = await req.json();
     if (!contact_id || !jid) return NextResponse.json({ error: "contact_id e jid são obrigatórios." }, { status: 400 });
 
-    // Carrega o tenant e o refresh_token do Google
-    const { data: tenantData } = await supabase.from("tenant_members").select("tenant_id").eq("user_id", user.id).limit(1).single();
-    const tenantId = tenantData?.tenant_id;
-
+    // Carrega o refresh_token do Google
     const { data: tenantConfig } = await supabase.from("tenants").select("google_refresh_token").eq("id", tenantId).single();
     if (!tenantConfig?.google_refresh_token) throw new Error("Conta do Google não vinculada.");
 

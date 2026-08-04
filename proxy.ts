@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isAdminRole } from "@/lib/api/auth";
 import { flagSuspiciousAccess } from "@/lib/observability";
+import { ADMIN_CTX_COOKIE, parseAdminCtxCookie } from "@/lib/api/admin-ctx";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
@@ -45,21 +46,30 @@ export async function proxy(request: NextRequest) {
   // o client Supabase que continua separado (proxy usa cookie de request,
   // Server Component usa next/headers).
   if (user && pathname.startsWith('/admin')) {
-    const { data: member } = await supabase
-      .from('tenant_members')
-      .select('tenant_id, role')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    // ✅ Mesmo cache de lib/api/auth-server.ts (cookie setado no login, até
+    // o logoff) — se já validamos essa sessão antes, pula a consulta a
+    // tenant_members aqui também. Achado em 04/08/2026: esse middleware
+    // rodava sua PRÓPRIA checagem em toda requisição pro /admin/*, sem
+    // reaproveitar o cache — era o maior consumidor restante.
+    const cached = parseAdminCtxCookie(request.cookies.get(ADMIN_CTX_COOKIE)?.value, user.id);
 
-    if (!member) {
-      await supabase.auth.signOut();
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
+    if (!cached) {
+      const { data: member } = await supabase
+        .from('tenant_members')
+        .select('tenant_id, role')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-    if (!isAdminRole(member.role)) {
-      flagSuspiciousAccess("role_nao_admin", { user_id: user.id, tenant_id: member.tenant_id, role: member.role, where: "proxy" });
-      await supabase.auth.signOut();
-      return NextResponse.redirect(new URL('/login', request.url));
+      if (!member) {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
+
+      if (!isAdminRole(member.role)) {
+        flagSuspiciousAccess("role_nao_admin", { user_id: user.id, tenant_id: member.tenant_id, role: member.role, where: "proxy" });
+        await supabase.auth.signOut();
+        return NextResponse.redirect(new URL('/login', request.url));
+      }
     }
   }
 

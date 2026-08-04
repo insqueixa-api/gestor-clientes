@@ -2,7 +2,6 @@
 // app/admin/layout.tsx (SERVER)
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
 import { getAdminTenantContext } from "@/lib/api/auth-server";
 import AdminShell from "./AdminShell";
 import { ConfirmProvider } from "@/hooks/useConfirm";
@@ -23,21 +22,14 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   // 1) Sessão + vínculo com tenant + role de admin — fonte única de verdade
-  // (mesma checagem usada nas rotas de API via requireAdminTenant).
+  // (mesma checagem usada nas rotas de API via requireAdminTenant). Nome do
+  // tenant e do perfil já vêm resolvidos aqui dentro (cacheados em cookie
+  // desde o login — ver lib/api/auth-server.ts), sem consulta própria.
   const ctx = await getAdminTenantContext();
   if (!ctx.ok) redirect("/login");
 
-  const supabase = await createClient();
-
-  // 2) Nome do tenant + 3) nome do perfil (display_name) — independentes
-  // entre si, rodavam em sequência (await um, depois o outro), agora juntos.
-  const [{ data: tenantRow }, { data: profile }] = await Promise.all([
-    supabase.from("tenants").select("name").eq("id", ctx.tenantId).maybeSingle<{ name: string | null }>(),
-    supabase.from("profiles").select("display_name").eq("id", ctx.userId).maybeSingle<{ display_name: string | null }>(),
-  ]);
-
-  const tenantName = tenantRow?.name ?? "Painel";
-  const userLabel = profile?.display_name || tenantName || "Usuário";
+  const tenantName = ctx.tenantName ?? "Painel";
+  const userLabel = ctx.displayName || tenantName || "Usuário";
 
   return (
     <ConfirmProvider>

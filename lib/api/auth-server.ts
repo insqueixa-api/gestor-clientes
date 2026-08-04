@@ -2,21 +2,70 @@
 // Equivalente de requireAdminTenant (lib/api/auth.ts) para uso em Server
 // Components / layouts, onde a sessão vem do cookie (via lib/supabase/server.ts)
 // em vez de um Bearer token. Mesma fonte de verdade de role (tenant_members).
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminRole } from "./auth";
 import { flagSuspiciousAccess } from "@/lib/observability";
+import { ADMIN_CTX_COOKIE, ADMIN_CTX_MAX_AGE, parseAdminCtxCookie, type AdminCtxCookiePayload } from "./admin-ctx";
 
 export type AdminTenantContext = {
   ok: true;
   tenantId: string;
   userId: string;
   role: string;
+  tenantName: string | null;
+  displayName: string | null;
 };
 
 export type AdminTenantDenied = {
   ok: false;
   reason: "unauthenticated" | "no_tenant" | "forbidden";
 };
+
+// ✅ Cache do contexto admin (tenant/role/nomes) num cookie httpOnly, setado
+// no login e limpo no logoff — pedido do Marcio, 04/08/2026: único usuário
+// do sistema, não precisa reconsultar tenant_members/tenants/profiles em
+// toda navegação, só quando a sessão trocar de usuário ou for renovada.
+// A ÚNICA checagem que continua rodando sempre é auth.getUser() (valida a
+// sessão em si) — a autorização de dados de verdade é imposta pelas
+// policies de RLS via auth.uid(), esse cookie é só um atalho de leitura.
+async function readAdminCtxCookie(userId: string): Promise<AdminCtxCookiePayload | null> {
+  try {
+    const store = await cookies();
+    return parseAdminCtxCookie(store.get(ADMIN_CTX_COOKIE)?.value, userId);
+  } catch {
+    return null;
+  }
+}
+
+// ✅ Só grava de verdade quando chamado de um contexto que pode escrever
+// cookie (Server Action / Route Handler — ex: login). Chamado a partir de
+// Server Component (ex: app/admin/layout.tsx) falha silenciosamente
+// (mesma limitação do Next.js já documentada em lib/supabase/server.ts) —
+// nesse caso a função segue funcionando, só sem popular o cache.
+export async function writeAdminCtxCookie(payload: AdminCtxCookiePayload): Promise<void> {
+  try {
+    const store = await cookies();
+    store.set(ADMIN_CTX_COOKIE, JSON.stringify(payload), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: ADMIN_CTX_MAX_AGE,
+    });
+  } catch {
+    // silencioso — ver comentário acima
+  }
+}
+
+export async function clearAdminCtxCookie(): Promise<void> {
+  try {
+    const store = await cookies();
+    store.delete(ADMIN_CTX_COOKIE);
+  } catch {
+    // idem — se por algum motivo for chamado de onde cookie é readonly
+  }
+}
 
 // Não redireciona sozinho — quem chama decide (redirect, notFound, etc.),
 // igual o app/admin/layout.tsx já fazia manualmente antes desta função existir.
@@ -26,6 +75,18 @@ export async function getAdminTenantContext(): Promise<AdminTenantContext | Admi
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
   if (!user) return { ok: false, reason: "unauthenticated" };
+
+  const cached = await readAdminCtxCookie(user.id);
+  if (cached) {
+    return {
+      ok: true,
+      tenantId: cached.tenantId,
+      userId: user.id,
+      role: cached.role,
+      tenantName: cached.tenantName,
+      displayName: cached.displayName,
+    };
+  }
 
   const { data: member } = await supabase
     .from("tenant_members")
@@ -39,7 +100,30 @@ export async function getAdminTenantContext(): Promise<AdminTenantContext | Admi
     return { ok: false, reason: "forbidden" };
   }
 
-  return { ok: true, tenantId: member.tenant_id, userId: user.id, role: member.role as string };
+  // Nome do tenant + nome do perfil — independentes entre si, em paralelo.
+  const [{ data: tenantRow }, { data: profile }] = await Promise.all([
+    supabase.from("tenants").select("name").eq("id", member.tenant_id).maybeSingle<{ name: string | null }>(),
+    supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle<{ display_name: string | null }>(),
+  ]);
+
+  const ctx: AdminTenantContext = {
+    ok: true,
+    tenantId: member.tenant_id,
+    userId: user.id,
+    role: member.role as string,
+    tenantName: tenantRow?.name ?? null,
+    displayName: profile?.display_name ?? null,
+  };
+
+  await writeAdminCtxCookie({
+    userId: ctx.userId,
+    tenantId: ctx.tenantId,
+    role: ctx.role,
+    tenantName: ctx.tenantName,
+    displayName: ctx.displayName,
+  });
+
+  return ctx;
 }
 
 // Mesma checagem, mas reaproveitando um client já em mãos (ex: rotas que

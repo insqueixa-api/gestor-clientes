@@ -1,5 +1,5 @@
 // app/api/client-portal/validate-coupon/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -82,7 +82,9 @@ export async function POST(req: NextRequest) {
 
     if (sessErr || !sess) return jsonError("Sessão inválida", 401);
 
-    await touchPortalSession(supabaseAdmin, session_token);
+    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
+    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
+    after(() => touchPortalSession(supabaseAdmin, session_token));
 
     // Mesma resolução de preço de create-payment/route.ts:143-239 —
     // duplicada de propósito (mesmo padrão de pending-charges), pra não

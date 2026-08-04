@@ -1,5 +1,5 @@
 // app/api/client-portal/get-accounts/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { touchPortalSession } from "@/lib/client-portal/session";
@@ -86,7 +86,9 @@ if (!session_token) {
       );
     }
 
-    await touchPortalSession(supabaseAdmin, session_token);
+    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
+    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
+    after(() => touchPortalSession(supabaseAdmin, session_token));
 
     // 2. Buscar contas do cliente
     const { data: accounts, error: accErr } = await supabaseAdmin

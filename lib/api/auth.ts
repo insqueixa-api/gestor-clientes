@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { flagSuspiciousAccess } from "@/lib/observability";
+import { ADMIN_CTX_COOKIE, extractCookieValue, parseAdminCtxCookie } from "@/lib/api/admin-ctx";
 
 export function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -52,6 +53,15 @@ export async function requireAdminTenant(req: Request) {
   if (authErr || !authUser?.user?.id) return { ok: false as const, res: unauthorized("sessão inválida") };
 
   const user_id = authUser.user.id;
+
+  // ✅ Mesmo cache do login (cookie admin_ctx, lib/api/admin-ctx.ts) — evita
+  // bater em tenant_members em toda chamada de API do painel. O cookie é
+  // httpOnly mas ainda assim vai junto em qualquer fetch same-origin, então
+  // chega aqui no header Cookie normalmente.
+  const cachedCtx = parseAdminCtxCookie(extractCookieValue(req.headers.get("cookie"), ADMIN_CTX_COOKIE), user_id);
+  if (cachedCtx) {
+    return { ok: true as const, supabase, tenant_id: cachedCtx.tenantId, user_id, role: cachedCtx.role };
+  }
 
   // Busca sempre na tabela tenant_members — é dali que vem o role, e o
   // metadata do usuário (app_metadata.tenant_id) nunca chegou a ser

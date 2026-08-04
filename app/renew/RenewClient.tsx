@@ -23,6 +23,12 @@ import ReconfigureModeModal, {
 import AppPickerModal from "@/components/apps/AppPickerModal";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 
+// ✅ Polling progressivo do status de pagamento (payment-status): a primeira
+// consulta espera mais (a pessoa ainda precisa abrir o banco e pagar),
+// depois aperta o intervalo até fixar no piso — pedido do Márcio, 04/08/2026.
+const PAYMENT_POLL_SCHEDULE_SECS = [10, 9, 8, 7, 6];
+const PAYMENT_POLL_FLOOR_SECS = 5;
+
 // ========= TYPES =========
 interface ClientAccount {
   id: string;
@@ -396,7 +402,21 @@ export default function RenewClient() {
   function startPollingAppPayment(paymentId: string) {
     if (!session) return;
     if (renewPollInterval) clearInterval(renewPollInterval);
+
+    // ✅ Polling progressivo (pedido do Márcio, 04/08/2026): a pessoa acabou
+    // de gerar o PIX e precisa abrir o banco antes de pagar, então a
+    // primeira consulta só sai depois de 10s; daí em diante aperta
+    // (9,8,7,6) até fixar em 5s — evita bater o servidor toda hora logo de
+    // cara, quando ainda não tem chance real de já ter pago.
+    let secondsUntilNextPoll = PAYMENT_POLL_SCHEDULE_SECS[0];
+    let scheduleIndex = 0;
+
     const interval = setInterval(async () => {
+      secondsUntilNextPoll -= 1;
+      if (secondsUntilNextPoll > 0) return;
+      scheduleIndex++;
+      secondsUntilNextPoll = PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? PAYMENT_POLL_FLOOR_SECS;
+
       try {
         const res = await fetch("/api/client-portal/payment-status", {
           method: "POST",
@@ -417,7 +437,7 @@ export default function RenewClient() {
       } catch {
         // continua tentando
       }
-    }, 3000);
+    }, 1000);
     setRenewPollInterval(interval);
   }
 
@@ -1425,7 +1445,20 @@ export default function RenewClient() {
     // Limpar intervalo anterior se existir
     if (pollingInterval) clearInterval(pollingInterval);
 
+    // ✅ Polling progressivo (pedido do Márcio, 04/08/2026) — mesma ideia de
+    // startPollingAppPayment: primeira consulta só depois de 10s, depois
+    // aperta (9,8,7,6) até fixar em 5s. O corpo original do polling (toda a
+    // lógica de phase/status abaixo) fica intacto, só passa a rodar quando
+    // a contagem regressiva chega em zero em vez de a cada 3s fixo.
+    let secondsUntilNextPoll = PAYMENT_POLL_SCHEDULE_SECS[0];
+    let scheduleIndex = 0;
+
     const interval = setInterval(async () => {
+      secondsUntilNextPoll -= 1;
+      if (secondsUntilNextPoll > 0) return;
+      scheduleIndex++;
+      secondsUntilNextPoll = PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? PAYMENT_POLL_FLOOR_SECS;
+
       try {
         const res = await fetch("/api/client-portal/payment-status", {
           method: "POST",
@@ -1579,7 +1612,7 @@ export default function RenewClient() {
       } catch {
         // continua tentando (não derruba o polling por erro de rede momentâneo)
       }
-    }, 3000); // A cada 3 segundos
+    }, 1000); // ticker de 1s — a cadência real é controlada por secondsUntilNextPoll acima
 
     setPollingInterval(interval);
   }

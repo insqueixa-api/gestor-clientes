@@ -1,5 +1,5 @@
 // app/api/client-portal/create-payment/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
@@ -122,7 +122,9 @@ if (!session_token || !client_id || !period) {
       return jsonError("Sessão inválida", 401);
     }
 
-    await touchPortalSession(supabaseAdmin, session_token);
+    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
+    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
+    after(() => touchPortalSession(supabaseAdmin, session_token));
 
     // 2) Buscar dados do cliente
     // ✅ CRÍTICO: garante que o client_id pertence ao whatsapp da sessão (Principal ou Secundário)
@@ -345,22 +347,25 @@ if (coupon_code_raw) {
   }
 }
 
-const pendingCharges = await getPendingCharges(supabaseAdmin, sess.tenant_id, client_id, currency);
-if (pendingCharges.total > 0) {
-  computedPrice = Number((computedPrice + pendingCharges.total).toFixed(2));
-}
-const settledAlertIds = pendingCharges.alertIds.length ? pendingCharges.alertIds : null;
+    // ✅ Pendências financeiras e gateway ativo são independentes entre si
+    // (nenhum usa o resultado do outro) — rodavam em sequência, agora juntos.
+    const [pendingCharges, gatewaysResult] = await Promise.all([
+      getPendingCharges(supabaseAdmin, sess.tenant_id, client_id, currency),
+      supabaseAdmin
+        .from("payment_gateways")
+        .select("*")
+        .eq("tenant_id", sess.tenant_id)
+        .eq("is_active", true)
+        .eq("is_online", true)
+        .contains("currency", [currency])
+        .order("priority", { ascending: true }),
+    ]);
+    if (pendingCharges.total > 0) {
+      computedPrice = Number((computedPrice + pendingCharges.total).toFixed(2));
+    }
+    const settledAlertIds = pendingCharges.alertIds.length ? pendingCharges.alertIds : null;
 
-
-    // 3) Buscar gateway ativo (prioridade)
-    const { data: gateways, error: gwErr } = await supabaseAdmin
-      .from("payment_gateways")
-      .select("*")
-      .eq("tenant_id", sess.tenant_id)
-      .eq("is_active", true)
-      .eq("is_online", true)
-      .contains("currency", [currency])
-      .order("priority", { ascending: true });
+    const { data: gateways, error: gwErr } = gatewaysResult;
 
     if (gwErr) {
       safeServerLog("create-payment: gateways query error", gwErr?.message);
