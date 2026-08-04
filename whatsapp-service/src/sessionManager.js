@@ -1736,10 +1736,12 @@ async function goOnlineForSend(sess) {
 // atendimento: essa já mostrou "digitando..." durante o debounce
 // (resetDebounceTimers) antes de chegar em sendMessage() — repetir aqui
 // duplicaria o efeito (quem chama passa skipTypingSimulation:true nesse caso).
-// Tempo sorteado entre 5-10s, não fixo — mesma filosofia anti-padrão-robótico
+// Tempo sorteado entre 0-2s, não fixo — mesma filosofia anti-padrão-robótico
 // já aplicada no timing do bot e no intervalo da campanha de cobrança.
-const TYPING_BEFORE_SEND_MIN_MS = 5_000;
-const TYPING_BEFORE_SEND_MAX_MS = 10_000;
+// Reduzido de 5-10s em 04/08/2026 (pedido do Márcio) — a invocação da
+// Vercel que dispara isso ficava presa esperando, inflando duração/CPU.
+const TYPING_BEFORE_SEND_MIN_MS = 0;
+const TYPING_BEFORE_SEND_MAX_MS = 2_000;
 
 async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {}) {
   const sess = sessions.get(sessionKey);

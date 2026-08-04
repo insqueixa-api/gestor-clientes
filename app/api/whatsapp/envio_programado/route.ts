@@ -27,6 +27,10 @@ function safeServerLog(...args: any[]) {
 }
 
 export const dynamic = "force-dynamic";
+// ✅ Rede de segurança contra invocação presa (achado em 04/08/2026: sem
+// isso, a função herdava o timeout padrão da Vercel e podia ficar pendurada
+// indefinidamente se algo travasse no meio do processamento).
+export const maxDuration = 120;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -165,51 +169,74 @@ export async function POST(req: Request) {
   // 2) CRON: enfileira automações + processa fila
   // =========================
   if (isCron) {
+    // ✅ TRAVA ANTI-SOBREPOSIÇÃO: se existe um job em SENDING atualizado há
+    // menos de 90s, outra invocação desta rota está processando agora — sai
+    // sem fazer nada e deixa o próximo tick (5 ou 15min) cuidar do resto.
+    // Achado em 04/08/2026: a função ficava presa em sleeps longos entre
+    // envios e, com o cron batendo a cada 5min no horário de pico, várias
+    // invocações se empilhavam rodando em paralelo, multiplicando consumo
+    // de Active CPU à toa.
+    const { count: activeNow } = await sb
+      .from("client_message_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "SENDING")
+      .gte("updated_at", new Date(Date.now() - 90_000).toISOString());
+
+    if ((activeNow || 0) > 0) {
+      return NextResponse.json({ ok: true, skipped: "outra execução em andamento" });
+    }
+
     // ============================================================
-    // ✅ PASSO 0: ENFILEIRAR AUTOMAÇÕES
+    // ✅ PASSO 0: ENFILEIRAR AUTOMAÇÕES — só nos ticks de 15 em 15min
     // ============================================================
-    try {
-      const p = getSPParts(new Date());
-      const fireDate = `${p.year}-${p.month}-${p.day}`; // YYYY-MM-DD (SP)
+    // Enfileirar automações futuras não precisa de mais frequência que essa
+    // (nada muda em 5min); rodar em todo tick de 5min do horário de pico só
+    // triplicava esse custo sem necessidade (achado em 04/08/2026).
+    const shouldEnqueueNow = new Date().getMinutes() % 15 === 0;
+    if (shouldEnqueueNow) {
+      try {
+        const p = getSPParts(new Date());
+        const fireDate = `${p.year}-${p.month}-${p.day}`; // YYYY-MM-DD (SP)
 
-      const { data: tenants, error: tenantsErr } = await sb
-        .from("billing_automations")
-        .select("tenant_id")
-        .eq("is_active", true)
-        .eq("is_automatic", true)
-        .eq("execution_status", "RUNNING");
+        const { data: tenants, error: tenantsErr } = await sb
+          .from("billing_automations")
+          .select("tenant_id")
+          .eq("is_active", true)
+          .eq("is_automatic", true)
+          .eq("execution_status", "RUNNING");
 
-      if (tenantsErr) {
-        safeServerLog("[BILLING][get_tenants] erro:", tenantsErr.message);
+        if (tenantsErr) {
+          safeServerLog("[BILLING][get_tenants] erro:", tenantsErr.message);
+        }
+
+        const uniqueTenants = [...new Set((tenants || []).map((t) => t.tenant_id))];
+
+        safeServerLog("[BILLING][enqueue] processando", uniqueTenants.length, "tenants no dia", fireDate);
+
+        let totalJobsCreated = 0;
+        for (const tenantId of uniqueTenants) {
+          const { data: enqData, error: enqErr } = await sb.rpc("billing_enqueue_scheduled", {
+            p_tenant_id: tenantId,
+            p_fire_date: fireDate,
+          });
+
+          const jobsCreated = enqData ?? 0;
+          totalJobsCreated += jobsCreated;
+
+          safeServerLog("[BILLING][enqueue_scheduled]", {
+            tenantId,
+            fireDate,
+            ok: !enqErr,
+            enqErr: enqErr?.message ?? null,
+            jobsCreated,
+          });
+        }
+
+        safeServerLog("[BILLING][enqueue] ✅ CONCLUÍDO:", totalJobsCreated, "jobs criados no total");
+      } catch (e: any) {
+        safeServerLog("[BILLING][enqueue_scheduled] exception", e?.message ?? e);
+        Sentry.captureException(e, { tags: { kind: "cron_error", where: "billing_enqueue_scheduled" } });
       }
-
-      const uniqueTenants = [...new Set((tenants || []).map((t) => t.tenant_id))];
-
-      safeServerLog("[BILLING][enqueue] processando", uniqueTenants.length, "tenants no dia", fireDate);
-
-      let totalJobsCreated = 0;
-      for (const tenantId of uniqueTenants) {
-        const { data: enqData, error: enqErr } = await sb.rpc("billing_enqueue_scheduled", {
-          p_tenant_id: tenantId,
-          p_fire_date: fireDate,
-        });
-
-        const jobsCreated = enqData ?? 0;
-        totalJobsCreated += jobsCreated;
-
-        safeServerLog("[BILLING][enqueue_scheduled]", {
-          tenantId,
-          fireDate,
-          ok: !enqErr,
-          enqErr: enqErr?.message ?? null,
-          jobsCreated,
-        });
-      }
-
-      safeServerLog("[BILLING][enqueue] ✅ CONCLUÍDO:", totalJobsCreated, "jobs criados no total");
-    } catch (e: any) {
-      safeServerLog("[BILLING][enqueue_scheduled] exception", e?.message ?? e);
-      Sentry.captureException(e, { tags: { kind: "cron_error", where: "billing_enqueue_scheduled" } });
     }
 
     // ✅ SELF-HEALING: revive jobs travados em SENDING (crash/restart)
@@ -246,7 +273,10 @@ export async function POST(req: Request) {
       .in("status", ["QUEUED", "SCHEDULED"])
       .lte("send_at", new Date().toISOString())
       .order("send_at", { ascending: true })
-      .limit(30);
+      // ✅ Lote pequeno (era 30) — agora que o cron roda de 5 em 5min no
+      // pico, não precisa de uma invocação longa processando dezenas de
+      // jobs; o próprio ritmo do cron cuida do resto da fila no próximo tick.
+      .limit(5);
 
     if (jobsErr) return NextResponse.json({ error: jobsErr.message }, { status: 500 });
     if (!jobs?.length) return NextResponse.json({ ok: true, processed: 0 });
@@ -413,12 +443,18 @@ export async function POST(req: Request) {
         let pendenciaDetalhe = "";
         if (recipientType !== "reseller") {
           try {
-            if (wa.row?.server_id) {
-              const { data: srv } = await sb.from("servers").select("dns").eq("id", wa.row.server_id).maybeSingle();
-              dnsServidor = pickRandomDns(Array.isArray(srv?.dns) ? srv.dns : []);
-            }
-            tabelaPrecos = await toolConsultarPrecosTexto(sb, String(job.tenant_id), wa.row);
-            pendenciaDetalhe = await getPendencyPhraseForClient(sb, String(job.tenant_id), wa.row.id, wa.row.price_currency || "BRL");
+            // ✅ As 3 buscas são independentes entre si — rodavam em
+            // sequência (await um, depois o outro), agora rodam juntas.
+            const [srvResult, tabelaPrecosResult, pendenciaDetalheResult] = await Promise.all([
+              wa.row?.server_id
+                ? sb.from("servers").select("dns").eq("id", wa.row.server_id).maybeSingle()
+                : Promise.resolve({ data: null }),
+              toolConsultarPrecosTexto(sb, String(job.tenant_id), wa.row),
+              getPendencyPhraseForClient(sb, String(job.tenant_id), wa.row.id, wa.row.price_currency || "BRL"),
+            ]);
+            dnsServidor = pickRandomDns(Array.isArray(srvResult?.data?.dns) ? srvResult.data.dns : []);
+            tabelaPrecos = tabelaPrecosResult;
+            pendenciaDetalhe = pendenciaDetalheResult;
           } catch (e: any) {
             safeServerLog("[WA][envio_programado][dns_tabela_pendencia] falhou", e?.message ?? e);
           }
@@ -514,35 +550,42 @@ export async function POST(req: Request) {
           continue;
         }
 
-        await sb.from("client_message_jobs").update({ status: "SENT", sent_at: new Date().toISOString(), error_message: null }).eq("id", job.id);
+        // ✅ Grava o resultado do disparo — 3 escritas independentes entre
+        // si, antes rodavam em sequência (await uma, depois a outra).
+        const nowIso = new Date().toISOString();
+        const bookkeepingWrites: PromiseLike<any>[] = [
+          sb.from("client_message_jobs").update({ status: "SENT", sent_at: nowIso, error_message: null }).eq("id", job.id),
+        ];
 
-        // ✅ Grava o Log do disparo
-        
         if ((job as any).automation_id) {
           const cName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
-          await sb.from("billing_logs").insert({
-            tenant_id: job.tenant_id,
-            automation_id: (job as any).automation_id,
-            client_id: job.client_id || null,
-            client_name: cName,
-            client_whatsapp: wa.phones.map((p: any) => p.number).join(", "),
-            status: "SENT",
-            sent_at: new Date().toISOString(),
-          });
-
-          await sb
-            .from("billing_automations")
-            .update({ last_run_at: new Date().toISOString() })
-            .eq("id", (job as any).automation_id);
+          bookkeepingWrites.push(
+            sb.from("billing_logs").insert({
+              tenant_id: job.tenant_id,
+              automation_id: (job as any).automation_id,
+              client_id: job.client_id || null,
+              client_name: cName,
+              client_whatsapp: wa.phones.map((p: any) => p.number).join(", "),
+              status: "SENT",
+              sent_at: nowIso,
+            }),
+            sb.from("billing_automations").update({ last_run_at: nowIso }).eq("id", (job as any).automation_id),
+          );
         }
+
+        await Promise.all(bookkeepingWrites);
 
         processed++;
 
-        // ✅ delay entre envios: sorteado entre 1 e 3 min, nunca fixo — evita
-        // um intervalo idêntico e detectável entre mensagens (pedido do
-        // Márcio, 01/08/2026, na mitigação de risco de ban)
+        // ✅ delay curto entre envios do MESMO tick, sorteado (era 1-3min
+        // fixo) — reduzido em 04/08/2026: com o cron agora de 5 em 5min e o
+        // send_at de cada job já espaçado em 5-10min na origem
+        // (billing_enqueue_scheduled), o espaçamento anti-padrão principal
+        // vem da própria cadência do cron, não precisa mais segurar a
+        // invocação por minutos. Isso é só o "respiro" entre 2 envios que
+        // raramente caem no mesmo tick.
         if (processed < jobs.length) {
-          const randomDelaySecs = 60 + Math.random() * 120;
+          const randomDelaySecs = 8 + Math.random() * 7;
           await sleep(randomDelaySecs * 1000);
         }
       } catch (e: any) {

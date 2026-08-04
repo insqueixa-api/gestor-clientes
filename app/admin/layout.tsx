@@ -29,19 +29,12 @@ export default async function AdminLayout({
 
   const supabase = await createClient();
 
-  // 2) Nome do tenant (fallback do userLabel)
-  const { data: tenantRow } = await supabase
-    .from("tenants")
-    .select("name")
-    .eq("id", ctx.tenantId)
-    .maybeSingle<{ name: string | null }>();
-
-  // 3) Nome do perfil (display_name)
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", ctx.userId)
-    .maybeSingle<{ display_name: string | null }>();
+  // 2) Nome do tenant + 3) nome do perfil (display_name) — independentes
+  // entre si, rodavam em sequência (await um, depois o outro), agora juntos.
+  const [{ data: tenantRow }, { data: profile }] = await Promise.all([
+    supabase.from("tenants").select("name").eq("id", ctx.tenantId).maybeSingle<{ name: string | null }>(),
+    supabase.from("profiles").select("display_name").eq("id", ctx.userId).maybeSingle<{ display_name: string | null }>(),
+  ]);
 
   const tenantName = tenantRow?.name ?? "Painel";
   const userLabel = profile?.display_name || tenantName || "Usuário";
