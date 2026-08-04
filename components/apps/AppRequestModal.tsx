@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName, buildM3uUrlFromDns, buildM3uUrlSecondary } from "@/lib/apps/panel";
+import {
+  CHECK_VALIDITY_HANDLERS,
+  resolveIntegrationTypeByName,
+  buildM3uUrlFromDns,
+  buildM3uUrlSecondary,
+} from "@/lib/apps/panel";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import type { AppFieldConfig, IntegrationHandler } from "@/lib/apps/types";
@@ -13,8 +18,17 @@ import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
 
-type ToastFn = (type: "success" | "error" | "warning", title: string, message?: string) => void;
-type ConfirmFn = (options: Omit<ConfirmDialogProps, "open" | "onConfirm" | "onCancel" | "loading">) => Promise<boolean>;
+type ToastFn = (
+  type: "success" | "error" | "warning",
+  title: string,
+  message?: string,
+) => void;
+type ConfirmFn = (
+  options: Omit<
+    ConfirmDialogProps,
+    "open" | "onConfirm" | "onCancel" | "loading"
+  >,
+) => Promise<boolean>;
 
 type LoadedData = {
   clientId: string;
@@ -68,6 +82,43 @@ export default function AppRequestModal({
   const [data, setData] = useState<LoadedData | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // ✅ Mensagem genérica ao concluir renovação (pedido do Márcio, 04/08/2026)
+  // — só faz sentido pra action="renewal". Toggle vem sempre ligado (o
+  // admin desliga se não quiser mandar), template pré-selecionado pelo
+  // nome ("Renovação de Aplicativo") assim que os modelos carregam.
+  const [sendRenewalMsg, setSendRenewalMsg] = useState(true);
+  const [templates, setTemplates] = useState<
+    {
+      id: string;
+      name: string;
+      content: string;
+      image_url: string | null;
+      category: string | null;
+    }[]
+  >([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [messageContent, setMessageContent] = useState("");
+
+  useEffect(() => {
+    if (action !== "renewal") return;
+    (async () => {
+      const { data: tmplData } = await supabaseBrowser
+        .from("message_templates")
+        .select("id, name, content, image_url, category")
+        .eq("tenant_id", tenantId)
+        .order("name", { ascending: true });
+      if (!tmplData) return;
+      setTemplates(tmplData as any);
+      const defaultTpl = tmplData.find((t: any) =>
+        t.name.toLowerCase().includes("renovação de aplicativo"),
+      );
+      if (defaultTpl) {
+        setSelectedTemplateId(defaultTpl.id);
+        setMessageContent(defaultTpl.content);
+      }
+    })();
+  }, [action, tenantId]);
+
   useEffect(() => {
     async function resolvePanelUrl(integrationType: string) {
       if (!integrationType) return "";
@@ -76,7 +127,10 @@ export default function AppRequestModal({
         .select("api_url")
         .eq("app_name", integrationType)
         .maybeSingle();
-      return integ?.api_url || (integrationType === "CLOUDDY" ? "https://console.clouddy.online" : "");
+      return (
+        integ?.api_url ||
+        (integrationType === "CLOUDDY" ? "https://console.clouddy.online" : "")
+      );
     }
 
     function resolveHandler(integrationType: string, appName: string) {
@@ -100,15 +154,23 @@ export default function AppRequestModal({
         // app_integrations.app_name em lib/apps/panel.ts).
         const { data: row } = await supabaseBrowser
           .from("client_app_requests")
-          .select("fields_snapshot, app_name, client_id, clients(display_name, server_username, server_password, m3u_url, servers(name, dns))")
+          .select(
+            "fields_snapshot, app_name, client_id, clients(display_name, server_username, server_password, m3u_url, servers(name, dns))",
+          )
           .eq("id", requestId)
           .maybeSingle();
         if (!row) {
           setLoading(false);
           return;
         }
-        const client = Array.isArray(row.clients) ? row.clients[0] : row.clients;
-        const server = client?.servers ? (Array.isArray(client.servers) ? client.servers[0] : client.servers) : null;
+        const client = Array.isArray(row.clients)
+          ? row.clients[0]
+          : row.clients;
+        const server = client?.servers
+          ? Array.isArray(client.servers)
+            ? client.servers[0]
+            : client.servers
+          : null;
 
         const { data: appRow } = await supabaseBrowser
           .from("apps")
@@ -117,7 +179,12 @@ export default function AppRequestModal({
           .maybeSingle();
 
         const appName = row.app_name || "Aplicativo";
-        const { handler, type } = resolveHandler(String(appRow?.integration_type || "").trim().toUpperCase(), appName);
+        const { handler, type } = resolveHandler(
+          String(appRow?.integration_type || "")
+            .trim()
+            .toUpperCase(),
+          appName,
+        );
 
         setData({
           clientId: row.client_id,
@@ -129,7 +196,9 @@ export default function AppRequestModal({
           clientM3uUrl: client?.m3u_url || "",
           appName,
           fieldValues: row.fields_snapshot || {},
-          fieldsConfig: Array.isArray(appRow?.fields_config) ? appRow.fields_config : [],
+          fieldsConfig: Array.isArray(appRow?.fields_config)
+            ? appRow.fields_config
+            : [],
           integrationType: type,
           handler,
           panelUrl: await resolvePanelUrl(type),
@@ -140,7 +209,9 @@ export default function AppRequestModal({
 
       const { data: row } = await supabaseBrowser
         .from("client_apps")
-        .select("client_id, field_values, clients(display_name, server_username, server_password, m3u_url, servers(name, dns)), apps(name, fields_config, integration_type)")
+        .select(
+          "client_id, field_values, clients(display_name, server_username, server_password, m3u_url, servers(name, dns)), apps(name, fields_config, integration_type)",
+        )
         .eq("id", clientAppId)
         .maybeSingle();
 
@@ -150,10 +221,19 @@ export default function AppRequestModal({
       }
 
       const client = Array.isArray(row.clients) ? row.clients[0] : row.clients;
-      const server = client?.servers ? (Array.isArray(client.servers) ? client.servers[0] : client.servers) : null;
+      const server = client?.servers
+        ? Array.isArray(client.servers)
+          ? client.servers[0]
+          : client.servers
+        : null;
       const app = Array.isArray(row.apps) ? row.apps[0] : row.apps;
       const appName = app?.name || "Aplicativo";
-      const { handler, type } = resolveHandler(String(app?.integration_type || "").trim().toUpperCase(), appName);
+      const { handler, type } = resolveHandler(
+        String(app?.integration_type || "")
+          .trim()
+          .toUpperCase(),
+        appName,
+      );
 
       setData({
         clientId: row.client_id,
@@ -165,7 +245,9 @@ export default function AppRequestModal({
         clientM3uUrl: client?.m3u_url || "",
         appName,
         fieldValues: row.field_values || {},
-        fieldsConfig: Array.isArray(app?.fields_config) ? app.fields_config : [],
+        fieldsConfig: Array.isArray(app?.fields_config)
+          ? app.fields_config
+          : [],
         integrationType: type,
         handler,
         panelUrl: await resolvePanelUrl(type),
@@ -183,7 +265,10 @@ export default function AppRequestModal({
     const token = sess.session?.access_token;
     const res = await fetch(path, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(body),
     });
     const json = await res.json().catch(() => null);
@@ -197,8 +282,12 @@ export default function AppRequestModal({
 
   function getClouddyCreds() {
     if (!data) return { email: "", password: "" };
-    const emailField = data.fieldsConfig.find((f) => String(f.type || "").toLowerCase() === "email");
-    const passField = data.fieldsConfig.find((f) => String(f.type || "").toLowerCase() === "password");
+    const emailField = data.fieldsConfig.find(
+      (f) => String(f.type || "").toLowerCase() === "email",
+    );
+    const passField = data.fieldsConfig.find(
+      (f) => String(f.type || "").toLowerCase() === "password",
+    );
     return {
       email: emailField ? data.fieldValues[fieldKeyOf(emailField)] || "" : "",
       password: passField ? data.fieldValues[fieldKeyOf(passField)] || "" : "",
@@ -211,11 +300,22 @@ export default function AppRequestModal({
   }
 
   async function persistFieldValue(fieldKey: string, value: string) {
-    setData((prev) => (prev ? { ...prev, fieldValues: { ...prev.fieldValues, [fieldKey]: value } } : prev));
+    setData((prev) =>
+      prev
+        ? { ...prev, fieldValues: { ...prev.fieldValues, [fieldKey]: value } }
+        : prev,
+    );
     if (!clientAppId) return; // rascunho (snapshot) — nada pra persistir
-    const { data: current } = await supabaseBrowser.from("client_apps").select("field_values").eq("id", clientAppId).maybeSingle();
+    const { data: current } = await supabaseBrowser
+      .from("client_apps")
+      .select("field_values")
+      .eq("id", clientAppId)
+      .maybeSingle();
     const dbVals = current?.field_values || {};
-    await supabaseBrowser.from("client_apps").update({ field_values: { ...dbVals, [fieldKey]: value } }).eq("id", clientAppId);
+    await supabaseBrowser
+      .from("client_apps")
+      .update({ field_values: { ...dbVals, [fieldKey]: value } })
+      .eq("id", clientAppId);
   }
 
   // ===== Ações — apps com API própria (a maioria) =====
@@ -223,8 +323,16 @@ export default function AppRequestModal({
     if (!clientAppId) return;
     setBusy(true);
     try {
-      const result = await apiCall("/api/admin/apps/configure", { tenant_id: tenantId, client_app_id: clientAppId, mode });
-      addToast("success", "Configurado", result.message || "Tentativa de configuração enviada.");
+      const result = await apiCall("/api/admin/apps/configure", {
+        tenant_id: tenantId,
+        client_app_id: clientAppId,
+        mode,
+      });
+      addToast(
+        "success",
+        "Configurado",
+        result.message || "Tentativa de configuração enviada.",
+      );
     } catch (e: any) {
       addToast("error", "Erro ao configurar", e?.message || "Falha");
     } finally {
@@ -241,7 +349,8 @@ export default function AppRequestModal({
     if (!clientAppId || !data) return;
     const ok = await confirm({
       title: `Remover do ${data.appName}?`,
-      subtitle: "Isso apagará o MAC/m3u do painel oficial. O app continua no cadastro do cliente pra reconfigurar depois.",
+      subtitle:
+        "Isso apagará o MAC/m3u do painel oficial. O app continua no cadastro do cliente pra reconfigurar depois.",
       tone: "rose",
       confirmText: "Sim, remover",
       cancelText: "Cancelar",
@@ -249,7 +358,11 @@ export default function AppRequestModal({
     if (!ok) return;
     setBusy(true);
     try {
-      await apiCall("/api/admin/apps/remove", { tenant_id: tenantId, client_app_id: clientAppId, keep_row: true });
+      await apiCall("/api/admin/apps/remove", {
+        tenant_id: tenantId,
+        client_app_id: clientAppId,
+        keep_row: true,
+      });
       addToast("success", "Removido!", "Configuração apagada do painel.");
     } catch (e: any) {
       addToast("error", "Não removido", e?.message || "Falha ao remover.");
@@ -262,8 +375,17 @@ export default function AppRequestModal({
     if (!clientAppId) return;
     setBusy(true);
     try {
-      const result = await apiCall("/api/admin/apps/check-validity", { tenant_id: tenantId, client_app_id: clientAppId });
-      addToast("success", "Validade", result.expireDate ? `Vencimento: ${String(result.expireDate).split("T")[0].split("-").reverse().join("/")}` : "Sem vencimento");
+      const result = await apiCall("/api/admin/apps/check-validity", {
+        tenant_id: tenantId,
+        client_app_id: clientAppId,
+      });
+      addToast(
+        "success",
+        "Validade",
+        result.expireDate
+          ? `Vencimento: ${String(result.expireDate).split("T")[0].split("-").reverse().join("/")}`
+          : "Sem vencimento",
+      );
     } catch (e: any) {
       addToast("error", "Erro ao verificar", e?.message || "Falha");
     } finally {
@@ -273,7 +395,11 @@ export default function AppRequestModal({
 
   function openPanel() {
     if (!data?.panelUrl) {
-      addToast("warning", "Sem URL", "Nenhum link configurado para esta integração.");
+      addToast(
+        "warning",
+        "Sem URL",
+        "Nenhum link configurado para esta integração.",
+      );
       return;
     }
     window.open(data.panelUrl, "_blank");
@@ -287,35 +413,72 @@ export default function AppRequestModal({
     if (!data) return;
     const { email, password } = getClouddyCreds();
     if (!email || !password) {
-      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de configurar.");
+      addToast(
+        "error",
+        "Email/senha obrigatórios",
+        "Preencha o email e a senha do ClouDDy antes de configurar.",
+      );
       return;
     }
     let m3uToSend = mode === "secundaria" ? "" : data.clientM3uUrl.trim();
     if (!m3uToSend) {
       m3uToSend =
         mode === "secundaria"
-          ? buildM3uUrlSecondary(data.serverDns, data.serverUsername, data.serverPassword, data.serverName)
-          : buildM3uUrlFromDns(data.serverDns, data.serverUsername, data.serverPassword);
+          ? buildM3uUrlSecondary(
+              data.serverDns,
+              data.serverUsername,
+              data.serverPassword,
+              data.serverName,
+            )
+          : buildM3uUrlFromDns(
+              data.serverDns,
+              data.serverUsername,
+              data.serverPassword,
+            );
     }
     if (!m3uToSend) {
-      addToast("error", "Sem link M3U", "Não foi possível gerar o link M3U. Verifique o DNS do servidor.");
+      addToast(
+        "error",
+        "Sem link M3U",
+        "Não foi possível gerar o link M3U. Verifique o DNS do servidor.",
+      );
       return;
     }
     if (mode === "secundaria") {
-      await supabaseBrowser.from("clients").update({ m3u_url: m3uToSend }).eq("id", data.clientId);
+      await supabaseBrowser
+        .from("clients")
+        .update({ m3u_url: m3uToSend })
+        .eq("id", data.clientId);
       setData((prev) => (prev ? { ...prev, clientM3uUrl: m3uToSend } : prev));
     }
     setBusy(true);
     try {
-      const result = await dispatchClouddyAction("CLOUDDY_CONFIGURE", { email, password, m3uUrl: m3uToSend });
+      const result = await dispatchClouddyAction("CLOUDDY_CONFIGURE", {
+        email,
+        password,
+        m3uUrl: m3uToSend,
+      });
       if (result.ok) {
         if (result.expireDate) {
-          const dateField = data.fieldsConfig.find((f) => String(f.type || "").toLowerCase() === "date");
-          if (dateField) await persistFieldValue(fieldKeyOf(dateField), result.expireDate);
+          const dateField = data.fieldsConfig.find(
+            (f) => String(f.type || "").toLowerCase() === "date",
+          );
+          if (dateField)
+            await persistFieldValue(fieldKeyOf(dateField), result.expireDate);
         }
-        addToast("success", "ClouDDy configurado", result.expireDate ? `TV + VOD atualizados. Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "TV + VOD atualizados.");
+        addToast(
+          "success",
+          "ClouDDy configurado",
+          result.expireDate
+            ? `TV + VOD atualizados. Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
+            : "TV + VOD atualizados.",
+        );
       } else {
-        addToast("error", "Falha ao configurar", result.error || "Não foi possível configurar o ClouDDy.");
+        addToast(
+          "error",
+          "Falha ao configurar",
+          result.error || "Não foi possível configurar o ClouDDy.",
+        );
       }
     } finally {
       setBusy(false);
@@ -326,20 +489,42 @@ export default function AppRequestModal({
     if (!data) return;
     const { email, password } = getClouddyCreds();
     if (!email || !password) {
-      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de verificar.");
+      addToast(
+        "error",
+        "Email/senha obrigatórios",
+        "Preencha o email e a senha do ClouDDy antes de verificar.",
+      );
       return;
     }
     setBusy(true);
     try {
-      const result = await dispatchClouddyAction("CLOUDDY_CHECK", { email, password });
+      const result = await dispatchClouddyAction("CLOUDDY_CHECK", {
+        email,
+        password,
+      });
       if (result.ok && result.expireDate) {
-        const dateField = data.fieldsConfig.find((f) => String(f.type || "").toLowerCase() === "date");
-        if (dateField) await persistFieldValue(fieldKeyOf(dateField), result.expireDate);
-        addToast("success", "Vencimento verificado", `ClouDDy: ${String(result.expireDate).split("-").reverse().join("/")}`);
+        const dateField = data.fieldsConfig.find(
+          (f) => String(f.type || "").toLowerCase() === "date",
+        );
+        if (dateField)
+          await persistFieldValue(fieldKeyOf(dateField), result.expireDate);
+        addToast(
+          "success",
+          "Vencimento verificado",
+          `ClouDDy: ${String(result.expireDate).split("-").reverse().join("/")}`,
+        );
       } else if (result.ok) {
-        addToast("warning", "Sem vencimento", "Não foi possível localizar o vencimento.");
+        addToast(
+          "warning",
+          "Sem vencimento",
+          "Não foi possível localizar o vencimento.",
+        );
       } else {
-        addToast("error", "Não foi possível verificar", result.error || "Falha desconhecida.");
+        addToast(
+          "error",
+          "Não foi possível verificar",
+          result.error || "Falha desconhecida.",
+        );
       }
     } finally {
       setBusy(false);
@@ -349,14 +534,27 @@ export default function AppRequestModal({
   async function handleClouddyDelete() {
     const { email, password } = getClouddyCreds();
     if (!email || !password) {
-      addToast("error", "Email/senha obrigatórios", "Preencha o email e a senha do ClouDDy antes de remover.");
+      addToast(
+        "error",
+        "Email/senha obrigatórios",
+        "Preencha o email e a senha do ClouDDy antes de remover.",
+      );
       return;
     }
     setBusy(true);
     try {
-      const result = await dispatchClouddyAction("CLOUDDY_DELETE", { email, password });
-      if (result.ok) addToast("success", "ClouDDy removido", "TV + VOD removidos.");
-      else addToast("error", "Falha ao remover", result.error || "Não foi possível remover no ClouDDy.");
+      const result = await dispatchClouddyAction("CLOUDDY_DELETE", {
+        email,
+        password,
+      });
+      if (result.ok)
+        addToast("success", "ClouDDy removido", "TV + VOD removidos.");
+      else
+        addToast(
+          "error",
+          "Falha ao remover",
+          result.error || "Não foi possível remover no ClouDDy.",
+        );
     } finally {
       setBusy(false);
     }
@@ -375,7 +573,11 @@ export default function AppRequestModal({
     const isRemoval = action === "removal";
     const isRenewal = action === "renewal";
     const ok = await confirm({
-      title: isRemoval ? "Concluir exclusão" : isRenewal ? "Concluir renovação" : "Concluir configuração",
+      title: isRemoval
+        ? "Concluir exclusão"
+        : isRenewal
+          ? "Concluir renovação"
+          : "Concluir configuração",
       subtitle: isRemoval
         ? `Você já removeu (ou vai remover agora) "${data?.appName}" do painel do parceiro? Isso vai apagar o app da conta de ${data?.clientName} agora.`
         : isRenewal
@@ -396,21 +598,97 @@ export default function AppRequestModal({
         // linha client_apps de verdade. Pra ClouDDy (sem rota de API), essa
         // chamada só volta "sem integração automática" — o admin já deve ter
         // removido via extensão pelos botões acima antes de concluir.
-        await apiCall("/api/admin/apps/remove", { tenant_id: tenantId, client_app_id: clientAppId });
+        await apiCall("/api/admin/apps/remove", {
+          tenant_id: tenantId,
+          client_app_id: clientAppId,
+        });
       }
 
       if (isRenewal) {
-        const { error } = await supabaseBrowser.rpc("update_fulfillment_status", {
-          p_log_id: paymentLogId,
-          p_tenant_id: tenantId,
-          p_status: "manual_done",
-        });
+        const { error } = await supabaseBrowser.rpc(
+          "update_fulfillment_status",
+          {
+            p_log_id: paymentLogId,
+            p_tenant_id: tenantId,
+            p_status: "manual_done",
+          },
+        );
         if (error) throw error;
+
+        // ✅ Mensagem genérica opcional — mesmo padrão da renovação manual
+        // de assinatura (recarga_cliente.tsx): sorteia entre o template e
+        // suas variantes, envia, valida a resposta antes de considerar
+        // enviado, e grava o status/resolve a notificação de falha no
+        // mesmo payment_log da renovação.
+        if (sendRenewalMsg && messageContent && messageContent.trim()) {
+          try {
+            const { data: session } = await supabaseBrowser.auth.getSession();
+            const token = session.session?.access_token;
+
+            let imageUrlToSend: string | null = null;
+            let finalMessage = messageContent;
+            if (selectedTemplateId) {
+              const tpl = templates.find((t) => t.id === selectedTemplateId);
+              if (tpl?.image_url) imageUrlToSend = tpl.image_url;
+
+              const { data: variants } = await supabaseBrowser
+                .from("message_template_variants")
+                .select("content")
+                .eq("tenant_id", tenantId)
+                .eq("template_id", selectedTemplateId);
+              const pool = [
+                tpl?.content,
+                ...(variants || []).map((v: any) => v.content),
+              ].filter((c): c is string => !!c && String(c).trim().length > 0);
+              if (pool.length > 0)
+                finalMessage = pool[Math.floor(Math.random() * pool.length)];
+            }
+
+            const res = await fetch("/api/whatsapp/envio_agora", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                tenant_id: tenantId,
+                client_id: data?.clientId,
+                message: finalMessage,
+                message_template_id: selectedTemplateId || null,
+                image_url: imageUrlToSend,
+              }),
+            });
+            if (!res.ok) throw new Error("API retornou erro");
+
+            await supabaseBrowser.rpc("update_whatsapp_status", {
+              p_log_id: paymentLogId,
+              p_tenant_id: tenantId,
+              p_status: "sent",
+            });
+            try {
+              await supabaseBrowser.rpc("resolve_notification", {
+                p_tenant_id: tenantId,
+                p_type: "whatsapp_falha",
+                p_source_id: paymentLogId,
+              });
+            } catch {}
+          } catch (e: any) {
+            addToast(
+              "warning",
+              "Renovação concluída, WhatsApp falhou",
+              e?.message || "Mensagem não enviada.",
+            );
+          }
+        }
       } else {
         const { data: userData } = await supabaseBrowser.auth.getUser();
         const { error } = await supabaseBrowser
           .from("client_app_requests")
-          .update({ status: "done", completed_at: new Date().toISOString(), completed_by: userData?.user?.id || null })
+          .update({
+            status: "done",
+            completed_at: new Date().toISOString(),
+            completed_by: userData?.user?.id || null,
+          })
           .eq("id", requestId);
         if (error) throw error;
       }
@@ -418,7 +696,11 @@ export default function AppRequestModal({
       try {
         await supabaseBrowser.rpc("resolve_notification", {
           p_tenant_id: tenantId,
-          p_type: isRenewal ? "manual_pending" : isRemoval ? "app_removal_pending" : "app_setup_pending",
+          p_type: isRenewal
+            ? "manual_pending"
+            : isRemoval
+              ? "app_removal_pending"
+              : "app_setup_pending",
           p_source_id: isRenewal ? paymentLogId : requestId,
         });
       } catch {
@@ -454,7 +736,11 @@ export default function AppRequestModal({
         p_status: "manual_cancelled",
       });
       if (error) throw error;
-      addToast("success", "Cancelado", "Renovação cancelada — vencimento não foi alterado.");
+      addToast(
+        "success",
+        "Cancelado",
+        "Renovação cancelada — vencimento não foi alterado.",
+      );
       onResolved();
     } catch (e: any) {
       addToast("error", "Erro ao cancelar", e?.message);
@@ -467,21 +753,48 @@ export default function AppRequestModal({
 
   const isClouddy = data?.integrationType === "CLOUDDY";
   const hasApiIntegration = !!data?.handler?.useApi;
-  const canCheck = hasApiIntegration && data ? CHECK_VALIDITY_HANDLERS.has(data.handler!.actionPrefix) : false;
+  const canCheck =
+    hasApiIntegration && data
+      ? CHECK_VALIDITY_HANDLERS.has(data.handler!.actionPrefix)
+      : false;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div onMouseDown={(e) => e.stopPropagation()} className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
+      >
         <h3 className="text-lg font-bold mb-3">
-          {action === "removal" ? "Pedido de exclusão" : action === "renewal" ? "Concluir renovação de licença" : "Pedido de configuração"}
+          {action === "removal"
+            ? "Pedido de exclusão"
+            : action === "renewal"
+              ? "Concluir renovação de licença"
+              : "Pedido de configuração"}
         </h3>
         {loading || !data ? (
-          <div className="py-8 text-center text-muted-foreground">Carregando...</div>
+          <div className="py-8 text-center text-muted-foreground">
+            Carregando...
+          </div>
         ) : (
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Nome do cliente:</span><span className="font-medium">{data.clientName}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Servidor:</span><span className="font-medium">{data.serverUsername}{data.serverName ? ` (${data.serverName})` : ""}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Aplicativo:</span><span className="font-medium">{data.appName}</span></div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Nome do cliente:</span>
+              <span className="font-medium">{data.clientName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Servidor:</span>
+              <span className="font-medium">
+                {data.serverUsername}
+                {data.serverName ? ` (${data.serverName})` : ""}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Aplicativo:</span>
+              <span className="font-medium">{data.appName}</span>
+            </div>
 
             {/* Campos do app — mesmo componente do card de aplicativos do
                 editar cliente: editável (dá pra corrigir um MAC errado ou
@@ -516,7 +829,55 @@ export default function AppRequestModal({
             )}
 
             {clientAppId && !isClouddy && !hasApiIntegration && (
-              <p className="text-xs text-muted-foreground italic pt-1">Sem integração automática disponível para este aplicativo — resolva manualmente antes de concluir.</p>
+              <p className="text-xs text-muted-foreground italic pt-1">
+                Sem integração automática disponível para este aplicativo —
+                resolva manualmente antes de concluir.
+              </p>
+            )}
+
+            {/* ✅ Mensagem genérica ao concluir (pedido do Márcio, 04/08/2026)
+                — toggle sempre ligado por padrão, template pré-selecionado
+                pelo nome. Tudo numa linha só. */}
+            {action === "renewal" && (
+              <div className="flex items-center gap-2 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setSendRenewalMsg((v) => !v)}
+                  className={`shrink-0 h-8 px-2.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5 transition-colors ${
+                    sendRenewalMsg
+                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                      : "bg-muted text-muted-foreground border-border"
+                  }`}
+                >
+                  <span
+                    className={`w-7 h-4 rounded-full relative transition-colors shrink-0 ${sendRenewalMsg ? "bg-emerald-600" : "bg-muted-foreground/30"}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${sendRenewalMsg ? "translate-x-3.5" : "translate-x-0.5"}`}
+                    />
+                  </span>
+                  Enviar msg
+                </button>
+                {sendRenewalMsg && (
+                  <select
+                    value={selectedTemplateId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedTemplateId(id);
+                      const tpl = templates.find((t) => t.id === id);
+                      setMessageContent(tpl?.content || "");
+                    }}
+                    className="flex-1 min-w-0 h-8 px-2 bg-muted border border-border rounded-lg text-[11px] text-foreground outline-none focus:border-emerald-500/50"
+                  >
+                    <option value="">-- Personalizado --</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             )}
 
             <div className="flex gap-2 pt-3">
@@ -526,7 +887,11 @@ export default function AppRequestModal({
                 className={`flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-50 flex items-center justify-center gap-1.5 ${action === "removal" ? "bg-rose-600" : "bg-emerald-600"}`}
               >
                 {busy && <Loader2 className="w-4 h-4 shrink-0 animate-spin" />}
-                {action === "removal" ? "Concluir & Excluir" : action === "renewal" ? "Salvar" : "Concluir"}
+                {action === "removal"
+                  ? "Concluir & Excluir"
+                  : action === "renewal"
+                    ? "Salvar"
+                    : "Concluir"}
               </button>
               {action === "renewal" && (
                 <button
@@ -534,12 +899,19 @@ export default function AppRequestModal({
                   onClick={handleCancelRenewal}
                   className="flex-1 px-4 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
-                  {busy && <Loader2 className="w-4 h-4 shrink-0 animate-spin" />}
+                  {busy && (
+                    <Loader2 className="w-4 h-4 shrink-0 animate-spin" />
+                  )}
                   Cancelar renovação
                 </button>
               )}
             </div>
-            <button onClick={onClose} className="w-full text-xs text-muted-foreground hover:text-foreground">Fechar</button>
+            <button
+              onClick={onClose}
+              className="w-full text-xs text-muted-foreground hover:text-foreground"
+            >
+              Fechar
+            </button>
           </div>
         )}
       </div>
