@@ -1382,19 +1382,32 @@ export default function ClientDetailsPage() {
           clientName={client.client_name}
           onClose={() => setShowRenewModal(false)}
           onSuccess={() => {
-            setShowEditModal(false);
+            // ✅ Fechava o modal errado (showEditModal, que nem estava
+            // aberto) — o modal de renovação em si (showRenewModal) ficava
+            // na tela até o usuário clicar em fechar manualmente.
+            setShowRenewModal(false);
             loadData();
+
+            // ✅ Lê o toast real que o RecargaCliente já coloca no
+            // sessionStorage (mesma mensagem específica que a lista de
+            // Clientes/Testes mostra) em vez de dois toasts genéricos
+            // fixos — mesmo padrão já usado pelo NovoCliente logo acima.
             setTimeout(() => {
-              addToast(
-                "success",
-                "Cliente atualizado",
-                "Cadastro atualizado com sucesso.",
-              );
-              addToast(
-                "success",
-                "Renovação confirmada",
-                "Pagamento salvo e data atualizada.",
-              );
+              const key = "clients_list_toasts";
+              const raw = window.sessionStorage.getItem(key);
+              if (raw) {
+                try {
+                  const arr = JSON.parse(raw);
+                  arr.forEach((t: any) => addToast(t.type, t.title, t.message));
+                  window.sessionStorage.removeItem(key);
+                } catch {}
+              } else {
+                addToast(
+                  "success",
+                  "Renovação confirmada",
+                  "Pagamento salvo e data atualizada.",
+                );
+              }
             }, 150);
           }}
         />

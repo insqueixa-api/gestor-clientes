@@ -1065,6 +1065,21 @@ export default function RecargaCliente({
     }
 
     const rawPlanPrice = safeNumberFromMoneyBR(planPrice);
+
+    // ✅ Trava contra acidente: um "-" digitado sem querer no campo de valor
+    // (ou colado de outro lugar) corrompia o preço do cliente e, se
+    // "Registrar Pagamento" estivesse ligado, também o valor do
+    // client_renewals — sem nenhum aviso, direto pro banco.
+    if (rawPlanPrice < 0) {
+      addToast(
+        "error",
+        "Valor inválido",
+        "O valor a cobrar não pode ser negativo.",
+      );
+      isCheckingRef.current = false; // destranca
+      return;
+    }
+
     const creditsUsed = creditsInfo?.used ?? 0;
     const isFromTrial = Boolean(allowConvertWithoutPayment);
     const isPaymentFlow = Boolean(registerPayment);
@@ -1160,6 +1175,17 @@ export default function RecargaCliente({
       return;
     }
 
+    // ✅ Mesma trava do handlePreCheck, repetida aqui (defesa em profundidade
+    // — executeSave é a função que de fato grava no banco).
+    if (safeNumberFromMoneyBR(planPrice) < 0) {
+      addToast(
+        "error",
+        "Valor inválido",
+        "O valor a cobrar não pode ser negativo.",
+      );
+      return;
+    }
+
     isSavingRef.current = true;
 
     setLoading(true);
@@ -1236,7 +1262,35 @@ export default function RecargaCliente({
               setLoadingText("Renovando no Elite...");
 
               await new Promise((resolve, reject) => {
+                // ✅ Timeout de segurança — sem isso, se a extensão não
+                // responder (não instalada, desconectada, aba sem foco), o
+                // modal ficava travado pra sempre em "Renovando no Elite...",
+                // com o botão desabilitado e sem nenhuma forma de destravar
+                // a não ser fechar o modal manualmente.
+                // 95s (não 30s) — conferido direto no código da extensão
+                // (unigestor-extensao/background.js, runEliteFlow): ela tem
+                // seu PRÓPRIO teto interno de 90s (abre aba + login + navega
+                // + roda a API de renovação, com direito a retentativa se
+                // cair desafio do Cloudflare no meio) antes de desistir
+                // sozinha com um erro específico ("Timeout: O painel Elite
+                // não liberou o acesso em 90s"). Um timeout menor aqui
+                // cortaria renovações legítimas que só terminam perto desse
+                // teto — 95s dá aquela margem pra deixar o erro real da
+                // extensão (mais útil) chegar primeiro.
+                const timeoutId = setTimeout(() => {
+                  window.removeEventListener(
+                    "UNIGESTOR_INTEGRATION_RESPONSE",
+                    evtHandler,
+                  );
+                  reject(
+                    new Error(
+                      "A Extensão não respondeu a tempo (95s). Verifique se ela está instalada, conectada e com a aba em foco.",
+                    ),
+                  );
+                }, 95_000);
+
                 const evtHandler = (e: any) => {
+                  clearTimeout(timeoutId);
                   window.removeEventListener(
                     "UNIGESTOR_INTEGRATION_RESPONSE",
                     evtHandler,
@@ -1368,14 +1422,23 @@ export default function RecargaCliente({
                     }),
                   );
 
-                  // Timeout de segurança (15s) para não congelar a tela
+                  // Timeout de segurança pra não congelar a tela — era 15s,
+                  // curto demais: a extensão (background.js, ação
+                  // ELITE_SYNC) tem seu próprio teto interno de 60s (abre
+                  // aba + login + lê o saldo, 1500ms × 40 tentativas) antes
+                  // de desistir sozinha. 65s dá margem pra deixar a
+                  // extensão terminar sozinha primeiro — de toda forma essa
+                  // etapa é só um "bônus" (sync automático de saldo pós-
+                  // renovação), sem timeout ou com ele, uma falha aqui
+                  // nunca bloqueia a renovação em si (fica só sem atualizar
+                  // o saldo na hora).
                   setTimeout(() => {
                     window.removeEventListener(
                       "UNIGESTOR_INTEGRATION_RESPONSE",
                       syncHandler,
                     );
                     resolveSync();
-                  }, 15000);
+                  }, 65_000);
                 });
               } catch {}
             } else {
