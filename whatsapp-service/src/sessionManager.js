@@ -16,13 +16,17 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 // — achado real: conexão saindo direto do IP de datacenter da Hetzner batia
 // 401 (loggedOut) repetido a cada reconexão, o WhatsApp derrubando o
 // "aparelho vinculado" de propósito por reconhecer padrão de datacenter.
-// Roteando pelo mesmo provedor residencial já usado no GerenciaApp
-// (DataImpulse) via `agent`/`fetchAgent` do Baileys (suporte nativo:
+// Roteando pelo mesmo provedor residencial já usado no GerenciaApp — hoje
+// "Proxy BR" (ipbr.pro; era DataImpulse, trocado depois da 5ª rodada) — via
+// `agent`/`fetchAgent` do Baileys (suporte nativo:
 // https://mintlify.wiki/whiskeysockets/Baileys/api/socket-config), a
-// conexão passa a sair de um IP residencial brasileiro em vez do IP da VM.
-// Env var PRÓPRIA (WHATSAPP_PROXY_URL), separada de GERENCIAAPP_PROXY_URL —
-// mesmo provedor, mas dá pra usar uma sessão/IP diferente se precisar
-// (ex: sticky session diferente pra não competir com o scraping).
+// conexão passa a sair de um IP residencial brasileiro fixo em vez do IP da
+// VM. Env var PRÓPRIA (WHATSAPP_PROXY_URL), separada de GERENCIAAPP_PROXY_URL
+// — mesmo provedor/mesma credencial hoje, mas dá pra apontar pra uma
+// sessão/IP diferente se precisar (ex: não competir com o scraping do
+// GerenciaApp). Único IP pra todas as sessões WhatsApp da VM — ver auditoria
+// de 05/08/2026 (memória de projeto) sobre o risco de correlação entre
+// números que isso implica; decisão do Márcio foi manter assim por ora.
 const WA_PROXY_URL = String(process.env.WHATSAPP_PROXY_URL || "").trim();
 if (WA_PROXY_URL) {
   console.log("[WA] Proxy residencial ativo pra conexão com o WhatsApp");
@@ -1046,9 +1050,14 @@ if (connection === "open") {
       }
 
       try {
-        // ✅ Envia mensagem para o JID resolvido (número real, não LID)
+        // ✅ Envia mensagem para o JID resolvido (número real, não LID) —
+        // via sendMessage() (mesmo wrapper de todo o resto do sistema), não
+        // mais sock.sendMessage() direto. Achado em auditoria (05/08/2026):
+        // essa era a ÚNICA mensagem do sistema saindo sem a simulação de
+        // "disponível"/"digitando..." — baixo volume, mas era um bypass real
+        // da humanização aplicada em todo o resto dos envios.
         const renderedMessage = renderRejectMessage(config.rejectMessage, callerJid);
-        await sock.sendMessage(callerJid, { text: renderedMessage });
+        await sendMessage(sessionKey, callerJid, renderedMessage);
         console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${callerJid}`);
       } catch (e) {
         console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao enviar mensagem de rejeição:`, e?.message);
@@ -1090,15 +1099,26 @@ if (connection === "open") {
 const pendingAgentCalls = new Map(); // "sessionKey:phone" -> { typingTimer, processTimer, msgs[], firstMsgAt }
 
 const FIRST_SILENCE_MS = 15_000; // 1ª mensagem — 1º estágio: silêncio antes de mostrar "digitando..."
-const FIRST_TYPING_MS = 15_000;  // 1ª mensagem — 2º estágio: "digitando..." antes de processar (30s no total)
 const MENU_SILENCE_MS = 5_000;   // já no menu — 1º estágio
-const MENU_TYPING_MS = 5_000;    // já no menu — 2º estágio (10s no total)
+// ✅ 2º estágio ("digitando..." antes de processar) — era fixo (15s na 1ª
+// mensagem, 5s já no menu), reduzido e sorteado a pedido do Márcio,
+// 05/08/2026: 15s de "digitando..." parado é robótico/suspeito demais.
+// Sorteado a cada ciclo de debounce (não uma constante fixa), mesma
+// filosofia anti-padrão já usada em TYPING_BEFORE_SEND_MIN/MAX_MS.
+const FIRST_TYPING_MIN_MS = 1_000;
+const FIRST_TYPING_MAX_MS = 5_000;
+const MENU_TYPING_MIN_MS = 1_000;
+const MENU_TYPING_MAX_MS = 3_000;
+
+function randomMs(min, max) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
 // ✅ Teto de segurança: nem todo contato emite o evento "composing" (depende
 // da configuração de privacidade dele no WhatsApp) — sem um limite, um
 // contato que nunca solta o "paused" travaria o lote pra sempre. Passado
 // esse tempo desde a 1ª mensagem do lote, sinais de digitação são ignorados
-// e o processamento segue seu curso normal. Maior que os dois totais acima
-// (30s e 10s) de propósito, pra nunca cortar nenhum dos dois cenários.
+// e o processamento segue seu curso normal. Maior que o pior caso possível
+// (15s + 5s = 20s, 1ª mensagem) de propósito, pra nunca cortar nenhum cenário.
 const MAX_TYPING_WAIT_MS = 90_000;
 
 // ── Exclusividade por contato ──────────────────────────────────────────────
@@ -1154,7 +1174,9 @@ function resetDebounceTimers(sessionKey, phone, entry) {
   // mais lento. Com bot_state salvo = já dentro do menu → mais ágil.
   const isFirstMessage = getContactState(sessionKey, phone) === null;
   const silenceMs = isFirstMessage ? FIRST_SILENCE_MS : MENU_SILENCE_MS;
-  const typingMs = isFirstMessage ? FIRST_TYPING_MS : MENU_TYPING_MS;
+  const typingMs = isFirstMessage
+    ? randomMs(FIRST_TYPING_MIN_MS, FIRST_TYPING_MAX_MS)
+    : randomMs(MENU_TYPING_MIN_MS, MENU_TYPING_MAX_MS);
 
   // ── Estágio 1: após o silêncio, mostra "digitando..." ──────────────────
   entry.typingTimer = setTimeout(() => {
@@ -1736,12 +1758,20 @@ async function goOnlineForSend(sess) {
 // atendimento: essa já mostrou "digitando..." durante o debounce
 // (resetDebounceTimers) antes de chegar em sendMessage() — repetir aqui
 // duplicaria o efeito (quem chama passa skipTypingSimulation:true nesse caso).
-// Tempo sorteado entre 0-2s, não fixo — mesma filosofia anti-padrão-robótico
-// já aplicada no timing do bot e no intervalo da campanha de cobrança.
-// Reduzido de 5-10s em 04/08/2026 (pedido do Márcio) — a invocação da
-// Vercel que dispara isso ficava presa esperando, inflando duração/CPU.
-const TYPING_BEFORE_SEND_MIN_MS = 0;
-const TYPING_BEFORE_SEND_MAX_MS = 2_000;
+// Tempo sorteado, não fixo — mesma filosofia anti-padrão-robótico já
+// aplicada no timing do bot e no intervalo da campanha de cobrança.
+//
+// ✅ 05/08/2026 — achado em auditoria pós-2ª restrição da Meta: tinha sido
+// reduzido de 5-10s pra 0-2s em 04/08/2026 (véspera da restrição) por causa
+// de duração/CPU da invocação da Vercel que dispara isso. Voltou pra um meio
+// termo (2-5s, não os 5-10s originais) — o principal consumidor real do
+// orçamento de `maxDuration=120` do envio_programado é o intervalo entre
+// contato primário/secundário (`secondary_contact_delay_min/max_secs`, até
+// 2min por padrão), não esse "digitando" — então dava pra devolver algum
+// tempo aqui com folga de sobra. Se o timeout voltar a acontecer, mexer
+// primeiro no intervalo de contato secundário, não aqui.
+const TYPING_BEFORE_SEND_MIN_MS = 2_000;
+const TYPING_BEFORE_SEND_MAX_MS = 5_000;
 
 async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {}) {
   const sess = sessions.get(sessionKey);

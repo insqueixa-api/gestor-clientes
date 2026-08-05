@@ -527,7 +527,7 @@ export async function POST(req: Request) {
           const renderedMessage = renderTemplate(String(job.message ?? ""), vars);
 
           const sendController = new AbortController();
-          // ✅ 30s (era 15s) — a VM agora simula "digitando..." (5-10s) + presença
+          // ✅ 30s (era 15s) — a VM agora simula "digitando..." (2-5s) + presença
           // "disponível" antes de mandar (pedido do Márcio, 26/07/2026), então o
           // envio real passou a demorar mais só nesse preparo, sem contar a rede.
           const sendTimeout = setTimeout(() => sendController.abort(), 30_000);
