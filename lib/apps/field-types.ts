@@ -58,6 +58,27 @@ export const FIELD_ICONS: Record<AppFieldType, string> = {
 // numa tabela separada, nunca alcançam essas rotas.
 export const HIDDEN_CLIENT_FIELD_TYPES: AppFieldType[] = [];
 
+// Tipos de campo que representam credencial/identificador que o cliente
+// pode ter digitado errado (ao contrário de "date"/"obs", que não entram
+// numa checagem de login no painel do parceiro).
+const CREDENTIAL_FIELD_TYPES: AppFieldType[] = ["mac", "device_key", "email", "password"];
+
+// ✅ Pedido do Márcio, 05/08/2026: quando "Configurar"/"Verificar validade"
+// falha no painel do parceiro (ex: MAC ou Device Key errados), o cliente no
+// portal só via uma mensagem genérica sem dizer qual campo checar. Isso
+// resolve os nomes REAIS (label customizado do app, se tiver — ver
+// APP_FIELD_LABELS acima) dos campos de credencial desse app, pra montar
+// uma mensagem tipo "confira Device ID (MAC), Device Key". Nunca usa o
+// texto cru que o parceiro devolveu (em inglês, formato instável por
+// parceiro) — só os nomes dos campos que o PRÓPRIO catálogo já conhece.
+export function describeCredentialFields(fieldsConfig: unknown): string {
+  const config = Array.isArray(fieldsConfig) ? fieldsConfig : [];
+  const labels = config
+    .filter((f: any) => f && CREDENTIAL_FIELD_TYPES.includes(f.type as AppFieldType))
+    .map((f: any) => String(f.label || "").trim() || APP_FIELD_LABELS[f.type as AppFieldType] || "");
+  return [...new Set(labels.filter(Boolean))].join(", ");
+}
+
 // MAC: mantém formatação XX:XX:XX:XX:XX:XX, aceita o alfabeto inteiro,
 // mas guarda só 12 hex (6 bytes) — mesma lógica usada no admin.
 export function normalizeMacInput(raw: string) {

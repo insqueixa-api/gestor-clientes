@@ -145,7 +145,7 @@ export default function AplicativosLog({
         const f = byId.get(k);
         const type = f?.type as AppFieldType | undefined;
         if (type === "date") return null;
-        const label = (type && APP_FIELD_LABELS[type]) || f?.label || k;
+        const label = String(f?.label || "").trim() || (type && APP_FIELD_LABELS[type]) || k;
         return { label, value: String(v) };
       })
       .filter((x): x is { label: string; value: string } => x !== null);

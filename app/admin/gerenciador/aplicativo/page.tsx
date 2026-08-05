@@ -25,6 +25,11 @@ import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
 type AppField = {
   id: string;
   type: AppFieldType;
+  // ✅ Nome customizado do campo pra ESSE app específico (pedido do Márcio,
+  // 05/08/2026) — substitui o rótulo genérico (APP_FIELD_LABELS) nos modais
+  // do admin e no portal do cliente. Sempre preenchido (default = rótulo
+  // padrão do tipo ao adicionar o campo), editável depois.
+  label: string;
 };
 
 type CostType = "free" | "paid" | "partnership";
@@ -165,6 +170,9 @@ export default function AppManagerPage() {
   const [formName, setFormName] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formFields, setFormFields] = useState<AppField[]>([]);
+  const [fieldPickerType, setFieldPickerType] = useState<AppFieldType>(
+    ALL_FIELD_TYPES[0],
+  );
   const [formIntegration, setFormIntegration] = useState<string>("");
   const dragIndexRef = useRef<number | null>(null);
   const [formIconUrl, setFormIconUrl] = useState<string>("");
@@ -593,7 +601,17 @@ export default function AppManagerPage() {
     setEditingId(app.id);
     setFormName(app.name);
     setFormUrl(app.info_url || "");
-    setFormFields(JSON.parse(JSON.stringify(app.fields_config)));
+    // ✅ Backfill de label pra apps salvos antes desse campo existir — sem
+    // isso o input de renomear abriria vazio em vez de mostrar o rótulo
+    // padrão que já está em uso.
+    setFormFields(
+      (JSON.parse(JSON.stringify(app.fields_config)) as AppField[]).map(
+        (f) => ({
+          ...f,
+          label: f.label || FIELD_LABELS[f.type] || f.type,
+        }),
+      ),
+    );
     setFormIntegration(app.integration_type || "");
     setFormIconUrl(app.icon_url || "");
     setFormCostType((app.cost_type as CostType) || "");
@@ -625,7 +643,16 @@ export default function AppManagerPage() {
     "f_" + Math.random().toString(36).substring(2, 7);
 
   function addField(type: AppFieldType) {
-    setFormFields((prev) => [...prev, { id: generateShortId(), type }]);
+    setFormFields((prev) => [
+      ...prev,
+      { id: generateShortId(), type, label: FIELD_LABELS[type] },
+    ]);
+  }
+
+  function renameField(id: string, label: string) {
+    setFormFields((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, label } : f)),
+    );
   }
 
   function removeField(id: string) {
@@ -951,7 +978,8 @@ export default function AppManagerPage() {
                   key={idx}
                   className="px-2 py-1 bg-muted border border-border rounded text-[10px] text-muted-foreground font-medium flex items-center gap-1"
                 >
-                  {FIELD_ICONS[field.type]} {FIELD_LABELS[field.type]}
+                  {FIELD_ICONS[field.type]}{" "}
+                  {field.label || FIELD_LABELS[field.type]}
                 </span>
               ))
             ) : (
@@ -1766,29 +1794,53 @@ export default function AppManagerPage() {
                   <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     Campos Personalizados
                   </h3>
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
-                    {ALL_FIELD_TYPES.map((type) => {
-                      const alreadyAdded = formFields.some(
-                        (f) => f.type === type,
-                      );
-                      return (
-                        <button
-                          key={type}
-                          onClick={() => addField(type)}
-                          disabled={alreadyAdded}
-                          className={`text-xs px-2 py-1 border rounded font-medium transition-colors flex items-center gap-1
-                            ${
-                              alreadyAdded
-                                ? "opacity-30 cursor-not-allowed bg-muted border-border text-muted-foreground"
-                                : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20"
-                            }`}
+                  {(() => {
+                    const available = ALL_FIELD_TYPES.filter(
+                      (type) => !formFields.some((f) => f.type === type),
+                    );
+                    return (
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={
+                            available.includes(fieldPickerType)
+                              ? fieldPickerType
+                              : available[0] || ""
+                          }
+                          onChange={(e) =>
+                            setFieldPickerType(e.target.value as AppFieldType)
+                          }
+                          disabled={available.length === 0}
+                          className="h-8 px-2 bg-transparent border border-border rounded-lg text-xs text-foreground outline-none focus:border-emerald-500/60 disabled:opacity-40"
                         >
-                          {FIELD_ICONS[type]} + {FIELD_LABELS[type]}
+                          {available.map((type) => (
+                            <option key={type} value={type}>
+                              {FIELD_ICONS[type]} {FIELD_LABELS[type]}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => {
+                            if (available.length === 0) return;
+                            const type = available.includes(fieldPickerType)
+                              ? fieldPickerType
+                              : available[0];
+                            addField(type);
+                            const next = available.filter((t) => t !== type);
+                            if (next[0]) setFieldPickerType(next[0]);
+                          }}
+                          disabled={available.length === 0}
+                          className="text-xs px-3 py-1.5 border rounded-lg font-medium transition-colors bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          + Adicionar
                         </button>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    );
+                  })()}
                 </div>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Depois de adicionar, dá pra renomear cada campo (nome que
+                  aparece no admin e no portal do cliente).
+                </p>
 
                 <div className="space-y-2">
                   {formFields.length === 0 && (
@@ -1828,13 +1880,25 @@ export default function AppManagerPage() {
                       >
                         ⠿
                       </span>
-                      <span className="text-base">
+                      <span
+                        className="text-base shrink-0"
+                        title={FIELD_LABELS[field.type]}
+                      >
                         {FIELD_ICONS[field.type]}
                       </span>
-                      <span className="flex-1 text-sm font-medium text-foreground/90">
-                        {FIELD_LABELS[field.type]}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                      <input
+                        type="text"
+                        value={field.label}
+                        onChange={(e) => renameField(field.id, e.target.value)}
+                        onBlur={(e) => {
+                          if (!e.target.value.trim())
+                            renameField(field.id, FIELD_LABELS[field.type]);
+                        }}
+                        placeholder={FIELD_LABELS[field.type]}
+                        title="Nome exibido no admin e no portal do cliente"
+                        className="flex-1 min-w-0 h-8 px-2 bg-transparent border border-transparent hover:border-border focus:border-emerald-500/60 rounded-lg text-sm font-medium text-foreground/90 outline-none transition-colors"
+                      />
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
                         #{index + 1}
                       </span>
                       <button

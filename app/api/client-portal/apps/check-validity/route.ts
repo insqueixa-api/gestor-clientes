@@ -8,6 +8,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { logAppActivity } from "@/lib/apps/panel";
 import { loadClientApp, checkClientAppValidity } from "@/lib/apps/orchestration";
+import { describeCredentialFields } from "@/lib/apps/field-types";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +67,16 @@ export async function POST(req: NextRequest) {
           detail: { error: result.error },
         }),
       );
-      return jsonError(result.error, 400);
+
+      // ✅ Nunca mostra o erro técnico cru do parceiro pro cliente (mesma
+      // regra do .../configure/route.ts, pedido do Márcio 05/08/2026) — aqui
+      // a rota mandava result.error direto, que podia ser o texto em inglês
+      // do parceiro. Cita os campos de credencial reais do app em vez disso.
+      const fieldsHint = describeCredentialFields(row.fieldsConfig);
+      const message = fieldsHint
+        ? `Não foi possível verificar a validade agora. Confira se ${fieldsHint} estão certos e tente novamente.`
+        : "Não foi possível verificar a validade agora. Tente novamente em instantes.";
+      return jsonError(message, 400);
     }
 
     after(() =>

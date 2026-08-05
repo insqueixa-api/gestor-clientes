@@ -54,7 +54,11 @@ export default function AppInstanceFields({
       {fieldsConfig.map((field: any, index: number) => {
         const fieldKey = String(field?.id ?? field?.label ?? "").trim();
         const rawLabel = String(field?.label ?? "").trim();
-        const label = APP_FIELD_LABELS[String(field?.type ?? "")] || rawLabel || "Campo";
+        // ✅ Label customizado do app tem prioridade sobre o rótulo padrão
+        // do tipo (05/08/2026, mesma regra do portal em client-portal/apps/
+        // list/route.ts) — é assim que o admin renomeia "Device Key" pro
+        // nome real que cada app usa.
+        const label = rawLabel || APP_FIELD_LABELS[String(field?.type ?? "")] || "Campo";
         const isMacField = String(field?.type || "").toUpperCase() === "MAC";
         const isDateField = field?.type === "date";
         const safeKey = fieldKey || rawLabel || `field-${index}`;

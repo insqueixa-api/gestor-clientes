@@ -247,30 +247,87 @@ export default function AdminShell({
     [pathname],
   );
 
+  // ✅ Ref espelhando openMenu — os handlers de hover (abaixo) rodam dentro
+  // de setTimeout, onde o closure do state ficaria "congelado" no valor de
+  // quando o timer foi armado. O ref sempre reflete o valor atual.
+  const openMenuRef = useRef<typeof openMenu>(null);
+  useEffect(() => {
+    openMenuRef.current = openMenu;
+  }, [openMenu]);
+
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearHoverTimer() {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  }
+
+  useEffect(() => clearHoverTimer, []);
+
+  function computeTriggerPos(ref: React.RefObject<HTMLDivElement | null>) {
+    const btn = ref.current?.querySelector("button");
+    if (!btn) return null;
+    const r = (btn as HTMLButtonElement).getBoundingClientRect();
+    return { top: r.bottom + 8, right: window.innerWidth - r.right };
+  }
+
+  function showManagerMenu() {
+    const pos = computeTriggerPos(managerRef);
+    if (pos) setManagerPos(pos);
+    setOpenMenu("manager");
+  }
+
+  function showSettingsMenu() {
+    const pos = computeTriggerPos(settingsRef);
+    if (pos) setSettingsPos(pos);
+    setOpenMenu("settings");
+  }
+
+  // ✅ Pedido do Márcio, 05/08/2026: hover no gerenciador/conta no topbar.
+  // Se já tem um dos dois dropdowns aberto (por clique) e o mouse passa por
+  // cima do outro, troca na hora — sem precisar clicar de novo. Se nenhum
+  // dos dois está aberto, só abre depois de ~900ms parado em cima (evita
+  // abrir sozinho quando o mouse só está passando por cima a caminho de
+  // outro lugar). Tudo client-side, não bate em nenhuma rota/API.
+  function handleTriggerHoverEnter(
+    menu: "manager" | "settings",
+    show: () => void,
+  ) {
+    clearHoverTimer();
+    const current = openMenuRef.current;
+    if (current === menu) return;
+    if (current === "manager" || current === "settings") {
+      show();
+      return;
+    }
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null;
+      show();
+    }, 900);
+  }
+
+  function handleTriggerHoverLeave() {
+    clearHoverTimer();
+  }
+
   function openManager() {
+    clearHoverTimer();
     if (openMenu === "manager") {
       setOpenMenu(null);
       return;
     }
-    const btn = managerRef.current?.querySelector("button");
-    if (btn) {
-      const r = (btn as HTMLButtonElement).getBoundingClientRect();
-      setManagerPos({ top: r.bottom + 8, right: window.innerWidth - r.right });
-    }
-    setOpenMenu("manager");
+    showManagerMenu();
   }
 
   function openSettings() {
+    clearHoverTimer();
     if (openMenu === "settings") {
       setOpenMenu(null);
       return;
     }
-    const btn = settingsRef.current?.querySelector("button");
-    if (btn) {
-      const r = (btn as HTMLButtonElement).getBoundingClientRect();
-      setSettingsPos({ top: r.bottom + 8, right: window.innerWidth - r.right });
-    }
-    setOpenMenu("settings");
+    showSettingsMenu();
   }
 
   function openMobileMenu() {
@@ -469,7 +526,14 @@ export default function AdminShell({
 
               <div className="w-px h-6 bg-white/10 mx-2" />
 
-              <div ref={managerRef} className="relative">
+              <div
+                ref={managerRef}
+                className="relative"
+                onMouseEnter={() =>
+                  handleTriggerHoverEnter("manager", showManagerMenu)
+                }
+                onMouseLeave={handleTriggerHoverLeave}
+              >
                 <button
                   onClick={openManager}
                   className={[
@@ -493,7 +557,14 @@ export default function AdminShell({
                 </button>
               </div>
 
-              <div ref={settingsRef} className="relative">
+              <div
+                ref={settingsRef}
+                className="relative"
+                onMouseEnter={() =>
+                  handleTriggerHoverEnter("settings", showSettingsMenu)
+                }
+                onMouseLeave={handleTriggerHoverLeave}
+              >
                 <button
                   onClick={openSettings}
                   className={[

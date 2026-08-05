@@ -108,9 +108,11 @@ export async function POST(req: NextRequest) {
     if (changedKeys.length > 0) {
       // ✅ Grava o LABEL do campo (ex: "Device ID (MAC)"), não o id cru
       // (ex: "f_9mpc3") — pedido do Márcio (26/07/2026): a auditoria
-      // mostrava só o id, ilegível sem abrir o catálogo do app.
+      // mostrava só o id, ilegível sem abrir o catálogo do app. Label
+      // customizado do app tem prioridade (05/08/2026, mesma regra do
+      // portal em client-portal/apps/list/route.ts).
       const labelById = new Map(
-        config.map((f: any) => [String(f.id), (APP_FIELD_LABELS as any)[f.type] || f.label || String(f.id)]),
+        config.map((f: any) => [String(f.id), String(f.label || "").trim() || (APP_FIELD_LABELS as any)[f.type] || String(f.id)]),
       );
       const changedLabels = changedKeys.map((k) => labelById.get(k) || k);
       after(() =>

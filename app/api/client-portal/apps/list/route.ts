@@ -60,12 +60,14 @@ function extractEditableFields(vals: Record<string, any>, config: any[]) {
         !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType),
     )
     .map((f: any) => {
-      // ✅ Rótulo padrão por TIPO tem prioridade sobre o label customizado
-      // do app (igual o admin já faz em novo_cliente.tsx) — sem isso, um
-      // app cujo campo MAC foi cadastrado com label solto "MAC" mostrava
-      // "MAC" no portal e "Device ID (MAC)" no admin pro mesmo campo.
-      // "obs" já vem como "Ambiente" de APP_FIELD_LABELS (fonte única).
-      const label = APP_FIELD_LABELS[f.type as AppFieldType] || f.label || f.id;
+      // ✅ Label customizado do app (construtor de campos no admin, pedido
+      // do Márcio 05/08/2026) tem prioridade sobre o rótulo padrão do tipo —
+      // é assim que o admin renomeia "Device Key" pro nome real que o app
+      // em questão usa, e isso precisa refletir aqui igual reflete no
+      // admin. Cai pro rótulo padrão só se o app ainda não tem label salvo
+      // (apps antigos, de antes desse campo existir).
+      const customLabel = String(f.label || "").trim();
+      const label = customLabel || APP_FIELD_LABELS[f.type as AppFieldType] || f.id;
       return {
         id: String(f.id),
         type: String(f.type || ""),

@@ -2,17 +2,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createBgClient } from "@supabase/supabase-js";
 import { getAdminTenantContext } from "@/lib/api/auth-server";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { waitUntil } from "@vercel/functions";
 
 export type LoginState = { error?: string };
-
-function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function isNextRedirectError(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
@@ -25,95 +18,6 @@ function isNextRedirectError(err: unknown): boolean {
     (typeof digest === "string" && digest.includes("NEXT_REDIRECT")) ||
     (typeof message === "string" && message.includes("NEXT_REDIRECT"))
   );
-}
-
-async function fetchFx(
-  base: "USD" | "EUR",
-  to: "BRL",
-  origin: string
-): Promise<{ rate: number; date: string }> {
-  const url = `${origin}/api/fx?base=${encodeURIComponent(
-    base
-  )}&to=${encodeURIComponent(to)}`;
-
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`FX API falhou (${res.status})`);
-
-  const json: unknown = await res.json();
-
-  if (typeof json !== "object" || json === null) {
-    throw new Error("Resposta inválida da API FX");
-  }
-
-  const obj = json as Record<string, unknown>;
-  const rate = obj["rate"];
-  const date = obj["date"];
-
-  if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) {
-    throw new Error("Resposta inválida da API FX (rate)");
-  }
-
-  return {
-    rate,
-    date: typeof date === "string" && date.length > 0 ? date : todayISO(),
-  };
-}
-
-async function refreshFxIfNeeded(
-  token: string,
-  userId: string,
-  origin: string
-): Promise<void> {
-  try {
-    // ✅ Usa o client do supabase-js (sem cookies) para evitar crash no Next.js após o redirect
-    const supabaseBg = createBgClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      }
-    );
-
-    const { data: member, error: memberErr } = await supabaseBg
-      .from("tenant_members")
-      .select("tenant_id")
-      .eq("user_id", userId)
-      .single();
-
-    if (memberErr || !member) return;
-
-    const tenantId = member.tenant_id;
-    const today = todayISO();
-
-    const { data: existingFx, error: fxErr } = await supabaseBg
-      .from("tenant_fx_rates")
-      .select("as_of_date")
-      .eq("tenant_id", tenantId)
-      .eq("as_of_date", today)
-      .limit(1);
-
-    if (fxErr) return;
-    if (existingFx && existingFx.length > 0) return;
-
-    const [usd, eur] = await Promise.all([
-      fetchFx("USD", "BRL", origin),
-      fetchFx("EUR", "BRL", origin),
-    ]);
-
-    const { error: rpcErr } = await supabaseBg.rpc("set_tenant_fx_rates", {
-      p_tenant_id: tenantId,
-      p_usd_to_brl: usd.rate,
-      p_eur_to_brl: eur.rate,
-      p_as_of_date: today,
-      p_source: "frankfurter",
-    });
-
-    if (rpcErr) console.warn("[FX] RPC falhou:", rpcErr.message);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-  }
 }
 
 export async function loginAction(
@@ -160,20 +64,8 @@ export async function loginAction(
     // motivo: o layout recai pra consultar o banco normalmente nesse caso.
     await getAdminTenantContext();
 
-    // ✅ Obtém origin, token e userID ANTES do background task e do redirect
-    const h = await headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    const proto = h.get("x-forwarded-proto") ?? "http";
-    const origin = `${proto}://${host}`;
-    
-    const token = data.session.access_token;
-    const userId = data.user.id;
-
-    // ✅ waitUntil mantém a função viva até essa Promise terminar, mesmo
-    // depois do redirect() encerrar a resposta — sem isso, a Vercel podia
-    // matar o processo no meio da chamada e a taxa nunca era atualizada.
-    waitUntil(refreshFxIfNeeded(token, userId, origin).catch(() => {}));
-
+    // ✅ Atualização de tenant_fx_rates saiu daqui — agora é a rota de cron
+    // app/api/fx/sync (1x de madrugada), não mais disparada a cada login.
     // ✅ Redireciona imediatamente
     redirect("/admin");
   } catch (err: unknown) {

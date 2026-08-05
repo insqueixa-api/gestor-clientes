@@ -8,6 +8,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { logAppActivity } from "@/lib/apps/panel";
 import { loadClientApp, configureClientApp } from "@/lib/apps/orchestration";
+import { describeCredentialFields } from "@/lib/apps/field-types";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +120,16 @@ export async function POST(req: NextRequest) {
       // (pedido do Márcio, 28/07/2026).
       const suggestSecondary = mode === "principal" && (recentSuccesses > 0 || recentFailures > 0);
 
+      // ✅ Pedido do Márcio, 05/08/2026: a maioria das falhas de configurar
+      // vem de MAC/Device Key digitados errados — a mensagem genérica não
+      // dizia o que conferir. Cita os nomes reais dos campos de credencial
+      // desse app (respeitando o label customizado no catálogo), sem expor
+      // o texto técnico cru do parceiro.
+      const fieldsHint = describeCredentialFields(row.fieldsConfig);
+      const checkFieldsMsg = fieldsHint
+        ? ` Confira se ${fieldsHint} estão certos.`
+        : "";
+
       after(() =>
         logAppActivity(supabaseAdmin, {
           tenantId,
@@ -136,8 +147,8 @@ export async function POST(req: NextRequest) {
           escalate,
           suggest_secondary: suggestSecondary,
           error: escalate
-            ? "Houve uma nova falha ao configurar esse aplicativo. Fale com o suporte pra gente resolver juntos."
-            : "Houve uma falha ao configurar esse aplicativo. Tente mais uma vez — se continuar falhando, fale com o suporte.",
+            ? `Houve uma nova falha ao configurar esse aplicativo.${checkFieldsMsg} Fale com o suporte pra gente resolver juntos.`
+            : `Houve uma falha ao configurar esse aplicativo.${checkFieldsMsg} Tente mais uma vez — se continuar falhando, fale com o suporte.`,
         },
         { status: 400, headers: NO_STORE_HEADERS },
       );

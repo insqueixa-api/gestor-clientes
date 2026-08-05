@@ -969,7 +969,12 @@ export default function RenewClient() {
           kind: result?.blocked ? "blocked" : "error",
           isReconfigure,
           appName,
+          // ✅ Usa a mensagem que o servidor já monta (cita os campos reais
+          // do app quando dá, ex: "Confira se Device ID (MAC), Device Key
+          // estão certos") em vez de um texto fixo genérico — pedido do
+          // Márcio, 05/08/2026.
           errorMessage:
+            result?.error ||
             "Não foi possível concluir a configuração. Tente novamente.",
           escalate: !!result?.escalate,
           suggestSecondary: !!result?.suggest_secondary,
@@ -1106,10 +1111,13 @@ export default function RenewClient() {
       );
       await refreshInstalledApps();
     } catch (err: any) {
+      // ✅ err.message já vem sem texto técnico cru do parceiro (rota
+      // check-validity trata isso) — pode mostrar direto, cita os campos
+      // reais do app quando a falha for por credencial errada.
       addToast(
         "error",
         "Não foi possível atualizar a validade",
-        "Tente novamente.",
+        err?.message || "Tente novamente.",
       );
     } finally {
       setAppActionBusy(null);
