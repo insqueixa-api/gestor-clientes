@@ -34,6 +34,42 @@ function makeSupabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+// ── Persistência de bot_state (Supabase) ──────────────────────────────────
+// A VM (whatsapp-service) mantém seu próprio cache em RAM e manda `bot_state`
+// no payload — isso continua sendo o "fast path" normal. Mas essa RAM some
+// num restart da VM, e sem cópia durável a conversa reseta silenciosamente
+// pro cliente. Aqui: só CONSULTA o Supabase quando a VM manda `bot_state`
+// vazio (ex.: logo após reiniciar), e sempre GRAVA o `next_state` como
+// cópia durável — sem exigir nenhuma mudança no lado da VM.
+async function loadPersistedState(sb: any, sessionKey: string, phone: string): Promise<string | null> {
+  try {
+    const { data } = await sb
+      .from("bot_conversation_state")
+      .select("state")
+      .eq("session_key", sessionKey)
+      .eq("phone", phone)
+      .maybeSingle();
+    return data?.state || null;
+  } catch {
+    return null;
+  }
+}
+
+async function savePersistedState(sb: any, tenantId: string, sessionKey: string, phone: string, nextState: string | undefined | null): Promise<void> {
+  try {
+    if (!nextState || nextState === "__clear__") {
+      await sb.from("bot_conversation_state").delete().eq("session_key", sessionKey).eq("phone", phone);
+      return;
+    }
+    await sb.from("bot_conversation_state").upsert(
+      { tenant_id: tenantId, session_key: sessionKey, phone, state: nextState, updated_at: new Date().toISOString() },
+      { onConflict: "session_key,phone" },
+    );
+  } catch (e: any) {
+    safeLog("[BOT][agent] Falha ao persistir bot_state:", e?.message);
+  }
+}
+
 // ── Envio de resposta via WA service (real, produção) ────────────────────────
 
 async function sendWAMessage(sessionKey: string, phone: string, message: string, imageUrl?: string) {
@@ -108,6 +144,11 @@ export async function POST(req: Request) {
   if (!tenant_id || !session_key || !phone) {
     return NextResponse.json({ error: "Parâmetros obrigatórios ausentes" }, { status: 400 });
   }
+
+  // ✅ Se a VM não mandou estado (RAM zerada após restart), recupera do
+  // Supabase — sem isso a conversa "esquecia" onde parou depois de qualquer
+  // reinício da VM, silenciosamente.
+  const effectiveBotState = bot_state || (await loadPersistedState(sb, session_key, phone));
 
   // ── 1. Identificar cliente ──────────────────────────────────────────────
   const { data: clientMatches, error: clientErr } = await sb
@@ -249,12 +290,13 @@ export async function POST(req: Request) {
           const result = await runBotEngine({
             sb, tenantId: tenant_id, geminiKey, flow, clients, clientMatchesRaw: clientMatches, clientProvider,
             trimmed: "",
-            botState: bot_state,
+            botState: effectiveBotState,
             forceNodeId: expiredNode.id,
             send,
             sendImage: (imgUrl, caption) => sendWAMessage(session_key, phone, caption, imgUrl),
             logPrefix: "[BOT][agent][img]",
           });
+          await savePersistedState(sb, tenant_id, session_key, phone, result.nextState);
           return NextResponse.json({
             ok: true, action: result.action, escalate: result.escalate ?? false, mark_read: result.markRead,
             bot_response: sentMessages.join("\n\n"), next_state: result.nextState, transfer_reason: result.transferReason ?? null,
@@ -339,12 +381,14 @@ export async function POST(req: Request) {
     clientMatchesRaw: clientMatches,
     clientProvider,
     trimmed,
-    botState: bot_state,
+    botState: effectiveBotState,
     awaitingPaymentType: awaiting_payment_type === true,
     send,
     sendImage: (imgUrl, caption) => sendWAMessage(session_key, phone, caption, imgUrl),
     logPrefix: "[BOT][agent]",
   });
+
+  await savePersistedState(sb, tenant_id, session_key, phone, result.nextState);
 
   // ✅ display_name/server_name aqui sempre refletem clients[0] (conta
   // principal) — mesmo padrão usado antes da unificação nos gates globais;
