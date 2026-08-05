@@ -26,6 +26,9 @@ import {
   MAX_DELAY_SECS,
   MIN_DELAY_SECS,
   normalizeBillingDelayWindow,
+  DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
+  DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
+  normalizeSecondaryContactDelay,
 } from "@/lib/admin/billing-campaign-window";
 
 // --- TIPOS ---
@@ -524,8 +527,22 @@ function CampaignWindowCard({
     window_start: "09:30",
     delay_min_secs: MIN_DELAY_SECS,
     delay_max_secs: MAX_DELAY_SECS,
+    secondary_contact_delay_min_secs: DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
+    secondary_contact_delay_max_secs: DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
     schedule_days: [0, 1, 2, 3, 4, 5, 6] as number[],
     is_active: true,
+  });
+
+  // ✅ Texto "cru" dos 4 campos numéricos (minutos) — desacoplado de
+  // `settings` (que guarda segundos já normalizados). Sem isso, cada
+  // keystroke chamava normalize/clamp e reescrevia o campo na hora — apagar
+  // o valor pra digitar outro fazia o input "pular" pro mínimo permitido no
+  // meio do caminho. Agora só normaliza (e sincroniza em `settings`) no blur.
+  const [draft, setDraft] = useState({
+    delayMin: String(Math.round(MIN_DELAY_SECS / 60)),
+    delayMax: String(Math.round(MAX_DELAY_SECS / 60)),
+    secondaryMin: String(Math.round(DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS / 60)),
+    secondaryMax: String(Math.round(DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS / 60)),
   });
 
   useEffect(() => {
@@ -538,7 +555,7 @@ function CampaignWindowCard({
       const { data } = await supabaseBrowser
         .from("billing_campaign_settings")
         .select(
-          "window_start, delay_min_secs, delay_max_secs, schedule_days, is_active",
+          "window_start, delay_min_secs, delay_max_secs, secondary_contact_delay_min_secs, secondary_contact_delay_max_secs, schedule_days, is_active",
         )
         .eq("tenant_id", tid)
         .maybeSingle();
@@ -547,14 +564,26 @@ function CampaignWindowCard({
           data.delay_min_secs ?? MIN_DELAY_SECS,
           data.delay_max_secs ?? MAX_DELAY_SECS,
         );
+        const normalizedSecondary = normalizeSecondaryContactDelay(
+          data.secondary_contact_delay_min_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
+          data.secondary_contact_delay_max_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
+        );
         setSettings({
           window_start: String(data.window_start || "09:30").slice(0, 5),
           delay_min_secs: normalized.minSecs,
           delay_max_secs: normalized.maxSecs,
+          secondary_contact_delay_min_secs: normalizedSecondary.minSecs,
+          secondary_contact_delay_max_secs: normalizedSecondary.maxSecs,
           schedule_days: Array.isArray(data.schedule_days)
             ? data.schedule_days
             : [0, 1, 2, 3, 4, 5, 6],
           is_active: data.is_active ?? true,
+        });
+        setDraft({
+          delayMin: String(Math.round(normalized.minSecs / 60)),
+          delayMax: String(Math.round(normalized.maxSecs / 60)),
+          secondaryMin: String(Math.round(normalizedSecondary.minSecs / 60)),
+          secondaryMax: String(Math.round(normalizedSecondary.maxSecs / 60)),
         });
       }
       setLoading(false);
@@ -562,16 +591,31 @@ function CampaignWindowCard({
   }, [tenantId]);
 
   const handleSave = async () => {
+    // ✅ Normaliza a partir do DRAFT (texto do input), não de `settings` —
+    // se o usuário digitou e clicou Salvar direto, sem sair do campo
+    // (blur), `settings` ainda teria o valor antigo.
     const normalized = normalizeBillingDelayWindow(
-      settings.delay_min_secs,
-      settings.delay_max_secs,
+      Number(draft.delayMin) * 60,
+      Number(draft.delayMax) * 60,
+    );
+    const normalizedSecondary = normalizeSecondaryContactDelay(
+      Number(draft.secondaryMin) * 60,
+      Number(draft.secondaryMax) * 60,
     );
     const nextSettings = {
       ...settings,
       delay_min_secs: normalized.minSecs,
       delay_max_secs: normalized.maxSecs,
+      secondary_contact_delay_min_secs: normalizedSecondary.minSecs,
+      secondary_contact_delay_max_secs: normalizedSecondary.maxSecs,
     };
     setSettings(nextSettings);
+    setDraft({
+      delayMin: String(Math.round(normalized.minSecs / 60)),
+      delayMax: String(Math.round(normalized.maxSecs / 60)),
+      secondaryMin: String(Math.round(normalizedSecondary.minSecs / 60)),
+      secondaryMax: String(Math.round(normalizedSecondary.maxSecs / 60)),
+    });
     if (nextSettings.delay_max_secs < nextSettings.delay_min_secs) {
       addToast(
         "error",
@@ -593,6 +637,8 @@ function CampaignWindowCard({
             window_start: nextSettings.window_start,
             delay_min_secs: nextSettings.delay_min_secs,
             delay_max_secs: nextSettings.delay_max_secs,
+            secondary_contact_delay_min_secs: nextSettings.secondary_contact_delay_min_secs,
+            secondary_contact_delay_max_secs: nextSettings.secondary_contact_delay_max_secs,
             schedule_days: nextSettings.schedule_days,
             is_active: nextSettings.is_active,
           },
@@ -683,19 +729,21 @@ function CampaignWindowCard({
                 min={2}
                 max={30}
                 step={1}
-                value={Math.round(settings.delay_min_secs / 60)}
+                value={draft.delayMin}
                 onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    delay_min_secs: Math.min(
-                      MAX_DELAY_SECS,
-                      Math.max(
-                        MIN_DELAY_SECS,
-                        Math.round(Number(e.target.value) * 60),
-                      ),
-                    ),
-                  }))
+                  setDraft((d) => ({ ...d, delayMin: e.target.value }))
                 }
+                onBlur={() => {
+                  const normalized = normalizeBillingDelayWindow(
+                    Number(draft.delayMin) * 60,
+                    settings.delay_max_secs,
+                  );
+                  setSettings((s) => ({ ...s, delay_min_secs: normalized.minSecs }));
+                  setDraft((d) => ({
+                    ...d,
+                    delayMin: String(Math.round(normalized.minSecs / 60)),
+                  }));
+                }}
                 className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
             </div>
@@ -706,19 +754,21 @@ function CampaignWindowCard({
                 min={2}
                 max={30}
                 step={1}
-                value={Math.round(settings.delay_max_secs / 60)}
+                value={draft.delayMax}
                 onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    delay_max_secs: Math.min(
-                      MAX_DELAY_SECS,
-                      Math.max(
-                        MIN_DELAY_SECS,
-                        Math.round(Number(e.target.value) * 60),
-                      ),
-                    ),
-                  }))
+                  setDraft((d) => ({ ...d, delayMax: e.target.value }))
                 }
+                onBlur={() => {
+                  const normalized = normalizeBillingDelayWindow(
+                    settings.delay_min_secs,
+                    Number(draft.delayMax) * 60,
+                  );
+                  setSettings((s) => ({ ...s, delay_max_secs: normalized.maxSecs }));
+                  setDraft((d) => ({
+                    ...d,
+                    delayMax: String(Math.round(normalized.maxSecs / 60)),
+                  }));
+                }}
                 className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
             </div>
@@ -745,6 +795,72 @@ function CampaignWindowCard({
                   );
                 })}
               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-12">
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-2">
+              <Label>2º contato mín. (min)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={10}
+                step={1}
+                value={draft.secondaryMin}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, secondaryMin: e.target.value }))
+                }
+                onBlur={() => {
+                  const normalized = normalizeSecondaryContactDelay(
+                    Number(draft.secondaryMin) * 60,
+                    settings.secondary_contact_delay_max_secs,
+                  );
+                  setSettings((s) => ({
+                    ...s,
+                    secondary_contact_delay_min_secs: normalized.minSecs,
+                  }));
+                  setDraft((d) => ({
+                    ...d,
+                    secondaryMin: String(Math.round(normalized.minSecs / 60)),
+                  }));
+                }}
+                className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-2">
+              <Label>2º contato máx. (min)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={10}
+                step={1}
+                value={draft.secondaryMax}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, secondaryMax: e.target.value }))
+                }
+                onBlur={() => {
+                  const normalized = normalizeSecondaryContactDelay(
+                    settings.secondary_contact_delay_min_secs,
+                    Number(draft.secondaryMax) * 60,
+                  );
+                  setSettings((s) => ({
+                    ...s,
+                    secondary_contact_delay_max_secs: normalized.maxSecs,
+                  }));
+                  setDraft((d) => ({
+                    ...d,
+                    secondaryMax: String(Math.round(normalized.maxSecs / 60)),
+                  }));
+                }}
+                className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-8 flex items-center">
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Quando a conta tem WhatsApp principal + secundário, o segundo
+                envio espera um tempo sorteado dentro dessa faixa depois do
+                primeiro, pra não sair "em cima".
+              </p>
             </div>
           </div>
         </div>

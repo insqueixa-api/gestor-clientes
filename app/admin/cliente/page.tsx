@@ -858,31 +858,6 @@ function ClientePageContent() {
       setLoading(false);
       loadingRef.current = false;
 
-      supabaseBrowser
-        .from("apps")
-        .select("*")
-        .eq("is_active", true)
-        .then(({ data: appsData }) => {
-          if (appsData && appsData.length > 0) {
-            const byId: Record<string, any> = {};
-            const byName: Record<string, any> = {};
-            for (const a of appsData) {
-              if (a?.id) byId[String(a.id)] = a;
-              byName[normAppKey(a?.name)] = a;
-            }
-            setAppsIndex({ byId, byName });
-          }
-        });
-
-      supabaseBrowser
-        .from("app_integrations")
-        .select("app_name, api_url, pin")
-        .eq("tenant_id", tid)
-        .eq("is_active", true)
-        .then(({ data: appInts }) => {
-          if (appInts) setAppIntegrations(appInts);
-        });
-
       // ✅ Escopo mudou pra só a página atual (get_clients_list_page já
       // devolve só ela) — antes buscava pro tenant inteiro numa passada só.
       loadScheduledForClients(
@@ -1024,6 +999,43 @@ function ClientePageContent() {
   // Opções dos dropdowns de Servidor/Plano/Aplicativos — vêm do banco (não
   // mais derivadas das linhas já carregadas), refeitas só quando o tenant
   // ou o toggle Ativos/Lixeira mudam (não a cada tecla/filtro).
+  // ✅ Catálogo de apps + integrações do tenant — referência praticamente
+  // estática (não muda por filtro/página/busca). Antes rodava dentro de
+  // loadData(), sendo refeita a cada paginação/filtro/ordenação clicado;
+  // agora carrega uma vez só por tenantId.
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+
+    supabaseBrowser
+      .from("apps")
+      .select("*")
+      .eq("is_active", true)
+      .then(({ data: appsData }) => {
+        if (!alive || !appsData || appsData.length === 0) return;
+        const byId: Record<string, any> = {};
+        const byName: Record<string, any> = {};
+        for (const a of appsData) {
+          if (a?.id) byId[String(a.id)] = a;
+          byName[normAppKey(a?.name)] = a;
+        }
+        setAppsIndex({ byId, byName });
+      });
+
+    supabaseBrowser
+      .from("app_integrations")
+      .select("app_name, api_url, pin")
+      .eq("tenant_id", tenantId)
+      .eq("is_active", true)
+      .then(({ data: appInts }) => {
+        if (alive && appInts) setAppIntegrations(appInts);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
   useEffect(() => {
     if (!tenantId) return;
     let alive = true;
@@ -2029,6 +2041,7 @@ function ClientePageContent() {
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <Link
                               href={`/admin/cliente/${r.id}`}
+                              prefetch={false}
                               className="font-semibold text-foreground/90 group-hover:text-emerald-400 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate"
                             >
                               {r.name.split(" ")[0]}

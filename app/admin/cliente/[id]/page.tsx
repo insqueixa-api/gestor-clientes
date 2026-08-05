@@ -758,6 +758,7 @@ export default function ClientDetailsPage() {
           {/* Voltar (Só no Desktop) */}
           <Link
             href="/admin/cliente"
+            prefetch={false}
             className="hidden sm:inline-flex h-9 px-3 rounded-lg border border-border text-muted-foreground font-medium text-xs hover:bg-muted transition-all items-center justify-center"
           >
             Voltar

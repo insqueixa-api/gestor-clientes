@@ -21,6 +21,11 @@ import {
 import { notify } from "@/lib/notifications/notify";
 import { getCouponPhraseForClient, getPendencyPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
 import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
+import {
+  normalizeSecondaryContactDelay,
+  DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
+  DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
+} from "@/lib/admin/billing-campaign-window";
 
 function safeServerLog(...args: any[]) {
   console.error(...args);
@@ -310,6 +315,27 @@ export async function POST(req: Request) {
       return manualPaymentVarsCache.get(tenantId)!;
     }
 
+    // ✅ Intervalo entre contato primário e secundário — sorteado dentro da
+    // faixa configurada em billing_campaign_settings (era 10s fixo).
+    const secondaryDelayRangeCache = new Map<string, { minSecs: number; maxSecs: number }>();
+    async function getCachedSecondaryContactDelayRange(tenantId: string) {
+      if (!secondaryDelayRangeCache.has(tenantId)) {
+        const { data } = await sb
+          .from("billing_campaign_settings")
+          .select("secondary_contact_delay_min_secs, secondary_contact_delay_max_secs")
+          .eq("tenant_id", tenantId)
+          .maybeSingle();
+        secondaryDelayRangeCache.set(
+          tenantId,
+          normalizeSecondaryContactDelay(
+            data?.secondary_contact_delay_min_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
+            data?.secondary_contact_delay_max_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
+          ),
+        );
+      }
+      return secondaryDelayRangeCache.get(tenantId)!;
+    }
+
     for (const job of jobs) {
       try {
         // ✅ LOCK ANTI DUPLICAÇÃO (CRON SAFE)
@@ -532,10 +558,13 @@ export async function POST(req: Request) {
             successCount++;
           }
 
-          // ✅ NOVO: delay de 10s entre telefone primário e secundário do mesmo
-          // cliente (só aplica se houver mais um contato depois deste)
+          // ✅ Delay entre telefone primário e secundário do mesmo cliente
+          // (só aplica se houver mais um contato depois deste), sorteado
+          // dentro da faixa configurada em billing_campaign_settings.
           if (i < wa.phones.length - 1) {
-            await sleep(10_000);
+            const { minSecs, maxSecs } = await getCachedSecondaryContactDelayRange(String(job.tenant_id));
+            const delaySecs = minSecs + Math.floor(Math.random() * Math.max(maxSecs - minSecs + 1, 1));
+            await sleep(delaySecs * 1000);
           }
         }
 

@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminRole } from "./auth";
 import { flagSuspiciousAccess } from "@/lib/observability";
-import { ADMIN_CTX_COOKIE, ADMIN_CTX_MAX_AGE, parseAdminCtxCookie, type AdminCtxCookiePayload } from "./admin-ctx";
+import { ADMIN_CTX_COOKIE, ADMIN_CTX_MAX_AGE, ADMIN_CTX_REVALIDATE_MS, parseAdminCtxCookie, type AdminCtxCookiePayload } from "./admin-ctx";
 
 export type AdminTenantContext = {
   ok: true;
@@ -26,9 +26,12 @@ export type AdminTenantDenied = {
 // no login e limpo no logoff — pedido do Marcio, 04/08/2026: único usuário
 // do sistema, não precisa reconsultar tenant_members/tenants/profiles em
 // toda navegação, só quando a sessão trocar de usuário ou for renovada.
-// A ÚNICA checagem que continua rodando sempre é auth.getUser() (valida a
-// sessão em si) — a autorização de dados de verdade é imposta pelas
-// policies de RLS via auth.uid(), esse cookie é só um atalho de leitura.
+// ✅ 05/08/2026: o cookie também guarda `verifiedAt` — enquanto estiver
+// dentro de ADMIN_CTX_REVALIDATE_MS (24h), getAdminTenantContext nem chama
+// auth.getUser() (que bate no servidor de Auth do Supabase a cada request,
+// inclusive em prefetch de <Link>); usa só supabase.auth.getSession(), que
+// é leitura local do cookie de sessão, sem round-trip. A autorização de
+// dados de verdade continua imposta pelas policies de RLS via auth.uid().
 async function readAdminCtxCookie(userId: string): Promise<AdminCtxCookiePayload | null> {
   try {
     const store = await cookies();
@@ -72,12 +75,33 @@ export async function clearAdminCtxCookie(): Promise<void> {
 export async function getAdminTenantContext(): Promise<AdminTenantContext | AdminTenantDenied> {
   const supabase = await createClient();
 
+  // 1) Tentativa barata: sessão local (sem bater no servidor de Auth). Se o
+  // cookie de contexto já foi verificado de verdade há menos de 24h para
+  // esse mesmo usuário, confia nela e nem chama auth.getUser().
+  const { data: sessionData } = await supabase.auth.getSession();
+  const localUserId = sessionData?.session?.user?.id;
+  if (localUserId) {
+    const cached = await readAdminCtxCookie(localUserId);
+    if (cached && Date.now() - cached.verifiedAt < ADMIN_CTX_REVALIDATE_MS) {
+      return {
+        ok: true,
+        tenantId: cached.tenantId,
+        userId: localUserId,
+        role: cached.role,
+        tenantName: cached.tenantName,
+        displayName: cached.displayName,
+      };
+    }
+  }
+
+  // 2) Cache ausente/vencido — verificação de verdade, batendo no servidor
+  // de Auth do Supabase.
   const { data: userData } = await supabase.auth.getUser();
   const user = userData?.user;
   if (!user) return { ok: false, reason: "unauthenticated" };
 
   const cached = await readAdminCtxCookie(user.id);
-  if (cached) {
+  if (cached && Date.now() - cached.verifiedAt < ADMIN_CTX_REVALIDATE_MS) {
     return {
       ok: true,
       tenantId: cached.tenantId,
@@ -121,6 +145,7 @@ export async function getAdminTenantContext(): Promise<AdminTenantContext | Admi
     role: ctx.role,
     tenantName: ctx.tenantName,
     displayName: ctx.displayName,
+    verifiedAt: Date.now(),
   });
 
   return ctx;

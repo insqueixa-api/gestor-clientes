@@ -580,6 +580,7 @@ export default function ServerDetailsPage() {
           <div className="text-muted-foreground mt-1 text-xs flex items-center justify-start gap-2 font-medium">
             <Link
               href="/admin/gerenciador/servidor"
+              prefetch={false}
               className="hover:text-emerald-500 transition-colors"
             >
               Servidores
@@ -637,6 +638,7 @@ export default function ServerDetailsPage() {
         <div className="flex gap-3 w-full md:w-auto justify-end">
           <Link
             href="/admin/gerenciador/servidor"
+            prefetch={false}
             className="h-10 px-4 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center"
           >
             Voltar

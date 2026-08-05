@@ -825,6 +825,7 @@ export default function AdminServersPage() {
                 <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                   <Link
                     href={`/admin/gerenciador/servidor/${server.id}`}
+                    prefetch={false}
                     className="flex items-center gap-3 min-w-0 pr-3 group cursor-pointer"
                   >
                     {/* ✅ TÍTULO: Ajustado para text-foreground/90 (era 800) para igualar ao título da lista de clientes */}
@@ -955,6 +956,7 @@ export default function AdminServersPage() {
                     <Link
                       href={`/admin/gerenciador/servidor/${server.id}`}
                       onClick={(e) => e.stopPropagation()}
+                      prefetch={false}
                       title="Detalhes"
                       className="p-1.5 rounded-lg border transition-all text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20"
                     >
@@ -1010,6 +1012,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
                         href={`/admin/cliente?server_id=${server.id}&status=active`}
+                        prefetch={false}
                         className={`font-normal text-muted-foreground hover:text-emerald-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
                       >
                         {formatNumber(server.stats?.active)}
@@ -1035,6 +1038,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
                         href={`/admin/cliente?server_id=${server.id}&status=inactive`}
+                        prefetch={false}
                         className={`font-normal text-muted-foreground hover:text-rose-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
                       >
                         {formatNumber(server.stats?.inactive)}
@@ -1063,6 +1067,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
                         href={`/admin/cliente?server_id=${server.id}&status=trial`}
+                        prefetch={false}
                         className={`font-normal text-muted-foreground hover:text-sky-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
                       >
                         {formatNumber(server.stats?.trial)}
@@ -1076,6 +1081,7 @@ export default function AdminServersPage() {
                       </div>
                       <Link
                         href={`/admin/revendedor?server_id=${server.id}`}
+                        prefetch={false}
                         className={`font-normal text-muted-foreground hover:text-violet-500 hover:underline cursor-pointer transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
                       >
                         {formatNumber(server.stats?.resellers)}

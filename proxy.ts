@@ -2,9 +2,20 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isAdminRole } from "@/lib/api/auth";
 import { flagSuspiciousAccess } from "@/lib/observability";
-import { ADMIN_CTX_COOKIE, parseAdminCtxCookie } from "@/lib/api/admin-ctx";
+import { ADMIN_CTX_COOKIE, ADMIN_CTX_REVALIDATE_MS, parseAdminCtxCookie } from "@/lib/api/admin-ctx";
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ✅ 05/08/2026: `user` só influencia decisão em duas rotas (/admin exige
+  // login, /login redireciona quem já está logado) — em qualquer outra rota
+  // (/renew do portal do cliente, /api/*, etc.) essa checagem rodava à toa
+  // em TODA requisição, batendo no servidor de Auth do Supabase sem que o
+  // resultado mudasse nada. Fora de /admin e /login, nem cria o client.
+  if (!pathname.startsWith('/admin') && pathname !== '/login') {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({
     request: { headers: request.headers },
   });
@@ -24,8 +35,21 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
+  // ✅ Mesmo esquema de lib/api/auth-server.ts: tentativa barata primeiro
+  // (getSession, leitura local do cookie, sem round-trip) — só escala pra
+  // getUser() (que bate no servidor de Auth) quando o cache admin_ctx não
+  // existe ou passou de 24h. Único usuário do sistema, não precisa
+  // reconfirmar a sessão em toda navegação pro /admin.
+  const { data: sessionData } = await supabase.auth.getSession();
+  let user = sessionData?.session?.user ?? null;
+  let cached = user ? parseAdminCtxCookie(request.cookies.get(ADMIN_CTX_COOKIE)?.value, user.id) : null;
+  const trustedFresh = !!cached && Date.now() - cached.verifiedAt < ADMIN_CTX_REVALIDATE_MS;
+
+  if (!trustedFresh) {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+    cached = user ? parseAdminCtxCookie(request.cookies.get(ADMIN_CTX_COOKIE)?.value, user.id) : null;
+  }
 
   // 1. REGRA: Se tentar acessar /admin, deve estar logado.
   // Se não estiver logado, redireciona para /login.
@@ -47,13 +71,9 @@ export async function proxy(request: NextRequest) {
   // Server Component usa next/headers).
   if (user && pathname.startsWith('/admin')) {
     // ✅ Mesmo cache de lib/api/auth-server.ts (cookie setado no login, até
-    // o logoff) — se já validamos essa sessão antes, pula a consulta a
-    // tenant_members aqui também. Achado em 04/08/2026: esse middleware
-    // rodava sua PRÓPRIA checagem em toda requisição pro /admin/*, sem
-    // reaproveitar o cache — era o maior consumidor restante.
-    const cached = parseAdminCtxCookie(request.cookies.get(ADMIN_CTX_COOKIE)?.value, user.id);
-
-    if (!cached) {
+    // o logoff) — se já validamos essa sessão antes (cache ainda dentro da
+    // janela de 24h), pula a consulta a tenant_members aqui também.
+    if (!trustedFresh) {
       const { data: member } = await supabase
         .from('tenant_members')
         .select('tenant_id, role')
@@ -79,7 +99,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!monitoring|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
+  // ✅ 05/08/2026: a função só faz algo em /admin/* (exige login) e /login
+  // (redireciona quem já logou) — o matcher antigo cobria praticamente toda
+  // rota do site (inclusive /renew e todo /api/client-portal/* usado pelos
+  // clientes no link mágico), rodando essa checagem à toa em cada request.
+  matcher: ["/admin/:path*", "/login"],
 };

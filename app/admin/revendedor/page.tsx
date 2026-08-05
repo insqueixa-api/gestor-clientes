@@ -1261,6 +1261,7 @@ export default function RevendaPage() {
                         <div className="flex items-center gap-2 whitespace-nowrap">
                           <Link
                             href={`/admin/revendedor/${r.id}`}
+                            prefetch={false}
                             className="font-semibold text-foreground/90 group-hover:text-emerald-500 transition-colors hover:underline decoration-emerald-500/30 underline-offset-2 cursor-pointer truncate"
                             title={r.name}
                           >

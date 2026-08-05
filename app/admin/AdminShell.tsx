@@ -360,6 +360,7 @@ export default function AdminShell({
           <div className="flex items-center gap-4">
             <Link
               href="/admin"
+              prefetch={false}
               className="flex items-center gap-3 font-semibold min-w-0 hover:opacity-90 transition-opacity no-underline text-white"
             >
               <BrandUser userLabel={userLabel} />
@@ -886,6 +887,7 @@ export default function AdminShell({
                 <Link
                   href="/admin/auditoria"
                   onClick={() => setShowNotificationsModal(false)}
+                  prefetch={false}
                   className="px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
                   title="Ver registros de auditoria"
                 >
@@ -1074,6 +1076,7 @@ function NavLink({ href, label }: { href: string; label: React.ReactNode }) {
   return (
     <Link
       href={href}
+      prefetch={false}
       className={[
         "rounded-lg px-3 py-2 text-sm transition-all duration-200 inline-flex items-center font-medium tracking-tight",
         active
@@ -1101,6 +1104,7 @@ function MenuLink({
     <Link
       href={href}
       onClick={onClick}
+      prefetch={false}
       className={[
         "block rounded-lg px-3 py-2.5 text-sm transition-all font-medium tracking-tight",
         isActive

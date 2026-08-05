@@ -10,12 +10,20 @@
 export const ADMIN_CTX_COOKIE = "admin_ctx";
 export const ADMIN_CTX_MAX_AGE = 60 * 60 * 24 * 400; // ~400 dias (teto do RFC6265bis) — na prática "até o logoff"
 
+// ✅ Janela de revalidação do auth.getUser() (bate no servidor de Auth do
+// Supabase) — pedido do Marcio, 05/08/2026: único usuário do sistema, não
+// precisa reconfirmar a sessão a cada navegação/prefetch, só 1x por dia.
+// Fora dessa janela, getAdminTenantContext confia na sessão local
+// (supabase.auth.getSession(), sem round-trip) até completar 24h.
+export const ADMIN_CTX_REVALIDATE_MS = 1000 * 60 * 60 * 24;
+
 export type AdminCtxCookiePayload = {
   userId: string;
   tenantId: string;
   role: string;
   tenantName: string | null;
   displayName: string | null;
+  verifiedAt: number;
 };
 
 export function parseAdminCtxCookie(raw: string | undefined | null, userId: string): AdminCtxCookiePayload | null {

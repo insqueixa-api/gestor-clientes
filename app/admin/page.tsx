@@ -1077,6 +1077,7 @@ export default async function AdminDashboardPage({
               Nenhuma transação registrada no mês.{" "}
               <Link
                 href="/admin/settings/financeiro_pessoal"
+                prefetch={false}
                 className="underline hover:text-muted-foreground"
               >
                 Adicionar transações →
@@ -1292,6 +1293,7 @@ function MetricCardView({
       <Link
         href={href}
         target="_blank"
+        prefetch={false}
         className={`${baseClass} hover:scale-[1.02] transition-transform cursor-pointer hover:shadow-md`}
       >
         {content}
