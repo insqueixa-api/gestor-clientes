@@ -2,9 +2,9 @@
 // app/admin/auditoria/page.tsx
 import { X } from "lucide-react";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import AplicativosLog from "./AplicativosLog";
+import AplicativosLog, { AplicativosLogHandle } from "./AplicativosLog";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -292,6 +292,19 @@ function AuditoriaPageContent() {
   const [filterGateway, setFilterGateway] = useState("Todos");
   const [filterWhatsapp, setFilterWhatsapp] = useState("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // ✅ Botão "Atualizar" ao lado do toggle IPTV/Aplicativos (pedido do
+  // Márcio, 05/08/2026) — refaz só o log da aba aberta, sem refresh da
+  // página inteira. No mobile mostra só o ícone, girando enquanto carrega.
+  const aplicativosLogRef = useRef<AplicativosLogHandle>(null);
+  const [aplicativosLoading, setAplicativosLoading] = useState(false);
+  const isRefreshingActiveLog =
+    activeLogView === "iptv" ? loading : aplicativosLoading;
+
+  function handleRefreshActiveLog() {
+    if (activeLogView === "iptv") loadData(search);
+    else aplicativosLogRef.current?.refresh();
+  }
 
   // Paginação
   const [page, setPage] = useState(1);
@@ -1300,15 +1313,28 @@ function AuditoriaPageContent() {
               )}
             </button>
           </div>
+          <button
+            onClick={handleRefreshActiveLog}
+            disabled={isRefreshingActiveLog}
+            title="Atualizar"
+            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 flex items-center justify-center gap-1.5 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-[11px] font-medium disabled:opacity-50 shrink-0"
+          >
+            <span className={isRefreshingActiveLog ? "animate-spin" : ""}>
+              <IconRefresh />
+            </span>
+            <span className="hidden sm:inline">Atualizar</span>
+          </button>
         </div>
       </div>
 
       {activeLogView === "aplicativos" && tenantId && (
         <AplicativosLog
+          ref={aplicativosLogRef}
           tenantId={tenantId}
           addToast={addToast}
           confirm={confirm}
           onPendingCountChange={setAppRequestsPendingCount}
+          onLoadingChange={setAplicativosLoading}
         />
       )}
 

@@ -11,7 +11,13 @@
 // como feito (você configurou por fora); removal de fato APAGA a linha em
 // client_apps nesse momento (até lá o app continua na tela do cliente,
 // marcado como "exclusão solicitada").
-import { useEffect, useMemo, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import dynamic from "next/dynamic";
 const AppRequestModal = dynamic(() => import("@/components/apps/AppRequestModal"), { ssr: false });
@@ -85,17 +91,28 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d`;
 }
 
-export default function AplicativosLog({
-  tenantId,
-  addToast,
-  confirm,
-  onPendingCountChange,
-}: {
-  tenantId: string;
-  addToast: (type: "success" | "error" | "warning", title: string, message?: string) => void;
-  confirm: ConfirmFn;
-  onPendingCountChange?: (count: number) => void;
-}) {
+// ✅ Handle exposto pro botão "Atualizar" no topo da página de Auditoria
+// (ao lado do toggle IPTV/Aplicativos) — refaz o fetch da aba que estiver
+// aberta agora (pedidos ou atividade), sem precisar duplicar os botões
+// "↻ Atualizar" que já existem dentro de cada aba.
+export type AplicativosLogHandle = { refresh: () => void };
+
+function AplicativosLog(
+  {
+    tenantId,
+    addToast,
+    confirm,
+    onPendingCountChange,
+    onLoadingChange,
+  }: {
+    tenantId: string;
+    addToast: (type: "success" | "error" | "warning", title: string, message?: string) => void;
+    confirm: ConfirmFn;
+    onPendingCountChange?: (count: number) => void;
+    onLoadingChange?: (loading: boolean) => void;
+  },
+  ref: React.ForwardedRef<AplicativosLogHandle>,
+) {
   const [rows, setRows] = useState<AppRequestRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<"pending" | "todos">("pending");
@@ -218,6 +235,18 @@ export default function AplicativosLog({
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
+
+  useImperativeHandle(ref, () => ({
+    refresh: () => {
+      if (tab === "atividade") loadActivity();
+      else loadData();
+    },
+  }));
+
+  useEffect(() => {
+    onLoadingChange?.(tab === "atividade" ? activityLoading : loading);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, loading, activityLoading]);
 
   function handleConcluir(row: AppRequestRow) {
     // open modal to show details and allow configure/check/delete
@@ -623,3 +652,5 @@ export default function AplicativosLog({
     </div>
   );
 }
+
+export default forwardRef(AplicativosLog);
