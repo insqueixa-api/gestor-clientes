@@ -6167,7 +6167,13 @@ export default function NovoCliente({
                     onClick={() => {
                       const next = !sendAppsRenewalMsg;
                       setSendAppsRenewalMsg(next);
-                      if (next && !selectedTemplateId) {
+                      // ✅ Sobrescreve de propósito, mesmo se já tinha algo
+                      // selecionado — o carregamento inicial desta tela
+                      // sempre pré-seleciona "Pagamento" pro toggle de
+                      // Dados/Cliente; ao ligar ESTE toggle o admin quer o
+                      // modelo de renovação de app, não o de pagamento
+                      // (achado real, 04/08/2026).
+                      if (next) {
                         const defaultTpl = templates.find((t) =>
                           t.name
                             .toLowerCase()
@@ -6188,7 +6194,7 @@ export default function NovoCliente({
                       checked={sendAppsRenewalMsg}
                       onChange={(next) => {
                         setSendAppsRenewalMsg(next);
-                        if (next && !selectedTemplateId) {
+                        if (next) {
                           const defaultTpl = templates.find((t) =>
                             t.name
                               .toLowerCase()

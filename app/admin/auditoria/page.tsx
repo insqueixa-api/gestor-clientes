@@ -201,11 +201,16 @@ function matchesPayment(r: LogRow, value: string) {
 }
 
 function matchesWhatsapp(r: LogRow, value: string) {
-  // ✅ Licença de app avulsa nunca dispara WhatsApp (achado em auditoria
-  // 25/07/2026: markAppRenewalPaid não manda mensagem — só o fulfillment de
-  // assinatura IPTV faz isso). Sem isso, esses pagamentos ficavam presos
-  // pra sempre em "Aguardando" na coluna/filtro de Mensagem WA.
-  if (r.payment_type === "app_renewal") return value === "na";
+  // ✅ Licença de app avulsa: o envio de WhatsApp ao concluir é OPCIONAL
+  // (toggle no modal "Concluir renovação", 04/08/2026) — só existe status
+  // real quando o toggle esteve ligado (whatsapp_status preenchido). Sem
+  // status registrado (toggle desligado, ou pedido ainda nem concluído),
+  // trata como "não aplicável" — senão reintroduz o bug antigo (ficava
+  // preso em "Aguardando" pra sempre pra quem nunca teve intenção de
+  // mandar mensagem nenhuma).
+  if (r.payment_type === "app_renewal" && !r.whatsapp_status) {
+    return value === "na";
+  }
   const isApprovedPayment =
     r.payment_status === "approved" ||
     r.payment_status === "PAGO" ||
@@ -1178,8 +1183,13 @@ function AuditoriaPageContent() {
     fulfillmentStatus: string,
     paymentType: LogRow["payment_type"],
   ) {
-    // 0. Licença de app avulsa nunca dispara WhatsApp — ver matchesWhatsapp.
-    if (paymentType === "app_renewal") {
+    // 0. Licença de app avulsa: envio é OPCIONAL (toggle no modal de
+    // Concluir, 04/08/2026) — só mostra o status real (Enviado/Erro) quando
+    // o toggle esteve ligado (whatsapp_status ficou preenchido). Sem status
+    // (toggle desligado, ou pedido ainda pendente), mostra "—" em vez de
+    // cair no "Aguardando" genérico abaixo, que soaria como "ainda vai
+    // mandar" — não vai, porque ninguém pediu.
+    if (paymentType === "app_renewal" && !status) {
       return <span className="text-muted-foreground/60 font-medium">—</span>;
     }
 

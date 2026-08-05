@@ -673,6 +673,17 @@ export default function AppRequestModal({
               });
             } catch {}
           } catch (e: any) {
+            // ✅ Sem isso, uma falha real de envio ficava indistinguível de
+            // "nunca tentou" — a coluna Mensagem WA da Auditoria mostrava
+            // "Aguardando" pra sempre em vez de "Erro" (mesmo tratamento
+            // já usado na renovação manual de assinatura).
+            try {
+              await supabaseBrowser.rpc("update_whatsapp_status", {
+                p_log_id: paymentLogId,
+                p_tenant_id: tenantId,
+                p_status: "error",
+              });
+            } catch {}
             addToast(
               "warning",
               "Renovação concluída, WhatsApp falhou",
@@ -837,27 +848,40 @@ export default function AppRequestModal({
 
             {/* ✅ Mensagem genérica ao concluir (pedido do Márcio, 04/08/2026)
                 — toggle sempre ligado por padrão, template pré-selecionado
-                pelo nome. Tudo numa linha só. */}
+                pelo nome. Tudo numa linha só. Mesmo padrão visual do Switch
+                usado em novo_cliente.tsx/recarga_cliente.tsx (w-12 h-7 +
+                thumb w-5 h-5) — esse componente é local a cada arquivo, sem
+                versão compartilhada, então replica aqui pra não destoar. */}
             {action === "renewal" && (
               <div className="flex items-center gap-2 pt-2 border-t border-border">
-                <button
-                  type="button"
+                <div
                   onClick={() => setSendRenewalMsg((v) => !v)}
-                  className={`shrink-0 h-8 px-2.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1.5 transition-colors ${
-                    sendRenewalMsg
-                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                      : "bg-muted text-muted-foreground border-border"
-                  }`}
+                  className="h-10 px-3 rounded-lg border border-border bg-muted/40 cursor-pointer hover:bg-muted transition-colors flex items-center gap-2 shrink-0"
                 >
-                  <span
-                    className={`w-7 h-4 rounded-full relative transition-colors shrink-0 ${sendRenewalMsg ? "bg-emerald-600" : "bg-muted-foreground/30"}`}
+                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                    Enviar mensagem
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSendRenewalMsg((v) => !v);
+                    }}
+                    className={`relative w-12 h-7 rounded-full transition-colors border shrink-0 ${
+                      sendRenewalMsg
+                        ? "bg-emerald-600 border-emerald-600"
+                        : "bg-muted border-border"
+                    }`}
+                    aria-pressed={sendRenewalMsg}
                   >
                     <span
-                      className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${sendRenewalMsg ? "translate-x-3.5" : "translate-x-0.5"}`}
+                      className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-card transition-transform ${
+                        sendRenewalMsg ? "translate-x-5" : "translate-x-0"
+                      }`}
                     />
-                  </span>
-                  Enviar msg
-                </button>
+                  </button>
+                </div>
+
                 {sendRenewalMsg && (
                   <select
                     value={selectedTemplateId}
@@ -867,7 +891,7 @@ export default function AppRequestModal({
                       const tpl = templates.find((t) => t.id === id);
                       setMessageContent(tpl?.content || "");
                     }}
-                    className="flex-1 min-w-0 h-8 px-2 bg-muted border border-border rounded-lg text-[11px] text-foreground outline-none focus:border-emerald-500/50"
+                    className="flex-1 min-w-0 h-10 px-2.5 bg-muted border border-border rounded-lg text-xs text-foreground outline-none focus:border-emerald-500/50"
                   >
                     <option value="">-- Personalizado --</option>
                     {templates.map((t) => (
