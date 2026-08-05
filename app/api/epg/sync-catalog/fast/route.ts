@@ -26,6 +26,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
 import * as Sentry from "@sentry/nextjs";
+import { limparOrfaosAposSync } from "@/lib/catalogo/limpar-orfaos";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 300;
@@ -492,6 +493,14 @@ export async function POST(req: NextRequest) {
     log.resultado = resultado;
     await salvarLog(log);
     console.log(`[CATALOG-FAST] Concluído em ${duracao}s`, resultado);
+
+    // ✅ Limpeza de órfãos direto no fim do sync (05/08/2026) — não depende
+    // mais só do cron diário de horário fixo, ver lib/catalogo/limpar-orfaos.ts.
+    // Era o caso mais exposto: se o download do M3U falhar (aconteceu em
+    // 01/08/2026) e for recuperado manualmente mais tarde, a limpeza
+    // automática já tinha rodado de manhã sem ver isso.
+    await limparOrfaosAposSync(SERVIDOR);
+
     return NextResponse.json({ ok: true, ...resultado });
   } catch (e: any) {
     log.erro = e.message;

@@ -601,6 +601,7 @@ export default function AdminShell({
             right={managerPos.right}
             top={managerPos.top}
             onClose={() => setOpenMenu(null)}
+            triggerRef={managerRef}
           >
             <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Gestão
@@ -683,6 +684,7 @@ export default function AdminShell({
             right={mobilePos.right}
             top={mobilePos.top}
             onClose={() => setOpenMenu(null)}
+            triggerRef={mobileRef}
           >
             <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
               Navegação
@@ -879,6 +881,7 @@ export default function AdminShell({
             right={settingsPos.right}
             top={settingsPos.top}
             onClose={() => setOpenMenu(null)}
+            triggerRef={settingsRef}
           >
             <MenuLink
               href="/admin/settings/profile"
@@ -1089,22 +1092,43 @@ function DropdownPortal({
   top,
   right,
   onClose,
+  triggerRef,
 }: {
   children: React.ReactNode;
   top: number;
   right: number;
   onClose: () => void;
+  // ✅ Correção 05/08/2026: o antigo overlay "fixed inset-0" ficava por
+  // cima de TODA a página (inclusive da topbar, por causa do z-index alto
+  // do portal), roubando os eventos de mouse dos outros triggers — por
+  // isso o hover entre "Gerenciador" e "Conta" não trocava de menu na
+  // hora. Trocado por um listener de mousedown no document que ignora
+  // cliques dentro do painel OU no próprio botão que abriu o menu (o
+  // botão cuida do toggle sozinho).
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleOutsideMouseDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if (triggerRef?.current?.contains(target)) return;
+      onClose();
+    }
+    document.addEventListener("mousedown", handleOutsideMouseDown);
+    return () =>
+      document.removeEventListener("mousedown", handleOutsideMouseDown);
+  }, [onClose, triggerRef]);
+
   return (
-    <div className="fixed inset-0 z-[9999]" onMouseDown={onClose}>
-      <div
-        className="absolute animate-in fade-in zoom-in-95 duration-200"
-        style={{ top, right }}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="w-64 rounded-xl border border-border bg-card shadow-2xl overflow-hidden p-1.5 transition-colors">
-          {children}
-        </div>
+    <div
+      ref={panelRef}
+      className="fixed z-[9999] animate-in fade-in zoom-in-95 duration-200"
+      style={{ top, right }}
+    >
+      <div className="w-64 rounded-xl border border-border bg-card shadow-2xl overflow-hidden p-1.5 transition-colors">
+        {children}
       </div>
     </div>
   );

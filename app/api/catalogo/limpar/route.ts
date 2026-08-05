@@ -3,56 +3,36 @@
 // GET  → preview: quantos seriam deletados por servidor
 // POST → executa limpeza: remove títulos que não apareceram no último sync
 //
-// Lógica D-1:
+// Lógica (corrigido 05/08/2026 — o comentário antigo aqui descrevia "corte
+// na meia-noite do dia anterior", mas o código sempre fez outra coisa):
 //   - Pega o MAX(sincronizado_em) de cada servidor
-//   - Deleta tudo com sincronizado_em anterior à meia-noite do dia anterior ao último sync
-//   - Remove órfãos do catalog_master
+//   - Deleta tudo com sincronizado_em mais de 1h ANTES desse máximo (ou seja,
+//     tudo que não fez parte do sync mais recente)
+//   - Remove episódios órfãos e órfãos do catalog_master
+//
+// Lógica de verdade agora mora em lib/catalogo/limpar-orfaos.ts — essa rota
+// só orquestra (preview no GET, execução no POST). Além do cron diário
+// (sync_catalog_limpar_daily, roda 1x às 06:20 UTC), essa mesma limpeza
+// agora também dispara automaticamente logo no fim de CADA sync bem-sucedido
+// (elite/natv/fast) — achado 05/08/2026: se um sync falhar (ex: Fast não
+// conseguiu baixar o M3U em 01/08/2026) e for recuperado manualmente mais
+// tarde no dia, o cron diário (que já rodou de manhã) nunca pegava os
+// órfãos daquele sync tardio — só no dia seguinte, ou com um clique manual
+// aqui. Chamar a limpeza direto no fim do sync fecha esse buraco.
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isCronRequest } from "@/lib/internal-auth";
-
-const supabaseAdmin = createAdmin(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-
-const SERVIDORES = ["ELITE", "NATV", "FAST"] as const;
-type Servidor = typeof SERVIDORES[number];
-
-function calcularCorte(ultimoSync: string): Date {
-  // Corte = 1 hora antes do último sync (títulos que não apareceram nesse sync)
-  const corte = new Date(ultimoSync);
-  corte.setHours(corte.getHours() - 1);
-  return corte;
-}
+import {
+  SERVIDORES_CATALOGO,
+  type ServidorCatalogo,
+  previewOrfaos,
+  limparOrfaosServidor,
+  limparMasterOrfaos,
+} from "@/lib/catalogo/limpar-orfaos";
 
 export async function GET() {
-  const preview: Record<string, number> = {};
-
-  for (const srv of SERVIDORES) {
-    const { data: maxRow } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("sincronizado_em")
-      .eq("servidor", srv)
-      .order("sincronizado_em", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (!maxRow?.sincronizado_em) { preview[srv] = 0; continue; }
-
-const corte = calcularCorte(maxRow.sincronizado_em);
-
-    const { count } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("*", { count: "exact", head: true })
-      .eq("servidor", srv)
-      .lt("sincronizado_em", corte.toISOString());
-
-    preview[srv] = count || 0;
-  }
-
+  const preview = await previewOrfaos();
   return NextResponse.json({ ok: true, preview });
 }
 
@@ -69,61 +49,16 @@ export async function POST(req: NextRequest) {
   const { servidor } = body
   if (!servidor) return NextResponse.json({ error: "servidor obrigatório" }, { status: 400 });
 
-  const alvos: Servidor[] = servidor === "TODOS" ? [...SERVIDORES] : [servidor as Servidor];
+  const alvos: ServidorCatalogo[] = servidor === "TODOS" ? [...SERVIDORES_CATALOGO] : [servidor as ServidorCatalogo];
   const resultado: Record<string, number> = {};
 
   for (const srv of alvos) {
-    // 1. Pega o último sincronizado_em desse servidor
-    const { data: maxRow } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("sincronizado_em")
-      .eq("servidor", srv)
-      .order("sincronizado_em", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (!maxRow?.sincronizado_em) { resultado[srv] = 0; continue; }
-
-    // 2. Calcula D-1 (meia-noite do dia anterior ao último sync)
-    const corte = calcularCorte(maxRow.sincronizado_em);
-
-    // 3. Conta antes de deletar
-    const { count: countAntes } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("*", { count: "exact", head: true })
-      .eq("servidor", srv)
-      .lt("sincronizado_em", corte.toISOString());
-
-    // 4. Deleta
-    const { error } = await supabaseAdmin
-      .from("catalog_availability")
-      .delete()
-      .eq("servidor", srv)
-      .lt("sincronizado_em", corte.toISOString());
-
-    if (error) {
-      console.error(`[LIMPAR] Erro ao deletar ${srv}:`, error.message);
-      resultado[srv] = 0;
-    } else {
-      resultado[srv] = countAntes || 0;
-    }
-
-    // 4b. ✅ Remove episódios órfãos desse servidor — catalog_episodes nunca
-    // teve limpeza própria, só catalog_availability. Um título que sai do
-    // servidor deixa de ter linha em catalog_availability, mas os episódios
-    // continuavam acumulando pra sempre (achado: 4.821 órfãos acumulados).
-    // Feito via RPC (NOT EXISTS no banco) — uma lista IN com dezenas de
-    // milhares de ids não cabe na URL do PostgREST.
-    const { data: episodiosRemovidos, error: epErr } = await supabaseAdmin
-      .rpc("remover_episodios_orfaos", { p_servidor: srv });
-
-    if (epErr) console.error(`[LIMPAR] Erro ao remover episódios órfãos de ${srv}:`, epErr.message);
-    else resultado[`${srv}_episodios_orfaos`] = episodiosRemovidos || 0;
+    const r = await limparOrfaosServidor(srv);
+    resultado[srv] = r.removidos;
+    resultado[`${srv}_episodios_orfaos`] = r.episodios_orfaos;
   }
 
-  // 4. Remove órfãos via RPC — uma query só
-  const { data: orfaosData } = await supabaseAdmin.rpc("remover_master_orfaos");
-  const orfaosRemovidos = orfaosData || 0;
+  const orfaosRemovidos = await limparMasterOrfaos();
 
   return NextResponse.json({ ok: true, resultado, orfaos_removidos: orfaosRemovidos });
 }

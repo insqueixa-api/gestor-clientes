@@ -13,6 +13,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
 import * as Sentry from "@sentry/nextjs";
+import { limparOrfaosAposSync } from "@/lib/catalogo/limpar-orfaos";
 import {
   parseM3U,
   statsDoparse,
@@ -367,6 +368,11 @@ await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR }
 
     await salvarLog(log);
     console.log(`[CATALOG-NATV] Concluído em ${duracao}s`, log.resultado);
+
+    // ✅ Limpeza de órfãos direto no fim do sync (05/08/2026) — não depende
+    // mais só do cron diário de horário fixo, ver lib/catalogo/limpar-orfaos.ts.
+    await limparOrfaosAposSync(SERVIDOR);
+
     return NextResponse.json({ ok: true, ...log.resultado });
 
   } catch (e: any) {
