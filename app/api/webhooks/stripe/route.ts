@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       // ✅ Pagamento avulso de licença de app — nunca roda o fulfillment de
       // assinatura IPTV, só marca a cobrança como concluída.
       if (iptvPayment.payment_type === "app_renewal") {
-        await markAppRenewalPaid(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id);
+        await markAppRenewalPaid(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, origin);
         return NextResponse.json({ ok: true });
       }
 

@@ -114,16 +114,17 @@ export async function POST(req: NextRequest) {
       if (!iptvPayment.fulfillment_status) updatePayload.fulfillment_status = "pending";
       await supabaseAdmin.from("client_portal_payments").update(updatePayload).eq("id", iptvPayment.id);
 
+      const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
+
       // ✅ Pagamento avulso de licença de app (payment_type='app_renewal') —
       // NUNCA passa pelo runIptvFulfillment (isso renovaria a assinatura
       // IPTV do cliente, o que não tem nada a ver com pagar a licença de um
       // app). Só marca a cobrança como concluída.
       if (iptvPayment.payment_type === "app_renewal") {
-        await markAppRenewalPaid(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id);
+        await markAppRenewalPaid(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id, origin);
         return NextResponse.json({ ok: true });
       }
 
-      const origin = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").replace(/\/+$/, "");
       if (origin) {
         const lock = await tryAcquireIptvLock(supabaseAdmin, iptvPayment.tenant_id, iptvPayment.id);
         if (lock.acquired) {

@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   // relação nenhuma com o valor pago). Cai pra ação manual — ver comentário
   // em markAppRenewalPaid (lib/client-portal/fulfillment.ts).
   if (payment.payment_type === "app_renewal") {
-    await markAppRenewalPaid(supabaseAdmin, tenantId, payment.id);
+    await markAppRenewalPaid(supabaseAdmin, tenantId, payment.id, origin);
     return NextResponse.json({ ok: true, outcome: "manual_pending" });
   }
 

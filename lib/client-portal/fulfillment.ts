@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
+import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 
 // ============================================================
 // Tipos
@@ -139,11 +140,12 @@ export async function markFulfillmentError(
 export async function markAppRenewalPaid(
   supabaseAdmin: any,
   tenantId: string,
-  paymentRowId: string
+  paymentRowId: string,
+  origin?: string
 ) {
   const { data: payment } = await supabaseAdmin
     .from("client_portal_payments")
-    .select("client_id, price_amount, price_currency, app_name_snapshot")
+    .select("client_id, client_app_id, price_amount, price_currency, app_name_snapshot, mp_payment_id")
     .eq("tenant_id", tenantId)
     .eq("id", paymentRowId)
     .maybeSingle();
@@ -166,15 +168,65 @@ export async function markAppRenewalPaid(
       .select("display_name, server_username, servers(name)")
       .eq("id", payment?.client_id)
       .maybeSingle();
+    const serverName = (client?.servers as any)?.name || "";
 
     await notify({
       tenantId,
       type: "manual_pending",
       title: "🟣 Renovação de licença de app pendente",
-      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment?.price_currency || "BRL" }).format(payment?.price_amount || 0)} confirmado para ${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} — licença de "${payment?.app_name_snapshot || "aplicativo"}". Acesse a Auditoria pra concluir.`,
+      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment?.price_currency || "BRL" }).format(payment?.price_amount || 0)} confirmado para ${formatClientLabel(client?.display_name, client?.server_username, serverName)} — licença de "${payment?.app_name_snapshot || "aplicativo"}". Acesse a Auditoria pra concluir.`,
       link: "/admin/auditoria",
       sourceId: paymentRowId,
     });
+
+    // ✅ Email "bonitinho" (pedido do Márcio, 06/08/2026) — antes só a
+    // renovação manual de ASSINATURA IPTV mandava email (notifyManual mais
+    // abaixo); a de licença de app ficava só no sino, fácil de passar batido.
+    // Mesmos dados de configuração (MAC/Device Key/etc.) mostrados no modal
+    // "Concluir renovação" da Auditoria — resolvidos aqui pelo
+    // apps.fields_config, igual AplicativosLog.tsx faz no admin.
+    if (origin) {
+      try {
+        let fields: { label: string; value: string }[] = [];
+        if (payment?.client_app_id) {
+          const { data: appRow } = await supabaseAdmin
+            .from("client_apps")
+            .select("field_values, apps(fields_config)")
+            .eq("id", payment.client_app_id)
+            .maybeSingle();
+          const appMeta = Array.isArray(appRow?.apps) ? appRow.apps[0] : appRow?.apps;
+          const fieldsConfig = Array.isArray((appMeta as any)?.fields_config)
+            ? (appMeta as any).fields_config
+            : [];
+          const values = appRow?.field_values || {};
+          fields = fieldsConfig
+            .map((f: any) => {
+              const raw = values[String(f.id)];
+              if (!raw) return null;
+              const label = String(f.label || "").trim() || APP_FIELD_LABELS[f.type as AppFieldType] || String(f.id);
+              return { label, value: String(raw) };
+            })
+            .filter((f): f is { label: string; value: string } => !!f);
+        }
+
+        await fetch(`${origin}/api/notifications/app-renewal`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-internal-secret": String(process.env.INTERNAL_API_SECRET) },
+          body: JSON.stringify({
+            clientName: client?.display_name || "Cliente",
+            serverUsername: client?.server_username || "",
+            serverName,
+            appName: payment?.app_name_snapshot || "Aplicativo",
+            amount: payment?.price_amount || 0,
+            currency: payment?.price_currency || "BRL",
+            paymentRef: payment?.mp_payment_id || null,
+            fields,
+          }),
+        });
+      } catch (e) {
+        safeServerLog("Erro ao notificar email de renovação de app", e);
+      }
+    }
   } catch {
     // não bloqueia o fulfillment por falha na notificação
   }

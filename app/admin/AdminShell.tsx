@@ -4,7 +4,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { TenantProvider } from "@/lib/tenant-context";
 import { usePathname } from "next/navigation";
@@ -163,34 +163,39 @@ export default function AdminShell({
   const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ vem direto da tabela notifications
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  // ✅ Pedido do Márcio, 06/08/2026: o botão "Sincronizar" só incrementava
+  // um contador (refreshTrigger, removido) sem nenhum feedback visual —
+  // clicar nele parecia "travado" mesmo quando a busca acontecia certinho
+  // por trás. Agora vira uma chamada direta e aguardada, com o ícone
+  // girando enquanto roda.
+  const [syncingNotifications, setSyncingNotifications] = useState(false);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.is_read).length,
     [notifications],
   );
 
+  const loadNotifications = useCallback(async () => {
+    if (!tenantId) return;
+    try {
+      const { data, error } = await supabaseBrowser
+        .from("notifications")
+        .select("id, type, title, message, link, is_read, created_at")
+        .eq("tenant_id", tenantId)
+        .is("archived_at", null)
+        .is("resolved_at", null)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (!error && data) {
+        setNotifications(data as Notification[]);
+      }
+    } catch {}
+  }, [tenantId]);
+
   useEffect(() => {
-    const loadNotifications = async () => {
-      if (!tenantId) return;
-      try {
-        const { data, error } = await supabaseBrowser
-          .from("notifications")
-          .select("id, type, title, message, link, is_read, created_at")
-          .eq("tenant_id", tenantId)
-          .is("archived_at", null)
-          .is("resolved_at", null)
-          .order("created_at", { ascending: false })
-          .limit(50);
-
-        if (!error && data) {
-          setNotifications(data as Notification[]);
-        }
-      } catch {}
-    };
-
     loadNotifications();
-  }, [tenantId, refreshTrigger]);
+  }, [loadNotifications]);
 
   const managerRef = useRef<HTMLDivElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -356,8 +361,14 @@ export default function AdminShell({
     setNotifications([]);
   };
 
-  const handleSync = () => {
-    setRefreshTrigger((prev) => prev + 1);
+  const handleSync = async () => {
+    if (syncingNotifications) return;
+    setSyncingNotifications(true);
+    try {
+      await loadNotifications();
+    } finally {
+      setSyncingNotifications(false);
+    }
   };
 
   const handleMarkAsUnread = async (e: React.MouseEvent, id: string) => {
@@ -970,10 +981,17 @@ export default function AdminShell({
                 </Link>
                 <button
                   onClick={handleSync}
-                  className="px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
-                  title="Recupera as notificações apagadas do navegador"
+                  disabled={syncingNotifications}
+                  className="px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap disabled:opacity-60"
+                  title="Busca notificações novas agora"
                 >
-                  <RefreshCcw className="w-3.5 h-3.5" /> Sincronizar
+                  <RefreshCcw
+                    className={[
+                      "w-3.5 h-3.5",
+                      syncingNotifications ? "animate-spin" : "",
+                    ].join(" ")}
+                  />{" "}
+                  Sincronizar
                 </button>
               </div>
               {notifications.length > 0 && (

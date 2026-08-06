@@ -268,7 +268,7 @@ export async function POST(req: NextRequest) {
     // Só confirma a cobrança e devolve "done".
     if (payment.payment_type === "app_renewal") {
       if (fStatus !== "done") {
-        await markAppRenewalPaid(supabaseAdmin, tenantId, payment.id);
+        await markAppRenewalPaid(supabaseAdmin, tenantId, payment.id, origin);
       }
       return NextResponse.json(
         { ok: true, status: "approved", phase: "done" },
