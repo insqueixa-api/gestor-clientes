@@ -173,9 +173,14 @@ export async function POST(req: NextRequest) {
     .limit(lote);
 
   if (!forcar) {
-    // Só busca os que nunca tentamos OU que tentamos há mais de 15 dias
+    // Só busca os que nunca tentamos OU que tentamos há mais de 30 dias
+    // (era 15 — aumentado em 06/08/2026 pra gastar menos chamada de API
+    // com título que provavelmente nunca vai casar, tipo evento esportivo
+    // avulso). Backlog dos ~2661 que já estavam "não encontrado" na troca
+    // foi redistribuído manualmente pra escalonar ~1/30 por dia, em vez de
+    // todo mundo virar elegível de uma vez.
     query = query.or("tmdb_buscado_em.is.null,tmdb_buscado_em.lt." +
-      new Date(Date.now() - 15 * 24 * 3600000).toISOString());
+      new Date(Date.now() - 30 * 24 * 3600000).toISOString());
   }
 
   const { data: titulos, error } = await query;
