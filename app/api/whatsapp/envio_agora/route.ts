@@ -19,11 +19,6 @@ import {
 } from "@/lib/whatsapp/template-vars";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
-import {
-  normalizeSecondaryContactDelay,
-  DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
-  DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
-} from "@/lib/admin/billing-campaign-window";
 
 function safeServerLog(...args: any[]) {
   console.error(...args);
@@ -321,23 +316,25 @@ export async function POST(req: Request) {
 
   const results = [];
 
-  // ✅ Intervalo entre contato primário e secundário sorteado dentro da
-  // faixa configurada em billing_campaign_settings (era 5s fixo) — só
-  // busca se a conta tiver mais de 1 contato, pra não gastar consulta à toa.
-  let secondaryContactDelayMs = 0;
-  if (wa.phones.length > 1) {
-    const { data: campaignSettings } = await sb
-      .from("billing_campaign_settings")
-      .select("secondary_contact_delay_min_secs, secondary_contact_delay_max_secs")
-      .eq("tenant_id", tenantId)
-      .maybeSingle();
-    const { minSecs, maxSecs } = normalizeSecondaryContactDelay(
-      campaignSettings?.secondary_contact_delay_min_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
-      campaignSettings?.secondary_contact_delay_max_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
-    );
-    secondaryContactDelayMs =
-      (minSecs + Math.floor(Math.random() * Math.max(maxSecs - minSecs + 1, 1))) * 1000;
-  }
+  // ✅ Intervalo entre contato primário e secundário — SEMPRE 3-10s fixo
+  // aqui, independente da faixa configurada em billing_campaign_settings
+  // (pedido do Márcio, 06/08/2026). Esse endpoint é "envio AGORA": alguém
+  // (admin ou o próprio cliente, via portal aguardando confirmação de
+  // pagamento) está esperando a resposta em tempo real — a faixa de
+  // 60-120s pensada pra campanha em massa (envio_programado, que não muda)
+  // deixava a tela travada por até 2min. Só sorteia pra não ser sempre o
+  // mesmo número exato, não pra espalhar disparos.
+  const SECONDARY_CONTACT_DELAY_MIN_SECS = 3;
+  const SECONDARY_CONTACT_DELAY_MAX_SECS = 10;
+  const secondaryContactDelayMs =
+    wa.phones.length > 1
+      ? (SECONDARY_CONTACT_DELAY_MIN_SECS +
+          Math.floor(
+            Math.random() *
+              (SECONDARY_CONTACT_DELAY_MAX_SECS - SECONDARY_CONTACT_DELAY_MIN_SECS + 1),
+          )) *
+        1000
+      : 0;
 
   // ==========================================
   // LOOP DE DISPARO
