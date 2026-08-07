@@ -1945,17 +1945,21 @@ function NodeEditor({
             }}
             className={inputCls}
           >
-            {Array.from({ length: 8 }, (_, i) => i + 1).map((n) => (
+            {[...Array.from({ length: 8 }, (_, i) => i + 1), 0].map((n) => (
               <option key={n} value={n}>
                 {n}
-                {takenNumbers.has(n) && n !== node.option_number
-                  ? ` — troca com "${takenNumbers.get(n)}"`
-                  : ""}
+                {n === 0
+                  ? " — atalho reservado (falar com humano; sempre exibido por último)"
+                  : takenNumbers.has(n) && n !== node.option_number
+                    ? ` — troca com "${takenNumbers.get(n)}"`
+                    : ""}
               </option>
             ))}
           </select>
           <p className="text-[10px] text-muted-foreground mt-1">
-            Escolher um número já usado troca a posição com quem está lá.
+            Escolher um número já usado troca a posição com quem está lá. O 0 é
+            especial: digitar "0" sempre escalona direto pro humano, então só
+            faz sentido usá-lo num nó raiz equivalente a isso.
           </p>
         </div>
       )}
