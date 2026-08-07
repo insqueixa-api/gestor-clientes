@@ -1041,17 +1041,18 @@ export default function NovoCliente({
   const [hasIntegration, setHasIntegration] = useState(false);
   const [syncWithServer, setSyncWithServer] = useState(false); // ✅ NOVO: Controla se chama a API ou não
 
-  // ✅ Tabela de preço automática por servidor, só na CRIAÇÃO de teste — NaTV
-  // usa "BRL 40", Fast "BRL 45", Elite "BRL 50" (nomes exatos das tabelas
-  // cadastradas em Gerenciar Planos). Se a tabela não existir com esse nome
-  // exato, não faz nada — mantém a seleção manual normal.
+  // ✅ Tabela de preço automática por servidor, na CRIAÇÃO — teste ou cliente
+  // normal, tanto faz, só não mexe na edição — NaTV usa "BRL 40", Fast
+  // "BRL 45", Elite "BRL 50" (nomes exatos das tabelas cadastradas em
+  // Gerenciar Planos). Se a tabela não existir com esse nome exato, não faz
+  // nada — mantém a seleção manual normal.
   const TABELA_TESTE_POR_PROVIDER: Record<string, string> = {
     NATV: "BRL 40",
     FAST: "BRL 45",
     ELITE: "BRL 50",
   };
   const aplicarTabelaTestePorProvider = (provider: string) => {
-    if (!isTrialMode || isEditing) return;
+    if (isEditing) return;
     const nomeAlvo = TABELA_TESTE_POR_PROVIDER[provider];
     if (!nomeAlvo) return;
     const tabela = tables.find(
