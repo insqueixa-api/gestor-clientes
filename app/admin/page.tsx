@@ -492,11 +492,19 @@ export default async function AdminDashboardPage({
     }
 
     // Ajustes: fin_transacoes que apareceram depois da fotografia
+    // ✅ Categoria IPTV nunca entra por aqui — o Previsto dela vem só da
+    // tabela de clientes (snapshot acima + ajustesIptv logo abaixo). O
+    // lançamento "IPTV - Rendimentos" que a tela Financeiro Pessoal
+    // sincroniza automaticamente em fin_transacoes representa dinheiro JÁ
+    // recebido (não é "novidade" pro previsto) e, pra clientes que já
+    // estavam no snapshot, contava dobrado (uma vez no previsto, outra no
+    // ajuste).
     for (const t of finTrxRows) {
       const inMonth =
         t.data_vencimento >= _finMonthStart &&
         t.data_vencimento <= _finMonthEnd;
       if (!inMonth || snapshotTransacaoIds.has(t.id)) continue;
+      if (t.categoria_id === iptvKey) continue;
       const map = t.tipo === "RECEITA" ? catRevAjusteMap : catExpAjusteMap;
       const key = t.categoria_id ?? "__none__";
       const label = catLabel(t.categoria_id);
@@ -531,6 +539,11 @@ export default async function AdminDashboardPage({
   }
 
   // Executado: sempre ao vivo (pago de verdade), não muda com a fotografia
+  // ✅ Categoria IPTV excluída daqui pelo mesmo motivo do Ajuste acima — o
+  // executado dela vem direto do bundle IPTV logo abaixo (clientes + revenda
+  // pagos no mês), sem depender do lançamento sincronizado pela tela
+  // Financeiro Pessoal (que também podia ficar desatualizado se ninguém
+  // abrisse aquela tela no mês).
   for (const t of finTrxRows) {
     const dpDate = t.data_pagamento ? toBRDateStr(t.data_pagamento) : null;
     const inExec =
@@ -539,11 +552,24 @@ export default async function AdminDashboardPage({
       dpDate >= _finMonthStart &&
       dpDate <= _finMonthEnd;
     if (!inExec) continue;
+    if (t.categoria_id === iptvKey) continue;
     const map = t.tipo === "RECEITA" ? catRevExecMap : catExpExecMap;
     const key = t.categoria_id ?? "__none__";
     const label = catLabel(t.categoria_id);
     const prev = map.get(key) ?? { label, value: 0 };
     map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
+  }
+
+  // Executado do IPTV: direto do bundle IPTV já carregado nesta página
+  // (mesma fonte do card "Faturamento (Mês)"), nunca da fin_transacoes.
+  const iptvExecutadoMes =
+    Number(finance?.clients_paid_month_brl_estimated || 0) +
+    Number(finance?.reseller_paid_month_brl || 0);
+  if (iptvExecutadoMes > 0) {
+    catRevExecMap.set(iptvKey, { label: iptvLabel, value: iptvExecutadoMes });
+  }
+  if (expensesMonthVal > 0) {
+    catExpExecMap.set(iptvKey, { label: iptvLabel, value: expensesMonthVal });
   }
 
   // Meta (previsto + ajustes pós-fotografia) x progresso (executado ao vivo)
