@@ -498,28 +498,29 @@ export default function PlanosPage() {
                                   </svg>
                                 </button>
 
-                                {!plan.is_system_default &&
-                                  !plan.name.startsWith("Padrão") && (
-                                    <button
-                                      onClick={() => handleDelete(plan)}
-                                      className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-all shadow-sm"
-                                      title="Excluir Tabela"
-                                    >
-                                      <svg
-                                        className="w-4 h-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                        />
-                                      </svg>
-                                    </button>
-                                  )}
+                                {/* ✅ Botão de excluir liberado pra tabelas padrão do sistema
+                                    também — a proteção real (não pode ser a última tabela
+                                    daquela moeda, não pode ter cliente usando) agora vive só
+                                    no banco (trigger + FK), não mais escondida na tela. */}
+                                <button
+                                  onClick={() => handleDelete(plan)}
+                                  className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 transition-all shadow-sm"
+                                  title="Excluir Tabela"
+                                >
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                    />
+                                  </svg>
+                                </button>
                               </div>
                             </div>
 

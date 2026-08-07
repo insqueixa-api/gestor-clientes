@@ -521,7 +521,6 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ex: Tabela especial revenda"
-                    disabled={plan?.is_system_default}
                     className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
                   />
                 </div>
