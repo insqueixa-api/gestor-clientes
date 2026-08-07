@@ -1,0 +1,62 @@
+-- docs/sql/bot_tree_reconfigure_portal_step.sql
+-- Registro do que foi aplicado direto no Supabase (07/08/2026) — não é uma
+-- migration executável (embedding é gerado via Gemini em runtime, não dá pra
+-- fazer em SQL puro), é o histórico do que rodou via script.
+--
+-- Contexto: os nós "Aplicativo não abre" e "Canal travando / buffering" já
+-- pediam reset de TV/modem, mas quando o cliente respondia "não resolveu"
+-- (on_not_resolved_target = null) o fluxo ia direto pro fallback "escalate"
+-- (escalonava pro Márcio sem passar pelo Portal). Isso pulava o passo
+-- intermediário que o Márcio quer: depois do reset, antes de escalar,
+-- orientar o cliente a ir no Portal → Aplicativos → "Reconfigurar
+-- aplicativo" (mesmo endpoint POST /api/client-portal/apps/configure do
+-- "Configurar", mas apaga e recria a config do zero no painel do parceiro —
+-- ver app/api/client-portal/apps/configure/route.ts e
+-- lib/apps/orchestration.ts). Sem falar preço em nenhum momento (preço só
+-- aparece no Portal).
+--
+-- 1) Novo nó "Reconfigurar pelo Portal" (link_target_only — nunca aparece
+--    como opção de menu, só é alcançado via on_not_resolved_target), filho
+--    de "Problema técnico" (6d0aea8b-21b4-4f70-a56d-5aa83db26065).
+--    3 steps ensinando o passo a passo (Aplicativos → Reconfigurar
+--    aplicativo → Principal primeiro → fechar/reabrir o app → Atualizar/
+--    Recarregar), ask_resolution=true (pergunta resolveu/não de novo — só
+--    escalona pro Márcio se ainda assim não resolver).
+--
+-- 2) "Aplicativo não abre" (41f550d0) e "Canal travando / buffering"
+--    (0503c503): on_not_resolved_target passou a apontar pro nó novo, em
+--    vez de escalar direto.
+--
+-- 3) Novo artigo em bot_knowledge (categoria Suporte) equivalente, pro caso
+--    do RAG (busca semântica livre) responder em vez da árvore — mesmo
+--    conteúdo (reset + reconfigurar pelo Portal) num único texto, já que o
+--    RAG não tem o loop de resolved/not-resolved da árvore. Embedding
+--    gerado com generateDocumentEmbedding (gemini-embedding-001,
+--    RETRIEVAL_DOCUMENT, 768d) — mesmo padrão de sempre, pra não
+--    dessincronizar busca semântica do texto.
+--
+-- Aplicado via script node ad-hoc (@supabase/supabase-js + service role),
+-- não fica arquivo permanente no repo — só este registro.
+--
+-- ── Follow-up no mesmo dia: generalização pra "nó fixo" único ──────────────
+-- Pedido do Márcio (visualizando o canvas do editor): em vez de cada fluxo
+-- (instalação nova, licença vencida, app com problema) ter sua própria
+-- instrução de Portal duplicada, unificar num ÚNICO nó fixo que TODOS esses
+-- fluxos atravessam antes do resolvido/não-resolvido — mais fácil de
+-- entender visualmente no canvas (fios convergindo pro mesmo nó).
+--
+-- 1) O nó "Reconfigurar pelo Portal" virou "Resolver pelo Portal" — texto
+--    generalizado (Adicionar/Reconfigurar/Renovar, conforme a situação) em
+--    vez de só "reconfigurar". Continua sendo o único lugar com
+--    ask_resolution=true dessa cadeia toda.
+-- 2) "Nova instalação" e "Aplicativo vencido / expirado" perderam o link do
+--    Portal do próprio texto (mantiveram só a parte específica de contexto)
+--    e passaram a usar `redirect_to_node_id` (fio "next" do canvas —
+--    manda a mensagem própria e emenda direto no nó fixo, sem perguntar
+--    nada no meio) apontando pro nó fixo.
+-- 3) "Aplicativo não abre" e "Canal travando / buffering" continuam como
+--    estavam (fio "fail"/`on_not_resolved_target` pro nó fixo, depois do
+--    reset de TV/modem que já pediam).
+--
+-- Resultado: 4 fluxos diferentes convergem no mesmo nó fixo antes de
+-- decidir resolvido/escalar — sem duplicar o link do Portal em 4 lugares.

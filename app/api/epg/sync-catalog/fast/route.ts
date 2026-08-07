@@ -77,7 +77,18 @@ function normalizarTitulo(nome: string): string {
     .replace(/\s*[\[(](4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA)[\])]/gi, "")
     .replace(/(4K|FHD|HDRR|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|WEB-DL|WEBRIP|H265|HEVC|REMUX|DIRECTORS?.?CUT)$/gi, "")
     .replace(/\s+(4K|FHD|HDRR|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|FULL|ULTRA|BLURAY|BLU-RAY|WEB-DL|WEBRIP|HDRIP|DVDRIP|BDRIP|H265|H\.265|HEVC|REMUX)\s*$/gi, "")
-    .replace(/\s*\[L\]\s*/gi, " ").replace(/\s*\[DUB\]\s*/gi, " ")
+    // ✅ Tolerante a colchete malformado na fonte do Fast — achamos títulos
+    // reais vindos como "[L" (sem fechar), "{L]", "[L}", "L]" (sem abrir).
+    // O regex acima só reconhece o par certinho ("[L]", "[FHD]" etc) fechado
+    // dos dois lados; qualquer variação (chave/parêntese trocado, faltando
+    // abrir ou fechar) sobrevivia como texto extra e virava um catalog_master
+    // duplicado do mesmo filme/série já catalogado limpo (ex: "First Love:
+    // Descobrindo o Amor" x "...Amor [L" viravam 2 linhas). Mesma tolerância
+    // aplicada tanto nas tags de idioma (L/DUB) quanto nas de qualidade (4K,
+    // FHD, HD...) — o problema já apareceu com L, mas a fonte pode mandar
+    // qualquer uma dessas tags malformada do mesmo jeito.
+    .replace(/\s*[\[({]\s*(4K[\s\w]*|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA|H265|HEVC|REMUX|L|DUB)\s*[\])}]?\s*$/gi, " ")
+    .replace(/\s*[\[({]?\s*(4K|FHD|HD|HDR|SDR|UHD|DV|HYBRID|HDCAM|CAM|BLU.?RAY|BLURAY|WEB.?DL|WEBRIP|HDRIP|DVDRIP|BDRIP|TS|HDTV|FULL|ULTRA|H265|HEVC|REMUX|L|DUB)\s*[\])}]\s*$/gi, " ")
     .replace(/\s+(DUAL AUDIO|DUAL|LEG|DUB|DUBLADO|LEGENDADO)\b/gi, "")
     .replace(/[^A-Z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
 }

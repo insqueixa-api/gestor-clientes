@@ -340,6 +340,20 @@ export default async function AdminDashboardPage({
     finCatById.set(c.id, { nome: c.nome, icone: c.icone });
   }
 
+  // ✅ Movido pra cá (antes só existia lá embaixo, perto do ranking por
+  // categoria) porque agora também é usado nos Ajustes do card "Receitas/
+  // Despesas do Mês" logo abaixo — mesmo motivo: dinheiro do lançamento
+  // "IPTV - Rendimentos"/"IPTV - Recarga de Servidores" (sincronizado pela
+  // tela Financeiro Pessoal) já é dinheiro conhecido, não uma novidade que
+  // deveria aparecer como "Ajuste" surpresa.
+  const iptvCatEntry = Array.from(finCatById.entries()).find(([, v]) =>
+    v.nome.toLowerCase().includes("iptv"),
+  );
+  const iptvLabel = iptvCatEntry
+    ? `${iptvCatEntry[1].icone} ${iptvCatEntry[1].nome}`
+    : "📡 IPTV";
+  const iptvKey = iptvCatEntry ? iptvCatEntry[0] : "__iptv__";
+
   const finSnapshotRows: SnapshotRow[] = financeBundle?.snapshot ?? [];
   const finSaldoAtual = toNumber(financeBundle?.saldo_atual);
 
@@ -393,6 +407,11 @@ export default async function AdminDashboardPage({
   // o "a receber" do IPTV compara pelo total ao vivo da view menos o que já
   // tinha sido fotografado (não dá pra saber o id de cada cliente aqui sem
   // buscar a lista toda de novo, então usamos a diferença dos totais).
+  // Categoria IPTV é excluída daqui pelo mesmo motivo do card "Receitas por
+  // Categoria": o lançamento "IPTV - Rendimentos"/"IPTV - Recarga de
+  // Servidores" sincronizado pela tela Financeiro Pessoal é dinheiro JÁ
+  // recebido (já entra em "Recebido no Mês" logo acima), não uma novidade —
+  // contar ele aqui também inflava o "+ Ajustes" com dinheiro repetido.
   const snapshotTransacaoIds = new Set(
     finSnapshotRows
       .filter((s) => s.origem === "fin_transacoes" && s.transacao_id)
@@ -409,7 +428,8 @@ export default async function AdminDashboardPage({
             t.tipo === "RECEITA" &&
             t.data_vencimento >= _finMonthStart &&
             t.data_vencimento <= _finMonthEnd &&
-            !snapshotTransacaoIds.has(t.id),
+            !snapshotTransacaoIds.has(t.id) &&
+            t.categoria_id !== iptvKey,
         )
         .reduce((acc, t) => acc + toNumber(t.valor), 0)
     : 0;
@@ -430,7 +450,8 @@ export default async function AdminDashboardPage({
             t.tipo === "DESPESA" &&
             t.data_vencimento >= _finMonthStart &&
             t.data_vencimento <= _finMonthEnd &&
-            !snapshotTransacaoIds.has(t.id),
+            !snapshotTransacaoIds.has(t.id) &&
+            t.categoria_id !== iptvKey,
         )
         .reduce((acc, t) => acc + toNumber(t.valor), 0)
     : 0;
@@ -464,14 +485,6 @@ export default async function AdminDashboardPage({
   const catExpAjusteMap = new Map<string, { label: string; value: number }>();
 
   const _finTodayIso = isoDateFromYMD(_finYear, _finMonth, _finToday.getDate());
-
-  const iptvCatEntry = Array.from(finCatById.entries()).find(([, v]) =>
-    v.nome.toLowerCase().includes("iptv"),
-  );
-  const iptvLabel = iptvCatEntry
-    ? `${iptvCatEntry[1].icone} ${iptvCatEntry[1].nome}`
-    : "📡 IPTV";
-  const iptvKey = iptvCatEntry ? iptvCatEntry[0] : "__iptv__";
 
   const catLabel = (categoriaId: string | null) => {
     const cat = categoriaId ? finCatById.get(categoriaId) : null;
