@@ -306,6 +306,7 @@ export default async function AdminDashboardPage({
     status: string;
     data_vencimento: string;
     data_pagamento: string | null;
+    categoria_id: string | null;
   };
   type EvolucaoSnapshotRow = {
     ano_mes: string;
@@ -1192,6 +1193,7 @@ export default async function AdminDashboardPage({
           <EvolucaoFinanceira
             transacoes={financeBundle?.evolucao_transacoes ?? []}
             snapshot={financeBundle?.evolucao_snapshot ?? []}
+            iptvCategoriaId={iptvCatEntry ? iptvKey : null}
           />
         </div>
       )}

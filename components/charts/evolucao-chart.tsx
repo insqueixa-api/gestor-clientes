@@ -20,6 +20,7 @@ type EvolucaoTrx = {
   status: string;
   data_vencimento: string;
   data_pagamento: string | null;
+  categoria_id: string | null;
 };
 
 type EvolucaoSnapshot = {
@@ -36,9 +37,16 @@ type EvolucaoSnapshot = {
 export default function EvolucaoFinanceira({
   transacoes,
   snapshot,
+  iptvCategoriaId,
 }: {
   transacoes: EvolucaoTrx[];
   snapshot: EvolucaoSnapshot[];
+  // ✅ Categoria IPTV nunca vira "Ajuste" aqui — mesmo motivo do card
+  // "Receitas por Categoria" (ver app/admin/page.tsx): o lançamento
+  // "IPTV - Rendimentos" que a tela Financeiro Pessoal sincroniza em
+  // fin_transacoes é dinheiro JÁ recebido (conta como Executado), não uma
+  // novidade que deveria inflar o Previsto/Ajuste.
+  iptvCategoriaId?: string | null;
 }) {
   if (transacoes.length === 0 && snapshot.length === 0) return null;
 
@@ -107,7 +115,10 @@ export default function EvolucaoFinanceira({
           // Sem fotografia pra esse mês (ainda): mantém o cálculo antigo, ao vivo
           if (row.tipo === "RECEITA") bar1 += val;
           if (row.tipo === "DESPESA") bar2 += val;
-        } else if (!snap!.transacaoIds.has(row.id)) {
+        } else if (
+          !snap!.transacaoIds.has(row.id) &&
+          row.categoria_id !== iptvCategoriaId
+        ) {
           // Com fotografia: o que não estava nela é Ajuste, não Previsto
           if (row.tipo === "RECEITA") ajuste1 += val;
           if (row.tipo === "DESPESA") ajuste2 += val;
