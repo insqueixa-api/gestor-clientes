@@ -2085,16 +2085,27 @@ function ModalDetalhe({
 function ResultadoBuscaCatalogo({
   resultados,
   loading,
+  buscaCurta,
   onSelect,
   modoCliente,
   onSugerir,
 }: {
   resultados: TituloBusca[];
   loading: boolean;
+  buscaCurta?: boolean;
   onSelect: (t: TituloCard) => void;
   modoCliente?: boolean;
   onSugerir?: () => void;
 }) {
+  if (buscaCurta)
+    return (
+      <div className="text-center py-20 text-muted-foreground p-5 border border-border bg-card/60 rounded-2xl flex flex-col items-center gap-3">
+        <Search size={32} className="text-muted-foreground/60" />
+        <div className="text-sm font-medium">
+          Digite pelo menos 3 letras pra buscar.
+        </div>
+      </div>
+    );
   if (loading)
     return (
       <div className="text-center py-20 text-muted-foreground p-5 animate-pulse flex flex-col items-center gap-4">
@@ -2315,6 +2326,7 @@ function AbaCatalogo({
   const [buscaAtiva, setBuscaAtiva] = useState("");
   const [resultadosBusca, setResultadosBusca] = useState<TituloBusca[]>([]);
   const [loadingBusca, setLoadingBusca] = useState(false);
+  const [buscaCurta, setBuscaCurta] = useState(false);
   const [catDropOpen, setCatDropOpen] = useState(false);
   const [subDropOpen, setSubDropOpen] = useState(false);
   const catDropRef = useRef<HTMLDivElement>(null);
@@ -2416,10 +2428,20 @@ function AbaCatalogo({
       .finally(() => setLoadingTits(false));
   }, [catSelecionada, subCatSelecionada, servidor, tipo, page]);
   useEffect(() => {
-    if (!buscaAtiva.trim()) {
+    const termo = buscaAtiva.trim();
+    if (!termo) {
       setResultadosBusca([]);
+      setBuscaCurta(false);
       return;
     }
+    // ✅ Menos de 3 letras: nem chama a API (mesmo mínimo de lá) — só avisa
+    // que precisa digitar mais, em vez de mostrar "Nenhum resultado".
+    if (termo.length < 3) {
+      setResultadosBusca([]);
+      setBuscaCurta(true);
+      return;
+    }
+    setBuscaCurta(false);
     setLoadingBusca(true);
     const srv = servidor;
     fetch(
@@ -2640,6 +2662,7 @@ function AbaCatalogo({
           <ResultadoBuscaCatalogo
             resultados={resultadosBusca}
             loading={loadingBusca}
+            buscaCurta={buscaCurta}
             onSelect={(t) => setDetalhando(t.id)}
             modoCliente={modoCliente}
             onSugerir={() => setShowSugestao(true)}

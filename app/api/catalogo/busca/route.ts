@@ -62,7 +62,14 @@ export async function GET(req: NextRequest) {
   const servidor = searchParams.get("servidor") || "TODOS";
   const tipo     = searchParams.get("tipo")     || "TODOS";
 
-  if (q.length < 2) return NextResponse.json({ ok: true, data: [] });
+  // ✅ Mínimo de 3 caracteres — abaixo disso o índice GIN trigram
+  // (idx_catalog_master_titulo_busca) não tem nenhum trigrama completo pra
+  // usar e cai pra scan sequencial nas 34 mil linhas do catálogo, então 1-2
+  // letras ficava lento OU retornava vazio sem avisar por quê (a tela
+  // mostrava "Nenhum resultado encontrado" igual a uma busca que realmente
+  // não achou nada — parecia que a busca "não funcionava").
+  if (q.length < 3)
+    return NextResponse.json({ ok: true, data: [], tooShort: true });
 
   const termoNorm = normalizar(q);
   const todasPalavras = termoNorm.split(" ").filter(Boolean);
