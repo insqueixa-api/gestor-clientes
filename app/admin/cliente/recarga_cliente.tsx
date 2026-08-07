@@ -133,19 +133,13 @@ function safeNumberFromMoneyBR(s: string) {
   );
 }
 
+// ✅ Mostra o nome real da tabela, sem reconstruir/ocultar nada — antes,
+// qualquer tabela is_system_default=true tinha o nome forçado pra
+// "{primeira palavra} {moeda}" mesmo depois de renomeada (ex: "BRL 40"
+// virava "BRL BRL" na tela, porque pegava só a primeira palavra do nome
+// novo e colava a moeda de novo em cima).
 function formatTableLabel(t: PlanTable) {
-  const currency = t.currency || "BRL";
-  const raw = (t.name || "").trim();
-  const isDefaultByName =
-    raw.toLowerCase().startsWith("padr") ||
-    raw.toLowerCase().startsWith("default");
-  const isDefault = Boolean(t.is_system_default) || isDefaultByName;
-
-  if (isDefault) {
-    const firstWord = raw.split(/\s+/)[0] || "Padrão";
-    return `${firstWord} ${currency}`;
-  }
-  return `${raw} ${currency}`;
+  return (t.name || "").trim();
 }
 
 function pickPriceFromTable(

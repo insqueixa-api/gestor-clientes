@@ -393,20 +393,13 @@ function splitE164(raw: string) {
   return { ddi, national };
 }
 
+// ✅ Mostra o nome real da tabela, sem reconstruir/ocultar nada — antes,
+// qualquer tabela is_system_default=true tinha o nome forçado pra
+// "{primeira palavra} {moeda}" mesmo depois de renomeada (ex: "BRL 40"
+// virava "BRL BRL" na tela, porque pegava só a primeira palavra do nome
+// novo e colava a moeda de novo em cima).
 function formatTableLabel(t: PlanTable) {
-  const currency = t.currency || "BRL";
-  const raw = (t.name || "").trim();
-  const isDefaultByName =
-    raw.toLowerCase().startsWith("padr") ||
-    raw.toLowerCase().startsWith("default");
-  const isDefault = Boolean(t.is_system_default) || isDefaultByName;
-
-  if (isDefault) {
-    const firstWord = raw.split(/\s+/)[0] || "Padrão";
-    return `${firstWord} ${currency}`;
-  }
-
-  return `${raw} ${currency}`;
+  return (t.name || "").trim();
 }
 
 function pickPriceFromTable(
@@ -1048,6 +1041,36 @@ export default function NovoCliente({
   const [hasIntegration, setHasIntegration] = useState(false);
   const [syncWithServer, setSyncWithServer] = useState(false); // ✅ NOVO: Controla se chama a API ou não
 
+  // ✅ Tabela de preço automática por servidor, só na CRIAÇÃO de teste — NaTV
+  // usa "BRL 40", Fast "BRL 45", Elite "BRL 50" (nomes exatos das tabelas
+  // cadastradas em Gerenciar Planos). Se a tabela não existir com esse nome
+  // exato, não faz nada — mantém a seleção manual normal.
+  const TABELA_TESTE_POR_PROVIDER: Record<string, string> = {
+    NATV: "BRL 40",
+    FAST: "BRL 45",
+    ELITE: "BRL 50",
+  };
+  const aplicarTabelaTestePorProvider = (provider: string) => {
+    if (!isTrialMode || isEditing) return;
+    const nomeAlvo = TABELA_TESTE_POR_PROVIDER[provider];
+    if (!nomeAlvo) return;
+    const tabela = tables.find(
+      (t) => (t.name || "").trim().toLowerCase() === nomeAlvo.toLowerCase(),
+    );
+    if (!tabela) return;
+    setSelectedTableId(tabela.id);
+    setCurrency(tabela.currency || "BRL");
+    setSelectedPlanPeriod("MONTHLY");
+    setScreens(1);
+    const p = pickPriceFromTable(tabela, "MONTHLY", 1);
+    setPlanPrice(
+      Number(p || 0)
+        .toFixed(2)
+        .replace(".", ","),
+    );
+    setPriceTouched(false);
+  };
+
   useEffect(() => {
     if (!serverId) {
       setHasIntegration(false);
@@ -1104,6 +1127,7 @@ export default function NovoCliente({
         if (!mounted) return;
         if (integErr) throw integErr;
         const provider = String(integ?.provider || "").toUpperCase();
+        aplicarTabelaTestePorProvider(provider);
 
         if (provider === "FAST") {
           setTrialProvider("FAST");
@@ -1144,7 +1168,7 @@ export default function NovoCliente({
     return () => {
       mounted = false;
     };
-  }, [isTrialMode, serverId]);
+  }, [isTrialMode, serverId, tables]);
 
   // ======= LOAD AUX + EDIT PREFILL =======
   // ✅ NOVO: Atualizar vencimento quando mudar período de teste
