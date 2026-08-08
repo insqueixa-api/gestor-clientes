@@ -1339,7 +1339,7 @@ export default function BotMenuTreeEditor() {
                             ],
                             [
                               "payment_awaiting_transfer_message",
-                              "4) Cliente escolheu pagar manual, aguardando comprovante — pede comprovante e ESCALA (use {primeiro_nome}, {metodo_automatico}, {link_pagamento})",
+                              "4) Cliente escolheu pagar manual, aguardando comprovante — pede comprovante e ESCALA (use {primeiro_nome}, {metodo_automatico} = dica de cartão/wallet só em USD/EUR, some em BRL)",
                             ],
                             [
                               "payment_none_message",
@@ -2550,10 +2550,11 @@ function NodeEditor({
           </div>
           <div>
             <label className={labelCls}>
-              4) Cliente escolheu pagar manual (PIX/transferência) e ainda
+              4) Cliente já escolheu pagar manual (PIX/transferência) e ainda
               não mandou comprovante — pede o comprovante e ESCALA (use{" "}
-              {"{primeiro_nome}"}, {"{metodo_automatico}"},{" "}
-              {"{link_pagamento}"})
+              {"{primeiro_nome}"}, {"{metodo_automatico}"} = dica de
+              cartão/Google Pay/Apple Pay só em USD/EUR — some em BRL. Sem
+              link do Portal: ele já usou pra chegar aqui)
             </label>
             <textarea
               value={paymentAwaitingTransferDraft}

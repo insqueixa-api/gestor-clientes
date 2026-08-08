@@ -44,7 +44,7 @@ export type FlowSettings = {
   payment_none_message: string;
   /** {confirmar_renovacao} — renovação JÁ concluída, só a notificação automática que falhou/não confirmou. Use {primeiro_nome}, {data_vencimento}. */
   payment_confirmed_not_notified_message: string;
-  /** {confirmar_renovacao} — cliente escolheu pagamento manual no Portal, aguardando comprovante. Use {primeiro_nome}, {metodo_automatico} (sugestão de método automático pela moeda do cliente). */
+  /** {confirmar_renovacao} — cliente já escolheu pagamento manual no Portal, aguardando comprovante. Use {primeiro_nome}, {metodo_automatico} (cláusula opcional só em USD/EUR, sugerindo Google Pay/Apple Pay/outro cartão — some em BRL). Sem {link_pagamento}: o cliente já tem o link. */
   payment_awaiting_transfer_message: string;
 };
 
@@ -64,9 +64,9 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   payment_manual_pending_message: DEFAULT_PAYMENT_MANUAL_PENDING_MSG,
   payment_fulfillment_error_message: DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG,
   payment_none_message:
-    "Pode me mandar o comprovante por aqui, {primeiro_nome} — foto, PDF ou até o texto do PIX? Já deixo registrado certinho pro Márcio conferir e confirmar sua renovação! 😊 Uma dica pra próxima vez: pagando direto pelo Portal, o sistema já identifica e confirma sozinho, sem precisar mandar comprovante nenhum — é só acessar {link_pagamento}",
+    "Pode me mandar o comprovante por aqui, {primeiro_nome} — foto, print ou PDF? Já deixo registrado certinho pro Márcio conferir e confirmar sua renovação! 😊 Uma dica pra próxima vez: pagando direto pelo Portal, o sistema já identifica e confirma sozinho, sem precisar mandar comprovante nenhum — é só acessar {link_pagamento}",
   payment_confirmed_not_notified_message:
-    "Encontrei seu pagamento aqui, {primeiro_nome}! ✅ Sua renovação já foi concluída normalmente — só tivemos uma instabilidade avisando você por aqui, mas está tudo certo.{data_vencimento}",
+    "Encontrei seu pagamento aqui, {primeiro_nome}! ✅ Sua renovação já está confirmada.{data_vencimento} A notificação automática teve uma falha técnica dessa vez pra chegar até você, mas fica tranquilo(a) — a confirmação final chega em instantes. 😊",
   payment_awaiting_transfer_message: DEFAULT_PAYMENT_AWAITING_TRANSFER_MSG,
 };
 

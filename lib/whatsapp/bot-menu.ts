@@ -212,17 +212,17 @@ export const DEFAULT_PAYMENT_MANUAL_PENDING_MSG = PAYMENT_NEEDS_MANUAL_COMPLETIO
 
 export const DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG = PAYMENT_NEEDS_MANUAL_COMPLETION_MSG;
 
-// ✅ awaiting_transfer — cliente escolheu pagamento manual (PIX/transferência)
-// no Portal e ainda não mandou comprovante. {metodo_automatico} é
-// substituído na mão conforme a moeda do cliente (PIX pra BRL, cartão/
-// Google Pay/Apple Pay via Stripe pra USD/EUR) — sugestão pra próxima vez
-// ser mais rápida, sem precisar de comprovante. {link_pagamento} é o
-// mesmo link do Portal (o cliente troca o método de pagamento por lá).
-// Estrutura espelhada de propósito com DEFAULT_PAYMENT_NONE_MSG (abaixo,
-// em bot-flow-settings.ts) — mesma "forma", só muda o motivo do pedido de
-// comprovante (achado 08/08/2026, pedido do Márcio).
+// ✅ awaiting_transfer — cliente JÁ escolheu pagamento manual (PIX/transferência)
+// no Portal e ainda não mandou comprovante. Achado 08/08/2026 (correção do
+// Márcio): PIX automático no Brasil não tem esse problema — quem cai aqui em
+// BRL foi por escolha mesmo, sem motivo pra "dica". Já em USD/EUR, a causa
+// mais comum é cartão Revolut sendo recusado pelo Stripe — nesse caso vale
+// sugerir Google Pay/Apple Pay ou outro cartão. Por isso {metodo_automatico}
+// agora é a CLÁUSULA INTEIRA (com pontuação), condicional por moeda: "" pra
+// BRL, dica de cartão/wallet pra USD/EUR. Sem {link_pagamento} — o cliente já
+// tem o link, acabou de usá-lo pra escolher esse método.
 export const DEFAULT_PAYMENT_AWAITING_TRANSFER_MSG =
-  "Encontrei seu pedido de pagamento manual aqui, {primeiro_nome}! 📋 Pode me mandar o comprovante da transferência por aqui — assim o Márcio já valida e conclui sua renovação. Uma dica pra próxima vez: {metodo_automatico} confirma na hora, sem precisar de comprovante nenhum — é só acessar {link_pagamento}";
+  "Encontrei seu pedido de pagamento manual aqui, {primeiro_nome}! 📋 Pode me mandar o comprovante da transferência por aqui — assim o Márcio já valida e conclui sua renovação.{metodo_automatico}";
 
 // ── Servidor do cliente (NaTV / Fast / Elite) — usado pra filtrar conteúdo
 // específico de servidor, tanto na árvore quanto na base de conhecimento. ──

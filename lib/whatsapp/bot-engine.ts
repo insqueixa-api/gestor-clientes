@@ -349,23 +349,23 @@ async function buildPaymentStatusMsg(
       .replace(/\{primeiro_nome\}/g, firstName)
       .replace(/\{data_vencimento\}/g, dueClause);
   }
-  // ✅ Achado 08/08/2026: cliente escolheu pagar manual (PIX/transferência)
-  // no Portal — sugere o método automático certo pra moeda dele (PIX pra
-  // BRL, cartão/Google Pay/Apple Pay via Stripe pra USD/EUR) pra próxima
-  // vez ser mais rápido, sem precisar de comprovante. {link_pagamento} só
-  // gera o link de verdade (query) quando a tag aparece no template.
+  // ✅ Achado 08/08/2026 (corrigido pelo Márcio): PIX automático no Brasil
+  // não tem problema nenhum — quem cai aqui em BRL escolheu manual por
+  // opção mesmo, não por falha do automático. Já em USD/EUR a causa comum
+  // é cartão Revolut recusado pelo Stripe, por isso só ali vale sugerir
+  // Google Pay/Apple Pay/outro cartão. {metodo_automatico} carrega a
+  // cláusula inteira (ou "" em BRL). Sem {link_pagamento}: o cliente já tem
+  // o link, acabou de usá-lo pra chegar nesse método.
   if (status === "awaiting_transfer") {
     const { data: cli } = await sb.from("clients").select("price_currency").eq("id", client?.id).maybeSingle();
     const currency = String(cli?.price_currency || client?.price_currency || "BRL").toUpperCase();
-    const metodoAutomatico = currency === "BRL" ? "o PIX automático" : "cartão, Google Pay ou Apple Pay";
-    let text = flow.payment_awaiting_transfer_message
+    const metodoAutomatico =
+      currency === "BRL"
+        ? ""
+        : " Uma dica: se o pagamento automático não passou por causa do cartão (é comum com cartões Revolut), tente pagar com Google Pay, Apple Pay ou outro cartão — geralmente resolve.";
+    return flow.payment_awaiting_transfer_message
       .replace(/\{primeiro_nome\}/g, firstName)
       .replace(/\{metodo_automatico\}/g, metodoAutomatico);
-    if (text.includes("{link_pagamento}")) {
-      const link = await toolGerarLinkPortal(sb, tenantId, rawClient, client?.is_secondary);
-      text = text.replace(/\{link_pagamento\}/g, link);
-    }
-    return text;
   }
   // ✅ Mesma lógica pro "nada encontrado" — se o texto citar {link_pagamento}
   // (dica de pagar direto pelo Portal), gera o link de verdade.
