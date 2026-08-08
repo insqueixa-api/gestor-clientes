@@ -533,7 +533,7 @@ export function formatDiscountLabel(coupon: CouponRow): string {
 }
 
 /** Texto do bot de atendimento quando não há cupom bot-visible elegível — nunca "" (senão o nó do menu fica com resposta vazia). */
-const BOT_NO_COUPON_MESSAGE =
+export const BOT_NO_COUPON_MESSAGE =
   "No momento não identificamos nenhum cupom disponível pra sua conta. Fique de olho — avisamos por aqui assim que surgir uma promoção liberada pro seu perfil! 😉";
 
 /**

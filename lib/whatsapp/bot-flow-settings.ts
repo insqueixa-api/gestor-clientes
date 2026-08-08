@@ -10,6 +10,7 @@ import {
   HUMAN_REQUESTED_MSG,
   PORTAL_HANDOFF_MSG,
 } from "@/lib/whatsapp/bot-menu";
+import { BOT_NO_COUPON_MESSAGE } from "@/lib/client-portal/coupons";
 
 export type FlowSettings = {
   greeting_message: string;
@@ -25,6 +26,10 @@ export type FlowSettings = {
   /** Intro padrão ao reexibir submenu (antes das opções). */
   menu_invalid_intro_1: string;
   menu_invalid_intro_2: string;
+  /** Abertura usada só quando {cupom_frase} realmente achou um cupom pro cliente. Use {primeiro_nome}. */
+  coupon_found_intro: string;
+  /** Resposta de {cupom_frase} quando o cliente não é elegível a nenhum cupom. */
+  coupon_not_found_message: string;
 };
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -37,6 +42,8 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   invalid_retry_message_2: "Sem pressa! 😊 Escolha uma das opções digitando o número correspondente:",
   menu_invalid_intro_1: "Não entendi — pode escolher uma das opções abaixo, por favor? 😊",
   menu_invalid_intro_2: "Ainda não consegui identificar a opção. Digite só o número (1 a 8), por favor:",
+  coupon_found_intro: "Boa notícia, {primeiro_nome}! 🎉 Encontrei um cupom disponível pra você:",
+  coupon_not_found_message: BOT_NO_COUPON_MESSAGE,
 };
 
 function pickStr(v: unknown, fallback: string): string {
@@ -58,6 +65,8 @@ export function mergeFlowSettings(row: Record<string, any> | null | undefined): 
     invalid_retry_message_2: pickStr(row.invalid_retry_message_2, d.invalid_retry_message_2),
     menu_invalid_intro_1: pickStr(row.menu_invalid_intro_1, d.menu_invalid_intro_1),
     menu_invalid_intro_2: pickStr(row.menu_invalid_intro_2, d.menu_invalid_intro_2),
+    coupon_found_intro: pickStr(row.coupon_found_intro, d.coupon_found_intro),
+    coupon_not_found_message: pickStr(row.coupon_not_found_message, d.coupon_not_found_message),
   };
 }
 
@@ -93,6 +102,8 @@ export async function upsertFlowSettings(
     "invalid_retry_message_2",
     "menu_invalid_intro_1",
     "menu_invalid_intro_2",
+    "coupon_found_intro",
+    "coupon_not_found_message",
   ];
   const clean: Record<string, string> = {};
   for (const k of allowed) {

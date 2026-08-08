@@ -27,6 +27,33 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     findEligibleCoupon({ supabaseAdmin: supabase, tenantId, clientRow, onlyBotVisible: true }),
   ]);
 
+  // Resolve nomes de servidor (target_server_ids guarda id, não nome) só pra
+  // exibir a regra por extenso na página do cliente — sem isso o admin veria
+  // só um UUID.
+  const serverIds = Array.from(
+    new Set(list.flatMap(({ coupon }) => coupon.target_server_ids || [])),
+  );
+  const serverNameById: Record<string, string> = {};
+  if (serverIds.length) {
+    const { data: servers } = await supabase.from("servers").select("id, name").in("id", serverIds);
+    for (const s of servers || []) serverNameById[s.id] = s.name;
+  }
+
+  // Contagem de uso só pra cupons com limite total (pra mostrar "12/100 usados").
+  const capped = list.filter(({ coupon }) => coupon.max_total_redemptions != null);
+  const usageById: Record<string, number> = {};
+  if (capped.length) {
+    await Promise.all(
+      capped.map(async ({ coupon }) => {
+        const { count } = await supabase
+          .from("coupon_redemptions")
+          .select("id", { count: "exact", head: true })
+          .eq("coupon_id", coupon.id);
+        usageById[coupon.id] = count || 0;
+      }),
+    );
+  }
+
   return NextResponse.json({
     coupons: list.map(({ coupon, kind }) => ({
       id: coupon.id,
@@ -36,6 +63,17 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       discount_label: formatDiscountLabel(coupon),
       bot_visible: coupon.bot_visible,
       is_bot_pick: botPick?.id === coupon.id,
+      rule: kind === "personal" ? null : {
+        target_status: coupon.target_status,
+        target_server_names: (coupon.target_server_ids || []).map((id) => serverNameById[id] || id),
+        target_plan_labels: coupon.target_plan_labels,
+        target_app_names: coupon.target_app_names,
+        rule_date_field: coupon.rule_date_field,
+        rule_days_min: coupon.rule_days_min,
+        rule_days_max: coupon.rule_days_max,
+        max_total_redemptions: coupon.max_total_redemptions,
+        used_count: coupon.max_total_redemptions != null ? (usageById[coupon.id] ?? 0) : null,
+      },
     })),
   });
 }

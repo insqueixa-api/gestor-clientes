@@ -51,6 +51,8 @@ type FlowSettings = {
   invalid_retry_message_2: string;
   menu_invalid_intro_1: string;
   menu_invalid_intro_2: string;
+  coupon_found_intro: string;
+  coupon_not_found_message: string;
 };
 
 // ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
@@ -1225,6 +1227,49 @@ export default function BotMenuTreeEditor() {
                           rows={2}
                           className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
                         />
+                      </div>
+
+                      <div className="pt-1 border-t border-border space-y-2">
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                          🎁 Cupom de desconto ({"{cupom_frase}"})
+                        </p>
+                        <div>
+                          <label className={labelCls}>
+                            Abertura quando TEM cupom elegível (use {"{primeiro_nome}"})
+                          </label>
+                          <textarea
+                            value={flowSettings.coupon_found_intro}
+                            onChange={(e) =>
+                              setFlowSettings((s) =>
+                                s
+                                  ? { ...s, coupon_found_intro: e.target.value }
+                                  : s,
+                              )
+                            }
+                            rows={2}
+                            className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+                          />
+                        </div>
+                        <div>
+                          <label className={labelCls}>
+                            Quando NÃO tem nenhum cupom elegível
+                          </label>
+                          <textarea
+                            value={flowSettings.coupon_not_found_message}
+                            onChange={(e) =>
+                              setFlowSettings((s) =>
+                                s
+                                  ? {
+                                      ...s,
+                                      coupon_not_found_message: e.target.value,
+                                    }
+                                  : s,
+                              )
+                            }
+                            rows={2}
+                            className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

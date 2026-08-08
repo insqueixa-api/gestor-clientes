@@ -186,7 +186,7 @@ export async function toolConsultarPrecosTexto(sb: any, tenantId: string, client
 // computed_status, cupom sem target_status explícito nunca bate). Por
 // isso busca um clientRow completo na view antes de checar elegibilidade
 // — só quando a tag realmente aparece no texto de destino.
-async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any): Promise<string> {
+async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string> {
   const { data: viewRow } = await sb
     .from("vw_clients_list_active")
     .select("id, computed_status, server_id, plan_name, apps_names, vencimento, created_at, price_currency, price_amount, whatsapp_username, screens, plan_table_id")
@@ -195,15 +195,15 @@ async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any
     .maybeSingle();
 
   const coupon = await findEligibleCoupon({ supabaseAdmin: sb, tenantId, clientRow: viewRow || client, onlyBotVisible: true });
-  if (!coupon) return buildCouponPhrase(null, { botFallback: true });
-
-  // ✅ Só quando TEM cupom ganha essa abertura calorosa — sem cupom, o
-  // fallback (BOT_NO_COUPON_MESSAGE) fica sozinho, sem introdução nenhuma
+  // ✅ Só quando TEM cupom ganha a abertura (coupon_found_intro) — sem
+  // cupom, coupon_not_found_message fica sozinho, sem introdução nenhuma
   // (pedido do Márcio, 07/08/2026: "quando não tem, ficou perfeito").
+  // Ambas editáveis em bot_flow_settings — {primeiro_nome} é substituído
+  // na mão aqui (não passa pelo renderTemplate genérico da árvore).
+  if (!coupon) return flow.coupon_not_found_message;
+
   const firstName = String(client?.display_name || "").split(" ")[0];
-  const intro = firstName
-    ? `Boa notícia, ${firstName}! 🎉 Encontrei um cupom disponível pra você:`
-    : "Boa notícia! 🎉 Encontrei um cupom disponível pra você:";
+  const intro = flow.coupon_found_intro.replace(/\{primeiro_nome\}/g, firstName);
   return `${intro}\n${buildCouponPhrase(coupon)}`;
 }
 
@@ -212,10 +212,10 @@ async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any
 // (mensagens de nó) e o estado "geral"/RAG (resposta direta de artigo da
 // Base de Conhecimento), que monta seu próprio `vars` separado e por isso
 // precisaria da mesma resolução duplicada sem este helper.
-async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any, targetText: string): Promise<Record<string, any>> {
+async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any, targetText: string, flow: FlowSettings): Promise<Record<string, any>> {
   const vars: Record<string, any> = {};
   if (targetText.includes("{cupom_frase}")) {
-    vars.cupom_frase = await toolConsultarCupomBotTexto(sb, tenantId, client);
+    vars.cupom_frase = await toolConsultarCupomBotTexto(sb, tenantId, client, flow);
   }
   if (targetText.includes("{pendencia_detalhe}")) {
     vars.pendencia_detalhe = await getPendencyPhraseForClient(sb, tenantId, client.id, client.price_currency || "BRL");
@@ -240,7 +240,7 @@ function buildBotClientVars(client: any, rawClient: any, isSecondary?: boolean):
 }
 
 async function buildVarsForNode(
-  sb: any, tenantId: string, node: MenuNode, client: any, rawClient: any, provider: ServerProvider | null
+  sb: any, tenantId: string, node: MenuNode, client: any, rawClient: any, provider: ServerProvider | null, flow: FlowSettings
 ): Promise<Record<string, any>> {
   const vars = buildBotClientVars(client, rawClient, client.is_secondary);
   const stepsText = (await getSteps(sb, node.id, provider)).join(" ");
@@ -250,7 +250,7 @@ async function buildVarsForNode(
   if (stepsText.includes("{tabela_precos}")) {
     vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, client);
   }
-  Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, client, stepsText));
+  Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, client, stepsText, flow));
   return vars;
 }
 
@@ -335,7 +335,7 @@ async function executeLeaf(
   }
 
   if (actions.includes("escalar_imediatamente") || actions.includes("coletar_relato_e_escalar")) {
-    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider);
+    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider, flow);
     const steps = (await getSteps(sb, node.id, provider)).map((s) => renderTemplate(s, vars));
     return leafAfterMessages(node, steps.length ? steps : [flow.human_requested_message], {
       escalate: true, markRead: false, transferReason: node.transfer_situation_label || null, forceState: "__clear__",
@@ -350,7 +350,7 @@ async function executeLeaf(
   // sozinho) — por isso não dá pra reusar `coletar_relato_e_escalar`
   // direto sem também escalar NaTV/Fast, que não é o objetivo.
   if (actions.includes("escalar_se_elite") && provider === "ELITE") {
-    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider);
+    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider, flow);
     const steps = (await getSteps(sb, node.id, provider)).map((s) => renderTemplate(s, vars));
     return leafAfterMessages(node, steps.length ? steps : [flow.human_requested_message], {
       escalate: true, markRead: false, transferReason: node.transfer_situation_label || null, forceState: "__clear__",
@@ -379,7 +379,7 @@ async function executeLeaf(
     return leafAfterMessages(node, steps.length ? steps : ["Pode me contar com detalhes o que está acontecendo? 😊"], { forceState: "geral" });
   }
 
-  const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider);
+  const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider, flow);
   const steps = (await getSteps(sb, node.id, provider)).map((s) => renderTemplate(s, vars));
   // ✅ Achado em auditoria: nó sem steps próprios mas com redirect_to_node_id
   // (ex: "Android" → redireciona pro submenu de instalação) mandava o texto
@@ -637,7 +637,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
       const directChild = findChildByKeyword(children, trimmed);
       if (directChild) return enterNode(directChild, null, 1, redirectDepth);
 
-      const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, nodeProvider);
+      const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, nodeProvider, flow);
       for (const m of (await getSteps(sb, node.id, nodeProvider)).map((s) => renderTemplate(s, vars))) await sendWithLogos(m);
       await send(renderChildrenMenu(children, undefined, true));
       // ✅ Carrega a conta já em uso no próprio estado — sem isso, escolher o
@@ -777,7 +777,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     if (kb.content.includes("{tabela_precos}")) {
       vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, ragClient);
     }
-    Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, kb.content));
+    Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, kb.content, flow));
     await sendWithLogos(renderTemplate(kb.content, vars));
     return { action: "rag_direct_pos_conta", markRead: true, nextState: "geral" };
   }
@@ -909,7 +909,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
         if (top.content.includes("{tabela_precos}")) {
           vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, ragClient);
         }
-        Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, top.content));
+        Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, top.content, flow));
         await sendWithLogos(renderTemplate(top.content, vars));
         return { action: "rag_direct", markRead: true, nextState: "geral" };
       }

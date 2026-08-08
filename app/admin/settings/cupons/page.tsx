@@ -306,6 +306,14 @@ export default function CuponsPage() {
                           👤 {row.clients?.display_name || "Cliente removido"}
                         </span>
                       )}
+                      {row.bot_visible && (
+                        <span
+                          className="inline-flex items-center text-[10px] font-medium bg-teal-500/10 text-teal-500 border border-teal-500/20 px-2.5 py-0.5 rounded-full"
+                          title='Visível pro bot de atendimento (menu "Cupom de desconto" do WhatsApp)'
+                        >
+                          🤖 Bot
+                        </span>
+                      )}
                     </div>
                     {row.description && (
                       <p

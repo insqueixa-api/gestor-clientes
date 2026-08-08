@@ -43,6 +43,49 @@ const STATUS_OPTIONS = [
   { id: "TRIAL", label: "Teste" },
 ];
 
+/** Switch compacto (label + descrição opcional à esquerda, toggle à direita) — usado pra Ativo/Visível pro bot, evita repetir o card grande de antes. */
+function Switch({
+  label,
+  hint,
+  checked,
+  onChange,
+  onLabel = "Sim",
+  offLabel = "Não",
+  tone = "emerald",
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  onLabel?: string;
+  offLabel?: string;
+  tone?: "emerald" | "rose";
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <div className="min-w-0">
+        <div className="text-xs font-medium text-foreground/90">{label}</div>
+        {hint && (
+          <div className="text-[11px] text-muted-foreground">{hint}</div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`h-8 px-3 rounded-lg text-[11px] font-medium border transition-colors shrink-0 ${
+          checked
+            ? tone === "rose"
+              ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+              : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+            : "bg-muted text-muted-foreground border-border"
+        }`}
+      >
+        {checked ? onLabel : offLabel}
+      </button>
+    </div>
+  );
+}
+
 function fmtMoney(value: number) {
   return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -156,6 +199,25 @@ export default function CupomModal({
     lockedClient ?? null,
   );
   const [tenantId, setTenantId] = useState(resolvedTenantId || "");
+
+  // Opções avançadas ficam recolhidas por padrão (cupom novo/simples) — mas
+  // já abrem sozinhas ao editar um cupom que usa qualquer uma delas, pra
+  // nunca esconder uma configuração que já existe.
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(() =>
+    !!(
+      coupon?.description ||
+      coupon?.starts_at ||
+      coupon?.ends_at ||
+      coupon?.target_status?.length ||
+      coupon?.target_server_ids?.length ||
+      coupon?.target_plan_labels?.length ||
+      coupon?.target_app_names?.length ||
+      coupon?.rule_date_field ||
+      coupon?.max_total_redemptions != null ||
+      coupon?.message_template ||
+      coupon?.bot_visible
+    ),
+  );
 
   // Opções pros multi-selects de segmentação — mesmas fontes de
   // app/admin/gerenciador/cobranca/page.tsx (servers/apps/planos únicos).
@@ -419,29 +481,23 @@ export default function CupomModal({
         className="absolute inset-0 bg-black/60 backdrop-blur-md"
         onMouseDown={onClose}
       />
-      <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="p-5 border-b border-border bg-transparent shrink-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight truncate">
-                {isEdit ? "Editar Cupom" : "Novo Cupom"}
-              </h2>
-              <p className="text-xs sm:text-sm text-foreground/70 mt-1">
-                Cupom de desconto usado na renovação pelo portal do cliente.
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="h-9 px-3 rounded-lg border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"
-              type="button"
-            >
-              Fechar
-            </button>
-          </div>
+      <div className="relative w-full max-w-2xl rounded-2xl border border-border bg-card shadow-xl overflow-hidden max-h-[85vh] flex flex-col">
+        <div className="p-4 border-b border-border bg-transparent shrink-0 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-foreground tracking-tight truncate">
+            {isEdit ? "Editar cupom" : "Novo cupom"}
+          </h2>
+          <button
+            onClick={onClose}
+            className="h-8 px-3 rounded-lg border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"
+            type="button"
+          >
+            Fechar
+          </button>
         </div>
 
-        <div className="p-5 space-y-4 overflow-y-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="p-4 space-y-3 overflow-y-auto">
+          {/* Essencial: código, desconto, ativo */}
+          <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Código
@@ -455,43 +511,19 @@ export default function CupomModal({
             </div>
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                Descrição interna
+                Desconto
               </label>
-              <input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder='Ex: "Campanha Black Friday 2026"'
-                className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                Tipo de desconto
-              </label>
-              <select
-                value={discountType}
-                onChange={(e) =>
-                  setDiscountType(e.target.value as "percent" | "fixed")
-                }
-                className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
-              >
-                <option value="percent">Percentual (%)</option>
-                <option value="fixed">Valor fixo</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                {discountType === "percent" ? "Percentual" : "Valor"}
-              </label>
-              <div className="flex gap-2">
-                {discountType === "fixed" && (
-                  <span className="h-10 px-3 rounded-xl border border-border bg-muted text-sm text-muted-foreground flex items-center shrink-0">
-                    R$
-                  </span>
-                )}
+              <div className="flex gap-1.5">
+                <select
+                  value={discountType}
+                  onChange={(e) =>
+                    setDiscountType(e.target.value as "percent" | "fixed")
+                  }
+                  className="h-10 rounded-xl border border-border bg-transparent pl-2 pr-1 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30 shrink-0"
+                >
+                  <option value="percent">%</option>
+                  <option value="fixed">R$</option>
+                </select>
                 <input
                   value={discountValue}
                   onChange={(e) => setDiscountValue(e.target.value)}
@@ -501,464 +533,10 @@ export default function CupomModal({
                 />
               </div>
             </div>
-          </div>
-          <p className="text-[11px] text-foreground/70 -mt-2">
-            O desconto incide apenas sobre o valor do plano — pendências
-            financeiras continuam cobradas 100%. Cupons funcionam apenas para
-            clientes com plano em BRL.
-          </p>
-
-          {/* Validade */}
-          <div className="rounded-xl border border-border bg-transparent px-3 py-2.5 space-y-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-foreground/90">
-                  Validade
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Desligado = cupom definitivo (até ser desativado manualmente).
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setHasValidity((v) => !v)}
-                className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
-                  hasValidity
-                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                    : "bg-muted text-muted-foreground border-border"
-                }`}
-              >
-                {hasValidity ? "Definida" : "Sem validade"}
-              </button>
-            </div>
-
-            {hasValidity && (
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                    Início
-                  </label>
-                  <FormattedDateInput
-                    type="date"
-                    value={startsAt}
-                    onChange={(e) => setStartsAt(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                    Fim
-                  </label>
-                  <FormattedDateInput
-                    type="date"
-                    value={endsAt}
-                    onChange={(e) => setEndsAt(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Cupom pessoal (indicação) */}
-          <div className="rounded-xl border border-border bg-transparent px-3 py-2.5 space-y-2.5">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-foreground/90">
-                  Cupom pessoal (indicação)
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Preso a um único cliente. Ex: 1 mês grátis por indicação.
-                </div>
-              </div>
-              {!lockedClient && (
-                <button
-                  type="button"
-                  onClick={() => setHasPersonalClient((v) => !v)}
-                  className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
-                    hasPersonalClient
-                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                      : "bg-muted text-muted-foreground border-border"
-                  }`}
-                >
-                  {hasPersonalClient ? "Pessoal" : "Geral"}
-                </button>
-              )}
-            </div>
-
-            {hasPersonalClient && (
-              <>
-                {lockedClient ? (
-                  <div className="h-10 px-3 rounded-xl border border-border bg-muted/50 flex items-center text-sm font-medium text-foreground/90">
-                    {lockedClient.display_name}
-                    {lockedClient.username && (
-                      <span className="text-muted-foreground font-normal ml-1">
-                        ({lockedClient.username})
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <ClientPicker
-                    tenantId={tenantId}
-                    selected={personalClient}
-                    onSelect={(c) => {
-                      setPersonalClient(c);
-                      setPersonalImpact(null);
-                    }}
-                    onClear={() => {
-                      setPersonalClient(null);
-                      setPersonalImpact(null);
-                    }}
-                  />
-                )}
-                <p className="text-[11px] text-foreground/70">
-                  Esse cupom fica preso a{" "}
-                  {personalClient ? (
-                    <strong>{personalClient.display_name}</strong>
-                  ) : (
-                    "este cliente"
-                  )}
-                  . Ele se autodesativa depois de usado uma vez — reative
-                  manualmente quando quiser liberar de novo (ex: numa próxima
-                  indicação).
-                </p>
-
-                {personalClient && (
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      onClick={handleCalculatePersonalImpact}
-                      disabled={personalImpactLoading}
-                      className="h-8 px-3 rounded-lg text-xs font-medium border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors disabled:opacity-50"
-                    >
-                      {personalImpactLoading ? "Calculando..." : "Ver impacto"}
-                    </button>
-
-                    {personalImpact && (
-                      <div className="mt-2 text-xs bg-muted/50 rounded-lg px-3 py-2 flex items-center justify-between">
-                        <span className="text-muted-foreground">
-                          Renovação normal x com cupom
-                        </span>
-                        <span className="font-medium text-foreground/90">
-                          {fmtMoney(personalImpact.normalPrice)} →{" "}
-                          <span className="text-emerald-500">
-                            {fmtMoney(personalImpact.discountedPrice)}
-                          </span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Segmentação — mesmo motor de regras da Régua de Cobrança (só cupom geral) */}
-          {!hasPersonalClient && (
-            <div className="rounded-xl border border-border bg-transparent px-3 py-2.5 space-y-3">
-              <div>
-                <div className="text-xs font-medium text-foreground/90">
-                  Segmentação
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  Vazio = sem filtro nessa dimensão (todos passam). Status vazio
-                  = Ativo + Vencido (Teste não entra sem escolher).
-                </div>
-              </div>
-
-              <MultiSelectDropdown
-                label="Status do cliente"
-                options={STATUS_OPTIONS}
-                selected={targetStatus}
-                onChange={setTargetStatus}
-                emptyLabel="Ativo + Vencido (padrão)"
-              />
-              <MultiSelectDropdown
-                label="Servidores"
-                options={auxServers}
-                selected={targetServerIds}
-                onChange={setTargetServerIds}
-              />
-              <MultiSelectDropdown
-                label="Planos"
-                options={auxPlans}
-                selected={targetPlanLabels}
-                onChange={setTargetPlanLabels}
-              />
-              <MultiSelectDropdown
-                label="Aplicativos"
-                options={auxApps}
-                selected={targetAppNames}
-                onChange={setTargetAppNames}
-              />
-            </div>
-          )}
-
-          {/* Janela de dias (vencimento ou cadastro) — só cupom geral */}
-          {!hasPersonalClient && (
-            <div className="rounded-xl border border-border bg-transparent px-3 py-2.5 space-y-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-foreground/90">
-                    Janela de dias
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    Ex: cadastro entre 1 e 2 anos, ou vencimento entre 3 e 10
-                    dias.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setHasDateRule((v) => !v)}
-                  className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
-                    hasDateRule
-                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                      : "bg-muted text-muted-foreground border-border"
-                  }`}
-                >
-                  {hasDateRule ? "Restrito" : "Sem regra"}
-                </button>
-              </div>
-
-              {hasDateRule && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                      Campo de data
-                    </label>
-                    <select
-                      value={ruleDateField}
-                      onChange={(e) =>
-                        setRuleDateField(
-                          e.target.value as "vencimento" | "cadastro",
-                        )
-                      }
-                      className="w-full h-9 rounded-lg border border-border bg-transparent px-2 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
-                    >
-                      <option value="cadastro">Cadastro</option>
-                      <option value="vencimento">Vencimento</option>
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <DayBoundControl
-                      label="A partir de"
-                      disabledLabel="Sem mínimo"
-                      enabled={hasMin}
-                      onToggleEnabled={() => setHasMin((v) => !v)}
-                      sign={minSign}
-                      onSignChange={setMinSign}
-                      value={minValue}
-                      onValueChange={setMinValue}
-                    />
-                    <DayBoundControl
-                      label="Até"
-                      disabledLabel="Sem máximo"
-                      enabled={hasMax}
-                      onToggleEnabled={() => setHasMax((v) => !v)}
-                      sign={maxSign}
-                      onSignChange={setMaxSign}
-                      value={maxValue}
-                      onValueChange={setMaxValue}
-                    />
-                  </div>
-                  <p className="text-[11px] text-foreground/70">
-                    "Antes" = dias antes da data (ainda não chegou). "Depois" =
-                    dias depois (já passou).
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Limite total de usos (só cupom geral) */}
-          {!hasPersonalClient && (
-            <div className="rounded-xl border border-border bg-transparent px-3 py-2.5 space-y-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-foreground/90">
-                    Limite total de usos
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    Cada cliente só usa 1 vez de qualquer forma — isso limita o
-                    total da campanha.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setHasMaxUses((v) => !v)}
-                  className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
-                    hasMaxUses
-                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                      : "bg-muted text-muted-foreground border-border"
-                  }`}
-                >
-                  {hasMaxUses ? "Limitado" : "Ilimitado"}
-                </button>
-              </div>
-
-              {hasMaxUses && (
-                <input
-                  value={maxTotalRedemptions}
-                  onChange={(e) => setMaxTotalRedemptions(e.target.value)}
-                  placeholder="Ex: 100"
-                  inputMode="numeric"
-                  className="w-full h-9 rounded-lg border border-border bg-transparent px-2 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
-                />
-              )}
-            </div>
-          )}
-
-          {/* Prévia de impacto (só cupom geral) */}
-          {!hasPersonalClient && (
-            <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2.5 space-y-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-foreground/90">
-                    Prévia de impacto
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    Quantos clientes seriam elegíveis hoje, e quanto renderia
-                    normal x com cupom.
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCalculateImpact}
-                  disabled={impactLoading}
-                  className="h-9 px-3 rounded-lg text-xs font-medium border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors shrink-0 disabled:opacity-50"
-                >
-                  {impactLoading ? "Calculando..." : "Calcular impacto"}
-                </button>
-              </div>
-
-              {impactError && (
-                <p className="text-[11px] text-rose-500">{impactError}</p>
-              )}
-
-              {impactResult && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs bg-muted/50 rounded-lg px-3 py-2">
-                    <span className="text-muted-foreground">
-                      {impactResult.totalClients} cliente(s) elegível(is) —
-                      estimativa em BRL
-                    </span>
-                    <span className="font-medium text-foreground/90">
-                      {fmtMoney(impactResult.totalNormal)} →{" "}
-                      <span className="text-emerald-500">
-                        {fmtMoney(impactResult.totalDiscounted)}
-                      </span>
-                    </span>
-                  </div>
-
-                  {impactResult.totalClients > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowImpactClients((v) => !v)}
-                      className="text-[11px] text-sky-500 hover:underline"
-                    >
-                      {showImpactClients
-                        ? "Esconder lista de clientes"
-                        : "Ver lista de clientes"}
-                    </button>
-                  )}
-
-                  {showImpactClients && (
-                    <div className="max-h-40 overflow-y-auto rounded-lg border border-border divide-y divide-border">
-                      {impactResult.groups.map((g) =>
-                        g.accounts.length === 1 ? (
-                          <div
-                            key={g.key}
-                            className="flex items-center justify-between px-3 py-1.5 text-[11px]"
-                          >
-                            <span className="text-foreground/90 truncate">
-                              {g.name}{" "}
-                              <span className="text-muted-foreground">
-                                ({g.accounts[0].username})
-                              </span>
-                            </span>
-                            <span className="text-muted-foreground shrink-0 ml-2">
-                              {fmtMoney(g.accounts[0].normalPrice!)} →{" "}
-                              <span className="text-emerald-500">
-                                {fmtMoney(g.accounts[0].discountedPrice!)}
-                              </span>
-                            </span>
-                          </div>
-                        ) : (
-                          <div
-                            key={g.key}
-                            className="px-3 py-1.5 text-[11px] space-y-1"
-                          >
-                            <div className="font-medium text-foreground/90">
-                              {g.name}{" "}
-                              <span className="text-muted-foreground">
-                                — {g.accounts.length} contas
-                              </span>
-                            </div>
-                            <div className="pl-3 space-y-1">
-                              {g.accounts.map((a) => (
-                                <div
-                                  key={a.id}
-                                  className="flex items-center justify-between gap-2"
-                                >
-                                  <span className="text-muted-foreground truncate">
-                                    {a.username} ({a.serverName})
-                                  </span>
-                                  {a.eligible ? (
-                                    <span className="text-muted-foreground shrink-0">
-                                      {fmtMoney(a.normalPrice!)} →{" "}
-                                      <span className="text-emerald-500">
-                                        {fmtMoney(a.discountedPrice!)}
-                                      </span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted-foreground/70 shrink-0">
-                                      não elegível
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Frase da automação */}
-          <div>
-            <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-              Frase para {"{cupom_frase}"} (opcional)
-            </label>
-            <textarea
-              value={messageTemplate}
-              onChange={(e) => setMessageTemplate(e.target.value)}
-              placeholder={`Deixe em branco para usar a frase padrão. Tokens disponíveis: {codigo} e {desconto}.`}
-              rows={3}
-              className="w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
-            />
-            <p className="text-[11px] text-foreground/70 mt-1">
-              Usada nas mensagens de cobrança automáticas, se o template incluir
-              a tag {"{cupom_frase}"}. Fica vazia quando o cliente não tem cupom
-              elegível.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent px-3 py-2">
-            <div className="min-w-0">
-              <div className="text-xs font-medium text-foreground/90">
-                Cupom ativo
-              </div>
-              <div className="text-[11px] text-muted-foreground">
-                Se desativar, ele para de ser oferecido imediatamente.
-              </div>
-            </div>
-
             <button
               type="button"
               onClick={() => setIsActive((v) => !v)}
-              className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors ${
+              className={`h-10 px-3 rounded-xl text-xs font-medium border transition-colors whitespace-nowrap ${
                 isActive
                   ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                   : "bg-rose-500/10 text-rose-500 border-rose-500/20"
@@ -968,37 +546,342 @@ export default function CupomModal({
             </button>
           </div>
 
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-transparent px-3 py-2">
-            <div className="min-w-0">
-              <div className="text-xs font-medium text-foreground/90">
-                Visível pro bot de atendimento
+          {/* Pessoal x Geral */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {lockedClient ? (
+              <span className="text-xs text-foreground/90 bg-muted/50 border border-border rounded-lg px-2.5 h-8 flex items-center">
+                👤 Pessoal — {lockedClient.display_name}
+              </span>
+            ) : (
+              <>
+                <div className="flex rounded-lg border border-border overflow-hidden shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setHasPersonalClient(false)}
+                    className={`h-8 px-3 text-xs font-medium transition-colors ${!hasPersonalClient ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    Geral
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHasPersonalClient(true)}
+                    className={`h-8 px-3 text-xs font-medium border-l border-border transition-colors ${hasPersonalClient ? "bg-emerald-500/10 text-emerald-500" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    Pessoal
+                  </button>
+                </div>
+                {hasPersonalClient && (
+                  <div className="flex-1 min-w-[200px]">
+                    <ClientPicker
+                      tenantId={tenantId}
+                      selected={personalClient}
+                      onSelect={(c) => {
+                        setPersonalClient(c);
+                        setPersonalImpact(null);
+                      }}
+                      onClear={() => {
+                        setPersonalClient(null);
+                        setPersonalImpact(null);
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+          {hasPersonalClient && (
+            <p className="text-[11px] text-foreground/70 -mt-1.5">
+              Cupom pessoal (indicação) — preso a 1 cliente, autodesativa
+              depois de usado uma vez.
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            className="text-[11px] font-medium text-sky-500 hover:underline pt-1"
+          >
+            {showAdvanced
+              ? "▲ Ocultar opções avançadas"
+              : "▼ Opções avançadas (validade, segmentação, limite, bot...)"}
+          </button>
+
+          {showAdvanced && (
+            <div className="space-y-3 pt-2 border-t border-border">
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
+                  Descrição interna
+                </label>
+                <input
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder='Ex: "Campanha Black Friday 2026"'
+                  className="w-full h-9 rounded-lg border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                />
               </div>
-              <div className="text-[11px] text-muted-foreground">
-                Só cupons marcados aqui são elegíveis pro bot do WhatsApp
-                mencionar sozinho (menu "Cupom de desconto" e respostas livres).
-                Cupons de campanha que você divulga por conta própria devem
-                ficar desmarcados.
+
+              {/* Validade */}
+              <div className="rounded-lg border border-border bg-transparent px-3 py-2 space-y-2">
+                <Switch
+                  label="Validade"
+                  hint="Desligado = cupom definitivo."
+                  checked={hasValidity}
+                  onChange={setHasValidity}
+                  onLabel="Definida"
+                  offLabel="Sem validade"
+                />
+                {hasValidity && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <FormattedDateInput
+                      type="date"
+                      value={startsAt}
+                      onChange={(e) => setStartsAt(e.target.value)}
+                    />
+                    <FormattedDateInput
+                      type="date"
+                      value={endsAt}
+                      onChange={(e) => setEndsAt(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {!hasPersonalClient && (
+                <>
+                  {/* Segmentação */}
+                  <div className="rounded-lg border border-border bg-transparent px-3 py-2 space-y-2">
+                    <div className="text-xs font-medium text-foreground/90">
+                      Segmentação
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <MultiSelectDropdown
+                        label="Status"
+                        options={STATUS_OPTIONS}
+                        selected={targetStatus}
+                        onChange={setTargetStatus}
+                        emptyLabel="Ativo + Vencido"
+                      />
+                      <MultiSelectDropdown
+                        label="Servidores"
+                        options={auxServers}
+                        selected={targetServerIds}
+                        onChange={setTargetServerIds}
+                      />
+                      <MultiSelectDropdown
+                        label="Planos"
+                        options={auxPlans}
+                        selected={targetPlanLabels}
+                        onChange={setTargetPlanLabels}
+                      />
+                      <MultiSelectDropdown
+                        label="Aplicativos"
+                        options={auxApps}
+                        selected={targetAppNames}
+                        onChange={setTargetAppNames}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Janela de dias */}
+                  <div className="rounded-lg border border-border bg-transparent px-3 py-2 space-y-2">
+                    <Switch
+                      label="Janela de dias"
+                      hint="Ex: vencimento entre 3 e 10 dias."
+                      checked={hasDateRule}
+                      onChange={setHasDateRule}
+                      onLabel="Restrito"
+                      offLabel="Sem regra"
+                    />
+                    {hasDateRule && (
+                      <div className="space-y-2">
+                        <select
+                          value={ruleDateField}
+                          onChange={(e) =>
+                            setRuleDateField(
+                              e.target.value as "vencimento" | "cadastro",
+                            )
+                          }
+                          className="w-full h-9 rounded-lg border border-border bg-transparent px-2 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        >
+                          <option value="cadastro">Cadastro</option>
+                          <option value="vencimento">Vencimento</option>
+                        </select>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <DayBoundControl
+                            label="A partir de"
+                            disabledLabel="Sem mínimo"
+                            enabled={hasMin}
+                            onToggleEnabled={() => setHasMin((v) => !v)}
+                            sign={minSign}
+                            onSignChange={setMinSign}
+                            value={minValue}
+                            onValueChange={setMinValue}
+                          />
+                          <DayBoundControl
+                            label="Até"
+                            disabledLabel="Sem máximo"
+                            enabled={hasMax}
+                            onToggleEnabled={() => setHasMax((v) => !v)}
+                            sign={maxSign}
+                            onSignChange={setMaxSign}
+                            value={maxValue}
+                            onValueChange={setMaxValue}
+                          />
+                        </div>
+                        <p className="text-[10px] text-foreground/70">
+                          "Antes" = ainda não chegou na data. "Depois" = já
+                          passou.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Limite de usos + prévia de impacto, lado a lado */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-border bg-transparent px-3 py-2 space-y-2">
+                      <Switch
+                        label="Limite total de usos"
+                        checked={hasMaxUses}
+                        onChange={setHasMaxUses}
+                        onLabel="Limitado"
+                        offLabel="Ilimitado"
+                      />
+                      {hasMaxUses && (
+                        <input
+                          value={maxTotalRedemptions}
+                          onChange={(e) =>
+                            setMaxTotalRedemptions(e.target.value)
+                          }
+                          placeholder="Ex: 100"
+                          inputMode="numeric"
+                          className="w-full h-9 rounded-lg border border-border bg-transparent px-2 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                        />
+                      )}
+                    </div>
+
+                    <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-xs font-medium text-foreground/90">
+                          Prévia de impacto
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCalculateImpact}
+                          disabled={impactLoading}
+                          className="h-7 px-2.5 rounded-md text-[11px] font-medium border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors disabled:opacity-50 shrink-0"
+                        >
+                          {impactLoading ? "..." : "Calcular"}
+                        </button>
+                      </div>
+                      {impactError && (
+                        <p className="text-[11px] text-rose-500">
+                          {impactError}
+                        </p>
+                      )}
+                      {impactResult && (
+                        <div className="text-[11px] space-y-1">
+                          <div className="flex items-center justify-between bg-muted/50 rounded-lg px-2 py-1.5">
+                            <span className="text-muted-foreground">
+                              {impactResult.totalClients} elegível(is)
+                            </span>
+                            <span className="font-medium text-foreground/90">
+                              {fmtMoney(impactResult.totalNormal)} →{" "}
+                              <span className="text-emerald-500">
+                                {fmtMoney(impactResult.totalDiscounted)}
+                              </span>
+                            </span>
+                          </div>
+                          {impactResult.totalClients > 0 && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowImpactClients((v) => !v)
+                              }
+                              className="text-sky-500 hover:underline"
+                            >
+                              {showImpactClients ? "Esconder lista" : "Ver lista"}
+                            </button>
+                          )}
+                          {showImpactClients && (
+                            <div className="max-h-32 overflow-y-auto rounded-lg border border-border divide-y divide-border">
+                              {impactResult.groups.map((g) => (
+                                <div
+                                  key={g.key}
+                                  className="px-2 py-1 truncate"
+                                >
+                                  {g.name}{" "}
+                                  <span className="text-muted-foreground">
+                                    ({g.accounts.length}{" "}
+                                    {g.accounts.length === 1 ? "conta" : "contas"})
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {hasPersonalClient && personalClient && (
+                <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCalculatePersonalImpact}
+                    disabled={personalImpactLoading}
+                    className="h-7 px-2.5 rounded-md text-[11px] font-medium border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                  >
+                    {personalImpactLoading ? "Calculando..." : "Ver impacto"}
+                  </button>
+                  {personalImpact && (
+                    <span className="text-[11px] text-foreground/90">
+                      {fmtMoney(personalImpact.normalPrice)} →{" "}
+                      <span className="text-emerald-500 font-medium">
+                        {fmtMoney(personalImpact.discountedPrice)}
+                      </span>
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
+                  Frase para {"{cupom_frase}"} (opcional)
+                </label>
+                <textarea
+                  value={messageTemplate}
+                  onChange={(e) => setMessageTemplate(e.target.value)}
+                  placeholder={`Padrão se deixar em branco: "🎁 Use o cupom *{codigo}* e ganhe {desconto} de desconto na sua próxima renovação!"`}
+                  rows={2}
+                  className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
+                />
+              </div>
+
+              <div className="rounded-lg border border-border bg-transparent px-3">
+                <Switch
+                  label="Visível pro bot de atendimento"
+                  hint='Só cupons marcados aqui aparecem sozinhos no menu "Cupom de desconto" do WhatsApp.'
+                  checked={botVisible}
+                  onChange={setBotVisible}
+                  onLabel="Visível"
+                  offLabel="Oculto"
+                />
               </div>
             </div>
+          )}
 
-            <button
-              type="button"
-              onClick={() => setBotVisible((v) => !v)}
-              className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
-                botVisible
-                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                  : "bg-muted text-muted-foreground border-border"
-              }`}
-            >
-              {botVisible ? "Visível" : "Oculto"}
-            </button>
-          </div>
+          <p className="text-[10px] text-foreground/60">
+            Desconto incide só sobre o valor do plano — pendências continuam
+            cobradas 100%. Só funciona pra clientes com plano em BRL.
+          </p>
         </div>
 
-        <div className="p-5 border-t border-border bg-transparent flex items-center justify-end gap-2 shrink-0">
+        <div className="p-4 border-t border-border bg-transparent flex items-center justify-end gap-2 shrink-0">
           <button
             onClick={onClose}
-            className="h-10 px-4 rounded-xl border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"
+            className="h-9 px-4 rounded-xl border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"
             type="button"
             disabled={saving}
           >
@@ -1007,7 +890,7 @@ export default function CupomModal({
 
           <button
             onClick={handleSave}
-            className={`h-10 px-4 rounded-xl text-xs font-medium transition-colors ${
+            className={`h-9 px-4 rounded-xl text-xs font-medium transition-colors ${
               canSave
                 ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20"
                 : "bg-muted text-muted-foreground cursor-not-allowed"

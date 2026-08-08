@@ -219,6 +219,18 @@ type TimelineItem = {
   meta: any;
 };
 
+type EligibleCouponRule = {
+  target_status: string[] | null;
+  target_server_names: string[];
+  target_plan_labels: string[] | null;
+  target_app_names: string[] | null;
+  rule_date_field: "vencimento" | "cadastro" | null;
+  rule_days_min: number | null;
+  rule_days_max: number | null;
+  max_total_redemptions: number | null;
+  used_count: number | null;
+};
+
 type EligibleCouponRow = {
   id: string;
   code: string;
@@ -227,7 +239,50 @@ type EligibleCouponRow = {
   discount_label: string;
   bot_visible: boolean;
   is_bot_pick: boolean;
+  rule: EligibleCouponRule | null;
 };
+
+const STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Ativo",
+  OVERDUE: "Vencido",
+  TRIAL: "Teste",
+};
+
+/** Regras ativas de um cupom geral, em fragmentos curtos — só o que tem
+ * restrição de verdade aparece (sem filtro numa dimensão = não mostra nada). */
+function formatCouponRuleChips(rule: EligibleCouponRule | null): string[] {
+  if (!rule) return [];
+  const chips: string[] = [];
+
+  if (rule.target_status?.length) {
+    chips.push(rule.target_status.map((s) => STATUS_LABELS[s] || s).join(", "));
+  }
+  if (rule.target_server_names.length) {
+    chips.push(rule.target_server_names.join(", "));
+  }
+  if (rule.target_plan_labels?.length) {
+    chips.push(rule.target_plan_labels.join(", "));
+  }
+  if (rule.target_app_names?.length) {
+    chips.push(rule.target_app_names.join(", "));
+  }
+  if (rule.rule_date_field && (rule.rule_days_min != null || rule.rule_days_max != null)) {
+    const fieldLabel = rule.rule_date_field === "vencimento" ? "Vencimento" : "Cadastro";
+    const bound = (d: number) => `${Math.abs(d)}d ${d < 0 ? "antes" : "depois"}`;
+    const range =
+      rule.rule_days_min != null && rule.rule_days_max != null
+        ? `${bound(rule.rule_days_min)} até ${bound(rule.rule_days_max)}`
+        : rule.rule_days_min != null
+          ? `a partir de ${bound(rule.rule_days_min)}`
+          : `até ${bound(rule.rule_days_max!)}`;
+    chips.push(`${fieldLabel}: ${range}`);
+  }
+  if (rule.max_total_redemptions != null) {
+    chips.push(`${rule.used_count ?? 0}/${rule.max_total_redemptions} usados`);
+  }
+
+  return chips;
+}
 
 export default function ClientDetailsPage() {
   const resolvedTenantId = useTenantId();
@@ -1257,35 +1312,52 @@ export default function ClientDetailsPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {eligibleCoupons.map((c) => (
-                  <div
-                    key={c.id}
-                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
-                      c.is_bot_pick
-                        ? "border-emerald-500/30 bg-emerald-500/5"
-                        : "border-border bg-transparent"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <span
-                        className={`font-mono ${c.is_bot_pick ? "font-bold text-emerald-500" : "font-medium text-foreground/90"}`}
-                      >
-                        {c.code}
-                      </span>
-                      <span className="text-muted-foreground ml-2">
-                        {c.discount_label}
-                      </span>
-                      <span className="text-muted-foreground/70 ml-2">
-                        {c.kind === "personal" ? "· pessoal" : "· geral"}
-                      </span>
+                {eligibleCoupons.map((c) => {
+                  const chips = formatCouponRuleChips(c.rule);
+                  return (
+                    <div
+                      key={c.id}
+                      className={`rounded-lg border px-3 py-2 text-xs ${
+                        c.is_bot_pick
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : "border-border bg-transparent"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <span
+                            className={`font-mono ${c.is_bot_pick ? "font-bold text-emerald-500" : "font-medium text-foreground/90"}`}
+                          >
+                            {c.code}
+                          </span>
+                          <span className="text-muted-foreground ml-2">
+                            {c.discount_label}
+                          </span>
+                          <span className="text-muted-foreground/70 ml-2">
+                            {c.kind === "personal" ? "· pessoal" : "· geral"}
+                          </span>
+                        </div>
+                        {c.is_bot_pick && (
+                          <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[10px] font-bold uppercase">
+                            bot usa este
+                          </span>
+                        )}
+                      </div>
+                      {chips.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {chips.map((chip, i) => (
+                            <span
+                              key={i}
+                              className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-[10px]"
+                            >
+                              {chip}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {c.is_bot_pick && (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[10px] font-bold uppercase">
-                        bot usa este
-                      </span>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             <p className="text-[10px] text-muted-foreground mt-2">

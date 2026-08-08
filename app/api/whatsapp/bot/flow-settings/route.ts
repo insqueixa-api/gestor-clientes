@@ -41,6 +41,8 @@ export async function POST(req: Request) {
     "invalid_retry_message_2",
     "menu_invalid_intro_1",
     "menu_invalid_intro_2",
+    "coupon_found_intro",
+    "coupon_not_found_message",
   ];
   const patch: Partial<FlowSettings> = {};
   for (const k of keys) {
