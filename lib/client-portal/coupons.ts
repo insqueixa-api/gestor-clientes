@@ -465,7 +465,67 @@ export async function findEligibleCoupon(params: {
   return null;
 }
 
-function formatDiscountLabel(coupon: CouponRow): string {
+export type EligibleCouponInfo = { coupon: CouponRow; kind: "personal" | "general" };
+
+/**
+ * Igual a `findEligibleCoupon`, mas devolve TODOS os cupons que batem pro
+ * cliente (não só o primeiro/vencedor) — uso administrativo (ex: página do
+ * cliente, "quais cupons ele é elegível agora"), nunca pra decidir desconto
+ * de cobrança de verdade (isso continua sendo só `findEligibleCoupon`).
+ * Não filtra por `bot_visible` de propósito — aqui é visão do admin, não do
+ * bot de atendimento.
+ */
+export async function listEligibleCoupons(params: {
+  supabaseAdmin: any;
+  tenantId: string;
+  clientRow: any;
+}): Promise<EligibleCouponInfo[]> {
+  const { supabaseAdmin, tenantId, clientRow } = params;
+  const clientId = clientRow?.id;
+  if (!clientId) return [];
+  if (getClientCurrency(clientRow) !== "BRL") return [];
+
+  const { data, error } = await supabaseAdmin
+    .from("coupons")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  if (error || !data?.length) return [];
+  const rows = data as CouponRow[];
+  const now = new Date();
+
+  const linkedIds = await resolveLinkedClientIds(supabaseAdmin, tenantId, clientRow);
+  const overrideActive = await isOverridePriceActive(supabaseAdmin, tenantId, clientRow);
+
+  const result: EligibleCouponInfo[] = [];
+
+  for (const coupon of rows.filter((c) => !!c.client_id && linkedIds.includes(c.client_id!))) {
+    if (coupon.starts_at && new Date(coupon.starts_at) > now) continue;
+    if (coupon.ends_at && new Date(coupon.ends_at) < now) continue;
+    result.push({ coupon, kind: "personal" });
+  }
+
+  const general = rows
+    .filter((c) => !c.client_id)
+    .sort((a, b) => Number(b.discount_value) - Number(a.discount_value));
+  for (const coupon of general) {
+    if (coupon.starts_at && new Date(coupon.starts_at) > now) continue;
+    if (coupon.ends_at && new Date(coupon.ends_at) < now) continue;
+    if (overrideActive) continue;
+    if (!matchesTargeting(coupon, clientRow)) continue;
+    if (await hasClientRedeemed(supabaseAdmin, coupon.id, clientId)) continue;
+    if (coupon.max_total_redemptions != null) {
+      const totalUses = await countRedemptions(supabaseAdmin, coupon.id);
+      if (totalUses >= coupon.max_total_redemptions) continue;
+    }
+    result.push({ coupon, kind: "general" });
+  }
+
+  return result;
+}
+
+export function formatDiscountLabel(coupon: CouponRow): string {
   if (coupon.discount_type === "percent") {
     return `${String(Number(coupon.discount_value)).replace(".", ",")}%`;
   }

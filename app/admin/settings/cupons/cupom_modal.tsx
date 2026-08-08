@@ -54,11 +54,15 @@ function toDateInputValue(iso: string | null): string {
 
 export default function CupomModal({
   coupon,
+  lockedClient,
   onClose,
   onSuccess,
   onError,
 }: {
   coupon?: CouponEditPayload | null;
+  /** Quando informado, abre já como cupom pessoal preso a este cliente,
+   * sem o seletor (uso: botão "Novo cupom" na própria página do cliente). */
+  lockedClient?: PickedClient | null;
   onClose: () => void;
   onSuccess: () => void;
   onError: (msg: string) => void;
@@ -146,10 +150,10 @@ export default function CupomModal({
   const [saving, setSaving] = useState(false);
 
   const [hasPersonalClient, setHasPersonalClient] = useState(
-    !!coupon?.client_id,
+    !!coupon?.client_id || !!lockedClient,
   );
   const [personalClient, setPersonalClient] = useState<PickedClient | null>(
-    null,
+    lockedClient ?? null,
   );
   const [tenantId, setTenantId] = useState(resolvedTenantId || "");
 
@@ -565,33 +569,46 @@ export default function CupomModal({
                   Preso a um único cliente. Ex: 1 mês grátis por indicação.
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setHasPersonalClient((v) => !v)}
-                className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
-                  hasPersonalClient
-                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                    : "bg-muted text-muted-foreground border-border"
-                }`}
-              >
-                {hasPersonalClient ? "Pessoal" : "Geral"}
-              </button>
+              {!lockedClient && (
+                <button
+                  type="button"
+                  onClick={() => setHasPersonalClient((v) => !v)}
+                  className={`h-9 px-3 rounded-lg text-xs font-medium border transition-colors shrink-0 ${
+                    hasPersonalClient
+                      ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                      : "bg-muted text-muted-foreground border-border"
+                  }`}
+                >
+                  {hasPersonalClient ? "Pessoal" : "Geral"}
+                </button>
+              )}
             </div>
 
             {hasPersonalClient && (
               <>
-                <ClientPicker
-                  tenantId={tenantId}
-                  selected={personalClient}
-                  onSelect={(c) => {
-                    setPersonalClient(c);
-                    setPersonalImpact(null);
-                  }}
-                  onClear={() => {
-                    setPersonalClient(null);
-                    setPersonalImpact(null);
-                  }}
-                />
+                {lockedClient ? (
+                  <div className="h-10 px-3 rounded-xl border border-border bg-muted/50 flex items-center text-sm font-medium text-foreground/90">
+                    {lockedClient.display_name}
+                    {lockedClient.username && (
+                      <span className="text-muted-foreground font-normal ml-1">
+                        ({lockedClient.username})
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <ClientPicker
+                    tenantId={tenantId}
+                    selected={personalClient}
+                    onSelect={(c) => {
+                      setPersonalClient(c);
+                      setPersonalImpact(null);
+                    }}
+                    onClear={() => {
+                      setPersonalClient(null);
+                      setPersonalImpact(null);
+                    }}
+                  />
+                )}
                 <p className="text-[11px] text-foreground/70">
                   Esse cupom fica preso a{" "}
                   {personalClient ? (

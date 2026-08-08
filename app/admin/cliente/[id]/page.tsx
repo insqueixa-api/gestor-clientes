@@ -22,6 +22,7 @@ import ClientAlertBell from "@/components/alerts/ClientAlertBell";
 // Componentes (CORRIGIDO: PascalCase)
 import NovoCliente, { ClientData } from "../novo_cliente";
 import RecargaCliente from "../recarga_cliente";
+import CupomModal from "../../settings/cupons/cupom_modal";
 
 // --- HELPERS ---
 function formatPhoneDisplay(e164: string | null | undefined) {
@@ -218,6 +219,16 @@ type TimelineItem = {
   meta: any;
 };
 
+type EligibleCouponRow = {
+  id: string;
+  code: string;
+  description: string | null;
+  kind: "personal" | "general";
+  discount_label: string;
+  bot_visible: boolean;
+  is_bot_pick: boolean;
+};
+
 export default function ClientDetailsPage() {
   const resolvedTenantId = useTenantId();
   const params = useParams();
@@ -257,6 +268,13 @@ export default function ClientDetailsPage() {
   // --- TOASTS (5s) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [deletingEventId, setDeletingEventId] = useState<string | null>(null);
+
+  // --- CUPONS ELEGÍVEIS ---
+  const [eligibleCoupons, setEligibleCoupons] = useState<EligibleCouponRow[]>(
+    [],
+  );
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
+  const [showCupomModal, setShowCupomModal] = useState(false);
 
   async function handleDeleteEvent(item: TimelineItem) {
     const ok = await confirm({
@@ -572,6 +590,27 @@ export default function ClientDetailsPage() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId]);
+
+  async function loadEligibleCoupons(id: string) {
+    setLoadingCoupons(true);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      const res = await fetch(`/api/admin/clients/${id}/eligible-coupons`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json().catch(() => ({}));
+      setEligibleCoupons(res.ok ? json.coupons || [] : []);
+    } catch {
+      setEligibleCoupons([]);
+    } finally {
+      setLoadingCoupons(false);
+    }
+  }
+
+  useEffect(() => {
+    if (client?.id) loadEligibleCoupons(client.id);
+  }, [client?.id]);
 
   async function handleArchiveToggle() {
     if (!client) return;
@@ -1192,6 +1231,70 @@ export default function ClientDetailsPage() {
               </div>
             </div>
           </div>
+
+          {/* 3. CARD CUPONS ELEGÍVEIS */}
+          <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[11px] font-medium text-foreground/80 uppercase tracking-widest">
+                Cupons elegíveis
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowCupomModal(true)}
+                className="h-7 px-2.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-medium hover:bg-emerald-500/20 transition-colors"
+              >
+                + Cupom pessoal
+              </button>
+            </div>
+
+            {loadingCoupons ? (
+              <div className="text-xs text-muted-foreground py-2">
+                Verificando...
+              </div>
+            ) : eligibleCoupons.length === 0 ? (
+              <div className="text-xs text-muted-foreground py-2 italic">
+                Nenhum cupom elegível pra este cliente agora.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {eligibleCoupons.map((c) => (
+                  <div
+                    key={c.id}
+                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
+                      c.is_bot_pick
+                        ? "border-emerald-500/30 bg-emerald-500/5"
+                        : "border-border bg-transparent"
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <span
+                        className={`font-mono ${c.is_bot_pick ? "font-bold text-emerald-500" : "font-medium text-foreground/90"}`}
+                      >
+                        {c.code}
+                      </span>
+                      <span className="text-muted-foreground ml-2">
+                        {c.discount_label}
+                      </span>
+                      <span className="text-muted-foreground/70 ml-2">
+                        {c.kind === "personal" ? "· pessoal" : "· geral"}
+                      </span>
+                    </div>
+                    {c.is_bot_pick && (
+                      <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[10px] font-bold uppercase">
+                        bot usa este
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <p className="text-[10px] text-muted-foreground mt-2">
+              "Bot usa este" = o cupom que o bot de atendimento realmente
+              ofereceria hoje via {"{cupom_frase}"} (maior desconto entre os
+              visíveis pro bot). Os demais são elegíveis mas não aparecem
+              sozinhos no WhatsApp.
+            </p>
+          </div>
         </div>
 
         {/* COLUNA DIREITA (TIMELINE) */}
@@ -1411,6 +1514,22 @@ export default function ClientDetailsPage() {
               }
             }, 150);
           }}
+        />
+      )}
+      {showCupomModal && client && (
+        <CupomModal
+          lockedClient={{
+            id: client.id,
+            display_name: client.client_name,
+            username: client.username,
+          }}
+          onClose={() => setShowCupomModal(false)}
+          onSuccess={() => {
+            setShowCupomModal(false);
+            addToast("success", "Cupom criado", `Cupom pessoal criado para ${client.client_name}.`);
+            loadEligibleCoupons(client.id);
+          }}
+          onError={(msg) => addToast("error", "Erro ao salvar cupom", msg)}
         />
       )}
       {expandedAppIcon && (

@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate, pickRandomDns, extractAppLogoTokens } from "@/lib/whatsapp/template-vars";
-import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
+import { getPendencyPhraseForClient, findEligibleCoupon, buildCouponPhrase } from "@/lib/client-portal/coupons";
 import {
   type MenuNode,
   isPortalHandoffTrigger,
@@ -194,7 +194,17 @@ async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any
     .eq("id", client.id)
     .maybeSingle();
 
-  return getCouponPhraseForClient(sb, tenantId, viewRow || client, { onlyBotVisible: true });
+  const coupon = await findEligibleCoupon({ supabaseAdmin: sb, tenantId, clientRow: viewRow || client, onlyBotVisible: true });
+  if (!coupon) return buildCouponPhrase(null, { botFallback: true });
+
+  // ✅ Só quando TEM cupom ganha essa abertura calorosa — sem cupom, o
+  // fallback (BOT_NO_COUPON_MESSAGE) fica sozinho, sem introdução nenhuma
+  // (pedido do Márcio, 07/08/2026: "quando não tem, ficou perfeito").
+  const firstName = String(client?.display_name || "").split(" ")[0];
+  const intro = firstName
+    ? `Boa notícia, ${firstName}! 🎉 Encontrei um cupom disponível pra você:`
+    : "Boa notícia! 🎉 Encontrei um cupom disponível pra você:";
+  return `${intro}\n${buildCouponPhrase(coupon)}`;
 }
 
 // ✅ Resolve {cupom_frase}/{pendencia_detalhe} sob demanda (só quando o
