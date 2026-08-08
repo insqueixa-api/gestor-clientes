@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { generatePortalLink, renderTemplate, buildClientTemplateVars, toBRDate, pickRandomDns, extractAppLogoTokens } from "@/lib/whatsapp/template-vars";
-import { getPendencyPhraseForClient, findEligibleCoupon, buildCouponPhrase } from "@/lib/client-portal/coupons";
+import { getPendencyPhraseForClient, findEligibleCoupon, formatDiscountLabel } from "@/lib/client-portal/coupons";
 import {
   type MenuNode,
   isPortalHandoffTrigger,
@@ -195,16 +195,19 @@ async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any
     .maybeSingle();
 
   const coupon = await findEligibleCoupon({ supabaseAdmin: sb, tenantId, clientRow: viewRow || client, onlyBotVisible: true });
-  // ✅ Só quando TEM cupom ganha a abertura (coupon_found_intro) — sem
-  // cupom, coupon_not_found_message fica sozinho, sem introdução nenhuma
-  // (pedido do Márcio, 07/08/2026: "quando não tem, ficou perfeito").
-  // Ambas editáveis em bot_flow_settings — {primeiro_nome} é substituído
-  // na mão aqui (não passa pelo renderTemplate genérico da árvore).
+  // ✅ coupon_found_intro é a mensagem INTEIRA (não concatena mais com
+  // buildCouponPhrase) — precisava dar controle total pro Márcio evitar
+  // repetir o código/desconto duas vezes se ele já citasse o cupom na
+  // abertura (achado 07/08/2026). Suporta {primeiro_nome}, {codigo},
+  // {desconto} — substituídos na mão aqui (não passa pelo renderTemplate
+  // genérico da árvore). coupon_not_found_message não tem tags.
   if (!coupon) return flow.coupon_not_found_message;
 
   const firstName = String(client?.display_name || "").split(" ")[0];
-  const intro = flow.coupon_found_intro.replace(/\{primeiro_nome\}/g, firstName);
-  return `${intro}\n${buildCouponPhrase(coupon)}`;
+  return flow.coupon_found_intro
+    .replace(/\{primeiro_nome\}/g, firstName)
+    .replace(/\{codigo\}/g, coupon.code)
+    .replace(/\{desconto\}/g, formatDiscountLabel(coupon));
 }
 
 // ✅ Resolve {cupom_frase}/{pendencia_detalhe} sob demanda (só quando o

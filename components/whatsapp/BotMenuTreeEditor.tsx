@@ -1251,7 +1251,8 @@ export default function BotMenuTreeEditor() {
                         </p>
                         <div>
                           <label className={labelCls}>
-                            Abertura quando TEM cupom elegível (use {"{primeiro_nome}"})
+                            Mensagem inteira quando TEM cupom elegível (use{" "}
+                            {"{primeiro_nome}"}, {"{codigo}"}, {"{desconto}"})
                           </label>
                           <textarea
                             value={flowSettings.coupon_found_intro}
@@ -2216,7 +2217,8 @@ function NodeEditor({
           </p>
           <div>
             <label className={labelCls}>
-              Quando TEM cupom elegível (use {"{primeiro_nome}"})
+              Mensagem inteira quando TEM cupom elegível (use{" "}
+              {"{primeiro_nome}"}, {"{codigo}"}, {"{desconto}"})
             </label>
             <textarea
               value={couponFoundDraft}
