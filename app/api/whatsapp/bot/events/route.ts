@@ -6,10 +6,21 @@
 // não filtrava por sessão (getBotEvents() devolvia o buffer inteiro). Agora
 // exige usuário logado (mesmo getWAContext usado em [action]/route.ts) e o
 // VM só devolve os eventos da sessionKey real do tenant/usuário autenticado.
+//
+// ✅ Achado 08/08/2026 (pedido do Márcio): o VM só sabe o telefone — não tem
+// acesso ao Supabase, então nome/usuário/servidor vinham nulos pra vários
+// tipos de evento (ex: "Bot desligado"). Enriquecido aqui, do lado do
+// Next.js, cruzando o telefone de cada evento com `clients` (nome/usuário/
+// servidor) e `google_contacts` (foto já sincronizada na Agenda — reaproveita
+// a MESMA integração que a página /admin/agenda já usa, não criei nada novo)
+// — e resolvendo `next_state`/`action` num "caminho percorrido" legível.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextResponse } from "next/server";
 import { getWAContext } from "@/lib/whatsapp/wa-context";
+import { getAdminTenantContext } from "@/lib/api/auth-server";
+import { createClient } from "@/lib/supabase/server";
+import { resolveStateLabel } from "@/lib/whatsapp/bot-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +40,18 @@ async function fetchEventsForSession(session: 1 | 2): Promise<any[]> {
   }
 }
 
-export async function GET(req: Request) {
+// ✅ Mesmo formato "021998892793" (DDD com 0 na frente) usado na Agenda —
+// diferente do "5521998892793" (DDI + DDD + número) usado em toda parte no
+// bot. Normaliza os dois pro mesmo formato antes de comparar.
+function normalizePhone(raw: string | null | undefined): string {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("55")) return digits;
+  const withoutLeadingZero = digits.replace(/^0/, "");
+  return `55${withoutLeadingZero}`;
+}
+
+export async function GET(_req: Request) {
   // ✅ Exige login — sessão 1 é a referência pra confirmar que o usuário está
   // autenticado e pertence a um tenant; sem ela, nem tenta buscar nada.
   const ctx1 = await getWAContext(1);
@@ -46,5 +68,81 @@ export async function GET(req: Request) {
     return tb - ta;
   });
 
-  return NextResponse.json({ ok: true, events });
+  const adminCtx = await getAdminTenantContext();
+  if (!adminCtx.ok || !events.length) {
+    return NextResponse.json({ ok: true, events });
+  }
+  const tenantId = adminCtx.tenantId;
+  const sb = await createClient();
+
+  // ✅ Só dígitos antes de entrar no filtro .or() — mesmo cuidado usado em
+  // chat-admin/route.ts, evita que caractere estranho (ex: JID de grupo mal
+  // formatado) quebre a sintaxe do filtro.
+  const phones = [...new Set(events.map((e) => String(e?.phone || "").replace(/\D/g, "")).filter(Boolean))];
+  if (!phones.length) return NextResponse.json({ ok: true, events });
+
+  // ── Clientes reais (nome, usuário do servidor, nome do servidor) ─────────
+  const orFilter = phones
+    .map((p) => `whatsapp_username.eq.${p},secondary_whatsapp_username.eq.${p}`)
+    .join(",");
+  const { data: clients } = await sb
+    .from("clients")
+    .select("display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, server_username, servers(name)")
+    .eq("tenant_id", tenantId)
+    .or(orFilter);
+
+  const clientByPhone = new Map<string, { display_name: string | null; server_username: string | null; server_name: string | null }>();
+  for (const c of clients || []) {
+    const srv = (c as any).servers;
+    const info = {
+      display_name: c.display_name || null,
+      server_username: c.server_username || null,
+      server_name: srv?.name || null,
+    };
+    if (c.whatsapp_username) clientByPhone.set(String(c.whatsapp_username), info);
+    if (c.secondary_whatsapp_username) {
+      clientByPhone.set(String(c.secondary_whatsapp_username), {
+        ...info,
+        display_name: c.secondary_display_name || info.display_name,
+      });
+    }
+  }
+
+  // ── Foto já sincronizada na Agenda (google_contacts, mesma fonte da
+  // página /admin/agenda — não busca a foto ao vivo aqui, só reaproveita). ──
+  const { data: contacts } = await sb
+    .from("google_contacts")
+    .select("id, avatar_url, phone_e164, secondary_phone")
+    .eq("tenant_id", tenantId)
+    .not("avatar_url", "is", null);
+
+  const photoByPhone = new Map<string, { avatar_url: string; google_contact_id: string }>();
+  for (const c of contacts || []) {
+    if (!c.avatar_url) continue;
+    const entry = { avatar_url: c.avatar_url, google_contact_id: c.id };
+    const p1 = normalizePhone(c.phone_e164);
+    const p2 = normalizePhone(c.secondary_phone);
+    if (p1) photoByPhone.set(p1, entry);
+    if (p2) photoByPhone.set(p2, entry);
+  }
+
+  const enriched = await Promise.all(
+    events.map(async (e) => {
+      const phone = String(e?.phone || "").replace(/\D/g, "");
+      const clientInfo = clientByPhone.get(phone);
+      const photoInfo = photoByPhone.get(normalizePhone(phone));
+      const path_label = await resolveStateLabel(sb, tenantId, e?.next_state);
+      return {
+        ...e,
+        display_name: clientInfo?.display_name || e.display_name || null,
+        server_name: clientInfo?.server_name || e.server_name || null,
+        server_username: clientInfo?.server_username || e.server_username || null,
+        avatar_url: photoInfo?.avatar_url || null,
+        google_contact_id: photoInfo?.google_contact_id || null,
+        path_label,
+      };
+    })
+  );
+
+  return NextResponse.json({ ok: true, events: enriched });
 }

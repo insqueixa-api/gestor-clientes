@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, RefreshCcw, ChevronDown, MessageSquare } from "lucide-react";
+import { Loader2, RefreshCcw, ChevronDown, MessageSquare, User } from "lucide-react";
 
 // ── Tipos de eventos do monitor ───────────────────────────────
 type BotEvent = {
@@ -14,7 +14,37 @@ type BotEvent = {
   full_response: string | null;
   timestamp: string;
   reason?: string;
+  // ✅ Enriquecidos em /api/whatsapp/bot/events (cruza com `clients` +
+  // `google_contacts` — não vem pronto do VM, que não conhece o banco).
+  next_state?: string | null;
+  action?: string | null;
+  /** "Dentro de: Canal travando" etc — resolvido a partir de next_state. */
+  path_label?: string | null;
+  /** Foto já sincronizada na Agenda (mesma fonte de /admin/agenda). */
+  avatar_url?: string | null;
+  google_contact_id?: string | null;
 };
+
+function Avatar({ url, size = 32 }: { url?: string | null; size?: number }) {
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt=""
+        style={{ width: size, height: size }}
+        className="rounded-full object-cover shrink-0 border border-border"
+      />
+    );
+  }
+  return (
+    <div
+      style={{ width: size, height: size }}
+      className="rounded-full bg-muted flex items-center justify-center shrink-0 border border-border"
+    >
+      <User className="w-3.5 h-3.5 text-muted-foreground" />
+    </div>
+  );
+}
 
 /**
  * Painel do Monitor do Bot, pra uso INLINE (aba dentro de outra página) —
@@ -30,6 +60,36 @@ export default function BotMonitorPanel() {
   const [activeTab, setActiveTab] = useState<"feed" | "contacts">("feed");
   const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
+  const [refreshingPhoto, setRefreshingPhoto] = useState(false);
+
+  // ✅ Reaproveita a MESMA integração que /admin/agenda já usa pra sincronizar
+  // foto do WhatsApp — busca a foto atual e já sobe pro contato no Google
+  // Contacts, então da próxima vez que a Agenda carregar já vem atualizada.
+  async function refreshPhoto(ev: BotEvent) {
+    if (!ev.google_contact_id) return;
+    setRefreshingPhoto(true);
+    try {
+      const res = await fetch("/api/whatsapp/contact-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contact_id: ev.google_contact_id,
+          jid: `${ev.phone}@s.whatsapp.net`,
+        }),
+      });
+      const json = await res.json();
+      if (json?.avatar_url) {
+        setEvents((prev) =>
+          prev.map((e) =>
+            e.phone === ev.phone ? { ...e, avatar_url: json.avatar_url } : e,
+          ),
+        );
+      }
+    } catch {
+    } finally {
+      setRefreshingPhoto(false);
+    }
+  }
 
   async function fetchEvents() {
     setLoading(true);
@@ -216,11 +276,10 @@ export default function BotMonitorPanel() {
                     onClick={() => setExpandedEvent(isExpanded ? null : i)}
                   >
                     <div className="flex items-start gap-3">
-                      <span className="text-base shrink-0 mt-0.5">
-                        {s.emoji}
-                      </span>
+                      <Avatar url={ev.avatar_url} size={28} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-sm shrink-0">{s.emoji}</span>
                           <span
                             className={`text-[10px] font-semibold ${s.color}`}
                           >
@@ -243,6 +302,11 @@ export default function BotMonitorPanel() {
                             </span>
                           )}
                         </p>
+                        {ev.path_label && (
+                          <p className="text-[10px] text-sky-600 dark:text-sky-400 truncate mt-0.5">
+                            🧭 {ev.path_label}
+                          </p>
+                        )}
                         {ev.preview && !isExpanded && (
                           <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                             {ev.preview}
@@ -293,11 +357,7 @@ export default function BotMonitorPanel() {
                       }
                       className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/50 transition-colors border-b border-border ${isSelected ? "bg-emerald-500/5 border-l-2 border-l-emerald-500" : ""}`}
                     >
-                      <div
-                        className={`w-8 h-8 rounded-xl border flex items-center justify-center text-sm shrink-0 ${s.bg}`}
-                      >
-                        {s.emoji}
-                      </div>
+                      <Avatar url={ev.avatar_url} size={32} />
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-medium text-foreground truncate">
                           {ev.display_name || ev.phone}
@@ -331,22 +391,49 @@ export default function BotMonitorPanel() {
               ) : (
                 <div className="p-4 space-y-1">
                   {/* Header do contato */}
-                  <div className="pb-3 mb-3 border-b border-border">
-                    <p className="text-sm font-semibold text-foreground">
-                      {contacts.find((c) => c.phone === selectedContact)
-                        ?.display_name || selectedContact}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground font-mono">
-                      {selectedContact}
-                    </p>
-                    {contacts.find((c) => c.phone === selectedContact)
-                      ?.server_username && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {serverLabel(
-                          contacts.find((c) => c.phone === selectedContact)!,
-                        )}
+                  <div className="pb-3 mb-3 border-b border-border flex items-start gap-3">
+                    <Avatar
+                      url={
+                        contacts.find((c) => c.phone === selectedContact)
+                          ?.avatar_url
+                      }
+                      size={44}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-foreground">
+                        {contacts.find((c) => c.phone === selectedContact)
+                          ?.display_name || selectedContact}
                       </p>
-                    )}
+                      <p className="text-[11px] text-muted-foreground font-mono">
+                        {selectedContact}
+                      </p>
+                      {contacts.find((c) => c.phone === selectedContact)
+                        ?.server_username && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          {serverLabel(
+                            contacts.find((c) => c.phone === selectedContact)!,
+                          )}
+                        </p>
+                      )}
+                      {contacts.find((c) => c.phone === selectedContact)
+                        ?.google_contact_id && (
+                        <button
+                          onClick={() =>
+                            void refreshPhoto(
+                              contacts.find(
+                                (c) => c.phone === selectedContact,
+                              )!,
+                            )
+                          }
+                          disabled={refreshingPhoto}
+                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline mt-1 disabled:opacity-50"
+                        >
+                          {refreshingPhoto
+                            ? "Atualizando..."
+                            : "🔄 Atualizar foto na Agenda"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {/* Histórico de eventos do contato */}
                   {contactEvents.map((ev, i) => {
@@ -364,6 +451,11 @@ export default function BotMonitorPanel() {
                             {formatTime(ev.timestamp)}
                           </span>
                         </div>
+                        {ev.path_label && (
+                          <p className="ml-6 text-[10px] text-sky-600 dark:text-sky-400">
+                            🧭 {ev.path_label}
+                          </p>
+                        )}
                         {ev.full_response && (
                           <div className="ml-6 p-2.5 bg-muted/40 rounded-lg border border-border">
                             <p className="text-[11px] text-foreground whitespace-pre-wrap leading-relaxed">

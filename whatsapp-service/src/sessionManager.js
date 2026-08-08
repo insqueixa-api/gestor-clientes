@@ -1553,6 +1553,9 @@ if (!res.ok) {
           phone,
           display_name: responseData?.display_name || null,
           server_name: responseData?.server_name || null,
+          server_username: responseData?.server_username || null,
+          action: responseData?.action || null,
+          next_state: responseData?.next_state || null,
           preview: responseData?.transfer_reason || "Cliente solicitou atendimento humano — bot pausado por 4h",
         });
         return;
@@ -1566,6 +1569,8 @@ if (!res.ok) {
         display_name: responseData?.display_name || null,
         server_name: responseData?.server_name || null,
         server_username: responseData?.server_username || null,
+        action: responseData?.action || null,
+        next_state: responseData?.next_state || null,
         preview: responseData?.bot_response?.slice(0, 100) || null,
         full_response: responseData?.bot_response || null,
       });

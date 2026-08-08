@@ -308,7 +308,9 @@ export async function POST(req: Request) {
           return NextResponse.json({
             ok: true, action: result.action, escalate: result.escalate ?? false, mark_read: result.markRead,
             bot_response: sentMessages.join("\n\n"), next_state: result.nextState, transfer_reason: result.transferReason ?? null,
-            display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
+            display_name: result.resolvedClient?.display_name || clients[0]?.display_name || null,
+            server_name: result.resolvedClient?.server_name || clients[0]?.server_name || null,
+            server_username: result.resolvedClient?.server_username || clients[0]?.server_username || null,
           });
         }
       }
@@ -399,10 +401,12 @@ export async function POST(req: Request) {
 
   await savePersistedState(sb, tenant_id, session_key, phone, result.nextState);
 
-  // ✅ display_name/server_name aqui sempre refletem clients[0] (conta
-  // principal) — mesmo padrão usado antes da unificação nos gates globais;
-  // servem só pro rodapé de evento/log do sessionManager.js, nunca pra
-  // decidir pra qual telefone enviar (isso já é sempre `phone`, correto).
+  // ✅ Achado 08/08/2026 (Monitor do Bot): antes sempre mostrava clients[0]
+  // (1ª conta que a query por telefone devolveu) — cliente com 2+ contas que
+  // escolhesse a 2ª/3ª durante o atendimento aparecia no Monitor com o
+  // servidor errado. `result.resolvedClient` vem do bot-engine com a conta
+  // EFETIVAMENTE usada nesse turno (cai pra clients[0] sozinho quando o
+  // turno não passou por resolução de conta nenhuma).
   return NextResponse.json({
     ok: true,
     action: result.action,
@@ -411,7 +415,8 @@ export async function POST(req: Request) {
     bot_response: sentMessages.join("\n\n"),
     next_state: result.nextState,
     transfer_reason: result.transferReason ?? null,
-    display_name: clients[0]?.display_name || null,
-    server_name: clients[0]?.server_name || null,
+    display_name: result.resolvedClient?.display_name || clients[0]?.display_name || null,
+    server_name: result.resolvedClient?.server_name || clients[0]?.server_name || null,
+    server_username: result.resolvedClient?.server_username || clients[0]?.server_username || null,
   });
 }

@@ -101,6 +101,14 @@ export type BotEngineResult = {
   markRead?: boolean;
   nextState?: string | null;
   transferReason?: string | null;
+  /** ✅ Achado 08/08/2026 (Monitor do Bot): conta EFETIVAMENTE usada nesse
+   * turno — pode ser diferente de `clients[0]` quando o cliente tem 2+ contas
+   * e escolheu uma durante o atendimento (ver `enterNode`/`resolveAccount`).
+   * Sempre populada (cai pra `clients[0]` como default quando o turno nem
+   * passou por um nó que dependa de conta) — callers (ex: agent/route.ts)
+   * usam isso em vez de sempre assumir `clients[0]` pro nome/servidor/
+   * usuário mostrado no Monitor. */
+  resolvedClient?: { display_name: string | null; server_name: string | null; server_username: string | null } | null;
 };
 
 // ── Ferramentas (chamadas diretas, disparadas pelas special_actions da árvore) ─
@@ -496,7 +504,25 @@ async function executeLeaf(
   return leafAfterMessages(node, steps.length ? steps : fallback);
 }
 
+// ✅ Wrapper fino: `resolveAccount`/`enterNode` (dentro de runBotEngineImpl)
+// escrevem em `ctx.resolvedClient` sempre que fixam qual conta usar nesse
+// turno — sem isso, precisaria enfiar esse campo em cada um dos ~15 `return`
+// espalhados pela função. Como a mutação acontece de forma síncrona/sequencial
+// (nunca concorrente), a última escrita antes do retorno é sempre a conta
+// correta (a do nó mais interno/final, mesmo em cadeias de redirect).
 export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult> {
+  const ctx: { resolvedClient: any } = { resolvedClient: null };
+  const result = await runBotEngineImpl(p, ctx);
+  const rc = ctx.resolvedClient || p.clients[0];
+  return {
+    ...result,
+    resolvedClient: rc
+      ? { display_name: rc.display_name || null, server_name: rc.server_name || null, server_username: rc.server_username || null }
+      : null,
+  };
+}
+
+async function runBotEngineImpl(p: BotEngineParams, ctx: { resolvedClient: any }): Promise<BotEngineResult> {
   const { sb, tenantId, geminiKey, flow, clients, clientMatchesRaw, clientProvider, trimmed, botState, send } = p;
   const awaitingPaymentType = p.awaitingPaymentType === true;
   const logPrefix = p.logPrefix || "[BOT]";
@@ -731,6 +757,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     }
     const client = resolved?.client || clients[0];
     const rawClient = resolved?.rawClient || clientMatchesRaw[0];
+    ctx.resolvedClient = client;
 
     // ✅ Achado em auditoria (2026-07-24): `clientProvider` (parâmetro de fora)
     // reflete só clients[0] — a PRIMEIRA conta que a query por telefone

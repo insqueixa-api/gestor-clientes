@@ -311,6 +311,41 @@ export async function getNodeById(sb: any, tenantId: string, nodeId: string): Pr
   return data || null;
 }
 
+// ✅ Traduz o next_state técnico (ex: "menunode:6d0aea8b-...") pra algo que
+// dá pra reconhecer na hora (o nome do nó), em vez do UUID cru — usado tanto
+// no rodapé de debug do simulador (chat-admin) quanto no "caminho percorrido"
+// do Monitor do Bot (achado 08/08/2026: extraído daqui pra não duplicar).
+export async function resolveStateLabel(sb: any, tenantId: string, nextState: string | undefined | null): Promise<string | null> {
+  if (!nextState || nextState === "__clear__") return null;
+  if (nextState === "geral") return "Conversa livre";
+  if (nextState === "geral_retry") return "Conversa livre (2ª tentativa)";
+  if (nextState === "aguardando_resposta") return "Aguardando 1ª resposta do menu";
+  if (nextState === "aguardando_resposta_2") return "Aguardando resposta (última tentativa)";
+  const confirmSwitchM = /^confirm_switch:([a-f0-9-]+):([a-f0-9-]+)$/.exec(nextState);
+  if (confirmSwitchM) {
+    const [, targetId, originId] = confirmSwitchM;
+    const target = await getNodeById(sb, tenantId, targetId);
+    const origin = await getNodeById(sb, tenantId, originId);
+    return `Confirmando troca para: ${target?.label || "nó removido"} (estava em: ${origin?.label || "nó removido"})`;
+  }
+  // ✅ "menunode"/"menunode_retry" carregam "|<accountId>" opcional no fim
+  // (conta já resolvida pro nó, ver bot-engine.ts) — ignorado aqui, só pro
+  // rótulo de debug ficar legível mesmo com o sufixo novo.
+  const m = /^(menunode_retry|menunode|conta|awaiting_resolution_retry|awaiting_resolution):([a-f0-9-]+)(?:\|[a-f0-9-]*)?$/.exec(nextState);
+  if (m) {
+    const node = await getNodeById(sb, tenantId, m[2]);
+    const label = node?.label || "nó removido";
+    const prefix =
+      m[1] === "menunode" ? "Dentro de"
+      : m[1] === "menunode_retry" ? "Dentro de (2ª tentativa)"
+      : m[1] === "conta" ? "Perguntando qual conta em"
+      : m[1] === "awaiting_resolution_retry" ? "Aguardando se resolveu (após objeção) em"
+      : "Aguardando se resolveu em";
+    return `${prefix}: ${label}`;
+  }
+  return nextState;
+}
+
 // ✅ "provider": quando informado (mesmo que null), filtra fora os nós
 // restritos a outro servidor — permite ter DUAS variantes com o MESMO
 // option_number (uma por servidor), já que só uma sobrevive ao filtro pra
