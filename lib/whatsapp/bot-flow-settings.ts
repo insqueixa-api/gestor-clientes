@@ -12,6 +12,7 @@ import {
   DEFAULT_PAYMENT_AUTO_CONFIRMED_MSG,
   DEFAULT_PAYMENT_MANUAL_PENDING_MSG,
   DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG,
+  DEFAULT_PAYMENT_AWAITING_TRANSFER_MSG,
 } from "@/lib/whatsapp/bot-menu";
 import { BOT_NO_COUPON_MESSAGE } from "@/lib/client-portal/coupons";
 
@@ -41,6 +42,10 @@ export type FlowSettings = {
   payment_fulfillment_error_message: string;
   /** {confirmar_renovacao} — nenhum pagamento recente encontrado (pede comprovante). Use {primeiro_nome}. */
   payment_none_message: string;
+  /** {confirmar_renovacao} — renovação JÁ concluída, só a notificação automática que falhou/não confirmou. Use {primeiro_nome}, {data_vencimento}. */
+  payment_confirmed_not_notified_message: string;
+  /** {confirmar_renovacao} — cliente escolheu pagamento manual no Portal, aguardando comprovante. Use {primeiro_nome}, {metodo_automatico} (sugestão de método automático pela moeda do cliente). */
+  payment_awaiting_transfer_message: string;
 };
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -59,7 +64,10 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   payment_manual_pending_message: DEFAULT_PAYMENT_MANUAL_PENDING_MSG,
   payment_fulfillment_error_message: DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG,
   payment_none_message:
-    "Pode me mandar o comprovante por aqui, {primeiro_nome} — foto, PDF ou até o texto do PIX? Já deixo registrado certinho pro Márcio conferir e confirmar sua renovação! 😊",
+    "Pode me mandar o comprovante por aqui, {primeiro_nome} — foto, PDF ou até o texto do PIX? Já deixo registrado certinho pro Márcio conferir e confirmar sua renovação! 😊 Uma dica pra próxima vez: pagando direto pelo Portal, o sistema já identifica e confirma sozinho — sem precisar mandar comprovante nenhum.",
+  payment_confirmed_not_notified_message:
+    "Encontrei seu pagamento aqui, {primeiro_nome}! ✅ Sua renovação já foi concluída normalmente — só tivemos uma instabilidade avisando você por aqui, mas está tudo certo.{data_vencimento}",
+  payment_awaiting_transfer_message: DEFAULT_PAYMENT_AWAITING_TRANSFER_MSG,
 };
 
 function pickStr(v: unknown, fallback: string): string {
@@ -87,6 +95,8 @@ export function mergeFlowSettings(row: Record<string, any> | null | undefined): 
     payment_manual_pending_message: pickStr(row.payment_manual_pending_message, d.payment_manual_pending_message),
     payment_fulfillment_error_message: pickStr(row.payment_fulfillment_error_message, d.payment_fulfillment_error_message),
     payment_none_message: pickStr(row.payment_none_message, d.payment_none_message),
+    payment_confirmed_not_notified_message: pickStr(row.payment_confirmed_not_notified_message, d.payment_confirmed_not_notified_message),
+    payment_awaiting_transfer_message: pickStr(row.payment_awaiting_transfer_message, d.payment_awaiting_transfer_message),
   };
 }
 
@@ -128,6 +138,8 @@ export async function upsertFlowSettings(
     "payment_manual_pending_message",
     "payment_fulfillment_error_message",
     "payment_none_message",
+    "payment_confirmed_not_notified_message",
+    "payment_awaiting_transfer_message",
   ];
   const clean: Record<string, string> = {};
   for (const k of allowed) {

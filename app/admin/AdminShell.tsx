@@ -102,7 +102,7 @@ type Notification = {
   title: string;
   message: string;
   link: string;
-  type: string; // vem direto da tabela: fin_vencido, whatsapp_falha, automacao_falha, transfer_aguardando, manual_pending, saldo_baixo (ou "whatsapp_desconectado_local" para o item ephemeral)
+  type: string; // vem direto da tabela: fin_vencido, whatsapp_falha, automacao_falha, fulfillment_error, transfer_aguardando, manual_pending, saldo_baixo (ou "whatsapp_desconectado_local" para o item ephemeral)
   is_read: boolean;
   created_at: string;
 };
@@ -121,6 +121,8 @@ function getNotifEmoji(type: string): string {
       return "🏦";
     case "manual_pending":
       return "🟣";
+    case "fulfillment_error":
+      return "🔴";
     case "saldo_baixo":
       return "🪫";
     case "sugestao_conteudo":

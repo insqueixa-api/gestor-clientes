@@ -119,6 +119,55 @@ export async function markFulfillmentError(
     tags: { kind: "fulfillment_error", tenant_id: tenantId },
     extra: { paymentRowId, message },
   });
+
+  // ✅ NOVO (achado 08/08/2026, revisão do bot de atendimento): Sentry é
+  // ferramenta de monitoramento técnico, NÃO é o sino nem o e-mail do
+  // painel — o Márcio não via isso no fluxo normal. Pedido dele: erro de
+  // integração/renovação de verdade precisa de sino E e-mail, sempre —
+  // mesmo padrão já usado em manual_pending (notifyManual, mais acima
+  // neste arquivo). Envolto em try/catch pra nunca quebrar o fluxo de
+  // pagamento por causa de uma falha ao notificar.
+  try {
+    const { data: payment } = await supabaseAdmin
+      .from("client_portal_payments")
+      .select("client_id, plan_label, period, price_amount, price_currency, mp_payment_id")
+      .eq("id", paymentRowId)
+      .maybeSingle();
+
+    const { data: client } = await supabaseAdmin
+      .from("clients")
+      .select("display_name, server_username, servers(name)")
+      .eq("id", payment?.client_id)
+      .maybeSingle();
+    const serverName = (client?.servers as any)?.name || "Desconhecido";
+
+    await notify({
+      tenantId,
+      type: "fulfillment_error",
+      title: "🔴 Falha técnica na renovação automática",
+      message: `Pagamento de ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment?.price_currency || "BRL" }).format(payment?.price_amount || 0)} confirmado para ${formatClientLabel(client?.display_name, client?.server_username, serverName)}, mas a renovação automática falhou: ${message}. Acesse a Auditoria pra concluir.`,
+      link: "/admin/auditoria",
+      sourceId: paymentRowId,
+    });
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.UNIGESTOR_APP_URL || "https://unigestor.net.br";
+    await fetch(`${baseUrl}/api/notifications/manual-renewal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-secret": String(process.env.INTERNAL_API_SECRET) },
+      body: JSON.stringify({
+        clientName: client?.display_name,
+        serverUsername: client?.server_username,
+        serverName,
+        planLabel: payment?.plan_label || payment?.period,
+        amount: payment?.price_amount,
+        currency: payment?.price_currency || "BRL",
+        mpPaymentId: payment?.mp_payment_id,
+        reason: message,
+      }),
+    });
+  } catch (e) {
+    safeServerLog("markFulfillmentError: failed to notify", (e as any)?.message);
+  }
 }
 
 // ============================================================

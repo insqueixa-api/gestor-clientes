@@ -143,7 +143,13 @@ export function classifyRecentJob(
 
 // ── Checagem de pagamento recente — reaproveitável em qualquer fluxo de texto ─
 
-export type PortalPaymentStatus = "auto_confirmed" | "manual_pending" | "fulfillment_error" | "none";
+export type PortalPaymentStatus =
+  | "auto_confirmed"
+  | "manual_pending"
+  | "fulfillment_error"
+  | "confirmed_not_notified"
+  | "awaiting_transfer"
+  | "none";
 
 export async function checkRecentPortalPayment(
   sb: any,
@@ -168,6 +174,18 @@ export async function checkRecentPortalPayment(
   if (payment.whatsapp_status === "sent") return "auto_confirmed";
   if (payment.fulfillment_status === "manual_pending") return "manual_pending";
   if (payment.fulfillment_status === "error") return "fulfillment_error";
+  // ✅ Achado 08/08/2026: fulfillment_status="done" mas whatsapp_status !=
+  // "sent" (null, "error", ou o retry de +2min do "Plano B" que nunca
+  // atualiza esse campo de volta pra "sent") — a renovação JÁ FOI aplicada
+  // com sucesso, só a notificação automática que falhou/não confirmou.
+  // Sem esse branch, caía em "none" e o bot pedia comprovante de algo que
+  // já estava 100% concluído.
+  if (payment.fulfillment_status === "done") return "confirmed_not_notified";
+  // ✅ Achado 08/08/2026: cliente escolheu pagamento manual (PIX/transferência
+  // manual) no Portal e ainda não mandou comprovante — intenção registrada,
+  // mas MUITO diferente de "none" (nenhum registro de nada). Antes caía no
+  // mesmo balaio de "não achei nada".
+  if (payment.fulfillment_status === "awaiting_transfer") return "awaiting_transfer";
   return "none";
 }
 
@@ -181,11 +199,26 @@ export async function checkRecentPortalPayment(
 export const DEFAULT_PAYMENT_AUTO_CONFIRMED_MSG =
   "Tudo certo, {primeiro_nome}! 😊 Sua renovação já foi processada automaticamente pelo portal e a confirmação já foi enviada.{data_vencimento} Não precisa mandar comprovante — já está tudo certo! ✅";
 
-export const DEFAULT_PAYMENT_MANUAL_PENDING_MSG =
-  "Encontrei seu pagamento aqui! ✅ Está em análise e será concluído em breve.";
+// ✅ Achado 08/08/2026: manual_pending (servidor sem integração automática)
+// e fulfillment_error (renovação automática que quebrou) são tecnicamente
+// diferentes, mas pro CLIENTE contam a mesma história — "pagamento
+// confirmado, algo do nosso lado precisa ser concluído na mão, já sei
+// disso" — por isso os 2 defaults têm o mesmo texto (decisão do Márcio:
+// as notificações de sino/e-mail pra ele já existem nos dois casos hoje).
+const PAYMENT_NEEDS_MANUAL_COMPLETION_MSG =
+  "Encontrei seu pagamento aqui, {primeiro_nome} — está confirmado! ✅ Isso já caiu automaticamente pra mim (recebo aviso por e-mail e no sino do painel) e vou concluir sua renovação o quanto antes.";
 
-export const DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG =
-  "Encontrei seu pagamento aqui — está confirmado! ✅ Só tivemos uma instabilidade técnica na finalização automática, mas o Márcio já foi notificado e vai concluir sua renovação em instantes.";
+export const DEFAULT_PAYMENT_MANUAL_PENDING_MSG = PAYMENT_NEEDS_MANUAL_COMPLETION_MSG;
+
+export const DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG = PAYMENT_NEEDS_MANUAL_COMPLETION_MSG;
+
+// ✅ awaiting_transfer — cliente escolheu pagamento manual (PIX/transferência)
+// no Portal e ainda não mandou comprovante. {metodo_automatico} é
+// substituído na mão conforme a moeda do cliente (PIX pra BRL, cartão/
+// Google Pay/Apple Pay via Stripe pra USD/EUR) — sugestão pra próxima vez
+// ser mais rápida, sem precisar de comprovante.
+export const DEFAULT_PAYMENT_AWAITING_TRANSFER_MSG =
+  "Encontrei seu pedido de pagamento manual aqui, {primeiro_nome}! 📋 Pode me mandar o comprovante da transferência por aqui — assim que eu confirmar, já libero sua renovação. Uma dica pra próxima vez: {metodo_automatico} confirma na hora, sem precisar de comprovante nenhum.";
 
 // ── Servidor do cliente (NaTV / Fast / Elite) — usado pra filtrar conteúdo
 // específico de servidor, tanto na árvore quanto na base de conhecimento. ──

@@ -7,6 +7,7 @@ type NotificationType =
   | "manual_pending"
   | "whatsapp_falha"
   | "automacao_falha"
+  | "fulfillment_error"
   | "saldo_baixo"
   | "sugestao_conteudo"
   | "app_setup_pending"

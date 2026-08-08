@@ -47,6 +47,8 @@ export async function POST(req: Request) {
     "payment_manual_pending_message",
     "payment_fulfillment_error_message",
     "payment_none_message",
+    "payment_confirmed_not_notified_message",
+    "payment_awaiting_transfer_message",
   ];
   const patch: Partial<FlowSettings> = {};
   for (const k of keys) {

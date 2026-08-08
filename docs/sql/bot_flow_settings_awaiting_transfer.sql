@@ -1,0 +1,23 @@
+-- docs/sql/bot_flow_settings_awaiting_transfer.sql
+-- 6º (e último, por ora) status de {confirmar_renovacao}. Achado 08/08/2026
+-- (Márcio revisou a lista de 4 cenários e identificou que faltava um):
+-- fulfillment_status="awaiting_transfer" (cliente escolheu pagar via
+-- transferência/PIX manual no Portal e ainda não mandou comprovante) caía
+-- no mesmo balaio de "none" (nenhum registro de nada) — situações bem
+-- diferentes: aqui já existe uma INTENÇÃO registrada.
+--
+-- payment_awaiting_transfer_message: pede o comprovante (igual "none") mas
+-- ESCALA — igual "none" — e sugere o método automático certo pra moeda do
+-- cliente ({metodo_automatico}: PIX pra BRL, cartão/Google Pay/Apple Pay
+-- via Stripe pra USD/EUR — confirmado na tabela payment_gateways).
+--
+-- Nessa mesma leva: manual_pending e fulfillment_error passaram a ter o
+-- MESMO texto padrão ("já fui notificado, vou concluir logo") — decisão do
+-- Márcio, as notificações de sino/e-mail pra ele já existem nos dois casos
+-- hoje (não mudou nada no código de notificação, só o texto do bot).
+-- payment_none_message também ganhou uma frase educando que pagar direto
+-- pelo Portal dispensa comprovante.
+--
+-- NULL = usa o default hardcoded em lib/whatsapp/bot-flow-settings.ts.
+ALTER TABLE public.bot_flow_settings
+  ADD COLUMN IF NOT EXISTS payment_awaiting_transfer_message text;

@@ -57,6 +57,8 @@ type FlowSettings = {
   payment_manual_pending_message: string;
   payment_fulfillment_error_message: string;
   payment_none_message: string;
+  payment_confirmed_not_notified_message: string;
+  payment_awaiting_transfer_message: string;
 };
 
 // ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
@@ -164,12 +166,31 @@ const TAG_GROUPS = [
       { label: "{valor_fatura}", desc: "Valor da renovação" },
       { label: "{moeda_cliente}", desc: "BRL/USD/EUR" },
       {
-        label: "{cupom_frase}",
-        desc: "Cupom de retenção/fidelidade elegível (só os marcados 'Visível pro bot' em Cupons) — some sozinha se não houver nenhum",
-      },
-      {
         label: "{pendencia_detalhe}",
         desc: "Lista as pendências financeiras em aberto (app + data + valor) — vazia se não houver nenhuma",
+      },
+    ],
+  },
+  {
+    // ✅ Diferente dos grupos acima (que só buscam/formatam um dado): estas
+    // rodam uma checagem de verdade e ESCOLHEM entre várias respostas
+    // possíveis — o texto de cada resposta é editável no painel "Sucesso/
+    // Márcio" ou direto dentro do nó que usa a tag (mesma tela mostra os
+    // campos quando detecta a variável no texto).
+    title: "🤖 Ações do Bot (decide sozinho entre várias respostas)",
+    color: "bg-violet-500/10 text-violet-500",
+    tags: [
+      {
+        label: "{cupom_frase}",
+        desc: "Cliente perguntou se tem desconto — sempre responde algo (achou cupom, ou avisa que não tem no momento)",
+      },
+      {
+        label: "{cupom_retencao}",
+        desc: "Bot oferece cupom de retenção por conta própria (ex: Cancelar) — fica em silêncio se não houver nenhum elegível",
+      },
+      {
+        label: "{confirmar_renovacao}",
+        desc: "Consulta se já tem pagamento recente do Portal — responde 1 de 6 jeitos conforme o status (confirmado, confirmado sem notificar, pendente de conclusão manual, erro técnico, aguardando comprovante de transferência, ou nada encontrado)",
       },
     ],
   },
@@ -1302,19 +1323,27 @@ export default function BotMenuTreeEditor() {
                           [
                             [
                               "payment_auto_confirmed_message",
-                              "1) Pagamento pelo Portal já confirmado (use {primeiro_nome}, {data_vencimento})",
+                              "1) Pago, renovado e notificado pelo Portal — encerra (use {primeiro_nome}, {data_vencimento})",
+                            ],
+                            [
+                              "payment_confirmed_not_notified_message",
+                              "2) Pago e renovado, só a notificação que falhou — encerra (use {primeiro_nome}, {data_vencimento})",
                             ],
                             [
                               "payment_manual_pending_message",
-                              "2) Pagamento achado, aguardando você concluir (use {primeiro_nome})",
+                              "3) Pago, falta o Márcio concluir manualmente — mesma resposta do 3b (use {primeiro_nome})",
                             ],
                             [
                               "payment_fulfillment_error_message",
-                              "3) Confirmado mas com falha técnica na finalização (use {primeiro_nome})",
+                              "3b) Pago, renovação automática falhou — mesma resposta do 3 (use {primeiro_nome})",
+                            ],
+                            [
+                              "payment_awaiting_transfer_message",
+                              "4) Cliente escolheu pagar manual, aguardando comprovante — pede comprovante e ESCALA (use {primeiro_nome}, {metodo_automatico})",
                             ],
                             [
                               "payment_none_message",
-                              "4) Nenhum pagamento recente encontrado — pede comprovante (use {primeiro_nome})",
+                              "5) Nenhum pagamento encontrado — pede comprovante e ESCALA (use {primeiro_nome})",
                             ],
                           ] as const
                         ).map(([key, label]) => (
@@ -1391,6 +1420,12 @@ export default function BotMenuTreeEditor() {
                   flowSettings?.payment_fulfillment_error_message || ""
                 }
                 paymentNoneMessage={flowSettings?.payment_none_message || ""}
+                paymentConfirmedNotNotifiedMessage={
+                  flowSettings?.payment_confirmed_not_notified_message || ""
+                }
+                paymentAwaitingTransferMessage={
+                  flowSettings?.payment_awaiting_transfer_message || ""
+                }
                 onSaveFlowSettings={saveFlowSettingsPatch}
                 onReorder={(newNumber) =>
                   handleReorder(selectedNode, newNumber)
@@ -1818,6 +1853,8 @@ function NodeEditor({
   paymentManualPendingMessage,
   paymentFulfillmentErrorMessage,
   paymentNoneMessage,
+  paymentConfirmedNotNotifiedMessage,
+  paymentAwaitingTransferMessage,
   onSaveFlowSettings,
   onSave,
   onSaveSteps,
@@ -1842,6 +1879,8 @@ function NodeEditor({
   paymentManualPendingMessage: string;
   paymentFulfillmentErrorMessage: string;
   paymentNoneMessage: string;
+  paymentConfirmedNotNotifiedMessage: string;
+  paymentAwaitingTransferMessage: string;
   onSaveFlowSettings: (patch: Partial<FlowSettings>) => Promise<void>;
   onSave: (fields: any) => void | Promise<void>;
   onSaveSteps: (payload: StepsSavePayload) => void | Promise<void>;
@@ -1978,6 +2017,10 @@ function NodeEditor({
     paymentFulfillmentErrorMessage,
   );
   const [paymentNoneDraft, setPaymentNoneDraft] = useState(paymentNoneMessage);
+  const [paymentConfirmedNotNotifiedDraft, setPaymentConfirmedNotNotifiedDraft] =
+    useState(paymentConfirmedNotNotifiedMessage);
+  const [paymentAwaitingTransferDraft, setPaymentAwaitingTransferDraft] =
+    useState(paymentAwaitingTransferMessage);
   const [paymentMsgSaving, setPaymentMsgSaving] = useState(false);
   const [paymentMsgSaved, setPaymentMsgSaved] = useState(false);
   const [paymentMsgError, setPaymentMsgError] = useState<string | null>(null);
@@ -1991,6 +2034,8 @@ function NodeEditor({
         payment_auto_confirmed_message: paymentAutoDraft,
         payment_manual_pending_message: paymentPendingDraft,
         payment_fulfillment_error_message: paymentErrorDraft,
+        payment_confirmed_not_notified_message: paymentConfirmedNotNotifiedDraft,
+        payment_awaiting_transfer_message: paymentAwaitingTransferDraft,
         payment_none_message: paymentNoneDraft,
       });
       setPaymentMsgSaved(true);
@@ -2449,12 +2494,13 @@ function NodeEditor({
           </p>
           <p className="text-[10px] text-muted-foreground">
             A variável confere se já tem um pagamento recente do Portal e
-            responde com uma destas 4, conforme o caso:
+            responde com uma destas 6, conforme o caso (3 e 3b usam a mesma
+            resposta — só diferem por dentro, no motivo técnico):
           </p>
           <div>
             <label className={labelCls}>
-              1) Já confirmado automaticamente pelo Portal (use{" "}
-              {"{primeiro_nome}"}, {"{data_vencimento}"})
+              1) Pago, renovado e notificado pelo Portal — encerra sozinho
+              (use {"{primeiro_nome}"}, {"{data_vencimento}"})
             </label>
             <textarea
               value={paymentAutoDraft}
@@ -2465,7 +2511,22 @@ function NodeEditor({
           </div>
           <div>
             <label className={labelCls}>
-              2) Achado, mas aguardando você concluir manualmente (use{" "}
+              2) Pago e renovado, só a notificação automática que falhou —
+              encerra sozinho (use {"{primeiro_nome}"}, {"{data_vencimento}"})
+            </label>
+            <textarea
+              value={paymentConfirmedNotNotifiedDraft}
+              onChange={(e) =>
+                setPaymentConfirmedNotNotifiedDraft(e.target.value)
+              }
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>
+              3) Pago, falta o Márcio concluir na mão (sem integração
+              automática do servidor) — mesma resposta do 3b (use{" "}
               {"{primeiro_nome}"})
             </label>
             <textarea
@@ -2477,8 +2538,8 @@ function NodeEditor({
           </div>
           <div>
             <label className={labelCls}>
-              3) Confirmado, mas com falha técnica na finalização automática
-              (use {"{primeiro_nome}"})
+              3b) Pago, mas a renovação automática falhou de verdade — mesma
+              resposta do 3 (use {"{primeiro_nome}"})
             </label>
             <textarea
               value={paymentErrorDraft}
@@ -2489,7 +2550,23 @@ function NodeEditor({
           </div>
           <div>
             <label className={labelCls}>
-              4) Nenhum pagamento recente encontrado — pede comprovante (use{" "}
+              4) Cliente escolheu pagar manual (PIX/transferência) e ainda
+              não mandou comprovante — pede o comprovante e ESCALA (use{" "}
+              {"{primeiro_nome}"}, {"{metodo_automatico}"})
+            </label>
+            <textarea
+              value={paymentAwaitingTransferDraft}
+              onChange={(e) =>
+                setPaymentAwaitingTransferDraft(e.target.value)
+              }
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>
+              5) Nenhum pagamento recente encontrado (pagou por fora, ex:
+              direto com o Márcio) — pede comprovante e ESCALA (use{" "}
               {"{primeiro_nome}"})
             </label>
             <textarea
@@ -2509,16 +2586,16 @@ function NodeEditor({
               disabled={paymentMsgSaving}
               className={btnGhost}
             >
-              {paymentMsgSaving ? "Salvando..." : "Salvar essas 4 frases"}
+              {paymentMsgSaving ? "Salvando..." : "Salvar essas 6 frases"}
             </button>
             {paymentMsgSaved && (
               <span className="text-[11px] text-emerald-500">Salvo ✓</span>
             )}
           </div>
           <p className="text-[10px] text-muted-foreground">
-            As respostas 1-3 também controlam se esse nó escalona pra você
-            ou não (só a 4ª escalona, pedindo o comprovante) — isso é regra
-            fixa do motor, não muda editando o texto aqui. Compartilhado com
+            Só as respostas 4 e 5 escalonam pra você (pedem comprovante) —
+            as outras 3 encerram sem chamar você, isso é regra fixa do
+            motor, não muda editando o texto aqui. Compartilhado com
             qualquer outro nó/RAG que usar {"{confirmar_renovacao}"}.
           </p>
         </div>

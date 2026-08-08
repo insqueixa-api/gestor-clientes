@@ -302,12 +302,20 @@ async function fetchFreshDueDate(sb: any, clientId: string | null | undefined): 
   }
 }
 
-// ✅ check_renovacao_recente — as 4 mensagens (auto_confirmed/manual_pending/
-// fulfillment_error/none) são editáveis em bot_flow_settings
-// (payment_*_message), mesmo padrão do cupom: {primeiro_nome} e
-// {data_vencimento} substituídos na mão aqui, não passam pelo
-// renderTemplate genérico da árvore. {data_vencimento} vira " Seu acesso
-// está confirmado até {data}." quando há data, ou "" quando não há.
+// ✅ "Resolvido" = não precisa de mais nada do cliente nem escalar — encerra
+// sozinho. "none"/"awaiting_transfer" continuam precisando de comprovante,
+// por isso caem no fluxo de coletar_relato_e_escalar (ver runGateChecks/
+// executeLeaf). Centralizado aqui pra nunca dessincronizar os 2 call sites.
+function isResolvedPaymentStatus(status: PortalPaymentStatus): boolean {
+  return status !== "none" && status !== "awaiting_transfer";
+}
+
+// ✅ check_renovacao_recente — as 6 mensagens (auto_confirmed/manual_pending/
+// fulfillment_error/confirmed_not_notified/awaiting_transfer/none) são
+// editáveis em bot_flow_settings (payment_*_message), mesmo padrão do
+// cupom: {primeiro_nome} e {data_vencimento} substituídos na mão aqui, não
+// passam pelo renderTemplate genérico da árvore. {data_vencimento} vira "
+// Seu acesso está confirmado até {data}." quando há data, ou "" quando não há.
 async function buildPaymentStatusMsg(
   status: PortalPaymentStatus,
   flow: FlowSettings,
@@ -327,6 +335,29 @@ async function buildPaymentStatusMsg(
   }
   if (status === "fulfillment_error") {
     return flow.payment_fulfillment_error_message.replace(/\{primeiro_nome\}/g, firstName);
+  }
+  // ✅ Achado 08/08/2026: renovação JÁ concluída (fulfillment_status="done"),
+  // só a notificação automática que falhou/não confirmou — bem diferente de
+  // "fulfillment_error" (ali a renovação em si falhou e precisa do Márcio).
+  // Também mostra {data_vencimento}, igual auto_confirmed.
+  if (status === "confirmed_not_notified") {
+    const dueStr = await fetchFreshDueDate(sb, client?.id);
+    const dueClause = dueStr ? ` Seu acesso está confirmado até ${dueStr}.` : "";
+    return flow.payment_confirmed_not_notified_message
+      .replace(/\{primeiro_nome\}/g, firstName)
+      .replace(/\{data_vencimento\}/g, dueClause);
+  }
+  // ✅ Achado 08/08/2026: cliente escolheu pagar manual (PIX/transferência)
+  // no Portal — sugere o método automático certo pra moeda dele (PIX pra
+  // BRL, cartão/Google Pay/Apple Pay via Stripe pra USD/EUR) pra próxima
+  // vez ser mais rápido, sem precisar de comprovante.
+  if (status === "awaiting_transfer") {
+    const { data: cli } = await sb.from("clients").select("price_currency").eq("id", client?.id).maybeSingle();
+    const currency = String(cli?.price_currency || client?.price_currency || "BRL").toUpperCase();
+    const metodoAutomatico = currency === "BRL" ? "o PIX automático" : "cartão, Google Pay ou Apple Pay";
+    return flow.payment_awaiting_transfer_message
+      .replace(/\{primeiro_nome\}/g, firstName)
+      .replace(/\{metodo_automatico\}/g, metodoAutomatico);
   }
   return flow.payment_none_message.replace(/\{primeiro_nome\}/g, firstName);
 }
@@ -354,7 +385,7 @@ async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: str
 
   if (actions.includes("check_renovacao_recente")) {
     const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
-    if (status !== "none") {
+    if (isResolvedPaymentStatus(status)) {
       const msg = await buildPaymentStatusMsg(status, flow, sb, client);
       return { messages: [msg], markRead: status !== "fulfillment_error" };
     }
@@ -395,11 +426,14 @@ async function executeLeaf(
   // relato e escalar pro Márcio) se realmente não achar nada.
   if (actions.includes("check_renovacao_recente")) {
     const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
-    if (status !== "none") {
+    if (isResolvedPaymentStatus(status)) {
       const msg = await buildPaymentStatusMsg(status, flow, sb, client);
       return leafAfterMessages(node, [msg], { markRead: status !== "fulfillment_error", forceState: "geral" });
     }
-    // status === "none" → segue pro resto (ex: coletar_relato_e_escalar)
+    // "none" ou "awaiting_transfer" → precisam de comprovante do cliente,
+    // seguem pro resto (ex: coletar_relato_e_escalar) — {confirmar_renovacao}
+    // no Msg 1 resolve a frase certa de novo, e o bot ESCALA (só esses 2
+    // status escalam; os outros 4 encerram sozinhos).
   }
 
   if (actions.includes("escalar_imediatamente") || actions.includes("coletar_relato_e_escalar")) {
