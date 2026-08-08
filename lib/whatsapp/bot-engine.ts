@@ -184,7 +184,7 @@ export async function toolConsultarPrecosTexto(sb: any, tenantId: string, client
 // computed_status, cupom sem target_status explícito nunca bate). Por
 // isso busca um clientRow completo na view antes de checar elegibilidade
 // — só quando a tag realmente aparece no texto de destino.
-async function findCouponFoundMessage(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string | null> {
+async function findCouponFoundMessage(sb: any, tenantId: string, client: any, rawClient: any, flow: FlowSettings): Promise<string | null> {
   const { data: viewRow } = await sb
     .from("vw_clients_list_active")
     .select("id, computed_status, server_id, plan_name, apps_names, vencimento, created_at, price_currency, price_amount, whatsapp_username, screens, plan_table_id")
@@ -199,20 +199,27 @@ async function findCouponFoundMessage(sb: any, tenantId: string, client: any, fl
   // buildCouponPhrase) — precisava dar controle total pro Márcio evitar
   // repetir o código/desconto duas vezes se ele já citasse o cupom na
   // abertura (achado 07/08/2026). Suporta {primeiro_nome}, {codigo},
-  // {desconto} — substituídos na mão aqui (não passa pelo renderTemplate
-  // genérico da árvore).
+  // {desconto} e {link_pagamento} (achado 08/08/2026: sem o link, o
+  // cliente não tem como ir usar o cupom) — substituídos na mão aqui (não
+  // passa pelo renderTemplate genérico da árvore). {link_pagamento} só gera
+  // o link de verdade (query) quando a tag realmente aparece no template.
   const firstName = String(client?.display_name || "").split(" ")[0];
-  return flow.coupon_found_intro
+  let text = flow.coupon_found_intro
     .replace(/\{primeiro_nome\}/g, firstName)
     .replace(/\{codigo\}/g, coupon.code)
     .replace(/\{desconto\}/g, formatDiscountLabel(coupon));
+  if (text.includes("{link_pagamento}")) {
+    const link = await toolGerarLinkPortal(sb, tenantId, rawClient, client?.is_secondary);
+    text = text.replace(/\{link_pagamento\}/g, link);
+  }
+  return text;
 }
 
 // ✅ {cupom_frase}: cliente PERGUNTOU se tem desconto (menu "Cupom de
 // desconto", RAG livre) — precisa sempre responder algo, mesmo sem cupom
 // (silêncio pareceria bug). Usa coupon_not_found_message.
-async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string> {
-  const found = await findCouponFoundMessage(sb, tenantId, client, flow);
+async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any, rawClient: any, flow: FlowSettings): Promise<string> {
+  const found = await findCouponFoundMessage(sb, tenantId, client, rawClient, flow);
   return found ?? flow.coupon_not_found_message;
 }
 
@@ -222,8 +229,8 @@ async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any
 // quando surgir uma promoção 😉" pra quem tá cancelando é tom errado). Sem
 // cupom, fica em SILÊNCIO — devolve "" e o step inteiro (que deve ser só
 // essa tag, sem texto ao redor) nem é enviado, ver filtro em sendWithLogos.
-async function toolConsultarCupomRetencaoTexto(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string> {
-  const found = await findCouponFoundMessage(sb, tenantId, client, flow);
+async function toolConsultarCupomRetencaoTexto(sb: any, tenantId: string, client: any, rawClient: any, flow: FlowSettings): Promise<string> {
+  const found = await findCouponFoundMessage(sb, tenantId, client, rawClient, flow);
   return found ?? "";
 }
 
@@ -233,13 +240,13 @@ async function toolConsultarCupomRetencaoTexto(sb: any, tenantId: string, client
 // direta de artigo da Base de Conhecimento), que monta seu próprio `vars`
 // separado e por isso precisaria da mesma resolução duplicada sem este
 // helper.
-async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any, targetText: string, flow: FlowSettings): Promise<Record<string, any>> {
+async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any, rawClient: any, targetText: string, flow: FlowSettings): Promise<Record<string, any>> {
   const vars: Record<string, any> = {};
   if (targetText.includes("{cupom_frase}")) {
-    vars.cupom_frase = await toolConsultarCupomBotTexto(sb, tenantId, client, flow);
+    vars.cupom_frase = await toolConsultarCupomBotTexto(sb, tenantId, client, rawClient, flow);
   }
   if (targetText.includes("{cupom_retencao}")) {
-    vars.cupom_retencao = await toolConsultarCupomRetencaoTexto(sb, tenantId, client, flow);
+    vars.cupom_retencao = await toolConsultarCupomRetencaoTexto(sb, tenantId, client, rawClient, flow);
   }
   if (targetText.includes("{pendencia_detalhe}")) {
     vars.pendencia_detalhe = await getPendencyPhraseForClient(sb, tenantId, client.id, client.price_currency || "BRL");
@@ -274,7 +281,7 @@ async function buildVarsForNode(
   if (stepsText.includes("{tabela_precos}")) {
     vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, client);
   }
-  Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, client, stepsText, flow));
+  Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, client, rawClient, stepsText, flow));
   return vars;
 }
 
@@ -824,7 +831,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     if (kb.content.includes("{tabela_precos}")) {
       vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, ragClient);
     }
-    Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, kb.content, flow));
+    Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, ragRawClient, kb.content, flow));
     await sendWithLogos(renderTemplate(kb.content, vars));
     return { action: "rag_direct_pos_conta", markRead: true, nextState: "geral" };
   }
@@ -956,7 +963,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
         if (top.content.includes("{tabela_precos}")) {
           vars.tabela_precos = await toolConsultarPrecosTexto(sb, tenantId, ragClient);
         }
-        Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, top.content, flow));
+        Object.assign(vars, await resolveCouponPendencyVars(sb, tenantId, ragClient, ragRawClient, top.content, flow));
         await sendWithLogos(renderTemplate(top.content, vars));
         return { action: "rag_direct", markRead: true, nextState: "geral" };
       }

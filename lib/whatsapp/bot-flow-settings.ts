@@ -29,7 +29,7 @@ export type FlowSettings = {
   /** Intro padrão ao reexibir submenu (antes das opções). */
   menu_invalid_intro_1: string;
   menu_invalid_intro_2: string;
-  /** Mensagem INTEIRA de {cupom_frase} quando achou um cupom pro cliente — não concatena com mais nada. Use {primeiro_nome}, {codigo}, {desconto}. */
+  /** Mensagem INTEIRA de {cupom_frase}/{cupom_retencao} quando achou um cupom pro cliente — não concatena com mais nada. Use {primeiro_nome}, {codigo}, {desconto}, {link_pagamento}. */
   coupon_found_intro: string;
   /** Resposta de {cupom_frase} quando o cliente não é elegível a nenhum cupom. */
   coupon_not_found_message: string;
@@ -51,7 +51,7 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   invalid_retry_message_2: "Sem pressa! 😊 Escolha uma das opções digitando o número correspondente:",
   menu_invalid_intro_1: "Não entendi — pode escolher uma das opções abaixo, por favor? 😊",
   menu_invalid_intro_2: "Ainda não consegui identificar a opção. Digite só o número (1 a 8), por favor:",
-  coupon_found_intro: "Boa notícia, {primeiro_nome}! 🎉 Use o cupom *{codigo}* e ganhe {desconto} de desconto na sua próxima renovação!",
+  coupon_found_intro: "Boa notícia, {primeiro_nome}! 🎉 Use o cupom *{codigo}* e ganhe {desconto} de desconto na sua próxima renovação: {link_pagamento}",
   coupon_not_found_message: BOT_NO_COUPON_MESSAGE,
   payment_auto_confirmed_message: DEFAULT_PAYMENT_AUTO_CONFIRMED_MSG,
   payment_manual_pending_message: DEFAULT_PAYMENT_MANUAL_PENDING_MSG,
