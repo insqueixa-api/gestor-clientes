@@ -53,6 +53,9 @@ type FlowSettings = {
   menu_invalid_intro_2: string;
   coupon_found_intro: string;
   coupon_not_found_message: string;
+  payment_auto_confirmed_message: string;
+  payment_manual_pending_message: string;
+  payment_fulfillment_error_message: string;
 };
 
 // ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
@@ -1288,6 +1291,42 @@ export default function BotMenuTreeEditor() {
                           />
                         </div>
                       </div>
+
+                      <div className="pt-1 border-t border-border space-y-2">
+                        <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                          💳 Já paguei / renovação recente (check_renovacao_recente)
+                        </p>
+                        {(
+                          [
+                            [
+                              "payment_auto_confirmed_message",
+                              "Pagamento pelo Portal já confirmado (use {primeiro_nome}, {data_vencimento})",
+                            ],
+                            [
+                              "payment_manual_pending_message",
+                              "Pagamento achado, aguardando você concluir (use {primeiro_nome})",
+                            ],
+                            [
+                              "payment_fulfillment_error_message",
+                              "Confirmado mas com falha técnica na finalização (use {primeiro_nome})",
+                            ],
+                          ] as const
+                        ).map(([key, label]) => (
+                          <div key={key}>
+                            <label className={labelCls}>{label}</label>
+                            <textarea
+                              value={flowSettings[key]}
+                              onChange={(e) =>
+                                setFlowSettings((s) =>
+                                  s ? { ...s, [key]: e.target.value } : s,
+                                )
+                              }
+                              rows={2}
+                              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </>
@@ -1336,7 +1375,16 @@ export default function BotMenuTreeEditor() {
                 couponNotFoundMessage={
                   flowSettings?.coupon_not_found_message || ""
                 }
-                onSaveCouponMessages={saveFlowSettingsPatch}
+                paymentAutoConfirmedMessage={
+                  flowSettings?.payment_auto_confirmed_message || ""
+                }
+                paymentManualPendingMessage={
+                  flowSettings?.payment_manual_pending_message || ""
+                }
+                paymentFulfillmentErrorMessage={
+                  flowSettings?.payment_fulfillment_error_message || ""
+                }
+                onSaveFlowSettings={saveFlowSettingsPatch}
                 onReorder={(newNumber) =>
                   handleReorder(selectedNode, newNumber)
                 }
@@ -1759,7 +1807,10 @@ function NodeEditor({
   defaultSuccessMessage,
   couponFoundIntro,
   couponNotFoundMessage,
-  onSaveCouponMessages,
+  paymentAutoConfirmedMessage,
+  paymentManualPendingMessage,
+  paymentFulfillmentErrorMessage,
+  onSaveFlowSettings,
   onSave,
   onSaveSteps,
   onDelete,
@@ -1772,16 +1823,17 @@ function NodeEditor({
   isLeaf: boolean;
   allNodes: MenuNode[];
   defaultSuccessMessage: string;
-  /** Valores atuais em bot_flow_settings — {cupom_frase} é compartilhado
-   * com o RAG, então continua vivendo lá; aqui é só exibido/editável
-   * inline quando o nó usa a variável, pra não obrigar ir no painel
-   * "Sucesso/Márcio" pra achar algo que só esse nó (hoje) usa. */
+  /** Valores atuais em bot_flow_settings — {cupom_frase}/check_renovacao_recente
+   * são compartilhados com o RAG ou entre 2 pontos do motor, então continuam
+   * vivendo lá; aqui é só exibido/editável inline quando o nó usa a
+   * variável/ação, pra não obrigar ir no painel "Sucesso/Márcio" pra achar
+   * algo que só esse nó (hoje) usa. */
   couponFoundIntro: string;
   couponNotFoundMessage: string;
-  onSaveCouponMessages: (patch: {
-    coupon_found_intro?: string;
-    coupon_not_found_message?: string;
-  }) => Promise<void>;
+  paymentAutoConfirmedMessage: string;
+  paymentManualPendingMessage: string;
+  paymentFulfillmentErrorMessage: string;
+  onSaveFlowSettings: (patch: Partial<FlowSettings>) => Promise<void>;
   onSave: (fields: any) => void | Promise<void>;
   onSaveSteps: (payload: StepsSavePayload) => void | Promise<void>;
   onDelete: () => void;
@@ -1861,7 +1913,7 @@ function NodeEditor({
     setCouponMsgError(null);
     setCouponMsgSaved(false);
     try {
-      await onSaveCouponMessages({
+      await onSaveFlowSettings({
         coupon_found_intro: couponFoundDraft,
         coupon_not_found_message: couponNotFoundDraft,
       });
@@ -1871,6 +1923,44 @@ function NodeEditor({
       setCouponMsgError(e?.message || "Erro ao salvar.");
     } finally {
       setCouponMsgSaving(false);
+    }
+  }
+
+  // ✅ Mesmo padrão do cupom, agora pra check_renovacao_recente — detecta a
+  // special_action (não é uma tag de texto, é uma ação do nó) e mostra as 3
+  // respostas da API aqui dentro, editáveis sem ir no painel global.
+  const usesCheckRenovacaoRecente = specialActions.includes(
+    "check_renovacao_recente",
+  );
+  const [paymentAutoDraft, setPaymentAutoDraft] = useState(
+    paymentAutoConfirmedMessage,
+  );
+  const [paymentPendingDraft, setPaymentPendingDraft] = useState(
+    paymentManualPendingMessage,
+  );
+  const [paymentErrorDraft, setPaymentErrorDraft] = useState(
+    paymentFulfillmentErrorMessage,
+  );
+  const [paymentMsgSaving, setPaymentMsgSaving] = useState(false);
+  const [paymentMsgSaved, setPaymentMsgSaved] = useState(false);
+  const [paymentMsgError, setPaymentMsgError] = useState<string | null>(null);
+
+  async function handleSavePaymentMessages() {
+    setPaymentMsgSaving(true);
+    setPaymentMsgError(null);
+    setPaymentMsgSaved(false);
+    try {
+      await onSaveFlowSettings({
+        payment_auto_confirmed_message: paymentAutoDraft,
+        payment_manual_pending_message: paymentPendingDraft,
+        payment_fulfillment_error_message: paymentErrorDraft,
+      });
+      setPaymentMsgSaved(true);
+      setTimeout(() => setPaymentMsgSaved(false), 2000);
+    } catch (e: any) {
+      setPaymentMsgError(e?.message || "Erro ao salvar.");
+    } finally {
+      setPaymentMsgSaving(false);
     }
   }
 
@@ -2255,6 +2345,81 @@ function NodeEditor({
           <p className="text-[10px] text-muted-foreground">
             Compartilhado com a resposta livre do RAG sobre cupom — mudar
             aqui muda nos dois lugares.
+          </p>
+        </div>
+      )}
+
+      {/* check_renovacao_recente detectado — as 3 respostas da API (o que
+          antes era invisível, hardcoded no código) ficam editáveis aqui.
+          Msg 1 acima é só o fallback ("não achei nada"); estas 3 rodam
+          ANTES dela, cada uma pra uma situação diferente que a API detecta. */}
+      {usesCheckRenovacaoRecente && (
+        <div className="space-y-2 border border-sky-500/30 bg-sky-500/5 rounded-xl p-3">
+          <p className="text-[11px] font-medium text-sky-600 dark:text-sky-400 uppercase tracking-wider">
+            💳 Esse nó consulta a API de pagamento (check_renovacao_recente)
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            Antes de cair na "Msg 1" (que é só o fallback pedindo
+            comprovante), a API confere se já tem um pagamento recente do
+            Portal e responde direto com uma destas 3, sem nem chegar na
+            Msg 1:
+          </p>
+          <div>
+            <label className={labelCls}>
+              1) Já confirmado automaticamente pelo Portal (use{" "}
+              {"{primeiro_nome}"}, {"{data_vencimento}"})
+            </label>
+            <textarea
+              value={paymentAutoDraft}
+              onChange={(e) => setPaymentAutoDraft(e.target.value)}
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>
+              2) Achado, mas aguardando você concluir manualmente (use{" "}
+              {"{primeiro_nome}"})
+            </label>
+            <textarea
+              value={paymentPendingDraft}
+              onChange={(e) => setPaymentPendingDraft(e.target.value)}
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>
+              3) Confirmado, mas com falha técnica na finalização automática
+              (use {"{primeiro_nome}"})
+            </label>
+            <textarea
+              value={paymentErrorDraft}
+              onChange={(e) => setPaymentErrorDraft(e.target.value)}
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
+          {paymentMsgError && (
+            <p className="text-[11px] text-rose-500">{paymentMsgError}</p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleSavePaymentMessages()}
+              disabled={paymentMsgSaving}
+              className={btnGhost}
+            >
+              {paymentMsgSaving ? "Salvando..." : "Salvar essas 3 frases"}
+            </button>
+            {paymentMsgSaved && (
+              <span className="text-[11px] text-emerald-500">Salvo ✓</span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Essas 3 também rodam no "gate" de outros menus com submenu (ex:
+            Renovação/pagamento) antes de mostrar as opções — mudar aqui
+            muda em todo lugar que essa checagem roda.
           </p>
         </div>
       )}

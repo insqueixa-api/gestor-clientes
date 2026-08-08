@@ -43,6 +43,9 @@ export async function POST(req: Request) {
     "menu_invalid_intro_2",
     "coupon_found_intro",
     "coupon_not_found_message",
+    "payment_auto_confirmed_message",
+    "payment_manual_pending_message",
+    "payment_fulfillment_error_message",
   ];
   const patch: Partial<FlowSettings> = {};
   for (const k of keys) {

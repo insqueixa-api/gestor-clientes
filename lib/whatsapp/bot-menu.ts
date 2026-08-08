@@ -171,15 +171,20 @@ export async function checkRecentPortalPayment(
   return "none";
 }
 
-export function paymentAutoConfirmedMsg(firstName: string, dueDateStr?: string | null): string {
-  const dueSuffix = dueDateStr ? ` Seu acesso está confirmado até ${dueDateStr}.` : "";
-  return `Tudo certo, ${firstName}! 😊 Sua renovação já foi processada automaticamente pelo portal e a confirmação já foi enviada.${dueSuffix} Não precisa mandar comprovante — já está tudo certo! ✅`;
-}
+// ✅ Promovidos a template editável em bot_flow_settings (payment_*_message)
+// — estes aqui viraram só os DEFAULTS (mesmo padrão de BOT_GAVE_UP_MSG etc
+// acima). {primeiro_nome} e {data_vencimento} são substituídos na mão em
+// toolCheckRenovacaoRecente (bot-engine.ts), não passam pelo renderTemplate
+// genérico da árvore. {data_vencimento} vira " Seu acesso está confirmado
+// até {data}." quando há data, ou "" quando não há — nunca digite o texto
+// fixo dessa frase direto, use sempre a tag.
+export const DEFAULT_PAYMENT_AUTO_CONFIRMED_MSG =
+  "Tudo certo, {primeiro_nome}! 😊 Sua renovação já foi processada automaticamente pelo portal e a confirmação já foi enviada.{data_vencimento} Não precisa mandar comprovante — já está tudo certo! ✅";
 
-export const PAYMENT_MANUAL_PENDING_MSG =
+export const DEFAULT_PAYMENT_MANUAL_PENDING_MSG =
   "Encontrei seu pagamento aqui! ✅ Está em análise e será concluído em breve.";
 
-export const PAYMENT_FULFILLMENT_ERROR_MSG =
+export const DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG =
   "Encontrei seu pagamento aqui — está confirmado! ✅ Só tivemos uma instabilidade técnica na finalização automática, mas o Márcio já foi notificado e vai concluir sua renovação em instantes.";
 
 // ── Servidor do cliente (NaTV / Fast / Elite) — usado pra filtrar conteúdo

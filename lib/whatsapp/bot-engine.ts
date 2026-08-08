@@ -18,9 +18,7 @@ import {
   isGreetingOnly,
   classifyRecentJob,
   checkRecentPortalPayment,
-  paymentAutoConfirmedMsg,
-  PAYMENT_MANUAL_PENDING_MSG,
-  PAYMENT_FULFILLMENT_ERROR_MSG,
+  type PortalPaymentStatus,
   detectMenuContextFromTree,
   getAllRootsAsMenuText,
   getRootNodes,
@@ -271,8 +269,34 @@ async function fetchFreshDueDate(sb: any, clientId: string | null | undefined): 
   }
 }
 
+// ✅ check_renovacao_recente — as 3 mensagens (auto_confirmed/manual_pending/
+// fulfillment_error) são editáveis em bot_flow_settings (payment_*_message),
+// mesmo padrão do cupom: {primeiro_nome} e {data_vencimento} substituídos na
+// mão aqui, não passam pelo renderTemplate genérico da árvore.
+// {data_vencimento} vira " Seu acesso está confirmado até {data}." quando
+// há data, ou "" quando não há.
+async function buildPaymentStatusMsg(
+  status: Exclude<PortalPaymentStatus, "none">,
+  flow: FlowSettings,
+  sb: any,
+  client: any,
+): Promise<string> {
+  const firstName = String(client?.display_name || "").split(" ")[0];
+  if (status === "auto_confirmed") {
+    const dueStr = await fetchFreshDueDate(sb, client?.id);
+    const dueClause = dueStr ? ` Seu acesso está confirmado até ${dueStr}.` : "";
+    return flow.payment_auto_confirmed_message
+      .replace(/\{primeiro_nome\}/g, firstName)
+      .replace(/\{data_vencimento\}/g, dueClause);
+  }
+  if (status === "manual_pending") {
+    return flow.payment_manual_pending_message.replace(/\{primeiro_nome\}/g, firstName);
+  }
+  return flow.payment_fulfillment_error_message.replace(/\{primeiro_nome\}/g, firstName);
+}
+
 // ── Gate checks — rodam antes de mostrar os filhos de um nó com children ────
-async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: string): Promise<{ messages: string[]; markRead?: boolean } | null> {
+async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: string, flow: FlowSettings): Promise<{ messages: string[]; markRead?: boolean } | null> {
   const actions = node.special_actions || [];
 
   if (actions.includes("check_servidor_vencimento") && client?.server_is_offline) {
@@ -281,12 +305,10 @@ async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: str
 
   if (actions.includes("check_renovacao_recente")) {
     const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
-    if (status === "auto_confirmed") {
-      const dueStr = await fetchFreshDueDate(sb, client?.id);
-      return { messages: [paymentAutoConfirmedMsg(client.display_name?.split(" ")[0] || "", dueStr)], markRead: true };
+    if (status !== "none") {
+      const msg = await buildPaymentStatusMsg(status, flow, sb, client);
+      return { messages: [msg], markRead: status !== "fulfillment_error" };
     }
-    if (status === "manual_pending") return { messages: [PAYMENT_MANUAL_PENDING_MSG], markRead: true };
-    if (status === "fulfillment_error") return { messages: [PAYMENT_FULFILLMENT_ERROR_MSG], markRead: false };
   }
 
   return null;
@@ -324,15 +346,9 @@ async function executeLeaf(
   // relato e escalar pro Márcio) se realmente não achar nada.
   if (actions.includes("check_renovacao_recente")) {
     const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
-    if (status === "auto_confirmed") {
-      const dueStr = await fetchFreshDueDate(sb, client?.id);
-      return leafAfterMessages(node, [paymentAutoConfirmedMsg(client.display_name?.split(" ")[0] || "", dueStr)], { forceState: "geral" });
-    }
-    if (status === "manual_pending") {
-      return leafAfterMessages(node, [PAYMENT_MANUAL_PENDING_MSG], { forceState: "geral" });
-    }
-    if (status === "fulfillment_error") {
-      return leafAfterMessages(node, [PAYMENT_FULFILLMENT_ERROR_MSG], { markRead: false, forceState: "geral" });
+    if (status !== "none") {
+      const msg = await buildPaymentStatusMsg(status, flow, sb, client);
+      return leafAfterMessages(node, [msg], { markRead: status !== "fulfillment_error", forceState: "geral" });
     }
     // status === "none" → segue pro resto (ex: coletar_relato_e_escalar)
   }
@@ -632,7 +648,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     const children = await getChildren(sb, node.id, nodeProvider);
 
     if (children.length > 0) {
-      const gate = await runGateChecks(node, client, sb, tenantId);
+      const gate = await runGateChecks(node, client, sb, tenantId, flow);
       if (gate) {
         for (const m of gate.messages) await sendWithLogos(m);
         return { action: "gate_resolved", markRead: gate.markRead ?? true, nextState: "geral" };

@@ -9,6 +9,9 @@ import {
   BOT_GAVE_UP_MSG,
   HUMAN_REQUESTED_MSG,
   PORTAL_HANDOFF_MSG,
+  DEFAULT_PAYMENT_AUTO_CONFIRMED_MSG,
+  DEFAULT_PAYMENT_MANUAL_PENDING_MSG,
+  DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG,
 } from "@/lib/whatsapp/bot-menu";
 import { BOT_NO_COUPON_MESSAGE } from "@/lib/client-portal/coupons";
 
@@ -30,6 +33,12 @@ export type FlowSettings = {
   coupon_found_intro: string;
   /** Resposta de {cupom_frase} quando o cliente não é elegível a nenhum cupom. */
   coupon_not_found_message: string;
+  /** check_renovacao_recente — pagamento do Portal já confirmado e enviado. Use {primeiro_nome}, {data_vencimento} (vira frase própria ou some, nunca digite a data fixa). */
+  payment_auto_confirmed_message: string;
+  /** check_renovacao_recente — pagamento achado, aguardando conclusão manual. Use {primeiro_nome}. */
+  payment_manual_pending_message: string;
+  /** check_renovacao_recente — pagamento confirmado mas com falha técnica na finalização automática. Use {primeiro_nome}. */
+  payment_fulfillment_error_message: string;
 };
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -44,6 +53,9 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   menu_invalid_intro_2: "Ainda não consegui identificar a opção. Digite só o número (1 a 8), por favor:",
   coupon_found_intro: "Boa notícia, {primeiro_nome}! 🎉 Use o cupom *{codigo}* e ganhe {desconto} de desconto na sua próxima renovação!",
   coupon_not_found_message: BOT_NO_COUPON_MESSAGE,
+  payment_auto_confirmed_message: DEFAULT_PAYMENT_AUTO_CONFIRMED_MSG,
+  payment_manual_pending_message: DEFAULT_PAYMENT_MANUAL_PENDING_MSG,
+  payment_fulfillment_error_message: DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG,
 };
 
 function pickStr(v: unknown, fallback: string): string {
@@ -67,6 +79,9 @@ export function mergeFlowSettings(row: Record<string, any> | null | undefined): 
     menu_invalid_intro_2: pickStr(row.menu_invalid_intro_2, d.menu_invalid_intro_2),
     coupon_found_intro: pickStr(row.coupon_found_intro, d.coupon_found_intro),
     coupon_not_found_message: pickStr(row.coupon_not_found_message, d.coupon_not_found_message),
+    payment_auto_confirmed_message: pickStr(row.payment_auto_confirmed_message, d.payment_auto_confirmed_message),
+    payment_manual_pending_message: pickStr(row.payment_manual_pending_message, d.payment_manual_pending_message),
+    payment_fulfillment_error_message: pickStr(row.payment_fulfillment_error_message, d.payment_fulfillment_error_message),
   };
 }
 
@@ -104,6 +119,9 @@ export async function upsertFlowSettings(
     "menu_invalid_intro_2",
     "coupon_found_intro",
     "coupon_not_found_message",
+    "payment_auto_confirmed_message",
+    "payment_manual_pending_message",
+    "payment_fulfillment_error_message",
   ];
   const clean: Record<string, string> = {};
   for (const k of allowed) {
