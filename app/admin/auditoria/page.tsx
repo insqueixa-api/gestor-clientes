@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import AplicativosLog, { AplicativosLogHandle } from "./AplicativosLog";
+import BotMonitorPanel from "@/components/whatsapp/BotMonitorPanel";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -280,8 +281,12 @@ function AuditoriaPageContent() {
   // do Dashboard (app/admin/dashboard-filter.tsx), mas local a esta página
   // (não navega, só troca o que renderiza). Aceita ?view=aplicativos pra
   // abrir direto nessa aba (usado pelo link da notificação do sino).
-  const [activeLogView, setActiveLogView] = useState<"iptv" | "aplicativos">(
-    searchParams.get("view") === "aplicativos" ? "aplicativos" : "iptv",
+  const [activeLogView, setActiveLogView] = useState<"iptv" | "aplicativos" | "bot">(
+    searchParams.get("view") === "aplicativos"
+      ? "aplicativos"
+      : searchParams.get("view") === "bot"
+        ? "bot"
+        : "iptv",
   );
   const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
   const [rows, setRows] = useState<LogRow[]>([]);
@@ -299,11 +304,17 @@ function AuditoriaPageContent() {
   const aplicativosLogRef = useRef<AplicativosLogHandle>(null);
   const [aplicativosLoading, setAplicativosLoading] = useState(false);
   const isRefreshingActiveLog =
-    activeLogView === "iptv" ? loading : aplicativosLoading;
+    activeLogView === "iptv"
+      ? loading
+      : activeLogView === "aplicativos"
+        ? aplicativosLoading
+        : false;
 
   function handleRefreshActiveLog() {
     if (activeLogView === "iptv") loadData(search);
-    else aplicativosLogRef.current?.refresh();
+    else if (activeLogView === "aplicativos")
+      aplicativosLogRef.current?.refresh();
+    // "bot": BotMonitorPanel tem o próprio botão de atualizar interno.
   }
 
   // Paginação
@@ -1312,18 +1323,31 @@ function AuditoriaPageContent() {
                 </span>
               )}
             </button>
+            <button
+              onClick={() => setActiveLogView("bot")}
+              className={`relative px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1.5 ${
+                activeLogView === "bot"
+                  ? "bg-card text-emerald-500 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>🤖</span>
+              <span>Bot Atendimento</span>
+            </button>
           </div>
-          <button
-            onClick={handleRefreshActiveLog}
-            disabled={isRefreshingActiveLog}
-            title="Atualizar"
-            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 flex items-center justify-center gap-1.5 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-[11px] font-medium disabled:opacity-50 shrink-0"
-          >
-            <span className={isRefreshingActiveLog ? "animate-spin" : ""}>
-              <IconRefresh />
-            </span>
-            <span className="hidden sm:inline">Atualizar</span>
-          </button>
+          {activeLogView !== "bot" && (
+            <button
+              onClick={handleRefreshActiveLog}
+              disabled={isRefreshingActiveLog}
+              title="Atualizar"
+              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 flex items-center justify-center gap-1.5 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-[11px] font-medium disabled:opacity-50 shrink-0"
+            >
+              <span className={isRefreshingActiveLog ? "animate-spin" : ""}>
+                <IconRefresh />
+              </span>
+              <span className="hidden sm:inline">Atualizar</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1336,6 +1360,12 @@ function AuditoriaPageContent() {
           onPendingCountChange={setAppRequestsPendingCount}
           onLoadingChange={setAplicativosLoading}
         />
+      )}
+
+      {activeLogView === "bot" && (
+        <div className="px-3 sm:px-0">
+          <BotMonitorPanel />
+        </div>
       )}
 
       {activeLogView === "iptv" && (

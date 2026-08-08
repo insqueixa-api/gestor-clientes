@@ -130,7 +130,11 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    response: sentMessages.join("\n\n"),
+    // ✅ Array pra virar bolhas separadas no chat do simulador — no
+    // WhatsApp de verdade (agent/route.ts) cada `send()` já dispara uma
+    // mensagem própria; `response` (string única) some do simulador junto
+    // pra não voltar a juntar tudo por engano num consumidor futuro.
+    responses: sentMessages,
     action: result.action,
     escalate: result.escalate ?? false,
     mark_read: result.markRead,
