@@ -93,7 +93,7 @@ export type ImpactResult = {
 
 type PlanTableLite = { id: string; currency: string; is_system_default: boolean };
 
-type ClientLite = {
+export type ClientLite = {
   id: string;
   client_name: string | null;
   username: string | null;
@@ -111,7 +111,7 @@ type ClientLite = {
   whatsapp_username: string | null;
 };
 
-const CLIENT_SELECT =
+export const CLIENT_SELECT =
   "id, client_name, username, server_name, computed_status, server_id, plan_name, apps_names, vencimento, screens, price_currency, price_amount, plan_table_id, created_at, whatsapp_username";
 
 /** Resolve a tabela de preço BRL do cliente. Retorna null se não achar uma tabela BRL. */
@@ -137,7 +137,7 @@ function computeDiscountedPrice(
 }
 
 /** Mesma lógica de matchesTargeting em lib/client-portal/coupons.ts, adaptada pro shape da view. */
-function matchesRules(rules: CouponRulesParams, client: ClientLite, now: Date): boolean {
+export function matchesRules(rules: CouponRulesParams, client: ClientLite, now: Date): boolean {
   const status = String(client.computed_status || "").toUpperCase();
   if (rules.targetStatus?.length) {
     if (!rules.targetStatus.includes(status)) return false;

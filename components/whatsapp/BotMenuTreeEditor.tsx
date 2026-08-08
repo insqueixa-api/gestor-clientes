@@ -1015,6 +1015,22 @@ export default function BotMenuTreeEditor() {
     }
   }
 
+  // ✅ Salva só um pedaço de flowSettings sem abrir/fechar o painel global —
+  // usado pelo NodeEditor pra editar coupon_found_intro/coupon_not_found_message
+  // direto de dentro do nó "Cupom de desconto" (variável {cupom_frase} detectada
+  // no texto), em vez de mandar o admin procurar no painel "Sucesso/Márcio".
+  async function saveFlowSettingsPatch(patch: Partial<FlowSettings>) {
+    const headers = await authHeader();
+    const res = await fetch("/api/whatsapp/bot/flow-settings", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ ...(flowSettings || {}), ...patch }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error(json.error || "Erro ao salvar");
+    setFlowSettings(json.settings);
+  }
+
   const flowFocus = flowSettingsOpen; // "start" | "end"
 
   return (
@@ -1315,6 +1331,11 @@ export default function BotMenuTreeEditor() {
                   flowSettings?.success_message ||
                   "Que bom! Fico feliz que resolveu 😊"
                 }
+                couponFoundIntro={flowSettings?.coupon_found_intro || ""}
+                couponNotFoundMessage={
+                  flowSettings?.coupon_not_found_message || ""
+                }
+                onSaveCouponMessages={saveFlowSettingsPatch}
                 onReorder={(newNumber) =>
                   handleReorder(selectedNode, newNumber)
                 }
@@ -1735,6 +1756,9 @@ function NodeEditor({
   isLeaf,
   allNodes,
   defaultSuccessMessage,
+  couponFoundIntro,
+  couponNotFoundMessage,
+  onSaveCouponMessages,
   onSave,
   onSaveSteps,
   onDelete,
@@ -1747,6 +1771,16 @@ function NodeEditor({
   isLeaf: boolean;
   allNodes: MenuNode[];
   defaultSuccessMessage: string;
+  /** Valores atuais em bot_flow_settings — {cupom_frase} é compartilhado
+   * com o RAG, então continua vivendo lá; aqui é só exibido/editável
+   * inline quando o nó usa a variável, pra não obrigar ir no painel
+   * "Sucesso/Márcio" pra achar algo que só esse nó (hoje) usa. */
+  couponFoundIntro: string;
+  couponNotFoundMessage: string;
+  onSaveCouponMessages: (patch: {
+    coupon_found_intro?: string;
+    coupon_not_found_message?: string;
+  }) => Promise<void>;
   onSave: (fields: any) => void | Promise<void>;
   onSaveSteps: (payload: StepsSavePayload) => void | Promise<void>;
   onDelete: () => void;
@@ -1806,6 +1840,38 @@ function NodeEditor({
     });
     return base;
   });
+
+  // ✅ Detecta {cupom_frase} em qualquer step (universal ou por servidor) —
+  // só então mostra os campos de "achou/não achou cupom" aqui dentro do nó.
+  const usesCupomFrase = [
+    ...universalSteps,
+    ...Object.values(serverSteps).flatMap((s) => s.steps),
+  ].some((t) => t.includes("{cupom_frase}"));
+  const [couponFoundDraft, setCouponFoundDraft] = useState(couponFoundIntro);
+  const [couponNotFoundDraft, setCouponNotFoundDraft] = useState(
+    couponNotFoundMessage,
+  );
+  const [couponMsgSaving, setCouponMsgSaving] = useState(false);
+  const [couponMsgSaved, setCouponMsgSaved] = useState(false);
+  const [couponMsgError, setCouponMsgError] = useState<string | null>(null);
+
+  async function handleSaveCouponMessages() {
+    setCouponMsgSaving(true);
+    setCouponMsgError(null);
+    setCouponMsgSaved(false);
+    try {
+      await onSaveCouponMessages({
+        coupon_found_intro: couponFoundDraft,
+        coupon_not_found_message: couponNotFoundDraft,
+      });
+      setCouponMsgSaved(true);
+      setTimeout(() => setCouponMsgSaved(false), 2000);
+    } catch (e: any) {
+      setCouponMsgError(e?.message || "Erro ao salvar.");
+    } finally {
+      setCouponMsgSaving(false);
+    }
+  }
 
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showVars, setShowVars] = useState(false);
@@ -2137,6 +2203,57 @@ function NodeEditor({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* {cupom_frase} detectado — edita achou/não achou aqui, sem precisar
+          ir no painel global "Sucesso/Márcio" (variável é compartilhada com
+          o RAG, mas o admin só enxerga esse nó usando ela). */}
+      {usesCupomFrase && (
+        <div className="space-y-2 border border-amber-500/30 bg-amber-500/5 rounded-xl p-3">
+          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+            🎁 Esse texto usa {"{cupom_frase}"} — mensagens de achou / não achou
+          </p>
+          <div>
+            <label className={labelCls}>
+              Quando TEM cupom elegível (use {"{primeiro_nome}"})
+            </label>
+            <textarea
+              value={couponFoundDraft}
+              onChange={(e) => setCouponFoundDraft(e.target.value)}
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Quando NÃO tem nenhum cupom elegível</label>
+            <textarea
+              value={couponNotFoundDraft}
+              onChange={(e) => setCouponNotFoundDraft(e.target.value)}
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
+          {couponMsgError && (
+            <p className="text-[11px] text-rose-500">{couponMsgError}</p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleSaveCouponMessages()}
+              disabled={couponMsgSaving}
+              className={btnGhost}
+            >
+              {couponMsgSaving ? "Salvando..." : "Salvar essas 2 frases"}
+            </button>
+            {couponMsgSaved && (
+              <span className="text-[11px] text-emerald-500">Salvo ✓</span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Compartilhado com a resposta livre do RAG sobre cupom — mudar
+            aqui muda nos dois lugares.
+          </p>
         </div>
       )}
 

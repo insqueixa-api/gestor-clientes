@@ -3,14 +3,20 @@
 import { Pencil, Play, Pause, Trash2, X } from "lucide-react";
 import { createPortal } from "react-dom";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import CupomModal, { CouponEditPayload } from "./cupom_modal";
-import { computeCouponImpact, ImpactResult } from "./impact_preview";
+import {
+  computeCouponImpact,
+  ImpactResult,
+  matchesRules,
+  ClientLite,
+  CLIENT_SELECT,
+} from "./impact_preview";
 
 export type CouponRow = {
   id: string;
@@ -70,6 +76,7 @@ export default function CuponsPage() {
   const [redemptionCounts, setRedemptionCounts] = useState<
     Record<string, number>
   >({});
+  const [ruleClients, setRuleClients] = useState<ClientLite[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCoupon, setEditingCoupon] = useState<CouponEditPayload | null>(
     null,
@@ -102,7 +109,7 @@ export default function CuponsPage() {
         return;
       }
 
-      const [couponsRes, redemptionsRes] = await Promise.all([
+      const [couponsRes, redemptionsRes, clientsRes] = await Promise.all([
         supabaseBrowser
           .from("coupons")
           .select("*, clients(display_name, username:server_username)")
@@ -112,10 +119,19 @@ export default function CuponsPage() {
           .from("coupon_redemptions")
           .select("coupon_id")
           .eq("tenant_id", tenantId),
+        // Base pro contador "quantos se enquadram" de cada cupom geral —
+        // buscada 1x só e reaproveitada pra todos os cupons (matchesRules
+        // roda no browser, sem repetir a query por cupom).
+        supabaseBrowser
+          .from("vw_clients_list_active")
+          .select(CLIENT_SELECT)
+          .eq("tenant_id", tenantId)
+          .eq("price_currency", "BRL"),
       ]);
 
       if (couponsRes.error) throw couponsRes.error;
       setCoupons((couponsRes.data as CouponRow[]) || []);
+      setRuleClients((clientsRes.data as ClientLite[]) || []);
 
       const counts: Record<string, number> = {};
       for (const row of (redemptionsRes.data as { coupon_id: string }[]) ||
@@ -145,6 +161,40 @@ export default function CuponsPage() {
     }
     return `R$ ${Number(row.discount_value).toFixed(2).replace(".", ",")}`;
   }
+
+  /** Preview real da frase que sai em {cupom_frase} — bem mais útil aqui
+   * do que só dizer "Padrão"/"Customizada" sem mostrar o texto de verdade. */
+  function previewPhrase(row: CouponRow) {
+    const desconto = formatDiscount(row);
+    if (row.message_template) {
+      return row.message_template
+        .replace(/\{codigo\}/g, row.code)
+        .replace(/\{desconto\}/g, desconto);
+    }
+    return `🎁 Use o cupom *${row.code}* e ganhe ${desconto} de desconto na sua próxima renovação!`;
+  }
+
+  // Quantos clientes ativos (BRL) batem na segmentação de cada cupom geral
+  // agora — contador ao lado de "Ver clientes impactados", sem precisar
+  // clicar pra saber se vale a pena abrir a lista.
+  const ruleMatchCounts = useMemo(() => {
+    const now = new Date();
+    const counts: Record<string, number> = {};
+    for (const c of coupons) {
+      if (c.client_id) continue;
+      const rules = {
+        targetStatus: c.target_status,
+        targetServerIds: c.target_server_ids,
+        targetPlanLabels: c.target_plan_labels,
+        targetAppNames: c.target_app_names,
+        ruleDateField: c.rule_date_field,
+        ruleDaysMin: c.rule_days_min,
+        ruleDaysMax: c.rule_days_max,
+      };
+      counts[c.id] = ruleClients.filter((cl) => matchesRules(rules, cl, now)).length;
+    }
+    return counts;
+  }, [coupons, ruleClients]);
 
   function formatDate(d: string | null) {
     if (!d) return null;
@@ -408,9 +458,12 @@ export default function CuponsPage() {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">💬 Frase</span>
-                      <span className="font-medium text-foreground/90">
-                        {row.message_template ? "Customizada" : "Padrão"}
+                      <span className="text-muted-foreground shrink-0">💬 Frase</span>
+                      <span
+                        className="font-medium text-foreground/90 text-right truncate max-w-[160px]"
+                        title={previewPhrase(row)}
+                      >
+                        {previewPhrase(row)}
                       </span>
                     </div>
                   </div>
@@ -424,6 +477,11 @@ export default function CuponsPage() {
                       className="w-full h-8 rounded-lg text-xs font-medium border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors"
                     >
                       🎯 Ver clientes impactados
+                      {ruleMatchCounts[row.id] != null && (
+                        <span className="ml-1.5 opacity-80">
+                          ({ruleMatchCounts[row.id]})
+                        </span>
+                      )}
                     </button>
                   </div>
                 )}

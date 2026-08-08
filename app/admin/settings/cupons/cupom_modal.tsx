@@ -149,24 +149,22 @@ export default function CupomModal({
   const [ruleDateField, setRuleDateField] = useState<"vencimento" | "cadastro">(
     coupon?.rule_date_field ?? "cadastro",
   );
-  const [hasMin, setHasMin] = useState(coupon?.rule_days_min != null);
+  // ✅ Sem toggle "definido/indefinido" separado — campo vazio já significa
+  // "sem limite" nessa ponta. Menos um elemento interativo por bound.
   const [minSign, setMinSign] = useState<1 | -1>(
     coupon?.rule_days_min != null && coupon.rule_days_min < 0 ? -1 : 1,
   );
   const [minValue, setMinValue] = useState(
-    coupon?.rule_days_min != null
-      ? String(Math.abs(coupon.rule_days_min))
-      : "365",
+    coupon?.rule_days_min != null ? String(Math.abs(coupon.rule_days_min)) : "",
   );
-  const [hasMax, setHasMax] = useState(coupon?.rule_days_max != null);
   const [maxSign, setMaxSign] = useState<1 | -1>(
     coupon?.rule_days_max != null && coupon.rule_days_max < 0 ? -1 : 1,
   );
   const [maxValue, setMaxValue] = useState(
-    coupon?.rule_days_max != null
-      ? String(Math.abs(coupon.rule_days_max))
-      : "730",
+    coupon?.rule_days_max != null ? String(Math.abs(coupon.rule_days_max)) : "",
   );
+  const hasMin = minValue.trim() !== "";
+  const hasMax = maxValue.trim() !== "";
 
   const [auxServers, setAuxServers] = useState<{ id: string; label: string }[]>(
     [],
@@ -709,9 +707,6 @@ export default function CupomModal({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <DayBoundControl
                             label="A partir de"
-                            disabledLabel="Sem mínimo"
-                            enabled={hasMin}
-                            onToggleEnabled={() => setHasMin((v) => !v)}
                             sign={minSign}
                             onSignChange={setMinSign}
                             value={minValue}
@@ -719,9 +714,6 @@ export default function CupomModal({
                           />
                           <DayBoundControl
                             label="Até"
-                            disabledLabel="Sem máximo"
-                            enabled={hasMax}
-                            onToggleEnabled={() => setHasMax((v) => !v)}
                             sign={maxSign}
                             onSignChange={setMaxSign}
                             value={maxValue}
@@ -729,8 +721,8 @@ export default function CupomModal({
                           />
                         </div>
                         <p className="text-[10px] text-foreground/70">
-                          "Antes" = ainda não chegou na data. "Depois" = já
-                          passou.
+                          Deixe em branco pra não limitar. "Antes" = ainda não
+                          chegou na data. "Depois" = já passou.
                         </p>
                       </div>
                     )}
@@ -741,6 +733,7 @@ export default function CupomModal({
                     <div className="rounded-lg border border-border bg-transparent px-3 py-2 space-y-2">
                       <Switch
                         label="Limite total de usos"
+                        hint="Limita o total da campanha."
                         checked={hasMaxUses}
                         onChange={setHasMaxUses}
                         onLabel="Limitado"
@@ -760,15 +753,20 @@ export default function CupomModal({
                     </div>
 
                     <div className="rounded-lg border border-sky-500/20 bg-sky-500/5 px-3 py-2 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-medium text-foreground/90">
-                          Prévia de impacto
+                      <div className="flex items-center justify-between gap-3 py-1.5">
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium text-foreground/90">
+                            Prévia de impacto
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Quantos clientes hoje, normal x com cupom.
+                          </div>
                         </div>
                         <button
                           type="button"
                           onClick={handleCalculateImpact}
                           disabled={impactLoading}
-                          className="h-7 px-2.5 rounded-md text-[11px] font-medium border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors disabled:opacity-50 shrink-0"
+                          className="h-8 px-3 rounded-lg text-[11px] font-medium border border-sky-500/30 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 transition-colors disabled:opacity-50 shrink-0"
                         >
                           {impactLoading ? "..." : "Calcular"}
                         </button>
@@ -1023,79 +1021,61 @@ function MultiSelectDropdown({
   );
 }
 
-/** Controle de "A partir de"/"Até" da janela de dias — toggle Antes/Depois + número. */
+/** Controle de "A partir de"/"Até" da janela de dias — número + Antes/Depois numa linha só. Vazio = sem limite nessa ponta. */
 function DayBoundControl({
   label,
-  disabledLabel,
-  enabled,
-  onToggleEnabled,
   sign,
   onSignChange,
   value,
   onValueChange,
 }: {
   label: string;
-  disabledLabel: string;
-  enabled: boolean;
-  onToggleEnabled: () => void;
   sign: 1 | -1;
   onSignChange: (s: 1 | -1) => void;
   value: string;
   onValueChange: (v: string) => void;
 }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-          {label}
+    <div>
+      <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
+        {label}
+      </label>
+      <div className="flex items-center gap-1.5">
+        <input
+          value={value}
+          onChange={(e) => onValueChange(e.target.value)}
+          placeholder="—"
+          inputMode="numeric"
+          className="w-14 h-9 text-center rounded-lg border border-border bg-transparent text-sm font-medium focus:border-emerald-500/50 outline-none transition-colors shrink-0"
+        />
+        <span className="text-[11px] text-muted-foreground shrink-0">
+          dias
         </span>
-        <button
-          type="button"
-          onClick={onToggleEnabled}
-          className={`h-7 px-2 rounded-md text-[10px] font-medium border transition-colors ${
-            enabled
-              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-              : "bg-muted text-muted-foreground border-border"
-          }`}
-        >
-          {enabled ? "Definido" : disabledLabel}
-        </button>
-      </div>
-      {enabled && (
-        <div className="flex items-center gap-2">
-          <div className="flex items-center shadow-sm rounded-lg overflow-hidden shrink-0">
-            <button
-              type="button"
-              onClick={() => onSignChange(-1)}
-              className={`px-2.5 py-1.5 border text-[11px] font-medium transition-colors ${
-                sign === -1
-                  ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
-                  : "bg-muted border-border text-muted-foreground"
-              }`}
-            >
-              Antes
-            </button>
-            <button
-              type="button"
-              onClick={() => onSignChange(1)}
-              className={`px-2.5 py-1.5 border text-[11px] font-medium transition-colors ${
-                sign === 1
-                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
-                  : "bg-muted border-border text-muted-foreground"
-              }`}
-            >
-              Depois
-            </button>
-          </div>
-          <input
-            value={value}
-            onChange={(e) => onValueChange(e.target.value)}
-            inputMode="numeric"
-            className="w-20 h-8 text-center rounded-lg border border-border bg-transparent text-xs font-medium focus:border-emerald-500/50 outline-none transition-colors"
-          />
-          <span className="text-[11px] text-muted-foreground">dias</span>
+        <div className="flex rounded-lg border border-border overflow-hidden ml-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => onSignChange(-1)}
+            className={`px-2 h-9 text-[11px] font-medium transition-colors ${
+              sign === -1
+                ? "bg-rose-500/10 text-rose-500"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Antes
+          </button>
+          <button
+            type="button"
+            onClick={() => onSignChange(1)}
+            className={`px-2 h-9 text-[11px] font-medium border-l border-border transition-colors ${
+              sign === 1
+                ? "bg-emerald-500/10 text-emerald-500"
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Depois
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }
