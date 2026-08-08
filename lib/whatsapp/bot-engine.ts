@@ -670,7 +670,16 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   }
 
   // ── Confirmação simples / link puro ─────────────────────────────────────
-  if (isSimpleConfirmation(trimmed)) return { action: "silence_confirmation", markRead: true };
+  // ✅ Achado 08/08/2026: isSimpleConfirmation também reconhece saudação pura
+  // ("Oi", "Olá", "Bom dia" sozinhos — ver GREETING_WORD_RE dentro dela) pra
+  // não reabrir o menu depois de um "obrigado"/"blz" no MEIO da conversa. Sem
+  // o `botState &&` abaixo, isso também disparava na PRIMEIRA mensagem de
+  // sempre (botState null) — cliente novo mandando só "Oi" ficava sem
+  // resposta nenhuma, porque esse `return` acontece antes até de chegar no
+  // trecho que manda a saudação + menu inicial. `botState` truthy = já existe
+  // alguma conversa em andamento (o menu já foi mostrado antes); nesse caso
+  // sim faz sentido ficar em silêncio numa cordialidade solta.
+  if (botState && isSimpleConfirmation(trimmed)) return { action: "silence_confirmation", markRead: true };
   if (isLinkOnly(trimmed)) return { action: "silence", markRead: true };
 
   // ── Helpers de conta ──────────────────────────────────────────────────────
