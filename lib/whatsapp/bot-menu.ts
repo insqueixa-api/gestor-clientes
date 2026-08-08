@@ -604,7 +604,6 @@ export function matchAccountFromText(clients: any[], text: string): number | nul
 export const ACCOUNT_DEPENDENT_ACTIONS = [
   "check_servidor_vencimento",
   "check_renovacao_recente",
-  "gerar_link_portal",
   "consultar_precos",
   "recomendar_app",
 ];

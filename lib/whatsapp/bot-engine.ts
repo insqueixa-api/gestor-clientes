@@ -467,21 +467,6 @@ async function executeLeaf(
     });
   }
 
-  // ✅ Escala só quando o cliente é Elite — usado em nós compartilhados
-  // entre servidores (ex: Samsung/LG, Roku têm variante de texto por
-  // provider, mas `special_actions` é do nó inteiro, não por servidor).
-  // Elite precisa de ativação manual do MAC/Device Key mesmo; NaTV/Fast
-  // são self-service (cliente recebe código + usuário/senha e resolve
-  // sozinho) — por isso não dá pra reusar `coletar_relato_e_escalar`
-  // direto sem também escalar NaTV/Fast, que não é o objetivo.
-  if (actions.includes("escalar_se_elite") && provider === "ELITE") {
-    const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider, flow);
-    const steps = (await getSteps(sb, node.id, provider)).map((s) => renderTemplate(s, vars));
-    return leafAfterMessages(node, steps.length ? steps : [flow.human_requested_message], {
-      escalate: true, markRead: false, transferReason: node.transfer_situation_label || null, forceState: "__clear__",
-    });
-  }
-
   if (actions.includes("check_servidor_vencimento")) {
     const vencido = client?.vencimento ? new Date(client.vencimento).getTime() < Date.now() : false;
     let msg: string;
@@ -497,11 +482,6 @@ async function executeLeaf(
       msg = "Seu acesso está em dia! Vamos tentar o reset padrão: desligue o modem da tomada por 5 minutos, depois a TV, e teste de novo. Se persistir, me avisa!";
     }
     return leafAfterMessages(node, [msg]);
-  }
-
-  if (actions.includes("free_text_rag")) {
-    const steps = await getSteps(sb, node.id, provider);
-    return leafAfterMessages(node, steps.length ? steps : ["Pode me contar com detalhes o que está acontecendo? 😊"], { forceState: "geral" });
   }
 
   const vars = await buildVarsForNode(sb, tenantId, node, client, rawClient, provider, flow);

@@ -72,7 +72,17 @@ async function savePersistedState(sb: any, tenantId: string, sessionKey: string,
 
 // ── Envio de resposta via WA service (real, produção) ────────────────────────
 
-async function sendWAMessage(sessionKey: string, phone: string, message: string, imageUrl?: string) {
+// ✅ Achado em auditoria (08/08/2026, risco de banimento): `skip_typing_delay`
+// sempre `true` fazia TODAS as mensagens de um turno com Msg 1/Msg 2/Msg 3
+// saírem uma atrás da outra sem pausa nenhuma — a 1ª pula mesmo (o "digitando..."
+// já apareceu durante o debounce, ver sessionManager.js), mas a 2ª em diante
+// nunca tinha motivo pra pular: chegavam juntas, sem intervalo, o que não é
+// como uma pessoa de verdade digitaria várias mensagens seguidas. Agora só a
+// PRIMEIRA mensagem de cada turno pula (via `skipTypingDelay`, default true
+// pros muitos call sites de mensagem única) — as seguintes passam pelo
+// "digitando..." real do VM (2-5s aleatório, ver sendMessage em
+// whatsapp-service/src/index.js).
+async function sendWAMessage(sessionKey: string, phone: string, message: string, imageUrl?: string, opts: { skipTypingDelay?: boolean } = {}) {
   const baseUrl = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
   const waToken = String(process.env.UNIGESTOR_WA_TOKEN || "").trim();
   if (!baseUrl || !waToken) {
@@ -93,10 +103,7 @@ async function sendWAMessage(sessionKey: string, phone: string, message: string,
         phone,
         message,
         ...(imageUrl ? { image_url: imageUrl } : {}),
-        // ✅ O bot já mostrou "digitando..." durante o debounce (sessionManager.js,
-        // resetDebounceTimers) antes de chegar até aqui — sem essa flag, o VM
-        // simularia "digitando" de novo bem antes de mandar, duplicando o efeito.
-        skip_typing_delay: true,
+        skip_typing_delay: opts.skipTypingDelay !== false,
       }),
       signal: controller.signal,
     });
@@ -284,8 +291,9 @@ export async function POST(req: Request) {
           const sentMessages: string[] = [];
           const send = async (m: string) => {
             if (!m?.trim()) return;
+            const isFirst = sentMessages.length === 0;
             sentMessages.push(m);
-            await sendWAMessage(session_key, phone, m);
+            await sendWAMessage(session_key, phone, m, undefined, { skipTypingDelay: isFirst });
           };
           const result = await runBotEngine({
             sb, tenantId: tenant_id, geminiKey, flow, clients, clientMatchesRaw: clientMatches, clientProvider,
@@ -327,7 +335,7 @@ export async function POST(req: Request) {
       const msg1 = `Entendido! O Márcio vai cuidar da sua renovação assim que possível 😊`;
       await sendWAMessage(session_key, phone, msg1);
       const msg2 = `Já fica a dica: se renovar direto pelo portal usando o link que te mandei, o processo é automático — você nem precisa enviar comprovante nem esperar a confirmação manual. #FicaADica`;
-      await sendWAMessage(session_key, phone, msg2);
+      await sendWAMessage(session_key, phone, msg2, undefined, { skipTypingDelay: false });
       return NextResponse.json({
         ok: true, action: "payment_pix_confirmed", mark_read: false, bot_response: `${msg1}\n\n${msg2}`,
         display_name: clients[0]?.display_name || null, server_name: clients[0]?.server_name || null,
@@ -368,8 +376,9 @@ export async function POST(req: Request) {
   const sentMessages: string[] = [];
   const send = async (msg: string) => {
     if (!msg?.trim()) return;
+    const isFirst = sentMessages.length === 0;
     sentMessages.push(msg);
-    await sendWAMessage(session_key, phone, msg);
+    await sendWAMessage(session_key, phone, msg, undefined, { skipTypingDelay: isFirst });
   };
 
   const result = await runBotEngine({
