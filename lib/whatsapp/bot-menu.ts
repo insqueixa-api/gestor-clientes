@@ -579,7 +579,7 @@ export const ACCOUNT_DEPENDENT_ACTIONS = [
 // pessoa — igual cupom/pendência, nunca devem resolver pra clients[0] sem
 // perguntar quando há mais de uma conta.
 export const ACCOUNT_DEPENDENT_VARS = [
-  "{link_pagamento}", "{tabela_precos}", "{cupom_frase}", "{pendencia_detalhe}",
+  "{link_pagamento}", "{tabela_precos}", "{cupom_frase}", "{cupom_retencao}", "{pendencia_detalhe}",
   "{usuario_app}", "{senha_app}", "{dns_servidor}", "{servidor_nome}",
 ];
 

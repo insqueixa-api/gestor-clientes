@@ -1894,12 +1894,20 @@ function NodeEditor({
     return base;
   });
 
-  // ✅ Detecta {cupom_frase} em qualquer step (universal ou por servidor) —
-  // só então mostra os campos de "achou/não achou cupom" aqui dentro do nó.
-  const usesCupomFrase = [
+  // ✅ Detecta {cupom_frase}/{cupom_retencao} em qualquer step (universal ou
+  // por servidor) — só então mostra os campos relevantes aqui dentro do nó.
+  // São tags DIFERENTES de propósito: {cupom_frase} é o cliente perguntando
+  // (sempre responde algo, mesmo "não tem"); {cupom_retencao} é o bot
+  // oferecendo de bandeja (ex: Cancelar) — sem cupom, fica em silêncio, não
+  // faz sentido editar uma "frase de não tem" que nunca é enviada.
+  const allStepsText = [
     ...universalSteps,
     ...Object.values(serverSteps).flatMap((s) => s.steps),
-  ].some((t) => t.includes("{cupom_frase}"));
+  ];
+  const usesCupomFrase = allStepsText.some((t) => t.includes("{cupom_frase}"));
+  const usesCupomRetencao = allStepsText.some((t) =>
+    t.includes("{cupom_retencao}"),
+  );
   const [couponFoundDraft, setCouponFoundDraft] = useState(couponFoundIntro);
   const [couponNotFoundDraft, setCouponNotFoundDraft] = useState(
     couponNotFoundMessage,
@@ -1917,6 +1925,23 @@ function NodeEditor({
         coupon_found_intro: couponFoundDraft,
         coupon_not_found_message: couponNotFoundDraft,
       });
+      setCouponMsgSaved(true);
+      setTimeout(() => setCouponMsgSaved(false), 2000);
+    } catch (e: any) {
+      setCouponMsgError(e?.message || "Erro ao salvar.");
+    } finally {
+      setCouponMsgSaving(false);
+    }
+  }
+
+  // {cupom_retencao} só edita coupon_found_intro — não tem "frase de não
+  // tem" (fica em silêncio de propósito), então não manda coupon_not_found_message.
+  async function handleSaveRetentionMessage() {
+    setCouponMsgSaving(true);
+    setCouponMsgError(null);
+    setCouponMsgSaved(false);
+    try {
+      await onSaveFlowSettings({ coupon_found_intro: couponFoundDraft });
       setCouponMsgSaved(true);
       setTimeout(() => setCouponMsgSaved(false), 2000);
     } catch (e: any) {
@@ -2345,6 +2370,57 @@ function NodeEditor({
           <p className="text-[10px] text-muted-foreground">
             Compartilhado com a resposta livre do RAG sobre cupom — mudar
             aqui muda nos dois lugares.
+          </p>
+        </div>
+      )}
+
+      {/* {cupom_retencao} — bot oferecendo de bandeja (ex: Cancelar), não o
+          cliente perguntando. Só edita a frase de "achou" (reaproveitada de
+          {cupom_frase}) — sem cupom, esse step inteiro fica em silêncio,
+          então não existe "frase de não tem" pra editar aqui. Some sozinho
+          se o nó também usar {cupom_frase} (o bloco acima já cobre o mesmo campo). */}
+      {usesCupomRetencao && !usesCupomFrase && (
+        <div className="space-y-2 border border-amber-500/30 bg-amber-500/5 rounded-xl p-3">
+          <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+            🎁 Esse texto usa {"{cupom_retencao}"} — oferta de cupom só quando tem
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            Diferente de {"{cupom_frase}"}: se o cliente não tiver nenhum
+            cupom elegível, essa etapa fica em silêncio — não manda nada,
+            não fala "não tem cupom disponível" (tom errado num fluxo como
+            Cancelar).
+          </p>
+          <div>
+            <label className={labelCls}>
+              Mensagem quando TEM cupom elegível (use {"{primeiro_nome}"},{" "}
+              {"{codigo}"}, {"{desconto}"})
+            </label>
+            <textarea
+              value={couponFoundDraft}
+              onChange={(e) => setCouponFoundDraft(e.target.value)}
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
+          {couponMsgError && (
+            <p className="text-[11px] text-rose-500">{couponMsgError}</p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleSaveRetentionMessage()}
+              disabled={couponMsgSaving}
+              className={btnGhost}
+            >
+              {couponMsgSaving ? "Salvando..." : "Salvar essa frase"}
+            </button>
+            {couponMsgSaved && (
+              <span className="text-[11px] text-emerald-500">Salvo ✓</span>
+            )}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Mesmo campo (coupon_found_intro) usado por {"{cupom_frase}"} —
+            mudar aqui muda no menu "Cupom de desconto" também.
           </p>
         </div>
       )}

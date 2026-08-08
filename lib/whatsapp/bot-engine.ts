@@ -184,7 +184,7 @@ export async function toolConsultarPrecosTexto(sb: any, tenantId: string, client
 // computed_status, cupom sem target_status explícito nunca bate). Por
 // isso busca um clientRow completo na view antes de checar elegibilidade
 // — só quando a tag realmente aparece no texto de destino.
-async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string> {
+async function findCouponFoundMessage(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string | null> {
   const { data: viewRow } = await sb
     .from("vw_clients_list_active")
     .select("id, computed_status, server_id, plan_name, apps_names, vencimento, created_at, price_currency, price_amount, whatsapp_username, screens, plan_table_id")
@@ -193,14 +193,14 @@ async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any
     .maybeSingle();
 
   const coupon = await findEligibleCoupon({ supabaseAdmin: sb, tenantId, clientRow: viewRow || client, onlyBotVisible: true });
+  if (!coupon) return null;
+
   // ✅ coupon_found_intro é a mensagem INTEIRA (não concatena mais com
   // buildCouponPhrase) — precisava dar controle total pro Márcio evitar
   // repetir o código/desconto duas vezes se ele já citasse o cupom na
   // abertura (achado 07/08/2026). Suporta {primeiro_nome}, {codigo},
   // {desconto} — substituídos na mão aqui (não passa pelo renderTemplate
-  // genérico da árvore). coupon_not_found_message não tem tags.
-  if (!coupon) return flow.coupon_not_found_message;
-
+  // genérico da árvore).
   const firstName = String(client?.display_name || "").split(" ")[0];
   return flow.coupon_found_intro
     .replace(/\{primeiro_nome\}/g, firstName)
@@ -208,15 +208,38 @@ async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any
     .replace(/\{desconto\}/g, formatDiscountLabel(coupon));
 }
 
-// ✅ Resolve {cupom_frase}/{pendencia_detalhe} sob demanda (só quando o
-// texto de destino usa a tag) — compartilhado entre buildVarsForNode
-// (mensagens de nó) e o estado "geral"/RAG (resposta direta de artigo da
-// Base de Conhecimento), que monta seu próprio `vars` separado e por isso
-// precisaria da mesma resolução duplicada sem este helper.
+// ✅ {cupom_frase}: cliente PERGUNTOU se tem desconto (menu "Cupom de
+// desconto", RAG livre) — precisa sempre responder algo, mesmo sem cupom
+// (silêncio pareceria bug). Usa coupon_not_found_message.
+async function toolConsultarCupomBotTexto(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string> {
+  const found = await findCouponFoundMessage(sb, tenantId, client, flow);
+  return found ?? flow.coupon_not_found_message;
+}
+
+// ✅ {cupom_retencao}: o BOT que oferece proativamente (ex: no meio do fluxo
+// de Cancelar), sem o cliente ter perguntado nada — achado 08/08/2026: usar
+// a mesma coupon_not_found_message aqui soa mal ("fique de olho, avisamos
+// quando surgir uma promoção 😉" pra quem tá cancelando é tom errado). Sem
+// cupom, fica em SILÊNCIO — devolve "" e o step inteiro (que deve ser só
+// essa tag, sem texto ao redor) nem é enviado, ver filtro em sendWithLogos.
+async function toolConsultarCupomRetencaoTexto(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string> {
+  const found = await findCouponFoundMessage(sb, tenantId, client, flow);
+  return found ?? "";
+}
+
+// ✅ Resolve {cupom_frase}/{cupom_retencao}/{pendencia_detalhe} sob demanda
+// (só quando o texto de destino usa a tag) — compartilhado entre
+// buildVarsForNode (mensagens de nó) e o estado "geral"/RAG (resposta
+// direta de artigo da Base de Conhecimento), que monta seu próprio `vars`
+// separado e por isso precisaria da mesma resolução duplicada sem este
+// helper.
 async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any, targetText: string, flow: FlowSettings): Promise<Record<string, any>> {
   const vars: Record<string, any> = {};
   if (targetText.includes("{cupom_frase}")) {
     vars.cupom_frase = await toolConsultarCupomBotTexto(sb, tenantId, client, flow);
+  }
+  if (targetText.includes("{cupom_retencao}")) {
+    vars.cupom_retencao = await toolConsultarCupomRetencaoTexto(sb, tenantId, client, flow);
   }
   if (targetText.includes("{pendencia_detalhe}")) {
     vars.pendencia_detalhe = await getPendencyPhraseForClient(sb, tenantId, client.id, client.price_currency || "BRL");
@@ -427,6 +450,11 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
   // então isso não vira uma query a mais em toda resposta do bot.
   let appsForLogosCache: { name: string; icon_url: string | null }[] | null = null;
   async function sendWithLogos(text: string) {
+    // ✅ {cupom_retencao} resolve pra "" quando não tem cupom — o step deve
+    // ser SÓ a tag (sem texto ao redor) pra isso funcionar; qualquer step
+    // que vire string vazia/só espaço nunca devia virar mensagem em branco
+    // no WhatsApp.
+    if (!text.trim()) return;
     if (!/\{[A-Za-z0-9_]+\+logo\}/.test(text)) {
       await send(text);
       return;
