@@ -1339,11 +1339,11 @@ export default function BotMenuTreeEditor() {
                             ],
                             [
                               "payment_awaiting_transfer_message",
-                              "4) Cliente escolheu pagar manual, aguardando comprovante — pede comprovante e ESCALA (use {primeiro_nome}, {metodo_automatico})",
+                              "4) Cliente escolheu pagar manual, aguardando comprovante — pede comprovante e ESCALA (use {primeiro_nome}, {metodo_automatico}, {link_pagamento})",
                             ],
                             [
                               "payment_none_message",
-                              "5) Nenhum pagamento encontrado — pede comprovante e ESCALA (use {primeiro_nome})",
+                              "5) Nenhum pagamento encontrado — pede comprovante e ESCALA (use {primeiro_nome}, {link_pagamento})",
                             ],
                           ] as const
                         ).map(([key, label]) => (
@@ -2552,7 +2552,8 @@ function NodeEditor({
             <label className={labelCls}>
               4) Cliente escolheu pagar manual (PIX/transferência) e ainda
               não mandou comprovante — pede o comprovante e ESCALA (use{" "}
-              {"{primeiro_nome}"}, {"{metodo_automatico}"})
+              {"{primeiro_nome}"}, {"{metodo_automatico}"},{" "}
+              {"{link_pagamento}"})
             </label>
             <textarea
               value={paymentAwaitingTransferDraft}
@@ -2567,7 +2568,7 @@ function NodeEditor({
             <label className={labelCls}>
               5) Nenhum pagamento recente encontrado (pagou por fora, ex:
               direto com o Márcio) — pede comprovante e ESCALA (use{" "}
-              {"{primeiro_nome}"})
+              {"{primeiro_nome}"}, {"{link_pagamento}"})
             </label>
             <textarea
               value={paymentNoneDraft}

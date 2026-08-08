@@ -249,7 +249,7 @@ async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any,
     vars.cupom_retencao = await toolConsultarCupomRetencaoTexto(sb, tenantId, client, rawClient, flow);
   }
   if (targetText.includes("{confirmar_renovacao}")) {
-    vars.confirmar_renovacao = await toolConfirmarRenovacaoTexto(sb, tenantId, client, flow);
+    vars.confirmar_renovacao = await toolConfirmarRenovacaoTexto(sb, tenantId, client, rawClient, flow);
   }
   if (targetText.includes("{pendencia_detalhe}")) {
     vars.pendencia_detalhe = await getPendencyPhraseForClient(sb, tenantId, client.id, client.price_currency || "BRL");
@@ -321,6 +321,8 @@ async function buildPaymentStatusMsg(
   flow: FlowSettings,
   sb: any,
   client: any,
+  tenantId: string,
+  rawClient: any,
 ): Promise<string> {
   const firstName = String(client?.display_name || "").split(" ")[0];
   if (status === "auto_confirmed") {
@@ -350,16 +352,29 @@ async function buildPaymentStatusMsg(
   // ✅ Achado 08/08/2026: cliente escolheu pagar manual (PIX/transferência)
   // no Portal — sugere o método automático certo pra moeda dele (PIX pra
   // BRL, cartão/Google Pay/Apple Pay via Stripe pra USD/EUR) pra próxima
-  // vez ser mais rápido, sem precisar de comprovante.
+  // vez ser mais rápido, sem precisar de comprovante. {link_pagamento} só
+  // gera o link de verdade (query) quando a tag aparece no template.
   if (status === "awaiting_transfer") {
     const { data: cli } = await sb.from("clients").select("price_currency").eq("id", client?.id).maybeSingle();
     const currency = String(cli?.price_currency || client?.price_currency || "BRL").toUpperCase();
     const metodoAutomatico = currency === "BRL" ? "o PIX automático" : "cartão, Google Pay ou Apple Pay";
-    return flow.payment_awaiting_transfer_message
+    let text = flow.payment_awaiting_transfer_message
       .replace(/\{primeiro_nome\}/g, firstName)
       .replace(/\{metodo_automatico\}/g, metodoAutomatico);
+    if (text.includes("{link_pagamento}")) {
+      const link = await toolGerarLinkPortal(sb, tenantId, rawClient, client?.is_secondary);
+      text = text.replace(/\{link_pagamento\}/g, link);
+    }
+    return text;
   }
-  return flow.payment_none_message.replace(/\{primeiro_nome\}/g, firstName);
+  // ✅ Mesma lógica pro "nada encontrado" — se o texto citar {link_pagamento}
+  // (dica de pagar direto pelo Portal), gera o link de verdade.
+  let noneText = flow.payment_none_message.replace(/\{primeiro_nome\}/g, firstName);
+  if (noneText.includes("{link_pagamento}")) {
+    const link = await toolGerarLinkPortal(sb, tenantId, rawClient, client?.is_secondary);
+    noneText = noneText.replace(/\{link_pagamento\}/g, link);
+  }
+  return noneText;
 }
 
 // ✅ {confirmar_renovacao} — variável única que substitui o antigo modelo de
@@ -370,13 +385,13 @@ async function buildPaymentStatusMsg(
 // comprovante), que antes só existia como texto cru do nó. Autossuficiente
 // (chama checkRecentPortalPayment sozinha), funciona em qualquer nó/RAG que
 // usar a tag, não só onde o special_action estiver marcado.
-async function toolConfirmarRenovacaoTexto(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string> {
+async function toolConfirmarRenovacaoTexto(sb: any, tenantId: string, client: any, rawClient: any, flow: FlowSettings): Promise<string> {
   const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
-  return buildPaymentStatusMsg(status, flow, sb, client);
+  return buildPaymentStatusMsg(status, flow, sb, client, tenantId, rawClient);
 }
 
 // ── Gate checks — rodam antes de mostrar os filhos de um nó com children ────
-async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: string, flow: FlowSettings): Promise<{ messages: string[]; markRead?: boolean } | null> {
+async function runGateChecks(node: MenuNode, client: any, rawClient: any, sb: any, tenantId: string, flow: FlowSettings): Promise<{ messages: string[]; markRead?: boolean } | null> {
   const actions = node.special_actions || [];
 
   if (actions.includes("check_servidor_vencimento") && client?.server_is_offline) {
@@ -386,7 +401,7 @@ async function runGateChecks(node: MenuNode, client: any, sb: any, tenantId: str
   if (actions.includes("check_renovacao_recente")) {
     const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
     if (isResolvedPaymentStatus(status)) {
-      const msg = await buildPaymentStatusMsg(status, flow, sb, client);
+      const msg = await buildPaymentStatusMsg(status, flow, sb, client, tenantId, rawClient);
       return { messages: [msg], markRead: status !== "fulfillment_error" };
     }
   }
@@ -427,7 +442,7 @@ async function executeLeaf(
   if (actions.includes("check_renovacao_recente")) {
     const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
     if (isResolvedPaymentStatus(status)) {
-      const msg = await buildPaymentStatusMsg(status, flow, sb, client);
+      const msg = await buildPaymentStatusMsg(status, flow, sb, client, tenantId, rawClient);
       return leafAfterMessages(node, [msg], { markRead: status !== "fulfillment_error", forceState: "geral" });
     }
     // "none" ou "awaiting_transfer" → precisam de comprovante do cliente,
@@ -736,7 +751,7 @@ export async function runBotEngine(p: BotEngineParams): Promise<BotEngineResult>
     const children = await getChildren(sb, node.id, nodeProvider);
 
     if (children.length > 0) {
-      const gate = await runGateChecks(node, client, sb, tenantId, flow);
+      const gate = await runGateChecks(node, client, rawClient, sb, tenantId, flow);
       if (gate) {
         for (const m of gate.messages) await sendWithLogos(m);
         return { action: "gate_resolved", markRead: gate.markRead ?? true, nextState: "geral" };

@@ -64,7 +64,7 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   payment_manual_pending_message: DEFAULT_PAYMENT_MANUAL_PENDING_MSG,
   payment_fulfillment_error_message: DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG,
   payment_none_message:
-    "Pode me mandar o comprovante por aqui, {primeiro_nome} — foto, PDF ou até o texto do PIX? Já deixo registrado certinho pro Márcio conferir e confirmar sua renovação! 😊 Uma dica pra próxima vez: pagando direto pelo Portal, o sistema já identifica e confirma sozinho — sem precisar mandar comprovante nenhum.",
+    "Pode me mandar o comprovante por aqui, {primeiro_nome} — foto, PDF ou até o texto do PIX? Já deixo registrado certinho pro Márcio conferir e confirmar sua renovação! 😊 Uma dica pra próxima vez: pagando direto pelo Portal, o sistema já identifica e confirma sozinho, sem precisar mandar comprovante nenhum — é só acessar {link_pagamento}",
   payment_confirmed_not_notified_message:
     "Encontrei seu pagamento aqui, {primeiro_nome}! ✅ Sua renovação já foi concluída normalmente — só tivemos uma instabilidade avisando você por aqui, mas está tudo certo.{data_vencimento}",
   payment_awaiting_transfer_message: DEFAULT_PAYMENT_AWAITING_TRANSFER_MSG,

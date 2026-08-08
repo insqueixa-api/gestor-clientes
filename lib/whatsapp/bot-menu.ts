@@ -216,9 +216,13 @@ export const DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG = PAYMENT_NEEDS_MANUAL_COMPLE
 // no Portal e ainda não mandou comprovante. {metodo_automatico} é
 // substituído na mão conforme a moeda do cliente (PIX pra BRL, cartão/
 // Google Pay/Apple Pay via Stripe pra USD/EUR) — sugestão pra próxima vez
-// ser mais rápida, sem precisar de comprovante.
+// ser mais rápida, sem precisar de comprovante. {link_pagamento} é o
+// mesmo link do Portal (o cliente troca o método de pagamento por lá).
+// Estrutura espelhada de propósito com DEFAULT_PAYMENT_NONE_MSG (abaixo,
+// em bot-flow-settings.ts) — mesma "forma", só muda o motivo do pedido de
+// comprovante (achado 08/08/2026, pedido do Márcio).
 export const DEFAULT_PAYMENT_AWAITING_TRANSFER_MSG =
-  "Encontrei seu pedido de pagamento manual aqui, {primeiro_nome}! 📋 Pode me mandar o comprovante da transferência por aqui — assim que eu confirmar, já libero sua renovação. Uma dica pra próxima vez: {metodo_automatico} confirma na hora, sem precisar de comprovante nenhum.";
+  "Encontrei seu pedido de pagamento manual aqui, {primeiro_nome}! 📋 Pode me mandar o comprovante da transferência por aqui — assim o Márcio já valida e conclui sua renovação. Uma dica pra próxima vez: {metodo_automatico} confirma na hora, sem precisar de comprovante nenhum — é só acessar {link_pagamento}";
 
 // ── Servidor do cliente (NaTV / Fast / Elite) — usado pra filtrar conteúdo
 // específico de servidor, tanto na árvore quanto na base de conhecimento. ──
