@@ -180,7 +180,12 @@ export async function checkRecentPortalPayment(
   // com sucesso, só a notificação automática que falhou/não confirmou.
   // Sem esse branch, caía em "none" e o bot pedia comprovante de algo que
   // já estava 100% concluído.
-  if (payment.fulfillment_status === "done") return "confirmed_not_notified";
+  // ✅ Achado na auditoria com dados reais (08/08/2026): "manual_done" é o
+  // mesmo desfecho de "done" (renovação 100% concluída), só que passou pela
+  // ativação manual de servidor Elite em vez do automático — sem incluir
+  // aqui, um pagamento Elite com WhatsApp não confirmado caía errado em
+  // "none" (pedia comprovante de algo já pago e liberado).
+  if (payment.fulfillment_status === "done" || payment.fulfillment_status === "manual_done") return "confirmed_not_notified";
   // ✅ Achado 08/08/2026: cliente escolheu pagamento manual (PIX/transferência
   // manual) no Portal e ainda não mandou comprovante — intenção registrada,
   // mas MUITO diferente de "none" (nenhum registro de nada). Antes caía no

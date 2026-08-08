@@ -394,6 +394,14 @@ async function toolConfirmarRenovacaoTexto(sb: any, tenantId: string, client: an
 async function runGateChecks(node: MenuNode, client: any, rawClient: any, sb: any, tenantId: string, flow: FlowSettings): Promise<{ messages: string[]; markRead?: boolean } | null> {
   const actions = node.special_actions || [];
 
+  // ✅ Achado 08/08/2026 (auditoria completa): cheguei a achar que a metade
+  // "vencimento" desse special_action tinha virado código morto depois que
+  // o nó "Sem sinal / vencimento" foi apagado (só sobrou o server_is_offline
+  // aqui). Não é o caso — existe uma checagem GLOBAL equivalente e melhor
+  // (roda pra QUALQUER mensagem fresca, antes até de saber qual categoria o
+  // cliente vai escolher, não só quando entra em "Problema técnico" — ver
+  // `gate_vencido_global` mais acima em runBotEngine). Confirmado ao vivo:
+  // cliente com conta vencida nunca chega aqui, já é interceptado antes.
   if (actions.includes("check_servidor_vencimento") && client?.server_is_offline) {
     return { messages: ["Identificamos uma instabilidade interna no servidor que já está sendo verificada pela nossa equipe. Em breve tudo estará normalizado! Por enquanto, tente acessar de tempos em tempos — quando voltar, funciona normalmente, sem precisar fazer nada. 🙏"], markRead: true };
   }
