@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import AplicativosLog, { AplicativosLogHandle } from "./AplicativosLog";
-import BotMonitorPanel from "@/components/whatsapp/BotMonitorPanel";
+import BotMonitorPanel, { countActiveEscalations } from "@/components/whatsapp/BotMonitorPanel";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -454,6 +454,7 @@ function AuditoriaPageContent() {
   // pendentes existem, mesmo que a aba não esteja aberta agora (senão o
   // admin só descobre que tem pendência abrindo a aba por acaso).
   const [appRequestsPendingCount, setAppRequestsPendingCount] = useState(0);
+  const [botEscalationCount, setBotEscalationCount] = useState(0);
 
   async function loadAppRequestsPendingCount(tid: string) {
     const { count } = await supabaseBrowser
@@ -464,12 +465,26 @@ function AuditoriaPageContent() {
     setAppRequestsPendingCount(count || 0);
   }
 
+  // ✅ Mesma ideia do contador de Aplicativos, mas pro Bot Atendimento —
+  // pedido do Márcio pra ver escalações pendentes sem precisar abrir a aba.
+  // Não dá pra fazer um COUNT direto no Supabase (os eventos vivem em
+  // memória na VM, não numa tabela) — busca a mesma rota que o Monitor usa
+  // e reaproveita o cálculo de "ativo" (countActiveEscalations).
+  async function loadBotEscalationCount() {
+    try {
+      const res = await fetch("/api/whatsapp/bot/events");
+      const json = await res.json();
+      if (json.ok) setBotEscalationCount(countActiveEscalations(json.events || []));
+    } catch {}
+  }
+
   async function loadData(searchTerm = "") {
     setLoading(true);
     try {
       const tid = tenantId;
       setTenantId(tid);
       if (tid) loadAppRequestsPendingCount(tid);
+      void loadBotEscalationCount();
 
       if (tid) {
         // 1. Busca os logs exatos de pagamento
@@ -1333,6 +1348,11 @@ function AuditoriaPageContent() {
             >
               <span>🤖</span>
               <span>Bot Atendimento</span>
+              {botEscalationCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {botEscalationCount > 99 ? "99+" : botEscalationCount}
+                </span>
+              )}
             </button>
           </div>
           {activeLogView !== "bot" && (
@@ -1364,7 +1384,7 @@ function AuditoriaPageContent() {
 
       {activeLogView === "bot" && (
         <div className="px-3 sm:px-0">
-          <BotMonitorPanel />
+          <BotMonitorPanel onEscalationCountChange={setBotEscalationCount} />
         </div>
       )}
 

@@ -603,7 +603,22 @@ async function runBotEngineImpl(p: BotEngineParams, ctx: { resolvedClient: any }
     // dia"), pula esse aviso proativo em vez de arriscar avisar sobre a
     // conta errada — o fluxo normal ainda pergunta "qual conta?" antes de
     // qualquer ação que realmente precise saber (ver nodeNeedsAccount).
-    const gateAccount = resolveAccount(trimmed);
+    // 🔴 Achado em produção (08/08/2026, teste real do Márcio): esse "resolve
+    // pelo texto" reaproveita `matchAccountFromText`, que trata QUALQUER
+    // dígito solto ("2") como "conta 2" — mas nesse ponto do código
+    // (FRESH_STATES, mensagem ainda não processada por nenhum menu) um
+    // dígito solto é sempre a ESCOLHA DO MENU RAIZ (2 = Renovação/pagamento),
+    // nunca uma conta. Resultado real: cliente com 6 contas digitou "2" pra
+    // entrar em Renovação/pagamento, o gate interpretou como "conta 2",
+    // achou uma conta de teste vencida e respondeu o aviso de vencimento
+    // ERRADO, sem nunca mostrar o submenu nem perguntar qual conta era.
+    // `enterNode` já tinha essa mesma proteção (`skipAccountFromTrimmed`)
+    // pra menus internos — faltava aqui, no gate mais externo de todos.
+    // Dígito puro nunca deve virar "conta X" fora do estado `conta:` de
+    // verdade (ver contaMatch, mais abaixo, onde reaproveitar é correto).
+    const gateAccount = clients.length > 1 && /^\d+$/.test(trimmed.trim())
+      ? null
+      : resolveAccount(trimmed);
     if (gateAccount) {
       const { client: gateClient, rawClient: gateRawClient } = gateAccount;
       if (gateClient?.server_is_offline) {

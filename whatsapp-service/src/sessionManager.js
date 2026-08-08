@@ -1295,6 +1295,21 @@ if (key.fromMe) {
         // resposta manual podia disparar minutos depois, interrompendo
         // sua conversa já em andamento.
         clearContactState(sessionKey, phone);
+      } else if (isContactPaused(sessionKey, phone)) {
+        // ✅ Achado 08/08/2026 (pedido do Márcio): quando ele responde
+        // manualmente a uma conversa JÁ escalada (`botActiveContacts` não
+        // tem mais o contato, foi removido no takeover), nada era registrado
+        // — o contador de "escalações ativas" no Monitor não tinha como
+        // saber que aquilo já estava sendo atendido, só zerava sozinho
+        // depois de 4h. Esse evento marca "já respondi" pro Monitor excluir
+        // do contador na hora, sem mudar o tempo de pausa real do bot.
+        emitBotEvent(sessionKey, {
+          type: "human_replied",
+          phone,
+          display_name: null,
+          server_name: null,
+          preview: "Márcio respondeu manualmente",
+        });
       }
       continue;
     }

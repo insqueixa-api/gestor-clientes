@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Loader2, RefreshCcw, ChevronDown, MessageSquare, User } from "lucide-react";
 
 // ── Tipos de eventos do monitor ───────────────────────────────
-type BotEvent = {
-  type: "bot_responded" | "human_takeover" | "ignored" | "timeout" | "error";
+export type BotEvent = {
+  type: "bot_responded" | "human_takeover" | "human_replied" | "ignored" | "timeout" | "error";
   phone: string;
   display_name: string | null;
   server_name: string | null;
@@ -24,6 +24,32 @@ type BotEvent = {
   avatar_url?: string | null;
   google_contact_id?: string | null;
 };
+
+// ✅ Duração real da pausa do bot pra um contato escalado (ver pauseContact
+// em whatsapp-service/src/sessionManager.js) — usado aqui só pra decidir se
+// uma escalação ainda está "ativa" (cliente sem resposta automática) ou já
+// expirou sozinha e o bot voltaria a responder normalmente. Mantido em
+// sincronia manual com a constante da VM (não dá pra importar de lá).
+const HUMAN_PAUSE_MS = 4 * 60 * 60 * 1000;
+
+/** Conta quantos contatos estão HOJE com atendimento humano ativo (pra badge
+ * no topo da página, igual IPTV/Aplicativos já fazem) — pega o evento mais
+ * recente de cada telefone; só conta se for "human_takeover" e ainda dentro
+ * da janela de 4h (se já veio um "bot_responded" depois, a pausa já acabou). */
+export function countActiveEscalations(events: BotEvent[]): number {
+  const latestByPhone = new Map<string, BotEvent>();
+  for (const ev of events) {
+    const prev = latestByPhone.get(ev.phone);
+    if (!prev || ev.timestamp > prev.timestamp) latestByPhone.set(ev.phone, ev);
+  }
+  const now = Date.now();
+  let count = 0;
+  for (const ev of latestByPhone.values()) {
+    if (ev.type !== "human_takeover") continue;
+    if (now - new Date(ev.timestamp).getTime() < HUMAN_PAUSE_MS) count++;
+  }
+  return count;
+}
 
 function Avatar({ url, size = 32 }: { url?: string | null; size?: number }) {
   if (url) {
@@ -53,7 +79,14 @@ function Avatar({ url, size = 32 }: { url?: string | null; size?: number }) {
  * se perdia lá; agora vive como 3ª aba em Auditoria do Portal, ao lado de
  * IPTV/Aplicativos, onde ele realmente olha todo dia).
  */
-export default function BotMonitorPanel() {
+export default function BotMonitorPanel({
+  onEscalationCountChange,
+}: {
+  /** Avisa quem estiver de fora (ex: badge na aba "Bot Atendimento") sempre
+   * que o número de escalações ATIVAS mudar — mesmo padrão de
+   * `onPendingCountChange` já usado em AplicativosLog. */
+  onEscalationCountChange?: (count: number) => void;
+} = {}) {
   const [events, setEvents] = useState<BotEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
@@ -61,6 +94,10 @@ export default function BotMonitorPanel() {
   const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [refreshingPhoto, setRefreshingPhoto] = useState(false);
+
+  useEffect(() => {
+    onEscalationCountChange?.(countActiveEscalations(events));
+  }, [events, onEscalationCountChange]);
 
   // ✅ Reaproveita a MESMA integração que /admin/agenda já usa pra sincronizar
   // foto do WhatsApp — busca a foto atual e já sobe pro contato no Google
@@ -123,6 +160,13 @@ export default function BotMonitorPanel() {
     ? events.filter((e) => e.phone === selectedContact)
     : [];
 
+  // ✅ Pedido do Márcio: o feed misturava tudo (bot respondendo, bot
+  // desligado, grupos...) e ficava ilegível. Virou só a lista de
+  // escalações (quando o bot passou pra atendimento humano) — pra ver o
+  // resto (histórico completo de qualquer contato) já existe a aba
+  // "Contatos", que continua mostrando tudo.
+  const escalationEvents = events.filter((e) => e.type === "human_takeover");
+
   function statusConfig(type: BotEvent["type"], reason?: string) {
     if (type === "bot_responded")
       return {
@@ -137,6 +181,13 @@ export default function BotMonitorPanel() {
         label: "Atendimento humano",
         color: "text-amber-500",
         bg: "bg-amber-500/10 border-amber-500/20",
+      };
+    if (type === "human_replied")
+      return {
+        emoji: "✅",
+        label: "Você respondeu",
+        color: "text-emerald-500",
+        bg: "bg-emerald-500/10 border-emerald-500/20",
       };
     if (type === "ignored" && reason === "bot_disabled")
       return {
@@ -240,7 +291,7 @@ export default function BotMonitorPanel() {
           }}
           className={`flex-1 py-2.5 text-xs font-medium transition-colors ${activeTab === "feed" ? "text-emerald-500 border-b-2 border-emerald-500" : "text-muted-foreground hover:text-foreground"}`}
         >
-          Feed de Eventos ({events.length})
+          🙋 Escalonados ({escalationEvents.length})
         </button>
         <button
           onClick={() => setActiveTab("contacts")}
@@ -259,13 +310,13 @@ export default function BotMonitorPanel() {
               <div className="flex items-center justify-center h-40 text-xs text-muted-foreground animate-pulse">
                 Carregando eventos...
               </div>
-            ) : events.length === 0 ? (
+            ) : escalationEvents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-center text-muted-foreground">
                 <MessageSquare className="w-8 h-8 mb-2 opacity-20" />
-                <p className="text-xs">Nenhum evento registrado ainda.</p>
+                <p className="text-xs">Nenhuma escalação registrada ainda.</p>
               </div>
             ) : (
-              events.map((ev, i) => {
+              escalationEvents.map((ev, i) => {
                 const s = statusConfig(ev.type, ev.reason);
                 const isExpanded = expandedEvent === i;
                 const label = serverLabel(ev);
