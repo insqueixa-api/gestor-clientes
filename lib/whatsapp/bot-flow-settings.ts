@@ -39,6 +39,8 @@ export type FlowSettings = {
   payment_manual_pending_message: string;
   /** check_renovacao_recente — pagamento confirmado mas com falha técnica na finalização automática. Use {primeiro_nome}. */
   payment_fulfillment_error_message: string;
+  /** {confirmar_renovacao} — nenhum pagamento recente encontrado (pede comprovante). Use {primeiro_nome}. */
+  payment_none_message: string;
 };
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
@@ -56,6 +58,8 @@ export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   payment_auto_confirmed_message: DEFAULT_PAYMENT_AUTO_CONFIRMED_MSG,
   payment_manual_pending_message: DEFAULT_PAYMENT_MANUAL_PENDING_MSG,
   payment_fulfillment_error_message: DEFAULT_PAYMENT_FULFILLMENT_ERROR_MSG,
+  payment_none_message:
+    "Pode me mandar o comprovante por aqui, {primeiro_nome} — foto, PDF ou até o texto do PIX? Já deixo registrado certinho pro Márcio conferir e confirmar sua renovação! 😊",
 };
 
 function pickStr(v: unknown, fallback: string): string {
@@ -82,6 +86,7 @@ export function mergeFlowSettings(row: Record<string, any> | null | undefined): 
     payment_auto_confirmed_message: pickStr(row.payment_auto_confirmed_message, d.payment_auto_confirmed_message),
     payment_manual_pending_message: pickStr(row.payment_manual_pending_message, d.payment_manual_pending_message),
     payment_fulfillment_error_message: pickStr(row.payment_fulfillment_error_message, d.payment_fulfillment_error_message),
+    payment_none_message: pickStr(row.payment_none_message, d.payment_none_message),
   };
 }
 
@@ -122,6 +127,7 @@ export async function upsertFlowSettings(
     "payment_auto_confirmed_message",
     "payment_manual_pending_message",
     "payment_fulfillment_error_message",
+    "payment_none_message",
   ];
   const clean: Record<string, string> = {};
   for (const k of allowed) {

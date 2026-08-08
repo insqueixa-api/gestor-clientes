@@ -1,0 +1,25 @@
+-- docs/sql/bot_flow_settings_confirmar_renovacao.sql
+-- Unifica o fluxo "Já paguei, aguardando confirmação" numa variável só,
+-- {confirmar_renovacao}, no mesmo espírito de {cupom_frase}/{cupom_retencao}
+-- (docs/sql/bot_flow_settings_coupon_messages.sql). Antes: 3 respostas
+-- (auto_confirmed/manual_pending/fulfillment_error) editáveis em
+-- bot_flow_settings.payment_*_message + a 4ª resposta ("nenhum pagamento
+-- recente, pede comprovante") como texto LIVRE direto no Msg 1 do nó — o
+-- Márcio queria que a mensagem do nó fosse só a variável, sem texto solto.
+--
+-- payment_none_message: 4º campo novo, mesma família dos outros 3. Default
+-- = o texto que já estava hardcoded no Msg 1 do nó ("Pode me mandar o
+-- comprovante..."), pra não mudar nada de fato — só reorganizar onde o
+-- texto mora.
+--
+-- {confirmar_renovacao} (nova, em lib/whatsapp/bot-engine.ts) roda a MESMA
+-- checagem (checkRecentPortalPayment) sozinha, autossuficiente — funciona
+-- em qualquer nó/RAG que usar a tag, não só onde o special_action
+-- check_renovacao_recente estiver marcado. Esse special_action continua
+-- existindo (é o que decide ESCALAR ou não pra cada uma das 4 respostas —
+-- isso não dá pra resolver só com texto) — só o TEXTO do nó "Já paguei"
+-- mudou de string livre pra "{confirmar_renovacao}".
+--
+-- NULL = usa o default hardcoded em lib/whatsapp/bot-flow-settings.ts.
+ALTER TABLE public.bot_flow_settings
+  ADD COLUMN IF NOT EXISTS payment_none_message text;

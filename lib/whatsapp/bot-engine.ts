@@ -248,6 +248,9 @@ async function resolveCouponPendencyVars(sb: any, tenantId: string, client: any,
   if (targetText.includes("{cupom_retencao}")) {
     vars.cupom_retencao = await toolConsultarCupomRetencaoTexto(sb, tenantId, client, rawClient, flow);
   }
+  if (targetText.includes("{confirmar_renovacao}")) {
+    vars.confirmar_renovacao = await toolConfirmarRenovacaoTexto(sb, tenantId, client, flow);
+  }
   if (targetText.includes("{pendencia_detalhe}")) {
     vars.pendencia_detalhe = await getPendencyPhraseForClient(sb, tenantId, client.id, client.price_currency || "BRL");
   }
@@ -299,14 +302,14 @@ async function fetchFreshDueDate(sb: any, clientId: string | null | undefined): 
   }
 }
 
-// ✅ check_renovacao_recente — as 3 mensagens (auto_confirmed/manual_pending/
-// fulfillment_error) são editáveis em bot_flow_settings (payment_*_message),
-// mesmo padrão do cupom: {primeiro_nome} e {data_vencimento} substituídos na
-// mão aqui, não passam pelo renderTemplate genérico da árvore.
-// {data_vencimento} vira " Seu acesso está confirmado até {data}." quando
-// há data, ou "" quando não há.
+// ✅ check_renovacao_recente — as 4 mensagens (auto_confirmed/manual_pending/
+// fulfillment_error/none) são editáveis em bot_flow_settings
+// (payment_*_message), mesmo padrão do cupom: {primeiro_nome} e
+// {data_vencimento} substituídos na mão aqui, não passam pelo
+// renderTemplate genérico da árvore. {data_vencimento} vira " Seu acesso
+// está confirmado até {data}." quando há data, ou "" quando não há.
 async function buildPaymentStatusMsg(
-  status: Exclude<PortalPaymentStatus, "none">,
+  status: PortalPaymentStatus,
   flow: FlowSettings,
   sb: any,
   client: any,
@@ -322,7 +325,23 @@ async function buildPaymentStatusMsg(
   if (status === "manual_pending") {
     return flow.payment_manual_pending_message.replace(/\{primeiro_nome\}/g, firstName);
   }
-  return flow.payment_fulfillment_error_message.replace(/\{primeiro_nome\}/g, firstName);
+  if (status === "fulfillment_error") {
+    return flow.payment_fulfillment_error_message.replace(/\{primeiro_nome\}/g, firstName);
+  }
+  return flow.payment_none_message.replace(/\{primeiro_nome\}/g, firstName);
+}
+
+// ✅ {confirmar_renovacao} — variável única que substitui o antigo modelo de
+// "special_action check_renovacao_recente + texto livre no Msg 1" (achado
+// 08/08/2026: Márcio queria o nó inteiro dirigido por UMA variável, igual
+// {cupom_frase}, sem escrever nenhum texto solto). Roda a MESMA checagem e
+// devolve qualquer uma das 4 respostas — inclusive "none" (pede
+// comprovante), que antes só existia como texto cru do nó. Autossuficiente
+// (chama checkRecentPortalPayment sozinha), funciona em qualquer nó/RAG que
+// usar a tag, não só onde o special_action estiver marcado.
+async function toolConfirmarRenovacaoTexto(sb: any, tenantId: string, client: any, flow: FlowSettings): Promise<string> {
+  const status = await checkRecentPortalPayment(sb, tenantId, [client?.id].filter(Boolean));
+  return buildPaymentStatusMsg(status, flow, sb, client);
 }
 
 // ── Gate checks — rodam antes de mostrar os filhos de um nó com children ────

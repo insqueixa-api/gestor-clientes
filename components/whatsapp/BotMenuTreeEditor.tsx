@@ -56,6 +56,7 @@ type FlowSettings = {
   payment_auto_confirmed_message: string;
   payment_manual_pending_message: string;
   payment_fulfillment_error_message: string;
+  payment_none_message: string;
 };
 
 // ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
@@ -1295,21 +1296,25 @@ export default function BotMenuTreeEditor() {
 
                       <div className="pt-1 border-t border-border space-y-2">
                         <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                          💳 Já paguei / renovação recente (check_renovacao_recente)
+                          💳 Já paguei / renovação recente ({"{confirmar_renovacao}"})
                         </p>
                         {(
                           [
                             [
                               "payment_auto_confirmed_message",
-                              "Pagamento pelo Portal já confirmado (use {primeiro_nome}, {data_vencimento})",
+                              "1) Pagamento pelo Portal já confirmado (use {primeiro_nome}, {data_vencimento})",
                             ],
                             [
                               "payment_manual_pending_message",
-                              "Pagamento achado, aguardando você concluir (use {primeiro_nome})",
+                              "2) Pagamento achado, aguardando você concluir (use {primeiro_nome})",
                             ],
                             [
                               "payment_fulfillment_error_message",
-                              "Confirmado mas com falha técnica na finalização (use {primeiro_nome})",
+                              "3) Confirmado mas com falha técnica na finalização (use {primeiro_nome})",
+                            ],
+                            [
+                              "payment_none_message",
+                              "4) Nenhum pagamento recente encontrado — pede comprovante (use {primeiro_nome})",
                             ],
                           ] as const
                         ).map(([key, label]) => (
@@ -1385,6 +1390,7 @@ export default function BotMenuTreeEditor() {
                 paymentFulfillmentErrorMessage={
                   flowSettings?.payment_fulfillment_error_message || ""
                 }
+                paymentNoneMessage={flowSettings?.payment_none_message || ""}
                 onSaveFlowSettings={saveFlowSettingsPatch}
                 onReorder={(newNumber) =>
                   handleReorder(selectedNode, newNumber)
@@ -1811,6 +1817,7 @@ function NodeEditor({
   paymentAutoConfirmedMessage,
   paymentManualPendingMessage,
   paymentFulfillmentErrorMessage,
+  paymentNoneMessage,
   onSaveFlowSettings,
   onSave,
   onSaveSteps,
@@ -1834,6 +1841,7 @@ function NodeEditor({
   paymentAutoConfirmedMessage: string;
   paymentManualPendingMessage: string;
   paymentFulfillmentErrorMessage: string;
+  paymentNoneMessage: string;
   onSaveFlowSettings: (patch: Partial<FlowSettings>) => Promise<void>;
   onSave: (fields: any) => void | Promise<void>;
   onSaveSteps: (payload: StepsSavePayload) => void | Promise<void>;
@@ -1952,12 +1960,14 @@ function NodeEditor({
     }
   }
 
-  // ✅ Mesmo padrão do cupom, agora pra check_renovacao_recente — detecta a
-  // special_action (não é uma tag de texto, é uma ação do nó) e mostra as 3
-  // respostas da API aqui dentro, editáveis sem ir no painel global.
-  const usesCheckRenovacaoRecente = specialActions.includes(
-    "check_renovacao_recente",
-  );
+  // ✅ Mesmo padrão do cupom, agora pra {confirmar_renovacao} — detecta a tag
+  // no texto (igual {cupom_frase}) OU a special_action legada
+  // (check_renovacao_recente, que continua controlando se escalona ou não —
+  // ver comentário em bot-engine.ts) e mostra as 4 respostas da API aqui
+  // dentro, editáveis sem ir no painel global.
+  const usesCheckRenovacaoRecente =
+    specialActions.includes("check_renovacao_recente") ||
+    allStepsText.some((t) => t.includes("{confirmar_renovacao}"));
   const [paymentAutoDraft, setPaymentAutoDraft] = useState(
     paymentAutoConfirmedMessage,
   );
@@ -1967,6 +1977,7 @@ function NodeEditor({
   const [paymentErrorDraft, setPaymentErrorDraft] = useState(
     paymentFulfillmentErrorMessage,
   );
+  const [paymentNoneDraft, setPaymentNoneDraft] = useState(paymentNoneMessage);
   const [paymentMsgSaving, setPaymentMsgSaving] = useState(false);
   const [paymentMsgSaved, setPaymentMsgSaved] = useState(false);
   const [paymentMsgError, setPaymentMsgError] = useState<string | null>(null);
@@ -1980,6 +1991,7 @@ function NodeEditor({
         payment_auto_confirmed_message: paymentAutoDraft,
         payment_manual_pending_message: paymentPendingDraft,
         payment_fulfillment_error_message: paymentErrorDraft,
+        payment_none_message: paymentNoneDraft,
       });
       setPaymentMsgSaved(true);
       setTimeout(() => setPaymentMsgSaved(false), 2000);
@@ -2426,20 +2438,18 @@ function NodeEditor({
         </div>
       )}
 
-      {/* check_renovacao_recente detectado — as 3 respostas da API (o que
-          antes era invisível, hardcoded no código) ficam editáveis aqui.
-          Msg 1 acima é só o fallback ("não achei nada"); estas 3 rodam
-          ANTES dela, cada uma pra uma situação diferente que a API detecta. */}
+      {/* {confirmar_renovacao} detectado — a mensagem do nó (ex: Msg 1) deve
+          ser SÓ essa tag, sem texto solto ao redor. Ela sozinha consulta a
+          API de pagamento e devolve a resposta certa entre as 4 abaixo —
+          nada fica invisível/hardcoded mais. */}
       {usesCheckRenovacaoRecente && (
         <div className="space-y-2 border border-sky-500/30 bg-sky-500/5 rounded-xl p-3">
           <p className="text-[11px] font-medium text-sky-600 dark:text-sky-400 uppercase tracking-wider">
-            💳 Esse nó consulta a API de pagamento (check_renovacao_recente)
+            💳 Esse texto usa {"{confirmar_renovacao}"} — consulta a API de pagamento
           </p>
           <p className="text-[10px] text-muted-foreground">
-            Antes de cair na "Msg 1" (que é só o fallback pedindo
-            comprovante), a API confere se já tem um pagamento recente do
-            Portal e responde direto com uma destas 3, sem nem chegar na
-            Msg 1:
+            A variável confere se já tem um pagamento recente do Portal e
+            responde com uma destas 4, conforme o caso:
           </p>
           <div>
             <label className={labelCls}>
@@ -2477,6 +2487,18 @@ function NodeEditor({
               className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
             />
           </div>
+          <div>
+            <label className={labelCls}>
+              4) Nenhum pagamento recente encontrado — pede comprovante (use{" "}
+              {"{primeiro_nome}"})
+            </label>
+            <textarea
+              value={paymentNoneDraft}
+              onChange={(e) => setPaymentNoneDraft(e.target.value)}
+              rows={2}
+              className="w-full text-xs bg-background border border-border rounded-lg px-2 py-1.5 mt-1"
+            />
+          </div>
           {paymentMsgError && (
             <p className="text-[11px] text-rose-500">{paymentMsgError}</p>
           )}
@@ -2487,16 +2509,17 @@ function NodeEditor({
               disabled={paymentMsgSaving}
               className={btnGhost}
             >
-              {paymentMsgSaving ? "Salvando..." : "Salvar essas 3 frases"}
+              {paymentMsgSaving ? "Salvando..." : "Salvar essas 4 frases"}
             </button>
             {paymentMsgSaved && (
               <span className="text-[11px] text-emerald-500">Salvo ✓</span>
             )}
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Essas 3 também rodam no "gate" de outros menus com submenu (ex:
-            Renovação/pagamento) antes de mostrar as opções — mudar aqui
-            muda em todo lugar que essa checagem roda.
+            As respostas 1-3 também controlam se esse nó escalona pra você
+            ou não (só a 4ª escalona, pedindo o comprovante) — isso é regra
+            fixa do motor, não muda editando o texto aqui. Compartilhado com
+            qualquer outro nó/RAG que usar {"{confirmar_renovacao}"}.
           </p>
         </div>
       )}
