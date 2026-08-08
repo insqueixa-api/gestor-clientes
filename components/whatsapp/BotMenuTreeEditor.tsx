@@ -208,7 +208,14 @@ function buildTree(nodes: MenuNode[], steps: MenuStep[]): TreeNode[] {
   const roots: TreeNode[] = [];
   nodes.forEach((n) => {
     const t = map.get(n.id)!;
-    if (n.parent_id && map.has(n.parent_id))
+    // ✅ "link_target_only" é um filho só de LAYOUT (fio ciano/verde/âmbar no
+    // canvas, ex: "Reconfigurar pelo Portal" pendurado embaixo de "Canal
+    // travando" só pra ficar na coluna certa) — nunca é um submenu de
+    // verdade. Contar como `.children` aqui fazia `isLeaf` (NodeEditor)
+    // virar false pro nó de origem, escondendo a seção "Perguntar se
+    // resolveu" (achado 08/08/2026, depois de reparentar pra corrigir o
+    // layout do canvas).
+    if (n.parent_id && map.has(n.parent_id) && !(n.special_actions || []).includes("link_target_only"))
       map.get(n.parent_id)!.children.push(t);
     else if (!n.parent_id) roots.push(t);
   });
@@ -982,7 +989,7 @@ export default function BotMenuTreeEditor() {
     return {
       ...raw,
       children: flatNodes
-        .filter((c) => c.parent_id === raw.id)
+        .filter((c) => c.parent_id === raw.id && !(c.special_actions || []).includes("link_target_only"))
         .map((c) => ({
           ...c,
           children: [],
