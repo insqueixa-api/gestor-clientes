@@ -5,7 +5,7 @@ import { Loader2, RefreshCcw, ChevronDown, MessageSquare, User } from "lucide-re
 
 // ── Tipos de eventos do monitor ───────────────────────────────
 export type BotEvent = {
-  type: "bot_responded" | "human_takeover" | "human_replied" | "ignored" | "timeout" | "error";
+  type: "bot_responded" | "human_takeover" | "human_replied" | "timeout_closed" | "ignored" | "timeout" | "error";
   phone: string;
   display_name: string | null;
   server_name: string | null;
@@ -188,6 +188,13 @@ export default function BotMonitorPanel({
         label: "Você respondeu",
         color: "text-emerald-500",
         bg: "bg-emerald-500/10 border-emerald-500/20",
+      };
+    if (type === "timeout_closed")
+      return {
+        emoji: "⏱️",
+        label: "Encerrado por inatividade",
+        color: "text-muted-foreground",
+        bg: "bg-muted/50 border-border",
       };
     if (type === "ignored" && reason === "bot_disabled")
       return {

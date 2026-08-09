@@ -174,7 +174,11 @@ const contactStates = new Map(); // "sessionKey:phone" -> { state, updatedAt }
 const inactivityTimers = new Map(); // "sessionKey:phone" -> timeoutId
 
 const GERAL_TTL_MS = 2 * 60 * 60 * 1000; // 2h — mesmo padrão do histórico existente
-const INACTIVITY_NUDGE_MS = 30 * 60 * 1000; // 30 min parado num submenu → nudge proativo
+// ✅ Achado 08/08/2026 (pedido do Márcio): era nudge (30min) + espera mais
+// 20min pra SÓ ENTÃO encerrar — 50min e 2 mensagens pra quem simplesmente não
+// tinha mais nada a dizer (ex: só agradeceu antes). Virou 1 timer só, 1
+// mensagem só, encerrando direto — sem a etapa intermediária de "cutucão".
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 min parado num submenu → encerra com gentileza
 
 // Estados que, se o cliente ficar parado, merecem um "cutucão" proativo do
 // bot. "geral" NÃO entra aqui — lá o cliente pode estar só pensando/ausente
@@ -224,10 +228,10 @@ function setContactState(sessionKey, phone, newState) {
 
   if (shouldScheduleNudge(newState)) {
     const timer = setTimeout(() => {
-      sendInactivityNudge(sessionKey, phone).catch((e) =>
-        console.error(`[MENU][${sessionKey.slice(0, 8)}] Erro ao enviar nudge de inatividade:`, e?.message)
+      closeAfterSilence(sessionKey, phone).catch((e) =>
+        console.error(`[MENU][${sessionKey.slice(0, 8)}] Erro ao encerrar após silêncio:`, e?.message)
       );
-    }, INACTIVITY_NUDGE_MS);
+    }, INACTIVITY_TIMEOUT_MS);
     inactivityTimers.set(key, timer);
   }
 }
@@ -246,9 +250,6 @@ function clearInactivityTimer(key) {
   }
 }
 
-// Tempo extra de espera depois do nudge, antes de desistir com gentileza
-const ESCALATION_AFTER_NUDGE_MS = 20 * 60 * 1000; // 20 minutos
-
 // Marca uma conversa como não lida diretamente pelo jid (usado quando não
 // temos o objeto de mensagem original à mão, como num timer de inatividade).
 async function markJidUnread(sessionKey, jid) {
@@ -261,59 +262,21 @@ async function markJidUnread(sessionKey, jid) {
   }
 }
 
-// Nudge proativo — o bot puxa a conversa de volta, sem esperar o cliente.
-// ✅ Importante: NÃO cria um estado novo desconhecido (o bug antigo criava
-// "retomada_X", que o agent/route.ts nunca reconhecia e fazia a conversa
-// cair no prompt completo, sem escopo). Aqui o estado permanece o MESMO —
-// o agent continua reconhecendo normalmente se o cliente responder.
-async function sendInactivityNudge(sessionKey, phone) {
-  const key = `${sessionKey}:${phone}`;
-  const entry = contactStates.get(key);
-  if (!entry) return; // estado já mudou (cliente respondeu, ou expirou) — nada a fazer
-
-  // Marca o "momento exato" deste estado antes de enviar — usado logo
-  // abaixo para detectar se o cliente respondeu ENQUANTO o nudge estava
-  // sendo enviado (janela rara, mas fecha o loop por completo).
-  const stateTimestampAtNudge = entry.updatedAt;
-
-  const msg = "Fiquei aguardando sua resposta! 😊 Quer continuar de onde paramos, ou prefere tratar de outro assunto?";
-
-  try {
-    await sendMessage(sessionKey, phone, msg);
-  } catch (e) {
-    console.error(`[MENU][${sessionKey.slice(0, 8)}] Falha ao enviar nudge para ${phone}:`, e?.message);
-    return;
-  }
-
-  // ✅ Re-checa se o estado mudou DURANTE o envio do nudge (ex: o cliente
-  // respondeu no exato instante em que a mensagem estava em trânsito). Se
-  // mudou, não agenda a desistência — evita um timer "fantasma" que
-  // interromperia uma conversa já retomada normalmente.
-  const entryAfterSend = contactStates.get(key);
-  if (!entryAfterSend || entryAfterSend.updatedAt !== stateTimestampAtNudge) {
-    return;
-  }
-
-  // Agenda a segunda e última checagem — se nem o nudge for respondido,
-  // o bot se retira com gentileza (nunca fica esperando pra sempre).
-  const timer = setTimeout(() => {
-    escalateAfterSilence(sessionKey, phone).catch((e) =>
-      console.error(`[MENU][${sessionKey.slice(0, 8)}] Erro ao encerrar após silêncio:`, e?.message)
-    );
-  }, ESCALATION_AFTER_NUDGE_MS);
-  inactivityTimers.set(key, timer);
-}
-
-// Última etapa quando nem o nudge foi respondido: encerra com gentileza,
-// nunca deixa o cliente esperando um bot que já desistiu. Mensagem calma,
-// assume a limitação, avisa que o Márcio segue o atendimento, e marca a
-// conversa como não lida — sem mais nenhuma pergunta ou insistência.
-async function escalateAfterSilence(sessionKey, phone) {
+// Única etapa quando o cliente fica 30min sem responder num menu/submenu:
+// encerra com gentileza direto, nunca deixa esperando um bot que já
+// desistiu — sem mais nenhuma pergunta ou insistência antes disso (achado
+// 08/08/2026: era nudge + 20min de espera extra, virou direto — 1 timer, 1
+// mensagem). ✅ Não é um handoff de verdade (o texto convida o cliente a
+// mandar outra mensagem quando quiser) — por isso NÃO pausa o bot (ele
+// responde normal se o cliente escrever de novo, mesmo minutos depois) e o
+// evento não conta como "human_takeover" no Monitor (senão o contador de
+// escalação ficaria inflado por conversas que já se resolveram sozinhas).
+async function closeAfterSilence(sessionKey, phone) {
   const key = `${sessionKey}:${phone}`;
   const entry = contactStates.get(key);
   if (!entry) return; // cliente já respondeu ou o estado já mudou — nada a fazer
 
-  const msg = "Desculpa por não conseguir te ajudar direito por aqui! 🙏 Já deixei tudo registrado e o Márcio vai continuar seu atendimento assim que possível.";
+  const msg = "Encerrando o atendimento por aqui! 😊 Se precisar de algo, é só me mandar uma nova mensagem.";
 
   try {
     await sendMessage(sessionKey, phone, msg);
@@ -321,17 +284,16 @@ async function escalateAfterSilence(sessionKey, phone) {
     console.error(`[MENU][${sessionKey.slice(0, 8)}] Falha ao enviar mensagem de encerramento:`, e?.message);
   }
 
-  pauseContact(sessionKey, phone);
   botActiveContacts.delete(`${sessionKey}:${phone}`);
   clearContactState(sessionKey, phone);
   await markJidUnread(sessionKey, `${phone}@s.whatsapp.net`);
 
   emitBotEvent(sessionKey, {
-    type: "human_takeover",
+    type: "timeout_closed",
     phone,
     display_name: null,
     server_name: null,
-    preview: "Cliente inativo após lembrete — encerrado com gentileza, aguardando o Márcio",
+    preview: "Cliente inativo por 30min — atendimento encerrado, bot segue disponível",
   });
 }
 
