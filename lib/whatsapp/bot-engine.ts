@@ -616,7 +616,21 @@ async function runBotEngineImpl(p: BotEngineParams, ctx: { resolvedClient: any }
     // pra menus internos — faltava aqui, no gate mais externo de todos.
     // Dígito puro nunca deve virar "conta X" fora do estado `conta:` de
     // verdade (ver contaMatch, mais abaixo, onde reaproveitar é correto).
-    const gateAccount = clients.length > 1 && /^\d+$/.test(trimmed.trim())
+    // ✅ Achado em produção (08/08/2026, teste real "João Fast353"): cliente
+    // já vencido escreveu "Não tô conseguindo pagar pelo link de pagamento"
+    // — descrevendo um problema ESPECÍFICO com o pagamento, não pedindo pra
+    // saber que está vencido (ele já sabe, tanto que estava tentando pagar).
+    // Esse gate rodava ANTES de qualquer roteamento por conteúdo e sempre
+    // respondia o aviso genérico de vencimento, sem nunca deixar a mensagem
+    // chegar no nó certo ("Não consigo acessar o link do portal", que tem
+    // troubleshooting de verdade). Não é a IA "adivinhando" — é essa regra
+    // fixa disparando cega, sem olhar o que o cliente escreveu. Correção:
+    // se o texto já bate com a categoria "Renovação / pagamento" (mesmo
+    // keyword-match usado no roteamento normal, ver detectMenuContextFromTree
+    // logo abaixo), deixa passar direto pro fluxo de pagamento de verdade —
+    // só dispara esse aviso genérico quando o assunto NÃO é já sobre pagar.
+    const alreadyAboutPayment = (await detectMenuContextFromTree(sb, tenantId, trimmed, clientProvider))?.slug === "pagamento";
+    const gateAccount = alreadyAboutPayment || (clients.length > 1 && /^\d+$/.test(trimmed.trim()))
       ? null
       : resolveAccount(trimmed);
     if (gateAccount) {
@@ -699,16 +713,29 @@ async function runBotEngineImpl(p: BotEngineParams, ctx: { resolvedClient: any }
   }
 
   // ── Confirmação simples / link puro ─────────────────────────────────────
-  // ✅ Achado 08/08/2026: isSimpleConfirmation também reconhece saudação pura
-  // ("Oi", "Olá", "Bom dia" sozinhos — ver GREETING_WORD_RE dentro dela) pra
-  // não reabrir o menu depois de um "obrigado"/"blz" no MEIO da conversa. Sem
-  // o `botState &&` abaixo, isso também disparava na PRIMEIRA mensagem de
-  // sempre (botState null) — cliente novo mandando só "Oi" ficava sem
-  // resposta nenhuma, porque esse `return` acontece antes até de chegar no
-  // trecho que manda a saudação + menu inicial. `botState` truthy = já existe
-  // alguma conversa em andamento (o menu já foi mostrado antes); nesse caso
-  // sim faz sentido ficar em silêncio numa cordialidade solta.
-  if (botState && isSimpleConfirmation(trimmed)) return { action: "silence_confirmation", markRead: true };
+  // ✅ Achado 08/08/2026 (corrigido em produção, teste real "Malu Elite"):
+  // isSimpleConfirmation também reconhece saudação pura ("Oi", "Bom dia"
+  // sozinhos — ver GREETING_WORD_RE dentro dela). Minha 1ª correção travou
+  // isso atrás de `botState &&`, mas usei `isGreetingOnly` pra decidir quando
+  // liberar — e essa função (de propósito, pra OUTROS usos) também trata
+  // "obrigado"/"valeu"/"blz" como saudação, porque o próprio GREETING_WORD_RE
+  // mistura abertura e despedida no mesmo regex. Resultado: um cliente que
+  // recebe uma renovação MANUAL (recarga_cliente.tsx/fulfillment.ts —
+  // mensagem que não passa pelo Item 5 acima, que só cobre
+  // `client_message_jobs`/automação agendada) e responde só "Obrigada" com
+  // `botState` ainda vazio continuava caindo nessa liberação e via o menu
+  // do zero em cima de um atendimento que já tinha terminado bem.
+  // OPENING_GREETING_RE abaixo é um subconjunto PROPOSITAL de
+  // GREETING_WORD_RE — só abertura de verdade (oi/bom dia/tudo bem...),
+  // sem "obrigado/valeu/blz" — porque aqui a pergunta é bem mais estreita
+  // do que em `isGreetingOnly`: "isso é uma saudação de ABERTURA de
+  // conversa, ou uma despedida/agradecimento que nunca precisa de menu,
+  // mesmo sendo a 1ª mensagem rastreada desse contato?"
+  const OPENING_GREETING_RE = /^(oi+|ol[aá]|opa|eae|e\s*a[ií]|salve|bom\s*dia|boa\s*tarde|boa\s*noite|tudo\s*bem|tudo\s*bom|tudo\s*certo|td\s*bem|como\s*vai|como\s*(voc[eê]|c[eê])\s*(est[aá]|t[aá]))$/i;
+  const bareGreetingOnFreshState = !botState && OPENING_GREETING_RE.test(trimmed.trim());
+  if (isSimpleConfirmation(trimmed) && !bareGreetingOnFreshState) {
+    return { action: "silence_confirmation", markRead: true };
+  }
   if (isLinkOnly(trimmed)) return { action: "silence", markRead: true };
 
   // ── Helpers de conta ──────────────────────────────────────────────────────
