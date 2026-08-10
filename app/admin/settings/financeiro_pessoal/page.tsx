@@ -2103,13 +2103,19 @@ function Modal({
   title,
   children,
   onClose,
+  maxWidth = "max-w-lg",
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
+  // ✅ 10/08/2026: a maioria desses é confirmação/formulário curto (1-3
+  // campos) — max-w-3xl deixava a caixa enorme e vazia, com os botões
+  // esticados/desproporcionais. Só ModalTransacao (formulário grande) pede
+  // max-w-3xl explicitamente; o resto usa o padrão mais estreito.
+  maxWidth?: string;
 }) {
   return (
-    <SharedModal onClose={onClose} maxWidth="max-w-3xl">
+    <SharedModal onClose={onClose} maxWidth={maxWidth}>
       <ModalHeader onClose={onClose}>
         <div className="font-medium text-foreground">{title}</div>
       </ModalHeader>
@@ -3418,6 +3424,7 @@ function ModalTransacao({
       <Modal
         title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"}
         onClose={onClose}
+        maxWidth="max-w-3xl"
       >
         {/* Antes tinha max-h-[75vh] overflow-y-auto aqui — agora é
             redundante (e conflitava) com o scroll que o <Modal> já faz

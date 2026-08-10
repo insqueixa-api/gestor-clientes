@@ -1011,7 +1011,7 @@ function VmMaintenanceModal({
             <button
               onClick={() => void handleHardReset()}
               disabled={hardResetting}
-              className="mt-3 w-full py-2.5 rounded-lg bg-rose-600 text-white font-bold text-xs hover:bg-rose-500 flex items-center justify-center gap-2"
+              className="mt-3 w-full py-2.5 rounded-lg bg-rose-600/10 text-rose-600 border border-rose-600/20 font-medium text-xs hover:bg-rose-600/20 flex items-center justify-center gap-2"
             >
               {hardResetting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

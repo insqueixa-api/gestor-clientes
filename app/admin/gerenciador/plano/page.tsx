@@ -42,6 +42,10 @@ const PERIOD_ORDER = [
   "ANNUAL",
 ];
 
+// Ordem fixa de exibição das tabelas de preço na lista — BRL primeiro
+// (maioria das contas), depois EUR, depois USD.
+const CURRENCY_ORDER: Record<string, number> = { BRL: 0, EUR: 1, USD: 2 };
+
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
   BIMONTHLY: "Bimestral",
@@ -95,20 +99,28 @@ export default function PlanosPage() {
     const plans = plano.filter((p) => p.table_type === "iptv");
 
     const q = search.trim().toLowerCase();
-    if (!q) return plans;
+    const matched = !q
+      ? plans
+      : plans.filter((p) => {
+          const hay = [
+            p.name,
+            p.currency,
+            p.is_active ? "ativa" : "inativa",
+            p.is_system_default ? "padrao do sistema" : "",
+          ]
+            .join(" ")
+            .toLowerCase();
 
-    return plans.filter((p) => {
-      const hay = [
-        p.name,
-        p.currency,
-        p.is_active ? "ativa" : "inativa",
-        p.is_system_default ? "padrao do sistema" : "",
-      ]
-        .join(" ")
-        .toLowerCase();
+          return hay.includes(q);
+        });
 
-      return hay.includes(q);
-    });
+    // ✅ Pedido do Márcio, 10/08/2026: sempre agrupado por moeda nessa ordem
+    // fixa (BRL é a maioria absoluta das contas, EUR/USD são exceções) — o
+    // sort é estável, então a ordem dentro de cada moeda continua a mesma
+    // de antes (não mexe em nenhum outro critério).
+    return [...matched].sort(
+      (a, b) => (CURRENCY_ORDER[a.currency] ?? 99) - (CURRENCY_ORDER[b.currency] ?? 99),
+    );
   }, [plano, search]);
 
   async function fetchPlano() {
@@ -380,7 +392,7 @@ export default function PlanosPage() {
                   </div>
 
                   <div className="p-4 sm:p-5">
-                    <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                       {group.plans.map((plan) => {
                         const isExpanded = !!expanded[plan.id];
 

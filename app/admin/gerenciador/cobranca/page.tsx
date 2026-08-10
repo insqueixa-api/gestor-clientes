@@ -2333,7 +2333,7 @@ function AutomationWizard({
       <div className="px-2.5 py-2 border-b border-border bg-card/95 backdrop-blur">
           <div className="flex justify-between items-start gap-2 mb-1.5">
             <div>
-              <h2 className="text-base font-semibold text-foreground">
+              <h2 className="text-lg font-medium text-foreground">
                 {editingRule
                   ? `Editar: ${editingRule.name}`
                   : "Nova automação de cobrança"}
