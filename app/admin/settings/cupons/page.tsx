@@ -1,7 +1,6 @@
 "use client";
 // app/admin/settings/cupons/page.tsx
-import { Pencil, Play, Pause, Trash2, X } from "lucide-react";
-import { createPortal } from "react-dom";
+import { Pencil, Play, Pause, Trash2 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
@@ -9,6 +8,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
+import { Modal, ModalHeader } from "@/components/ui/Modal";
 import CupomModal, { CouponEditPayload } from "./cupom_modal";
 import {
   computeCouponImpact,
@@ -679,25 +679,16 @@ function ImpactListModal({
   const filteredUsed = statusFilter === "eligible" ? [] : searchedUsed;
   const filteredGroups = statusFilter === "used" ? [] : searchedGroups;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-      <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
-        <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
-          <div className="min-w-0">
-            <h3 className="text-base font-medium text-foreground">
-              Clientes impactados
-            </h3>
-            <p className="text-xs text-muted-foreground font-mono">
-              {coupon.code}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h3 className="text-base font-medium text-foreground">
+          Clientes impactados
+        </h3>
+        <p className="text-xs text-muted-foreground font-mono">
+          {coupon.code}
+        </p>
+      </ModalHeader>
 
         {!loading && result && (
           <div className="px-4 pt-3 shrink-0 space-y-2">
@@ -738,7 +729,7 @@ function ImpactListModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-4">
           {loading && (
             <div className="text-center text-muted-foreground text-sm py-8">
               Calculando...
@@ -870,10 +861,8 @@ function ImpactListModal({
             </div>
           )}
         </div>
-      </div>
       {ConfirmUI}
-    </div>,
-    document.body,
+    </Modal>
   );
 }
 
@@ -941,29 +930,18 @@ function UsageLogModal({
     };
   }, [coupon.id]);
 
-  if (typeof document === "undefined") return null;
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h3 className="text-base font-medium text-foreground">
+          Log de uso
+        </h3>
+        <p className="text-xs text-muted-foreground font-mono">
+          {coupon.code}
+        </p>
+      </ModalHeader>
 
-  return createPortal(
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
-      <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]">
-        <div className="px-5 py-4 border-b border-border flex justify-between items-center shrink-0">
-          <div className="min-w-0">
-            <h3 className="text-base font-medium text-foreground">
-              Log de uso
-            </h3>
-            <p className="text-xs text-muted-foreground font-mono">
-              {coupon.code}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto overscroll-contain custom-scrollbar p-4">
           {loading && (
             <div className="text-center text-muted-foreground text-sm py-8">
               Carregando...
@@ -1007,9 +985,7 @@ function UsageLogModal({
             </div>
           )}
         </div>
-      </div>
       {ConfirmUI}
-    </div>,
-    document.body,
+    </Modal>
   );
 }

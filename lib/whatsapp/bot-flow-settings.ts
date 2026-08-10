@@ -18,6 +18,8 @@ import { BOT_NO_COUPON_MESSAGE } from "@/lib/client-portal/coupons";
 
 export type FlowSettings = {
   greeting_message: string;
+  /** Variações extras da saudação — sorteadas junto com greeting_message a cada nova conversa (mesma estratégia anti-detecção de message_template_variants). */
+  greeting_message_variants: string[];
   success_message: string;
   escalate_message: string;
   human_requested_message: string;
@@ -50,6 +52,7 @@ export type FlowSettings = {
 
 export const DEFAULT_FLOW_SETTINGS: FlowSettings = {
   greeting_message: "Olá! 😊 Sou o assistente do Márcio. Me diga, como posso te ajudar?",
+  greeting_message_variants: [],
   success_message: "Que bom! Fico feliz que resolveu 😊",
   escalate_message: BOT_GAVE_UP_MSG,
   human_requested_message: HUMAN_REQUESTED_MSG,
@@ -76,11 +79,17 @@ function pickStr(v: unknown, fallback: string): string {
   return t.length ? t : fallback;
 }
 
+function pickStrArray(v: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(v)) return fallback;
+  return v.map((x) => String(x ?? "").trim()).filter((x) => x.length > 0);
+}
+
 export function mergeFlowSettings(row: Record<string, any> | null | undefined): FlowSettings {
   const d = DEFAULT_FLOW_SETTINGS;
   if (!row) return { ...d };
   return {
     greeting_message: pickStr(row.greeting_message, d.greeting_message),
+    greeting_message_variants: pickStrArray(row.greeting_message_variants, d.greeting_message_variants),
     success_message: pickStr(row.success_message, d.success_message),
     escalate_message: pickStr(row.escalate_message, d.escalate_message),
     human_requested_message: pickStr(row.human_requested_message, d.human_requested_message),
@@ -141,11 +150,16 @@ export async function upsertFlowSettings(
     "payment_confirmed_not_notified_message",
     "payment_awaiting_transfer_message",
   ];
-  const clean: Record<string, string> = {};
+  const clean: Record<string, string | string[]> = {};
   for (const k of allowed) {
     if (patch[k] !== undefined && patch[k] !== null) {
       clean[k] = String(patch[k]);
     }
+  }
+  if (patch.greeting_message_variants !== undefined && patch.greeting_message_variants !== null) {
+    clean.greeting_message_variants = patch.greeting_message_variants
+      .map((x) => String(x ?? "").trim())
+      .filter((x) => x.length > 0);
   }
 
   const { data: existing } = await sb

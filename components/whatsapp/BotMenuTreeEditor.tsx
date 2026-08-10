@@ -44,6 +44,7 @@ type MenuNode = {
 
 type FlowSettings = {
   greeting_message: string;
+  greeting_message_variants: string[];
   success_message: string;
   escalate_message: string;
   human_requested_message: string;
@@ -582,6 +583,8 @@ export default function BotMenuTreeEditor() {
   const [flowSettings, setFlowSettings] = useState<FlowSettings | null>(null);
   const [flowSaving, setFlowSaving] = useState(false);
   const [flowError, setFlowError] = useState<string | null>(null);
+  const [generatingGreetingVariant, setGeneratingGreetingVariant] = useState(false);
+  const tenantId = useTenantId();
   const [modal, setModal] = useState<
     | { type: "create_node"; asChild: boolean }
     | { type: "delete"; node: TreeNode }
@@ -1047,6 +1050,43 @@ export default function BotMenuTreeEditor() {
     }
   }
 
+  // ✅ Mesma IA usada nas variações de mensagem de cobrança (app/admin/gerenciador/mensagem) —
+  // reescreve a saudação principal mantendo {primeiro_nome}/{saudacao_tempo}, e só
+  // acrescenta no rascunho local (entra pra valer quando "Salvar" for clicado).
+  async function handleGenerateGreetingVariant() {
+    if (!flowSettings) return;
+    if (!flowSettings.greeting_message.trim()) {
+      setFlowError("Escreva a saudação principal antes de gerar uma variação.");
+      return;
+    }
+    setGeneratingGreetingVariant(true);
+    setFlowError(null);
+    try {
+      const headers = await authHeader();
+      const res = await fetch("/api/whatsapp/generate-variant", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ tenant_id: tenantId, content: flowSettings.greeting_message }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Falha ao gerar variação com IA.");
+      }
+      setFlowSettings((s) =>
+        s
+          ? {
+              ...s,
+              greeting_message_variants: [...s.greeting_message_variants, json.content],
+            }
+          : s,
+      );
+    } catch (e: any) {
+      setFlowError(e?.message || "Falha ao gerar variação com IA.");
+    } finally {
+      setGeneratingGreetingVariant(false);
+    }
+  }
+
   // ✅ Salva só um pedaço de flowSettings sem abrir/fechar o painel global —
   // usado pelo NodeEditor pra editar coupon_found_intro/coupon_not_found_message
   // direto de dentro do nó "Cupom de desconto" (variável {cupom_frase} detectada
@@ -1171,6 +1211,96 @@ export default function BotMenuTreeEditor() {
                           className="w-full text-sm bg-background border border-border rounded-lg px-3 py-2"
                         />
                       </div>
+
+                      <div className="rounded-xl border border-border p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className={labelCls}>
+                            Variações da saudação (sorteia 1 a cada nova conversa)
+                          </label>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => void handleGenerateGreetingVariant()}
+                              disabled={generatingGreetingVariant}
+                              className="text-[11px] text-violet-500 hover:underline disabled:opacity-50"
+                              title="A IA reescreve a saudação principal mantendo {primeiro_nome}/{saudacao_tempo}"
+                            >
+                              {generatingGreetingVariant
+                                ? "Gerando..."
+                                : "✨ Gerar com IA"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFlowSettings((s) =>
+                                  s
+                                    ? {
+                                        ...s,
+                                        greeting_message_variants: [
+                                          ...s.greeting_message_variants,
+                                          "",
+                                        ],
+                                      }
+                                    : s,
+                                )
+                              }
+                              className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline"
+                            >
+                              + Adicionar variação
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Mesmo texto pra todo mundo aumenta o risco de o
+                          WhatsApp identificar padrão de mensagem
+                          automatizada. Recomendado: pelo menos 5 variações.
+                        </p>
+                        {flowSettings.greeting_message_variants.map(
+                          (v, i) => (
+                            <div key={i} className="flex items-start gap-2">
+                              <textarea
+                                value={v}
+                                onChange={(e) =>
+                                  setFlowSettings((s) => {
+                                    if (!s) return s;
+                                    const next = [
+                                      ...s.greeting_message_variants,
+                                    ];
+                                    next[i] = e.target.value;
+                                    return {
+                                      ...s,
+                                      greeting_message_variants: next,
+                                    };
+                                  })
+                                }
+                                rows={3}
+                                className="flex-1 text-sm bg-background border border-border rounded-lg px-3 py-2"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setFlowSettings((s) => {
+                                    if (!s) return s;
+                                    const next =
+                                      s.greeting_message_variants.filter(
+                                        (_, j) => j !== i,
+                                      );
+                                    return {
+                                      ...s,
+                                      greeting_message_variants: next,
+                                    };
+                                  })
+                                }
+                                className="mt-1.5 text-muted-foreground hover:text-rose-500"
+                                title="Remover variação"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ),
+                        )}
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => setShowFlowAdvanced((v) => !v)}

@@ -534,6 +534,15 @@ async function runBotEngineImpl(p: BotEngineParams, ctx: { resolvedClient: any }
   const flowVars = buildBotClientVars(clients[0], clientMatchesRaw[0], clients[0]?.is_secondary);
   const sendFlow = (text: string) => send(renderTemplate(text, flowVars));
 
+  // ✅ Sorteia entre o texto original e as variantes cadastradas (mesma
+  // estratégia anti-detecção usada em message_template_variants/cobrança) —
+  // sem variantes, comportamento idêntico a antes (só o original).
+  function pickVariant(base: string, variants: string[]): string {
+    const pool = [base, ...variants].filter((t) => t && t.trim().length > 0);
+    if (pool.length <= 1) return base;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
   // ✅ {NomeDoApp+logo} — só busca a lista de apps (1x por turno, cacheada)
   // quando o texto realmente tem o token; a maioria das mensagens não tem,
   // então isso não vira uma query a mais em toda resposta do bot.
@@ -1143,7 +1152,7 @@ async function runBotEngineImpl(p: BotEngineParams, ctx: { resolvedClient: any }
 
   if (!botState || botState === "aguardando_resposta") {
     if (!botState) {
-      await sendFlow(flow.greeting_message);
+      await sendFlow(pickVariant(flow.greeting_message, flow.greeting_message_variants));
       await send(await getAllRootsAsMenuText(sb, tenantId, clientProvider));
       return { action: "menu_intro", markRead: true, nextState: "aguardando_resposta" };
     }

@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const { supabase: sb, tenant_id: tenantId } = auth;
 
   const body = await req.json().catch(() => ({}));
-  const keys: (keyof FlowSettings)[] = [
+  const keys: Exclude<keyof FlowSettings, "greeting_message_variants">[] = [
     "greeting_message",
     "success_message",
     "escalate_message",
@@ -53,6 +53,9 @@ export async function POST(req: Request) {
   const patch: Partial<FlowSettings> = {};
   for (const k of keys) {
     if (body[k] !== undefined) patch[k] = String(body[k] ?? "");
+  }
+  if (Array.isArray(body.greeting_message_variants)) {
+    patch.greeting_message_variants = body.greeting_message_variants.map((x: unknown) => String(x ?? ""));
   }
 
   const result = await upsertFlowSettings(sb, tenantId, patch);

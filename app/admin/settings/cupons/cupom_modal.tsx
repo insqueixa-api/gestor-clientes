@@ -2,9 +2,9 @@
 // app/admin/settings/cupons/cupom_modal.tsx
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import ClientPicker, { PickedClient } from "./client_picker";
 import {
@@ -473,27 +473,15 @@ export default function CupomModal({
     }
   }
 
-  const modal = (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-md"
-        onMouseDown={onClose}
-      />
-      <div className="relative w-full max-w-2xl rounded-2xl border border-border bg-card shadow-xl overflow-hidden max-h-[85vh] flex flex-col">
-        <div className="p-4 border-b border-border bg-transparent shrink-0 flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium text-foreground tracking-tight truncate">
-            {isEdit ? "Editar cupom" : "Novo cupom"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="h-8 px-3 rounded-lg border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"
-            type="button"
-          >
-            Fechar
-          </button>
-        </div>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h2 className="text-sm font-medium text-foreground tracking-tight truncate">
+          {isEdit ? "Editar cupom" : "Novo cupom"}
+        </h2>
+      </ModalHeader>
 
-        <div className="p-4 space-y-3 overflow-y-auto">
+        <ModalBody>
           {/* Essencial: código, desconto, ativo */}
           <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
             <div>
@@ -874,9 +862,9 @@ export default function CupomModal({
             Desconto incide só sobre o valor do plano — pendências continuam
             cobradas 100%. Só funciona pra clientes com plano em BRL.
           </p>
-        </div>
+        </ModalBody>
 
-        <div className="p-4 border-t border-border bg-transparent flex items-center justify-end gap-2 shrink-0">
+        <ModalFooter>
           <button
             onClick={onClose}
             className="h-9 px-4 rounded-xl border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"
@@ -898,12 +886,9 @@ export default function CupomModal({
           >
             {saving ? "Salvando..." : "Salvar"}
           </button>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+    </Modal>
   );
-
-  return createPortal(modal, document.body);
 }
 
 /** Replica app/admin/gerenciador/cobranca/page.tsx (MultiSelectDropdown) — não é exportado de lá. */

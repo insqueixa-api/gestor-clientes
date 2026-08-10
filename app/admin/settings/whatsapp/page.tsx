@@ -1993,12 +1993,15 @@ function FloatingChat({
         )}
       </button>
 
-      {/* Drawer do chat */}
+      {/* Drawer do chat — ✅ 10/08/2026: no mobile vira um "bottom sheet"
+          full-width com altura em dvh (encolhe sozinho quando o teclado
+          abre, mesma razão do modal de Renovação não precisar de JS pra
+          isso). Antes tinha `height: 560px` fixo em `position: fixed`
+          ancorado no viewport de LAYOUT — o teclado empurrava/cortava o
+          drawer inteiro porque esse offset nunca se ajustava ao viewport
+          VISUAL. Desktop (sm:+) continua idêntico a antes. */}
       {isOpen && (
-        <div
-          className="fixed bottom-24 right-6 z-40 w-[380px] max-w-[calc(100vw-3rem)] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ height: "560px" }}
-        >
+        <div className="fixed inset-x-0 bottom-0 sm:inset-x-auto sm:bottom-24 sm:right-6 z-40 w-full sm:w-[380px] sm:max-w-[calc(100vw-3rem)] max-h-[85dvh] sm:h-[560px] sm:max-h-none bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="px-4 py-3 border-b border-border bg-gradient-to-r from-violet-600/10 to-indigo-600/10 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">
