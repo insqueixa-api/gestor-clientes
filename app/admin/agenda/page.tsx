@@ -34,6 +34,7 @@ import {
   ModalHeader,
   ModalBody,
 } from "@/components/ui/Modal";
+import { Dropdown } from "@/components/ui/Dropdown";
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 type ContactItem = { label: string; value: string };
@@ -321,6 +322,7 @@ function AgendaPageContent() {
 
   // Adiciona junto aos outros states:
   const [showGroupPopover, setShowGroupPopover] = useState(false);
+  const groupBtnRef = useRef<HTMLButtonElement | null>(null);
   const [newGroupInput, setNewGroupInput] = useState("");
   const [isAssigningGroup, setIsAssigningGroup] = useState(false);
 
@@ -378,6 +380,9 @@ function AgendaPageContent() {
 
   // Msg menu / Send
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
+  // Só uma linha tem o menu aberto por vez — a ref é "realocada" pra
+  // wrapper da linha atualmente aberta (ver uso abaixo).
+  const msgMenuTriggerRef = useRef<HTMLDivElement | null>(null);
   const [showSendNow, setShowSendNow] = useState<{
     open: boolean;
     contactId: string | null;
@@ -1605,6 +1610,7 @@ function AgendaPageContent() {
             {/* NOVO: Atribuir Grupo */}
             <div className="relative">
               <button
+                ref={groupBtnRef}
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowGroupPopover((v) => !v);
@@ -1625,10 +1631,14 @@ function AgendaPageContent() {
                 )}
               </button>
 
-              {showGroupPopover && (
+              <Dropdown
+                open={showGroupPopover}
+                onClose={() => setShowGroupPopover(false)}
+                triggerRef={groupBtnRef}
+              >
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 p-3 space-y-2"
+                  className="p-3 space-y-2"
                 >
                   <p className="text-[11px] font-medium text-foreground/70 uppercase tracking-wide">
                     Grupos existentes
@@ -1675,7 +1685,7 @@ function AgendaPageContent() {
                     </div>
                   </div>
                 </div>
-              )}
+              </Dropdown>
             </div>
           </div>
         </div>
@@ -1853,7 +1863,10 @@ function AgendaPageContent() {
 
                       <Td align="right">
                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 relative">
-                          <div className="relative">
+                          <div
+                            className="relative"
+                            ref={msgMenuForId === r.id ? msgMenuTriggerRef : undefined}
+                          >
                             <IconActionBtn
                               title="WhatsApp"
                               tone="green"
@@ -1872,11 +1885,12 @@ function AgendaPageContent() {
                             >
                               <IconChat />
                             </IconActionBtn>
-                            {msgMenuForId === r.id && (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-64 rounded-xl border border-border bg-card z-50 shadow-2xl overflow-hidden"
-                              >
+                            <Dropdown
+                              open={msgMenuForId === r.id}
+                              onClose={() => setMsgMenuForId(null)}
+                              triggerRef={msgMenuTriggerRef}
+                            >
+                              <div onClick={(e) => e.stopPropagation()}>
                                 {rPhones.map((p) => (
                                   <MenuItem
                                     key={p.id}
@@ -1895,7 +1909,7 @@ function AgendaPageContent() {
                                   />
                                 ))}
                               </div>
-                            )}
+                            </Dropdown>
                           </div>
                           <IconActionBtn
                             title="Editar Contato"

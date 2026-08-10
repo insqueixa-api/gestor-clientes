@@ -35,6 +35,7 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Hook adicionado
 import { isoDateInSaoPaulo } from "@/lib/date-br";
 import ClientAlertBell from "@/components/alerts/ClientAlertBell";
+import { Dropdown } from "@/components/ui/Dropdown";
 import {
   loadTenantMessageTemplates,
   loadWhatsAppSessionOptions,
@@ -499,6 +500,7 @@ export default function TrialsPage() {
 
   // Mensagem
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
+  const msgMenuTriggerRef = useRef<HTMLDivElement | null>(null);
 
   // ✅ NOVO: Controla os botões de loading
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1924,7 +1926,10 @@ export default function TrialsPage() {
 
                       <Td align="right">
                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 relative">
-                          <div className="relative">
+                          <div
+                            className="relative"
+                            ref={msgMenuForId === r.id ? msgMenuTriggerRef : undefined}
+                          >
                             <IconActionBtn
                               title="Mensagem"
                               tone="blue"
@@ -1938,11 +1943,13 @@ export default function TrialsPage() {
                               <IconChat />
                             </IconActionBtn>
 
-                            {msgMenuForId === r.id && (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card z-50 shadow-2xl overflow-hidden"
-                              >
+                            <Dropdown
+                              open={msgMenuForId === r.id}
+                              onClose={() => setMsgMenuForId(null)}
+                              triggerRef={msgMenuTriggerRef}
+                              width="w-48"
+                            >
+                              <div onClick={(e) => e.stopPropagation()}>
                                 <MenuItem
                                   icon={<IconSend />}
                                   label="Enviar agora"
@@ -1985,7 +1992,7 @@ export default function TrialsPage() {
                                   }}
                                 />
                               </div>
-                            )}
+                            </Dropdown>
                           </div>
 
                           {!r.archived && (

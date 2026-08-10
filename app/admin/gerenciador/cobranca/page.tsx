@@ -22,6 +22,7 @@ import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { Dropdown } from "@/components/ui/Dropdown";
 import {
   MAX_DELAY_SECS,
   MIN_DELAY_SECS,
@@ -2697,22 +2698,6 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<any>(null); // ✅ any para evitar erro de tipo
 
-  useEffect(() => {
-    // ✅ Proteção SSR para não quebrar no servidor
-    if (typeof document === "undefined") return;
-
-    function handleClickOutside(event: any) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const toggleOption = (id: string) => {
     if (selected.includes(id)) onChange(selected.filter((x: any) => x !== id));
     else onChange([...selected, id]);
@@ -2746,8 +2731,15 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
         <span className="text-xs text-muted-foreground">▼</span>
       </button>
 
-      {open && (
-        <div className="absolute z-50 bottom-full mb-1.5 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+      <Dropdown
+        open={open}
+        onClose={() => setOpen(false)}
+        triggerRef={containerRef}
+        align="left"
+        placement="above"
+        matchTriggerWidth
+        className="flex flex-col"
+      >
           <div className="max-h-40 overflow-y-auto custom-scrollbar p-1">
             {options.map((opt: any) => (
               <div
@@ -2777,8 +2769,7 @@ function MultiSelectDropdown({ label, options, selected, onChange }: any) {
               Concluir
             </button>
           </div>
-        </div>
-      )}
+      </Dropdown>
 
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">

@@ -29,6 +29,7 @@ import {
   ModalHeader,
   ModalBody,
 } from "@/components/ui/Modal";
+import { Dropdown } from "@/components/ui/Dropdown";
 import {
   loadTenantMessageTemplates,
   loadWhatsAppSessionOptions,
@@ -529,6 +530,7 @@ function ClientePageContent() {
 
   // Ações
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
+  const msgMenuTriggerRef = useRef<HTMLDivElement | null>(null);
 
   // ✅ NOVO: Controla os botões de loading
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -2254,7 +2256,10 @@ function ClientePageContent() {
 
                       <Td align="right">
                         <div className="flex items-center justify-end gap-2 opacity-80 group-hover:opacity-100 relative">
-                          <div className="relative">
+                          <div
+                            className="relative"
+                            ref={msgMenuForId === r.id ? msgMenuTriggerRef : undefined}
+                          >
                             <IconActionBtn
                               title="Mensagem"
                               tone="blue"
@@ -2268,11 +2273,13 @@ function ClientePageContent() {
                               <IconChat />
                             </IconActionBtn>
 
-                            {msgMenuForId === r.id && (
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card z-50 shadow-2xl overflow-hidden"
-                              >
+                            <Dropdown
+                              open={msgMenuForId === r.id}
+                              onClose={() => setMsgMenuForId(null)}
+                              triggerRef={msgMenuTriggerRef}
+                              width="w-48"
+                            >
+                              <div onClick={(e) => e.stopPropagation()}>
                                 <MenuItem
                                   icon={<IconSend />}
                                   label="Enviar agora"
@@ -2319,7 +2326,7 @@ function ClientePageContent() {
                                   }}
                                 />
                               </div>
-                            )}
+                            </Dropdown>
                           </div>
 
                           <IconActionBtn

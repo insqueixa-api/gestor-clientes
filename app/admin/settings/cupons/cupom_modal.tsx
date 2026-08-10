@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { Dropdown } from "@/components/ui/Dropdown";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import ClientPicker, { PickedClient } from "./client_picker";
 import {
@@ -908,20 +909,6 @@ function MultiSelectDropdown({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   const toggleOption = (id: string) => {
     if (selected.includes(id)) onChange(selected.filter((x) => x !== id));
     else onChange([...selected, id]);
@@ -960,8 +947,14 @@ function MultiSelectDropdown({
         <span className="text-[10px] text-muted-foreground">▼</span>
       </button>
 
-      {open && (
-        <div className="absolute z-20 mt-1 w-full bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+      <Dropdown
+        open={open}
+        onClose={() => setOpen(false)}
+        triggerRef={containerRef}
+        align="left"
+        matchTriggerWidth
+        className="flex flex-col"
+      >
           <div className="max-h-48 overflow-y-auto p-1">
             {options.length === 0 && (
               <div className="px-3 py-2 text-xs text-muted-foreground">
@@ -1000,8 +993,7 @@ function MultiSelectDropdown({
               Concluir
             </button>
           </div>
-        </div>
-      )}
+      </Dropdown>
     </div>
   );
 }

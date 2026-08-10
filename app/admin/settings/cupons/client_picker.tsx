@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { Dropdown } from "@/components/ui/Dropdown";
 
 export type PickedClient = { id: string; display_name: string; username: string | null };
 
@@ -27,6 +28,7 @@ export default function ClientPicker({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -83,7 +85,7 @@ export default function ClientPicker({
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={wrapperRef}>
       <div className="relative">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
@@ -96,33 +98,38 @@ export default function ClientPicker({
         />
       </div>
 
-      {open && (loading || results.length > 0) && (
-        <div className="absolute z-10 mt-1 w-full rounded-xl border border-border bg-card shadow-2xl overflow-hidden max-h-56 overflow-y-auto">
-          {loading && (
-            <div className="px-3 py-2.5 text-xs text-muted-foreground">Buscando...</div>
-          )}
-          {!loading &&
-            results.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelect(c);
-                  setTerm("");
-                  setResults([]);
-                  setOpen(false);
-                }}
-                className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors border-b border-border last:border-b-0"
-              >
-                <span className="font-medium text-foreground/90">{c.display_name}</span>
-                {c.username && (
-                  <span className="text-muted-foreground"> ({c.username})</span>
-                )}
-              </button>
-            ))}
-        </div>
-      )}
+      <Dropdown
+        open={open && (loading || results.length > 0)}
+        onClose={() => setOpen(false)}
+        triggerRef={wrapperRef}
+        align="left"
+        matchTriggerWidth
+        className="max-h-56 overflow-y-auto"
+      >
+        {loading && (
+          <div className="px-3 py-2.5 text-xs text-muted-foreground">Buscando...</div>
+        )}
+        {!loading &&
+          results.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(c);
+                setTerm("");
+                setResults([]);
+                setOpen(false);
+              }}
+              className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors border-b border-border last:border-b-0"
+            >
+              <span className="font-medium text-foreground/90">{c.display_name}</span>
+              {c.username && (
+                <span className="text-muted-foreground"> ({c.username})</span>
+              )}
+            </button>
+          ))}
+      </Dropdown>
     </div>
   );
 }

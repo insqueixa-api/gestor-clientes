@@ -4142,6 +4142,25 @@ export default function RenewClient() {
                       </p>
                     )}
 
+                    {/* ✅ Apps com integração automática não têm
+                          portal_setup_instructions (não precisam de passo a
+                          passo), mas o cliente não tinha como saber que o
+                          botão sozinho já resolve tudo — pedido do Márcio,
+                          10/08/2026, pra deixar isso explícito igual acontece
+                          nos apps com instruções manuais. */}
+                    {app.has_integration && (
+                      <p className="text-[11px] text-sky-600 dark:text-sky-400 bg-sky-500/10 border border-sky-500/20 rounded-lg px-2.5 py-1.5">
+                        ⚡ Esse aplicativo tem configuração automática — não
+                        precisa mexer em nada nele, é só clicar em{" "}
+                        <strong>
+                          {app.expiration
+                            ? "Reconfigurar aplicativo"
+                            : "Configurar aplicativo"}
+                        </strong>{" "}
+                        que a gente ajusta tudo pra você.
+                      </p>
+                    )}
+
                     {/* Campos-variável citados nas instruções (Código,
                           Usuário, Senha, DNS) — mesmo texto acima já
                           substitui o valor inline, mas isso aqui dá um botão

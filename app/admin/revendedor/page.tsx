@@ -25,6 +25,7 @@ import {
   ModalHeader,
   ModalBody,
 } from "@/components/ui/Modal";
+import { Dropdown } from "@/components/ui/Dropdown";
 
 // --- HOOKS CUSTOMIZADOS ---
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ ADICIONADO: Importação obrigatória
@@ -148,6 +149,7 @@ export default function RevendaPage() {
 
   // Ações
   const [msgMenuForId, setMsgMenuForId] = useState<string | null>(null);
+  const msgMenuTriggerRef = useRef<HTMLDivElement | null>(null);
   const [showRecharge, setShowRecharge] = useState<{
     open: boolean;
     resellerId: string | null;
@@ -1342,7 +1344,10 @@ export default function RevendaPage() {
 
                     <Td align="right" className="pr-6">
                       <div className="flex items-center justify-end gap-1.5 opacity-80 group-hover:opacity-100 relative transition-opacity">
-                        <div className="relative">
+                        <div
+                          className="relative"
+                          ref={msgMenuForId === r.id ? msgMenuTriggerRef : undefined}
+                        >
                           <IconActionBtn
                             title="Mensagem"
                             tone="blue"
@@ -1356,11 +1361,13 @@ export default function RevendaPage() {
                             <IconChat />
                           </IconActionBtn>
 
-                          {msgMenuForId === r.id && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-card z-50 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-1"
-                            >
+                          <Dropdown
+                            open={msgMenuForId === r.id}
+                            onClose={() => setMsgMenuForId(null)}
+                            triggerRef={msgMenuTriggerRef}
+                            width="w-48"
+                          >
+                            <div onClick={(e) => e.stopPropagation()} className="p-1">
                               <MenuItem
                                 icon={<IconSend />}
                                 label="Enviar agora"
@@ -1389,7 +1396,7 @@ export default function RevendaPage() {
                                 }}
                               />
                             </div>
-                          )}
+                          </Dropdown>
                         </div>
 
                         <IconActionBtn

@@ -30,6 +30,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import BotMenuTreeEditor from "@/components/whatsapp/BotMenuTreeEditor";
 import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS } from "@/lib/apps/device-types";
 import { Modal, ModalHeader, ModalBody } from "@/components/ui/Modal";
+import { Dropdown } from "@/components/ui/Dropdown";
 
 // ── Ícone WhatsApp ────────────────────────────────────────────
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -1683,6 +1684,7 @@ function FloatingChat({
   >([]);
   const [clientSearch, setClientSearch] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
+  const clientSearchRef = useRef<HTMLDivElement | null>(null);
   const [savingItem, setSavingItem] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -2026,7 +2028,7 @@ function FloatingChat({
 
           {/* Seletor de cliente */}
           <div className="px-3 py-2 border-b border-border bg-muted/10 shrink-0">
-            <div className="relative">
+            <div className="relative" ref={clientSearchRef}>
               <input
                 value={clientSearch}
                 onChange={(e) => {
@@ -2038,8 +2040,14 @@ function FloatingChat({
                 placeholder="Simular como cliente... (opcional)"
                 className="w-full h-7 px-3 text-[11px] bg-card border border-border rounded-lg outline-none focus:border-violet-500/50"
               />
-              {showDropdown && (
-                <div className="absolute z-20 top-8 left-0 right-0 bg-card border border-border rounded-xl shadow-xl max-h-40 overflow-y-auto">
+              <Dropdown
+                open={showDropdown}
+                onClose={() => setShowDropdown(false)}
+                triggerRef={clientSearchRef}
+                align="left"
+                matchTriggerWidth
+                className="max-h-40 overflow-y-auto"
+              >
                   <button
                     onMouseDown={() => {
                       setSelectedPhone("");
@@ -2088,8 +2096,7 @@ function FloatingChat({
                         </span>
                       </button>
                     ))}
-                </div>
-              )}
+              </Dropdown>
             </div>
           </div>
 

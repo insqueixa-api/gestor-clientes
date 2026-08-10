@@ -19,6 +19,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@/components/ui/Modal";
+import { Dropdown } from "@/components/ui/Dropdown";
 
 // --- TIPOS ---
 type Transacao = {
@@ -3463,8 +3464,13 @@ function ModalTransacao({
                 placeholder="Ex: Conta de Luz"
                 className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
               />
-              {showSugestoes && sugestoes.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-[9999] bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <Dropdown
+                open={showSugestoes && sugestoes.length > 0}
+                onClose={() => setShowSugestoes(false)}
+                triggerRef={autocompleteRef}
+                align="left"
+                matchTriggerWidth
+              >
                   <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border">
                     Lançamentos anteriores
                   </div>
@@ -3509,8 +3515,7 @@ function ModalTransacao({
                       </div>
                     );
                   })}
-                </div>
-              )}
+              </Dropdown>
             </div>
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">

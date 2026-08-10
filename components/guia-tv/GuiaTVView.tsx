@@ -45,6 +45,7 @@ import ToastNotifications from "@/hooks/ToastNotifications";
 // Você precisará criar ou importar este hook se ele já existir em @/hooks
 import { useConfirmOptional } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { Dropdown } from "@/components/ui/Dropdown";
 
 // ADICIONAR ISSO:
 type ServidorCliente = "ELITE" | "NATV" | "FAST" | "TODOS";
@@ -1554,6 +1555,7 @@ function ModalDetalhe({
   const [deletando, setDeletando] = useState(false);
   const [deleteOk, setDeleteOk] = useState(false);
   const [showDeleteMenu, setShowDeleteMenu] = useState(false);
+  const deleteMenuTriggerRef = useRef<HTMLDivElement | null>(null);
 
   // ✅ useConfirmOptional nunca lança fora de um ConfirmProvider (modoCliente
   // não tem provider) — pode ser chamado incondicionalmente, como todo hook
@@ -1801,7 +1803,7 @@ function ModalDetalhe({
                     <RefreshCw size={12} />{" "}
                     {showTmdb ? "Fechar Busca" : "Corrigir TMDB"}
                   </button>
-                  <div className="relative">
+                  <div className="relative" ref={deleteMenuTriggerRef}>
                     <button
                       onClick={() => setShowDeleteMenu((v) => !v)}
                       disabled={deletando}
@@ -1809,8 +1811,14 @@ function ModalDetalhe({
                     >
                       <X size={12} /> Deletar Individual
                     </button>
-                    {showDeleteMenu && (
-                      <div className="absolute top-full mt-2 right-0 bg-muted/90 border border-border rounded-xl p-3 z-20 min-w-56 shadow-2xl backdrop-blur">
+                    <Dropdown
+                      open={showDeleteMenu}
+                      onClose={() => setShowDeleteMenu(false)}
+                      triggerRef={deleteMenuTriggerRef}
+                      width="min-w-56"
+                      panelBg="bg-muted/90 backdrop-blur"
+                      className="p-3"
+                    >
                         <div className="text-xs font-bold text-rose-500 mb-2.5 uppercase tracking-wide">
                           Remover de qual servidor?
                         </div>
@@ -1874,8 +1882,7 @@ function ModalDetalhe({
                             </button>
                           )}
                         </div>
-                      </div>
-                    )}
+                    </Dropdown>
                   </div>
                 </div>
               )}
@@ -2299,23 +2306,6 @@ function AbaCatalogo({
   const [novidadesPage, setNovidadesPage] = useState(1);
   const [showSugestao, setShowSugestao] = useState(false);
 
-  useEffect(() => {
-    function h(e: MouseEvent) {
-      if (catDropRef.current && !catDropRef.current.contains(e.target as Node))
-        setCatDropOpen(false);
-    }
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-  useEffect(() => {
-    function h(e: MouseEvent) {
-      if (subDropRef.current && !subDropRef.current.contains(e.target as Node))
-        setSubDropOpen(false);
-    }
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-
   // Lógica original preservada
   useEffect(() => {
     setLoadingNov(true);
@@ -2477,8 +2467,14 @@ function AbaCatalogo({
                 className={`opacity-60 transform ${catDropOpen ? "rotate-180" : "none"} transition-transform duration-150`}
               />
             </button>
-            {catDropOpen && !loadingCats && (
-              <div className="absolute top-[calc(100%+8px)] left-0 min-w-56 max-h-80 overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl z-50 p-2.5 animate-in slide-in-from-top-2 duration-150">
+            <Dropdown
+              open={catDropOpen && !loadingCats}
+              onClose={() => setCatDropOpen(false)}
+              triggerRef={catDropRef}
+              align="left"
+              width="min-w-56"
+              className="max-h-80 overflow-y-auto p-2.5"
+            >
                 <button
                   onClick={() => {
                     setCatSelecionada(null);
@@ -2515,8 +2511,7 @@ function AbaCatalogo({
                     </span>
                   </button>
                 ))}
-              </div>
-            )}
+            </Dropdown>
           </div>
 
           {catSelecionada && subCategorias.length > 0 && (
@@ -2540,8 +2535,14 @@ function AbaCatalogo({
                   className={`opacity-60 transform ${subDropOpen ? "rotate-180" : "none"} transition-transform duration-150`}
                 />
               </button>
-              {subDropOpen && (
-                <div className="absolute top-[calc(100%+8px)] left-0 min-w-56 max-h-80 overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl z-50 p-2.5 animate-in slide-in-from-top-2 duration-150">
+              <Dropdown
+                open={subDropOpen}
+                onClose={() => setSubDropOpen(false)}
+                triggerRef={subDropRef}
+                align="left"
+                width="min-w-56"
+                className="max-h-80 overflow-y-auto p-2.5"
+              >
                   <button
                     onClick={() => {
                       setSubCatSelecionada(null);
@@ -2576,8 +2577,7 @@ function AbaCatalogo({
                       </span>
                     </button>
                   ))}
-                </div>
-              )}
+              </Dropdown>
             </div>
           )}
 
@@ -3281,23 +3281,6 @@ function AbaCanais({
   const [subOpen, setSubOpen] = useState(false);
   const subRef = useRef<HTMLDivElement>(null);
 
-  // Lógica original preservada
-  useEffect(() => {
-    function h(e: MouseEvent) {
-      if (catRef.current && !catRef.current.contains(e.target as Node))
-        setCatOpen(false);
-    }
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-  useEffect(() => {
-    function h(e: MouseEvent) {
-      if (subRef.current && !subRef.current.contains(e.target as Node))
-        setSubOpen(false);
-    }
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
   const catsDisponiveis = useMemo(() => {
     if (!epg) return [];
     const s = new Set(epg.canais.map((c) => c.categoria));
@@ -3374,8 +3357,14 @@ function AbaCanais({
               className={`opacity-80 transform ${catOpen ? "rotate-180" : "none"} transition-transform duration-150`}
             />
           </button>
-          {catOpen && (
-            <div className="absolute top-[calc(100%+8px)] left-0 min-w-56 max-h-80 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+          <Dropdown
+            open={catOpen}
+            onClose={() => setCatOpen(false)}
+            triggerRef={catRef}
+            align="left"
+            width="min-w-56"
+            className="max-h-80 overflow-y-auto p-2"
+          >
               {/* Jogos do Dia — sempre primeiro */}
               <button
                 onClick={() => {
@@ -3408,8 +3397,7 @@ function AbaCanais({
                   />
                 </button>
               ))}
-            </div>
-          )}
+          </Dropdown>
         </div>
 
         {/* Botão 2: Subcategoria contextual — sports se jogos, subgrupos se canal */}
@@ -3428,25 +3416,31 @@ function AbaCanais({
                 className={`opacity-80 transform ${subOpen ? "rotate-180" : "none"} transition-transform duration-150`}
               />
             </button>
-            {subOpen && jogosData && (
-              <div className="absolute top-[calc(100%+8px)] left-0 min-w-48 bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
-                {[...new Set(jogosData.jogos.map((j) => j.sport_id))]
-                  .sort((a, b) => (a === 1 ? -1 : b === 1 ? 1 : a - b))
-                  .map((sid) => (
-                    <button
-                      key={sid}
-                      onClick={() => {
-                        setSportAtivo(sid);
-                        setSubOpen(false);
-                      }}
-                      className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${sportAtivo === sid ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-                    >
-                      <span>{SPORT_EMOJI[sid]}</span>{" "}
-                      {SPORT_LABEL[sid] || `Sport ${sid}`}
-                    </button>
-                  ))}
-              </div>
-            )}
+            <Dropdown
+              open={subOpen && !!jogosData}
+              onClose={() => setSubOpen(false)}
+              triggerRef={subRef}
+              align="left"
+              width="min-w-48"
+              className="p-2"
+            >
+                {jogosData &&
+                  [...new Set(jogosData.jogos.map((j) => j.sport_id))]
+                    .sort((a, b) => (a === 1 ? -1 : b === 1 ? 1 : a - b))
+                    .map((sid) => (
+                      <button
+                        key={sid}
+                        onClick={() => {
+                          setSportAtivo(sid);
+                          setSubOpen(false);
+                        }}
+                        className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${sportAtivo === sid ? "bg-amber-500/10 text-amber-500" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                      >
+                        <span>{SPORT_EMOJI[sid]}</span>{" "}
+                        {SPORT_LABEL[sid] || `Sport ${sid}`}
+                      </button>
+                    ))}
+            </Dropdown>
           </div>
         ) : (
           subgruposDisponiveis.length > 0 && (
@@ -3461,8 +3455,14 @@ function AbaCanais({
                   className={`opacity-60 transform ${subOpen ? "rotate-180" : "none"} transition-transform duration-150`}
                 />
               </button>
-              {subOpen && (
-                <div className="absolute top-[calc(100%+8px)] left-0 min-w-48 max-h-72 overflow-y-auto bg-card border border-border rounded-xl shadow-xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+              <Dropdown
+                open={subOpen}
+                onClose={() => setSubOpen(false)}
+                triggerRef={subRef}
+                align="left"
+                width="min-w-48"
+                className="max-h-72 overflow-y-auto p-2"
+              >
                   <button
                     onClick={() => {
                       setSubAtiva("Todos");
@@ -3486,8 +3486,7 @@ function AbaCanais({
                       {sg.label}
                     </button>
                   ))}
-                </div>
-              )}
+              </Dropdown>
             </div>
           )
         )}
@@ -5108,8 +5107,13 @@ export default function GuiaTVView({
                   className={`opacity-60 transform ${syncOpen ? "rotate-180" : "none"} transition-transform duration-150`}
                 />
               </button>
-              {syncOpen && (
-                <div className="absolute top-[calc(100%+8px)] right-0 min-w-[240px] bg-card border border-border rounded-xl shadow-2xl z-50 p-2 animate-in slide-in-from-top-2 duration-150">
+              <Dropdown
+                open={syncOpen}
+                onClose={() => setSyncOpen(false)}
+                triggerRef={syncRef}
+                width="min-w-[240px]"
+                className="p-2"
+              >
                   <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-3 py-2">
                     Opções de Sincronização
                   </div>
@@ -5197,8 +5201,7 @@ export default function GuiaTVView({
                     </div>
                     Gerenciar Sugestões
                   </button>
-                </div>
-              )}
+              </Dropdown>
             </div>
           )}
         </div>
