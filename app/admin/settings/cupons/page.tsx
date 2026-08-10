@@ -871,7 +871,7 @@ function ImpactListModal({
           )}
         </div>
       </div>
-      <ConfirmUI />
+      {ConfirmUI}
     </div>,
     document.body,
   );
@@ -1008,7 +1008,7 @@ function UsageLogModal({
           )}
         </div>
       </div>
-      <ConfirmUI />
+      {ConfirmUI}
     </div>,
     document.body,
   );

@@ -21,6 +21,7 @@ import { getWAContext } from "@/lib/whatsapp/wa-context";
 import { getAdminTenantContext } from "@/lib/api/auth-server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveStateLabel } from "@/lib/whatsapp/bot-menu";
+import { syncContactPhotoFromWhatsApp } from "@/lib/whatsapp/sync-contact-photo";
 
 export const dynamic = "force-dynamic";
 
@@ -108,22 +109,42 @@ export async function GET(_req: Request) {
     }
   }
 
-  // ── Foto já sincronizada na Agenda (google_contacts, mesma fonte da
-  // página /admin/agenda — não busca a foto ao vivo aqui, só reaproveita). ──
+  // ── Foto: primeiro tenta a Agenda (google_contacts, já sincronizada via
+  // Google People API — zero contato com o WhatsApp). Só quando o contato
+  // JÁ existe na Agenda mas ainda SEM foto, tenta buscar no WhatsApp como
+  // último recurso — 1 requisição por contato distinto desse lote (nunca em
+  // massa: achado em auditoria de risco de banimento, 09/08/2026, sobre
+  // coleta automatizada de fotos de perfil ser motivo de suspensão). Contato
+  // que nem está na Agenda não tem foto buscada de jeito nenhum.
   const { data: contacts } = await sb
     .from("google_contacts")
     .select("id, avatar_url, phone_e164, secondary_phone")
-    .eq("tenant_id", tenantId)
-    .not("avatar_url", "is", null);
+    .eq("tenant_id", tenantId);
 
-  const photoByPhone = new Map<string, { avatar_url: string; google_contact_id: string }>();
+  const photoByPhone = new Map<string, { avatar_url: string | null; google_contact_id: string }>();
   for (const c of contacts || []) {
-    if (!c.avatar_url) continue;
-    const entry = { avatar_url: c.avatar_url, google_contact_id: c.id };
+    const entry = { avatar_url: c.avatar_url || null, google_contact_id: c.id };
     const p1 = normalizePhone(c.phone_e164);
     const p2 = normalizePhone(c.secondary_phone);
     if (p1) photoByPhone.set(p1, entry);
     if (p2) photoByPhone.set(p2, entry);
+  }
+
+  // Fallback pro WhatsApp — só pros telefones deste lote que já têm um
+  // registro na Agenda mas continuam sem foto. Sequencial, com teto e
+  // pequeno intervalo entre chamadas — mesmo sendo poucos contatos, não
+  // cria nenhum padrão de rajada contra o WhatsApp.
+  const MAX_FALLBACK_PHOTO_FETCHES = 10;
+  const phonesMissingPhoto = phones.filter((phone) => {
+    const entry = photoByPhone.get(normalizePhone(phone));
+    return entry && !entry.avatar_url;
+  }).slice(0, MAX_FALLBACK_PHOTO_FETCHES);
+
+  for (const phone of phonesMissingPhoto) {
+    const entry = photoByPhone.get(normalizePhone(phone))!;
+    const result = await syncContactPhotoFromWhatsApp(sb, tenantId, entry.google_contact_id, `${phone}@s.whatsapp.net`);
+    if (result.ok) entry.avatar_url = result.avatar_url;
+    await new Promise((r) => setTimeout(r, 400));
   }
 
   const enriched = await Promise.all(

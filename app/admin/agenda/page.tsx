@@ -968,7 +968,6 @@ function AgendaPageContent() {
     }
   }
 
-  const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
   // Busca a operadora on the fly para o modal de edição
   async function lookupOperadoraForPhone(
     phoneId: string,
@@ -1025,55 +1024,6 @@ function AgendaPageContent() {
         [phoneId]: { ...prev[phoneId]!, opLoading: false, opError: true },
       }));
     }
-  }
-
-  async function handleMassSyncPhotos() {
-    if (selectedIds.size === 0) return;
-    setIsSyncingPhotos(true);
-    let synced = 0,
-      failed = 0;
-    const failReasons: string[] = [];
-    const selectedContacts = rows.filter((r) => selectedIds.has(r.id));
-
-    for (const contact of selectedContacts) {
-      const phones = getPhonesArray(contact);
-      if (!phones.length) continue;
-      try {
-        const digits = onlyDigits(phones[0].value);
-        if (digits.length < 8) continue;
-        const vRes = await fetch("/api/whatsapp/validate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: digits }),
-        });
-        const vData = await vRes.json().catch(() => ({}));
-        if (!vData.exists || !vData.jid) continue;
-
-        const pRes = await fetch("/api/whatsapp/contact-photo", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contact_id: contact.id, jid: vData.jid }),
-        });
-        if (pRes.ok) {
-          synced++;
-        } else {
-          const errData = await pRes.json().catch(() => ({}));
-          failed++;
-          failReasons.push(errData.error || "erro desconhecido");
-        }
-        await new Promise((r) => setTimeout(r, 500)); // mais seguro para massa
-      } catch {
-        failed++;
-      }
-    }
-
-    addToast(
-      "success",
-      "Fotos sincronizadas",
-      `${synced} atualizada(s)${failed > 0 ? `, ${failed} falharam${failReasons[0] ? ` (${failReasons[0]})` : ""}` : ""}.`,
-    );
-    setIsSyncingPhotos(false);
-    loadData();
   }
 
   // ─── MODAL EDIT ────────────────────────────────────────────────────────────
@@ -1628,23 +1578,6 @@ function AgendaPageContent() {
                 <>
                   <RefreshCw className="w-4 h-4" />
                   Operadora ({selectedIds.size})
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleMassSyncPhotos}
-              disabled={isSyncingPhotos}
-              className="text-xs px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
-            >
-              {isSyncingPhotos ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Sincronizando fotos...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  Fotos ({selectedIds.size})
                 </>
               )}
             </button>
