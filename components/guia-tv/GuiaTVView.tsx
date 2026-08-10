@@ -44,6 +44,7 @@ import {
 import ToastNotifications from "@/hooks/ToastNotifications";
 // Você precisará criar ou importar este hook se ele já existir em @/hooks
 import { useConfirmOptional } from "@/hooks/useConfirm";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 // ADICIONAR ISSO:
 type ServidorCliente = "ELITE" | "NATV" | "FAST" | "TODOS";
@@ -450,16 +451,8 @@ function ProgramaTooltip({
   onClose: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-[9998] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl overflow-hidden shadow-2xl max-w-md w-full animate-in fade-in-0 zoom-in-95"
-      >
+    <Modal onClose={onClose} maxWidth="max-w-md">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
         {prog.prog_icon && (
           <div className="relative h-56 bg-muted/30">
             <img
@@ -509,7 +502,7 @@ function ProgramaTooltip({
           )}
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1289,36 +1282,19 @@ function ModalCatalogo({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
-      >
-        <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
-          <div>
-            <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
-              <Database size={18} className="text-indigo-500" /> Sincronizar
-              Catálogo (VOD)
-            </div>
-            <div className="text-xs text-muted-foreground/90 mt-1.5 leading-relaxed">
-              Importa filmes e séries novos — rode cada servidor
-              individualmente.
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10"
-          >
-            <X size={20} />
-          </button>
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
+          <Database size={18} className="text-indigo-500" /> Sincronizar
+          Catálogo (VOD)
         </div>
+        <div className="text-xs text-muted-foreground/90 mt-1.5 leading-relaxed">
+          Importa filmes e séries novos — rode cada servidor
+          individualmente.
+        </div>
+      </ModalHeader>
 
-        <div className="overflow-y-auto flex-1 p-5 space-y-3.5 bg-muted/20">
+        <ModalBody className="p-5 space-y-3.5 bg-muted/20">
           {SERVIDORES.map(({ id, label, cor, bgClass, onSync }) => {
             const st = status[id];
             const inf = info[id];
@@ -1466,22 +1442,21 @@ function ModalCatalogo({ onClose }: { onClose: () => void }) {
           </div>
 
           <LimparCatalogo />
-        </div>
+        </ModalBody>
 
-        <div className="p-4 border-t border-border shrink-0 bg-muted/40">
+        <ModalFooter className="block">
           <div className="text-[11px] text-muted-foreground flex items-center justify-center gap-2 leading-relaxed">
             <RefreshCw size={10} className="text-muted-foreground/60" /> Títulos
             já existentes são ignorados — apenas novos registros são
             contabilizados.
           </div>
-        </div>
-      </div>
+        </ModalFooter>
       <div className="fixed inset-x-0 top-3 z-[999999] px-4 sm:px-6 pointer-events-none">
         <div className="pointer-events-auto max-w-sm ml-auto">
           <ToastNotifications toasts={toasts} removeToast={removeToast} />
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1718,17 +1693,8 @@ function ModalDetalhe({
       : detalhe?.disponibilidade || [];
 
   return (
-    <div
-      className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="bg-card border border-border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
-      >
-        <div className="relative min-h-[200px] flex-shrink-0 bg-muted/30">
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <div className="relative min-h-[200px] flex-shrink-0 bg-muted/30">
           {backdrop && (
             <>
               <img
@@ -2075,9 +2041,8 @@ function ModalDetalhe({
             </>
           )}
         </div>
-      </div>
       {ConfirmUI}
-    </div>
+    </Modal>
   );
 }
 
@@ -3828,43 +3793,28 @@ function ModalUsageStats({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader
+        onClose={onClose}
+        actions={
+          <button
+            onClick={carregar}
+            disabled={loading}
+            className="text-muted-foreground hover:text-violet-500 transition-colors p-1.5 rounded-full hover:bg-violet-500/10 disabled:opacity-50 disabled:cursor-wait"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
+        }
       >
-        <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
-          <div>
-            <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
-              <Database size={18} className="text-violet-500" /> Dados de Uso
-            </div>
-            <div className="text-xs text-muted-foreground/90 mt-1.5 leading-relaxed">
-              Acessos de clientes ao Guia TV, por servidor.
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={carregar}
-              disabled={loading}
-              className="text-muted-foreground hover:text-violet-500 transition-colors p-1.5 rounded-full hover:bg-violet-500/10 disabled:opacity-50 disabled:cursor-wait"
-            >
-              <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
-            </button>
-            <button
-              onClick={onClose}
-              className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10"
-            >
-              <X size={20} />
-            </button>
-          </div>
+        <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
+          <Database size={18} className="text-violet-500" /> Dados de Uso
         </div>
+        <div className="text-xs text-muted-foreground/90 mt-1.5 leading-relaxed">
+          Acessos de clientes ao Guia TV, por servidor.
+        </div>
+      </ModalHeader>
 
-        <div className="overflow-y-auto flex-1 p-5 space-y-3 bg-muted/20">
+        <ModalBody className="p-5 space-y-3 bg-muted/20">
           {loading && (
             <div className="text-center py-16 text-muted-foreground animate-pulse flex flex-col items-center gap-3">
               <RefreshCw
@@ -3926,16 +3876,15 @@ function ModalUsageStats({ onClose }: { onClose: () => void }) {
                 </div>
               );
             })}
-        </div>
+        </ModalBody>
 
-        <div className="p-4 border-t border-border shrink-0 bg-muted/40">
+        <ModalFooter className="block">
           <div className="text-[11px] text-muted-foreground flex items-center justify-center gap-2 leading-relaxed">
             <RefreshCw size={10} className="text-muted-foreground/60" /> Seu
             próprio acesso como admin não é contabilizado.
           </div>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+    </Modal>
   );
 }
 
@@ -4212,30 +4161,15 @@ function ModalSugestaoConteudo({
   const jaExisteNoCatalogo = encontrados.length > 0;
 
   return (
-    <div
-      className="fixed inset-0 z-[9995] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
-      >
-        <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
-          <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
-            <Sparkles size={18} className="text-emerald-500" />
-            {view === "form" ? "Sugerir conteúdo" : "Meus pedidos"}
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10"
-          >
-            <X size={20} />
-          </button>
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
+          <Sparkles size={18} className="text-emerald-500" />
+          {view === "form" ? "Sugerir conteúdo" : "Meus pedidos"}
         </div>
+      </ModalHeader>
 
-        <div className="overflow-y-auto flex-1 p-5 space-y-4 bg-muted/20">
+        <ModalBody className="p-5 space-y-4 bg-muted/20">
           {view === "form" ? (
             <>
               {sucesso ? (
@@ -4500,9 +4434,9 @@ function ModalSugestaoConteudo({
               )}
             </>
           )}
-        </div>
+        </ModalBody>
 
-        <div className="p-4 border-t border-border shrink-0 bg-muted/40 text-center">
+        <ModalFooter className="block text-center">
           <button
             onClick={() => {
               const next = view === "form" ? "historico" : "form";
@@ -4515,9 +4449,8 @@ function ModalSugestaoConteudo({
               ? "Ver meus pedidos anteriores →"
               : "← Voltar pra sugerir novo conteúdo"}
           </button>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+    </Modal>
   );
 }
 
@@ -4655,33 +4588,16 @@ function ModalGerenciarSugestoes({ onClose }: { onClose: () => void }) {
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-[9990] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="bg-card border border-border rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in fade-in-0 zoom-in-95 duration-300"
-      >
-        <div className="flex items-center justify-between p-5 border-b border-border shrink-0 bg-card">
-          <div>
-            <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
-              <Sparkles size={18} className="text-emerald-500" /> Gerenciar
-              Sugestões
-            </div>
-            <div className="text-xs text-muted-foreground/90 mt-1.5 leading-relaxed">
-              Pedidos de conteúdo enviados pelos clientes pelo Guia TV.
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-rose-500 transition-colors p-1 rounded-full hover:bg-rose-500/10"
-          >
-            <X size={20} />
-          </button>
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <div className="text-lg font-bold text-foreground flex items-center gap-2.5">
+          <Sparkles size={18} className="text-emerald-500" /> Gerenciar
+          Sugestões
         </div>
+        <div className="text-xs text-muted-foreground/90 mt-1.5 leading-relaxed">
+          Pedidos de conteúdo enviados pelos clientes pelo Guia TV.
+        </div>
+      </ModalHeader>
 
         <div className="px-5 pt-4 flex flex-wrap gap-2 bg-muted/20">
           {FILTROS.map((f) => (
@@ -4699,7 +4615,7 @@ function ModalGerenciarSugestoes({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
-        <div className="overflow-y-auto flex-1 p-5 space-y-3 bg-muted/20">
+        <ModalBody className="p-5 space-y-3 bg-muted/20">
           {loading ? (
             <div className="text-center py-16 text-muted-foreground animate-pulse flex flex-col items-center gap-3">
               <RefreshCw size={20} className="animate-spin" /> Carregando...
@@ -4938,9 +4854,8 @@ function ModalGerenciarSugestoes({ onClose }: { onClose: () => void }) {
               </div>
             ))
           )}
-        </div>
-      </div>
-    </div>
+        </ModalBody>
+    </Modal>
   );
 }
 

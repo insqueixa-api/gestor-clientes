@@ -10,6 +10,15 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
+// Alias: o arquivo já tem seu próprio `function Modal({title, children,
+// onClose})` local (usado por ModalTransacao/ModalBaixa) — mantido pra não
+// mudar a API desses dois, só reescrito por dentro pra delegar pra este.
+import {
+  Modal as SharedModal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+} from "@/components/ui/Modal";
 
 // --- TIPOS ---
 type Transacao = {
@@ -231,30 +240,14 @@ function ModalDatePicker({
   );
 
   return (
-    <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 z-[99999] bg-black/60 grid place-items-center p-4"
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
-          <span className="text-sm font-medium text-foreground/90">
-            Selecionar Período
-          </span>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-          >
-            <IconX />
-          </button>
-        </div>
+    <SharedModal onClose={onClose} maxWidth="max-w-xs">
+      <ModalHeader onClose={onClose}>
+        <span className="text-sm font-medium text-foreground/90">
+          Selecionar Período
+        </span>
+      </ModalHeader>
 
-        <div className="p-4 space-y-4">
+        <ModalBody>
           {/* Seletor de Ano */}
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -318,9 +311,8 @@ function ModalDatePicker({
               })}
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+        </ModalBody>
+    </SharedModal>
   );
 }
 
@@ -362,29 +354,14 @@ function ModalDayPicker({
   ];
 
   return (
-    <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 z-[99999] bg-black/60 grid place-items-center p-4"
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-xs bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
-          <span className="text-sm font-medium text-foreground/90">
-            Selecionar Data
-          </span>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-          >
-            <IconX />
-          </button>
-        </div>
+    <SharedModal onClose={onClose} maxWidth="max-w-xs">
+      <ModalHeader onClose={onClose}>
+        <span className="text-sm font-medium text-foreground/90">
+          Selecionar Data
+        </span>
+      </ModalHeader>
 
-        <div className="p-4 space-y-4">
+        <ModalBody>
           <div className="flex items-center justify-between bg-transparent border border-border rounded-lg p-1">
             <button
               onClick={() => setViewDate(new Date(ano, mes - 1, 1))}
@@ -446,8 +423,7 @@ function ModalDayPicker({
               })}
             </div>
           </div>
-        </div>
-      </div>
+        </ModalBody>
 
       {showMonthPicker && (
         <ModalDatePicker
@@ -459,7 +435,7 @@ function ModalDayPicker({
           onClose={() => setShowMonthPicker(false)}
         />
       )}
-    </div>
+    </SharedModal>
   );
 }
 
@@ -2132,39 +2108,13 @@ function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.60)",
-        display: "grid",
-        placeItems: "center",
-        zIndex: 99999,
-        padding: 16,
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent">
-          <div className="font-medium text-foreground">{title}</div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <IconX />
-          </button>
-        </div>
-        <div className="p-4">{children}</div>
-      </div>
-    </div>,
-    document.body,
+  return (
+    <SharedModal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <div className="font-medium text-foreground">{title}</div>
+      </ModalHeader>
+      <ModalBody>{children}</ModalBody>
+    </SharedModal>
   );
 }
 
@@ -2349,15 +2299,12 @@ function ModalNovaConta({
   }
 
   return (
-    <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
-      <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between">
-          <span>Criar Nova Conta</span>
-          <button onClick={onClose}>
-            <IconX />
-          </button>
-        </div>
-        <div className="p-4 space-y-4">
+    <SharedModal onClose={onClose} maxWidth="max-w-sm">
+      <ModalHeader onClose={onClose}>
+        <span className="font-medium text-sm">Criar Nova Conta</span>
+      </ModalHeader>
+
+        <ModalBody>
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Nome
@@ -2393,9 +2340,8 @@ function ModalNovaConta({
           >
             {salvando ? "Salvando..." : "Salvar Conta"}
           </button>
-        </div>
-      </div>
-    </div>
+        </ModalBody>
+    </SharedModal>
   );
 }
 
@@ -2627,16 +2573,12 @@ function ModalGerenciarItens({
   }
 
   return (
-    <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
-      <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between shrink-0">
-          <span>{title}</span>
-          <button onClick={onClose}>
-            <IconX />
-          </button>
-        </div>
+    <SharedModal onClose={onClose} maxWidth="max-w-sm">
+      <ModalHeader onClose={onClose}>
+        <span className="font-medium text-sm">{title}</span>
+      </ModalHeader>
 
-        <div className="p-4 overflow-y-auto flex-1 space-y-2">
+        <ModalBody className="p-4 space-y-2">
           {items.length === 0 && (
             <div className="text-center text-muted-foreground text-sm italic">
               Nenhum item cadastrado.
@@ -2671,19 +2613,18 @@ function ModalGerenciarItens({
           ) : (
             items.map((it) => renderItem(it))
           )}
-        </div>
+        </ModalBody>
 
-        <div className="px-4 py-3 border-t border-border shrink-0">
+        <ModalFooter className="flex">
           <button
             onClick={onClose}
             className="w-full py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
           >
             Cancelar
           </button>
-        </div>
-      </div>
+        </ModalFooter>
       {ConfirmUI}
-    </div>
+    </SharedModal>
   );
 }
 
@@ -2746,17 +2687,14 @@ function ModalNovaCategoria({
   }
 
   return (
-    <div className="fixed inset-0 z-[100000] bg-black/60 grid place-items-center p-4">
-      <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-4 py-3 border-b border-border font-medium text-sm bg-transparent flex justify-between">
-          <span>
-            Nova Categoria de {tipoFixo === "RECEITA" ? "Receita" : "Despesa"}
-          </span>
-          <button onClick={onClose}>
-            <IconX />
-          </button>
-        </div>
-        <div className="p-4 space-y-4">
+    <SharedModal onClose={onClose} maxWidth="max-w-sm">
+      <ModalHeader onClose={onClose}>
+        <span className="font-medium text-sm">
+          Nova Categoria de {tipoFixo === "RECEITA" ? "Receita" : "Despesa"}
+        </span>
+      </ModalHeader>
+
+        <ModalBody>
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
               Nome
@@ -2792,9 +2730,8 @@ function ModalNovaCategoria({
           >
             {salvando ? "Salvando..." : "Salvar Categoria"}
           </button>
-        </div>
-      </div>
-    </div>
+        </ModalBody>
+    </SharedModal>
   );
 }
 function ModalTransacao({
@@ -3482,7 +3419,10 @@ function ModalTransacao({
         title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"}
         onClose={onClose}
       >
-        <div className="max-h-[75vh] overflow-y-auto pr-1 space-y-3 sm:space-y-4">
+        {/* Antes tinha max-h-[75vh] overflow-y-auto aqui — agora é
+            redundante (e conflitava) com o scroll que o <Modal> já faz
+            por fora, na <ModalBody>. */}
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex gap-1 p-1 bg-transparent rounded-lg border border-border">
             <button
               onClick={() => setTipo("DESPESA")}

@@ -124,13 +124,20 @@ export function Modal({
 export function ModalHeader({
   children,
   onClose,
+  actions,
 }: {
   children: ReactNode;
   onClose?: () => void;
+  // Botões extras entre o título e o X (ex: recarregar) — sem isso, cada
+  // header com uma ação a mais tinha que reimplementar o layout inteiro.
+  actions?: ReactNode;
 }) {
   return (
     <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl shrink-0">
       <div className="min-w-0 flex-1">{children}</div>
+      {actions && (
+        <div className="flex items-center gap-1 shrink-0">{actions}</div>
+      )}
       {onClose && (
         <button
           onClick={onClose}

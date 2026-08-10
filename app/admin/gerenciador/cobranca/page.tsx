@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
@@ -22,6 +21,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import {
   MAX_DELAY_SECS,
   MIN_DELAY_SECS,
@@ -360,23 +360,15 @@ function GlobalQueueMonitor({
       </div>
 
       {/* 🔴 MODAL RAIO-X */}
-      {showModal &&
-        createPortal(
-          <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className="w-full max-w-6xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-              <div className="px-4 py-3 border-b border-border flex justify-between items-center bg-muted/40">
-                <h3 className="font-medium text-lg text-foreground">
-                  Gerenciador de Fila
-                </h3>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  ✕
-                </button>
-              </div>
+      {showModal && (
+        <Modal onClose={() => setShowModal(false)} maxWidth="max-w-3xl">
+          <ModalHeader onClose={() => setShowModal(false)}>
+            <h3 className="font-medium text-lg text-foreground">
+              Gerenciador de Fila
+            </h3>
+          </ModalHeader>
 
-              <div className="flex-1 overflow-y-auto p-0">
+              <ModalBody className="p-0">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-muted/40 text-muted-foreground font-medium text-xs uppercase sticky top-0">
                     <tr>
@@ -459,9 +451,9 @@ function GlobalQueueMonitor({
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </ModalBody>
 
-              <div className="p-3 border-t border-border flex gap-2 justify-end bg-muted/40 flex-wrap">
+              <ModalFooter className="flex gap-2 justify-end flex-wrap">
                 {activeCount > 0 ? (
                   <button
                     onClick={handleGlobalPause}
@@ -501,11 +493,9 @@ function GlobalQueueMonitor({
                   )}{" "}
                   CANCELAR TUDO
                 </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+              </ModalFooter>
+        </Modal>
+      )}
     </>
   );
 }
@@ -2046,30 +2036,19 @@ function ImpactListModal({
     );
   }
 
-  if (typeof document === "undefined") return null;
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h3 className="text-lg font-medium text-foreground">
+          Clientes Afetados Hoje
+        </h3>
+        <p className="text-xs text-foreground/70">
+          Regra: <strong>{data.ruleName}</strong> • Total:{" "}
+          <strong>{data.clients.length}</strong>
+        </p>
+      </ModalHeader>
 
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
-          <div>
-            <h3 className="text-lg font-medium text-foreground">
-              Clientes Afetados Hoje
-            </h3>
-            <p className="text-xs text-foreground/70">
-              Regra: <strong>{data.ruleName}</strong> • Total:{" "}
-              <strong>{data.clients.length}</strong>
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 custom-scrollbar">
+        <ModalBody className="p-2 overflow-x-auto">
           {data.clients.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground italic">
               Nenhum cliente atende a esta regra hoje.
@@ -2190,19 +2169,17 @@ function ImpactListModal({
               </tbody>
             </table>
           )}
-        </div>
+        </ModalBody>
 
-        <div className="px-6 py-4 border-t border-border flex justify-end">
+        <ModalFooter>
           <button
             onClick={onClose}
             className="px-5 py-2.5 rounded-lg bg-foreground text-background font-medium text-xs uppercase hover:bg-foreground/90 transition-colors shadow-md"
           >
             Fechar
           </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </ModalFooter>
+    </Modal>
   );
 }
 
@@ -2351,12 +2328,9 @@ function AutomationWizard({
     }
   };
 
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2.5 animate-in fade-in duration-200">
-      <div className="w-full max-w-[900px] bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[78vh] overflow-hidden">
-        <div className="px-2.5 py-2 border-b border-border bg-card/95 backdrop-blur">
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <div className="px-2.5 py-2 border-b border-border bg-card/95 backdrop-blur">
           <div className="flex justify-between items-start gap-2 mb-1.5">
             <div>
               <h2 className="text-base font-semibold text-foreground">
@@ -2404,7 +2378,7 @@ function AutomationWizard({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-2 sm:p-2.5 custom-scrollbar bg-muted/10">
+        <ModalBody className="p-2 sm:p-2.5 bg-muted/10">
           {step === 1 && (
             <div className="space-y-1.5">
               <div className="rounded-xl border border-border bg-card p-2 space-y-2 shadow-sm">
@@ -2640,9 +2614,9 @@ function AutomationWizard({
               </div>
             </div>
           )}
-        </div>
+        </ModalBody>
 
-        <div className="px-2.5 py-1.5 border-t border-border flex justify-between items-center">
+        <ModalFooter className="flex justify-between items-center">
           {step === 1 && (
             <>
               <button
@@ -2680,10 +2654,8 @@ function AutomationWizard({
               </button>
             </>
           )}
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </ModalFooter>
+    </Modal>
   );
 }
 
@@ -3131,32 +3103,21 @@ function LogsModal({
 
   const selectedArr = Array.from(selected);
 
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-3xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]">
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
-          <div>
-            <h3 className="text-lg font-medium text-foreground">
-              Logs de Envio
-            </h3>
-            <p className="text-xs text-foreground/70">
-              Regra: <strong>{ruleName}</strong>
-              {failedRows.length > 0 && (
-                <span className="ml-2 text-rose-500 font-medium">
-                  • {failedRows.length} falha(s)
-                </span>
-              )}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex items-center justify-center"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h3 className="text-lg font-medium text-foreground">
+          Logs de Envio
+        </h3>
+        <p className="text-xs text-foreground/70">
+          Regra: <strong>{ruleName}</strong>
+          {failedRows.length > 0 && (
+            <span className="ml-2 text-rose-500 font-medium">
+              • {failedRows.length} falha(s)
+            </span>
+          )}
+        </p>
+      </ModalHeader>
 
         {/* ✅ FILTRO RÁPIDO DO LOG */}
         {logs.length > 0 && (
@@ -3218,7 +3179,7 @@ function LogsModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+        <ModalBody className="p-4">
           {loading ? (
             <div className="text-center py-10 text-muted-foreground">
               Carregando...
@@ -3330,9 +3291,9 @@ function LogsModal({
               </tbody>
             </table>
           )}
-        </div>
+        </ModalBody>
 
-        <div className="px-6 py-4 border-t border-border flex justify-between items-center gap-2 flex-wrap">
+        <ModalFooter className="flex justify-between items-center gap-2 flex-wrap">
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => requeueIds(selectedArr)}
@@ -3366,9 +3327,7 @@ function LogsModal({
           >
             Fechar
           </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </ModalFooter>
+    </Modal>
   );
 }

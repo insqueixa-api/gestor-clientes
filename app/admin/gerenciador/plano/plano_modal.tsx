@@ -2,10 +2,10 @@
 // app/admin/gerenciador/plano/plano_modal.tsx
 
 import { useEffect, useState, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 // --- Tipagens Enxutas ---
 type Price = {
@@ -471,8 +471,8 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
   // ✅ NOVO: Substitui o typeof document por !mounted
   if (!mounted) return null;
 
-  return createPortal(
-    <>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
       {/* Sistema de Notificação do Modal */}
       <div className="fixed inset-x-0 top-2 z-[999999] px-3 sm:px-6 pointer-events-none">
         <div className="pointer-events-auto">
@@ -480,39 +480,31 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
         </div>
       </div>
 
-      <div
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-        onPointerDown={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
+      <ModalHeader
+        actions={
+          <>
+            <button
+              onClick={onClose}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-muted-foreground hover:bg-muted text-xs sm:text-sm font-semibold transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || loading}
+              className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-medium shadow-lg shadow-emerald-900/20 transition-all"
+            >
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
+          </>
+        }
       >
-        <div
-          className="w-full max-w-[1200px] max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <div className="px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center bg-transparent border-b border-border sticky top-0 z-10">
-            <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight">
-              {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
-            </h2>
+        <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight">
+          {isEditing ? "Editar Tabela" : "Nova Tabela de Preço"}
+        </h2>
+      </ModalHeader>
 
-            <div className="flex gap-2 sm:gap-3">
-              <button
-                onClick={onClose}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-muted-foreground hover:bg-muted text-xs sm:text-sm font-semibold transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving || loading}
-                className="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs sm:text-sm font-medium shadow-lg shadow-emerald-900/20 transition-all"
-              >
-                {saving ? "Salvando..." : "Salvar"}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto bg-card">
+          <ModalBody className="bg-card">
             <div className="p-4 sm:p-6 border-b border-border space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -620,9 +612,9 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
                 ))
               )}
             </div>
-          </div>
+          </ModalBody>
 
-          <div className="px-4 sm:px-6 py-3 sm:py-4 bg-transparent border-t border-border flex justify-between items-center transition-colors">
+          <ModalFooter className="flex justify-between items-center">
             <span className="text-[10px] text-muted-foreground italic">
               *{" "}
               {isEditing
@@ -632,10 +624,7 @@ export default function PlanoModal({ plan, onClose, onSuccess }: Props) {
             <span className="text-[10px] text-muted-foreground">
               A tabela será criada como <strong>ativa</strong> por padrão
             </span>
-          </div>
-        </div>
-      </div>
-    </>,
-    document.body,
+          </ModalFooter>
+    </Modal>
   );
 }

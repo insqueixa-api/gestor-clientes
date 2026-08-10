@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
 import {
   ChevronRight,
   ChevronDown,
@@ -16,6 +15,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import { slugifyAppName } from "@/lib/whatsapp/template-vars";
 import { useConfirm } from "@/hooks/useConfirm";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import BotFlowCanvas, {
   FlowPortLegend,
   type CanvasNode,
@@ -255,42 +255,25 @@ function ModalShell({
   onClose,
   children,
   footer,
-  wide,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  // ✅ 10/08/2026: largura agora é sempre max-w-3xl (mesmo padrão do resto
+  // do sistema) — prop mantida só pra não obrigar mudar os 5 call sites.
   wide?: boolean;
 }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div
-        className={`w-full ${wide ? "max-w-2xl" : "max-w-lg"} bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]`}
-      >
-        <div className="px-4 py-3 sm:px-5 sm:py-4 border-b border-border flex justify-between items-center shrink-0">
-          <h3 className="font-medium text-foreground truncate pr-4 text-base sm:text-lg">
-            {title}
-          </h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="flex-1 p-4 sm:p-5 overflow-y-auto custom-scrollbar">
-          {children}
-        </div>
-        {footer && (
-          <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border flex justify-end gap-2 bg-card shrink-0">
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>,
-    document.body,
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h3 className="font-medium text-foreground truncate pr-4 text-base sm:text-lg">
+          {title}
+        </h3>
+      </ModalHeader>
+      <ModalBody>{children}</ModalBody>
+      {footer && <ModalFooter>{footer}</ModalFooter>}
+    </Modal>
   );
 }
 
