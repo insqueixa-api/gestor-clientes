@@ -142,23 +142,39 @@ export function ModalHeader({
 
 export function ModalBody({
   children,
-  className = "",
+  // Espaçamento tem um padrão (igual à referência), mas é substituído por
+  // inteiro quando informado — nunca concatenado. Sem tailwind-merge no
+  // projeto, `"p-3 sm:p-4 ... " + "p-6"` gera duas classes de padding
+  // conflitantes na mesma tag, e qual delas "ganha" depende só da ordem no
+  // CSS compilado, não da ordem no className — resultado imprevisível.
+  className = "p-3 sm:p-4 space-y-3 sm:space-y-4",
 }: {
   children: ReactNode;
   className?: string;
 }) {
   return (
     <div
-      className={`p-3 sm:p-4 space-y-3 sm:space-y-4 overflow-y-auto overscroll-contain custom-scrollbar flex-1 min-h-0 ${className}`}
+      className={`overflow-y-auto overscroll-contain custom-scrollbar flex-1 min-h-0 ${className}`}
     >
       {children}
     </div>
   );
 }
 
-export function ModalFooter({ children }: { children: ReactNode }) {
+export function ModalFooter({
+  children,
+  // Mesmo padrão do ModalBody: informado, substitui o layout padrão
+  // (linha única de botões à direita) por inteiro — útil quando o rodapé
+  // também tem um aviso empilhado em cima dos botões.
+  className = "flex justify-end gap-3",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-transparent flex justify-end gap-3 sm:rounded-b-xl shrink-0">
+    <div
+      className={`px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-transparent sm:rounded-b-xl shrink-0 ${className}`}
+    >
       {children}
     </div>
   );

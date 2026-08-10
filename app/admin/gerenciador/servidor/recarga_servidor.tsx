@@ -2,11 +2,11 @@
 // app/admin/gerenciador/servidor/recarga_servidor.tsx
 
 import { useState, useEffect } from "react";
-import { createPortal } from "react-dom"; // Faltava importar o createPortal
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page"; // Importamos o tipo do servidor
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
 function Label({ children }: { children: React.ReactNode }) {
@@ -385,32 +385,18 @@ export default function RecargaServidorModal({
     }
   }
 
-  // Previne erro de hidratação
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
-        {/* HEADER */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
-          <div>
-            <h2 className="text-lg font-medium text-foreground tracking-tight">
-              Nova Recarga
-            </h2>
-            <div className="text-xs text-emerald-500 font-medium mt-0.5">
-              {server.name}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground"
-          >
-            ✕
-          </button>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h2 className="text-lg font-medium text-foreground tracking-tight">
+          Nova Recarga
+        </h2>
+        <div className="text-xs text-emerald-500 font-medium mt-0.5">
+          {server.name}
         </div>
+      </ModalHeader>
 
-        {/* BODY */}
-        <div className="flex-1 min-h-0 p-6 space-y-5 overflow-y-auto">
+        <ModalBody className="p-6 space-y-5">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Data da compra</Label>
@@ -520,10 +506,9 @@ export default function RecargaServidorModal({
               placeholder="Opcional..."
             />
           </div>
-        </div>
+        </ModalBody>
 
-        {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-border bg-transparent space-y-3">
+        <ModalFooter className="space-y-3">
           {hasIntegration && (
             <div className="p-3 bg-sky-500/10 border border-sky-500/30 rounded-lg text-xs text-sky-500">
               ℹ️{" "}
@@ -555,9 +540,7 @@ export default function RecargaServidorModal({
                   : "Confirmar Recarga"}
             </button>
           </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </ModalFooter>
+    </Modal>
   );
 }

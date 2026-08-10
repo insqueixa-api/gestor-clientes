@@ -21,10 +21,14 @@ import {
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 
-import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import {
+  Modal as SharedModal,
+  ModalHeader,
+  ModalBody,
+} from "@/components/ui/Modal";
 import {
   loadTenantMessageTemplates,
   loadWhatsAppSessionOptions,
@@ -3342,31 +3346,13 @@ function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center p-4 z-[99999]"
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent shrink-0">
-          <div className="font-medium text-foreground">{title}</div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <IconX />
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto p-4">{children}</div>
-      </div>
-    </div>,
-    document.body,
+  return (
+    <SharedModal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <div className="font-medium text-foreground">{title}</div>
+      </ModalHeader>
+      <ModalBody>{children}</ModalBody>
+    </SharedModal>
   );
 }
 

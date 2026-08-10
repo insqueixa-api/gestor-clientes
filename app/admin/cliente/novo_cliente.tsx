@@ -19,6 +19,7 @@ import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import { dispatchIbosolAction } from "@/lib/apps/ibosol-extension";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
@@ -4444,38 +4445,18 @@ export default function NovoCliente({
           <ToastNotifications toasts={toasts} removeToast={removeToast} />
         </div>
       </div>
-      <div
-        className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200"
-        onPointerDown={(e) => {
-          // ✅ CORREÇÃO: Só fecha se clicar (começar o clique) exatamente no fundo, não se arrastar pra fora.
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-        <div
-          className="w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"
-          onPointerDown={(e) => e.stopPropagation()} // Impede que o clique dentro do modal vaze para o fundo
-        >
-          {/* HEADER */}
-
-          <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl shrink-0">
-            <h2 className="text-base font-medium text-foreground truncate">
-              {isEditing
-                ? isTrialMode
-                  ? "Editar teste"
-                  : "Editar cliente"
-                : isTrialMode
-                  ? "Novo teste"
-                  : "Novo cliente"}
-            </h2>
-
-            <button
-              onClick={onClose}
-              type="button"
-              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-            >
-              <IconX />
-            </button>
-          </div>
+      <Modal onClose={onClose} maxWidth="max-w-3xl">
+        <ModalHeader onClose={onClose}>
+          <h2 className="text-base font-medium text-foreground truncate">
+            {isEditing
+              ? isTrialMode
+                ? "Editar teste"
+                : "Editar cliente"
+              : isTrialMode
+                ? "Novo teste"
+                : "Novo cliente"}
+          </h2>
+        </ModalHeader>
 
           {/* ABAS */}
 
@@ -4510,7 +4491,7 @@ export default function NovoCliente({
 
           {/* BODY */}
 
-          <div className="p-3 sm:p-4 overflow-y-auto overscroll-contain space-y-3 flex-1 min-h-0 bg-card custom-scrollbar">
+          <ModalBody className="p-3 sm:p-4 space-y-3 bg-card">
             {/* TAB: DADOS */}
 
             {activeTab === "dados" && (
@@ -6313,11 +6294,9 @@ export default function NovoCliente({
                 </div>
               </div>
             )}
-          </div>
+          </ModalBody>
 
-          {/* FOOTER */}
-
-          <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border bg-transparent flex justify-end gap-2 sm:rounded-b-xl shrink-0">
+          <ModalFooter>
             <button
               onClick={onClose}
               type="button"
@@ -6341,14 +6320,13 @@ export default function NovoCliente({
                     ? "Criar teste"
                     : "Criar cliente"}
             </button>
-          </div>
-        </div>
-      </div>
+          </ModalFooter>
+      </Modal>
       {/* === MODAL DE CONFIRMAÇÃO (Padronizado) === */}
       {ConfirmUI} {/* ✅ Renderiza a caixa bonita sobre o modal */}
       {confirmModal && (
-        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-5 overflow-hidden min-h-0 max-h-[90vh] animate-in fade-in zoom-in-95 duration-200 max-h-[90dvh]">
+        <Modal onClose={() => setConfirmModal(null)} maxWidth="max-w-sm">
+          <div className="p-6 flex flex-col gap-5">
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-14 h-14 rounded-full bg-emerald-500/20 flex items-center justify-center text-3xl">
                 💰
@@ -6398,7 +6376,7 @@ export default function NovoCliente({
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

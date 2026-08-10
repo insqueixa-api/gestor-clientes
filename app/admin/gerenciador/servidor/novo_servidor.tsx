@@ -2,13 +2,13 @@
 // app/admin/gerenciador/servidor/novo_servidor.tsx
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page";
 import { useConfirm } from "@/hooks/useConfirm";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 // Helper de Slug
 function slugify(text: string) {
@@ -725,31 +725,18 @@ export default function ServerFormModal({
     }
   }
 
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
-        {/* HEADER */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
-          <div>
-            <h2 className="text-lg font-medium text-foreground tracking-tight">
-              {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
-            </h2>
-            <div className="text-xs text-muted-foreground mt-0.5 font-medium">
-              Configurações de conexão, custos e saldo.
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ✕
-          </button>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h2 className="text-lg font-medium text-foreground tracking-tight">
+          {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
+        </h2>
+        <div className="text-xs text-muted-foreground mt-0.5 font-medium">
+          Configurações de conexão, custos e saldo.
         </div>
+      </ModalHeader>
 
-        {/* CORPO */}
-        <div className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto bg-card">
+        <ModalBody className="p-6 space-y-6">
           <div className="grid grid-cols-12 gap-4">
             <div
               className={`${
@@ -1086,10 +1073,9 @@ export default function ServerFormModal({
               placeholder="Anotações visíveis apenas para admins..."
             />
           </div>
-        </div>
+        </ModalBody>
 
-        {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-border flex justify-end gap-3 bg-transparent transition-colors">
+        <ModalFooter>
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-semibold"
@@ -1107,9 +1093,7 @@ export default function ServerFormModal({
                 ? "Salvar alterações"
                 : "Criar servidor"}
           </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </ModalFooter>
+    </Modal>
   );
 }

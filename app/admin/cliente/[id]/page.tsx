@@ -18,6 +18,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import ClientAlertBell from "@/components/alerts/ClientAlertBell";
+import { Modal } from "@/components/ui/Modal";
 
 // Componentes (CORRIGIDO: PascalCase)
 import NovoCliente, { ClientData } from "../novo_cliente";
@@ -1440,8 +1441,8 @@ export default function ClientDetailsPage() {
       {ConfirmUI} {/* ✅ AQUI ESTÁ ELE! Agora o modal vai aparecer */}
       {/* ✅ MODAL DE AVISO DE ALERTA */}
       {showRenewWarning && client && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+        <Modal onClose={() => setShowRenewWarning(false)} maxWidth="max-w-md">
+          <div className="p-6 flex flex-col gap-4">
             <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg flex gap-3">
               <span className="text-2xl">📢</span>
               <div>
@@ -1479,7 +1480,7 @@ export default function ClientDetailsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
       {showEditModal && editClientPayload && (
         <NovoCliente
