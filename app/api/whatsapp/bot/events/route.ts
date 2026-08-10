@@ -14,6 +14,10 @@
 // servidor) e `google_contacts` (foto já sincronizada na Agenda — reaproveita
 // a MESMA integração que a página /admin/agenda já usa, não criei nada novo)
 // — e resolvendo `next_state`/`action` num "caminho percorrido" legível.
+//
+// ✅ 10/08/2026: contato que não é cliente (não existe em `clients`, ex: um
+// lead ou familiar) mas já está salvo na Agenda mostrava só o número — agora
+// o nome da Agenda também entra como fallback, não só a foto.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextResponse } from "next/server";
@@ -118,12 +122,12 @@ export async function GET(_req: Request) {
   // que nem está na Agenda não tem foto buscada de jeito nenhum.
   const { data: contacts } = await sb
     .from("google_contacts")
-    .select("id, avatar_url, phone_e164, secondary_phone")
+    .select("id, display_name, avatar_url, phone_e164, secondary_phone")
     .eq("tenant_id", tenantId);
 
-  const photoByPhone = new Map<string, { avatar_url: string | null; google_contact_id: string }>();
+  const photoByPhone = new Map<string, { avatar_url: string | null; google_contact_id: string; display_name: string | null }>();
   for (const c of contacts || []) {
-    const entry = { avatar_url: c.avatar_url || null, google_contact_id: c.id };
+    const entry = { avatar_url: c.avatar_url || null, google_contact_id: c.id, display_name: c.display_name || null };
     const p1 = normalizePhone(c.phone_e164);
     const p2 = normalizePhone(c.secondary_phone);
     if (p1) photoByPhone.set(p1, entry);
@@ -153,9 +157,17 @@ export async function GET(_req: Request) {
       const clientInfo = clientByPhone.get(phone);
       const photoInfo = photoByPhone.get(normalizePhone(phone));
       const path_label = await resolveStateLabel(sb, tenantId, e?.next_state);
+      // ✅ Sufixo pra bater o olho rápido na lista (pedido do Márcio,
+      // 10/08/2026): "(IPTV)" = é cliente de verdade (tabela clients);
+      // "(Agenda)" = não é cliente, só está salvo no Google Contacts.
+      const displayName = clientInfo?.display_name
+        ? `${clientInfo.display_name} (IPTV)`
+        : photoInfo?.display_name
+          ? `${photoInfo.display_name} (Agenda)`
+          : e.display_name || null;
       return {
         ...e,
-        display_name: clientInfo?.display_name || e.display_name || null,
+        display_name: displayName,
         server_name: clientInfo?.server_name || e.server_name || null,
         server_username: clientInfo?.server_username || e.server_username || null,
         avatar_url: photoInfo?.avatar_url || null,

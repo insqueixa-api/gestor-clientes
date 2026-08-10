@@ -123,6 +123,13 @@ export async function POST(req: Request) {
     if (!phone) return NextResponse.json({ error: "Telefone não fornecido" }, { status: 400 });
 
     if (phone.startsWith("55")) {
+      const national = phone.slice(2);
+      // Fixo: a Telein não resolve portabilidade de linha fixa (confirmado
+      // em 10/08/2026 — todo número de 10 dígitos testado volta código de
+      // erro 99, celular continua funcionando normal). Nem consulta.
+      if (national.length === 10) {
+        return NextResponse.json({ operadora: "Fixo" });
+      }
       const operadora = await consultarOperadoraExterna(phone);
       if (operadora) {
         return NextResponse.json({ operadora: operadora });
