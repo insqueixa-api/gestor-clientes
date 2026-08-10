@@ -958,6 +958,11 @@ export default function NovoCliente({
     partnerServerId: string;
     is_minimized?: boolean; // ✅ NOVO
     auto_configure?: boolean; // ✅ Automação na criação
+    // Parceiro sinalizou "trial" (ex: DUPLECAST, 15 dias grátis) sem
+    // vencimento salvo — vem de field_values._trial_hint (persistido por
+    // lib/apps/orchestration.ts) e é atualizado ao vivo após "Verificar
+    // vencimento", pra não precisar recarregar a página pra ver o aviso.
+    isTrial?: boolean;
 
     // 🔥 id real da linha em client_apps — undefined enquanto a instância
     // ainda não foi salva (app novo, adicionado nesta sessão de edição).
@@ -1749,7 +1754,7 @@ export default function NovoCliente({
               const instances = currentApps.map((ca: any) => {
                 const savedValues = ca.field_values || {};
 
-                const { _config_cost, _config_partner, ...restValues } =
+                const { _config_cost, _config_partner, _trial_hint, ...restValues } =
                   savedValues;
 
                 const cfg = Array.isArray(ca.apps?.fields_config)
@@ -1802,6 +1807,8 @@ export default function NovoCliente({
                   costType: _config_cost || "paid",
 
                   partnerServerId: _config_partner || "",
+
+                  isTrial: _trial_hint === "1",
 
                   is_minimized: isEditing, // editando = minimizado; criando teste = aberto
                 };
@@ -2037,6 +2044,17 @@ export default function NovoCliente({
         if (app.instanceId !== instanceId) return app;
         return { ...app, values: { ...app.values, [fieldKey]: value } };
       }),
+    );
+  }
+
+  // Espelha ao vivo o `_trial_hint` que lib/apps/orchestration.ts persiste
+  // em field_values — sem isso, o badge "Modo Teste" só apareceria depois
+  // de recarregar a página.
+  function setAppTrialFlag(instanceId: string, isTrial: boolean) {
+    setSelectedApps((prev) =>
+      prev.map((app) =>
+        app.instanceId === instanceId ? { ...app, isTrial } : app,
+      ),
     );
   }
 
@@ -2470,10 +2488,18 @@ export default function NovoCliente({
               apiJson.expireDate,
             );
           }
+          setAppTrialFlag(currentApp!.instanceId, false);
           addToast(
             "success",
             "Vencimento verificado",
             `${appName}: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
+          );
+        } else if (apiJson?.ok && apiJson.isTrial) {
+          setAppTrialFlag(currentApp!.instanceId, true);
+          addToast(
+            "warning",
+            "Modo Teste",
+            `${appName} ainda está no trial grátis (15 dias) — o parceiro só informa vencimento depois de ativar a licença paga.`,
           );
         } else if (apiJson?.ok) {
           // DUPLEXTV nunca chega aqui — desvia pro checkDuplexTvViaIbosol
@@ -5790,13 +5816,14 @@ export default function NovoCliente({
                             : integrationType;
                     // ✅ NOVO: Cálculo de Vencimento do App
                     let diffDays = null;
+                    let expireDateIso: string = "";
                     const dateField = app.fields_config?.find(
                       (f: any) =>
                         String(f?.type || "").toLowerCase() === "date",
                     );
                     if (dateField) {
                       const fieldKey = dateField.id || dateField.label;
-                      const expireDateIso = fieldKey
+                      expireDateIso = fieldKey
                         ? app.values[String(fieldKey)]
                         : "";
                       if (expireDateIso) {
@@ -5913,6 +5940,19 @@ export default function NovoCliente({
                                     : diffDays === 0
                                       ? "Vence Hoje"
                                       : "Vencendo"}
+                                </span>
+                              </span>
+                            )}
+                            {/* Trial sem vencimento salvo (ex: DUPLECAST, 15 dias
+                                grátis) — sem essa tag ficava com "Vencimento: —"
+                                indistinguível de um app nunca verificado. */}
+                            {!expireDateIso && app.isTrial && (
+                              <span
+                                title="Ainda no trial grátis do parceiro — sem vencimento fixo até ativar a licença paga"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/20 text-amber-400 shadow-sm ml-1"
+                              >
+                                <span className="text-[9px] font-medium uppercase tracking-wider">
+                                  Modo Teste
                                 </span>
                               </span>
                             )}

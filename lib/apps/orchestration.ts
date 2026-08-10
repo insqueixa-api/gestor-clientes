@@ -379,6 +379,7 @@ export async function checkClientAppValidity(
   // banco e devolve ele como se tivesse achado.
   const dateField = findFieldByType(row.fieldsConfig, "date");
   const rawExpireDate: string | null = apiJson.expireDate || null;
+  const isTrial = !!apiJson.isTrial;
   let expireDate = rawExpireDate;
   if (expireDate && dateField) {
     const fieldKey = String(dateField.id || dateField.label);
@@ -389,9 +390,22 @@ export async function checkClientAppValidity(
   } else if (dateField) {
     const fieldKey = String(dateField.id || dateField.label);
     expireDate = row.field_values[fieldKey] || null;
+    // Sem vencimento real nem salvo (ex: DUPLECAST recém-configurado, ainda
+    // no trial) — guarda a marca de trial em field_values (mesmo padrão de
+    // _config_cost/_config_partner, chave fora de fields_config) pra a UI
+    // mostrar "Modo Teste" nos próximos carregamentos sem precisar rechecar
+    // no parceiro toda hora. Pedido do Márcio, 10/08/2026: se já existe um
+    // vencimento salvo manualmente, esse `else if` acima nem entra aqui —
+    // o valor manual é respeitado como está.
+    if (!expireDate && isTrial && row.field_values["_trial_hint"] !== "1") {
+      await supabaseAdmin
+        .from("client_apps")
+        .update({ field_values: { ...row.field_values, _trial_hint: "1" } })
+        .eq("id", row.id);
+    }
   }
 
-  return { ok: true, expireDate, rawExpireDate };
+  return { ok: true, expireDate, rawExpireDate, isTrial };
 }
 
 // Espelha app/api/client-portal/apps/remove/route.ts:133-180 — só a parte

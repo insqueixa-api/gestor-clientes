@@ -343,6 +343,7 @@ export default function RenewClient() {
     has_pending_manual_renewal: boolean;
     expiration: string | null;
     is_partnership: boolean;
+    is_trial: boolean;
     fields: InstalledAppField[];
     portal_setup_instructions: string | null;
     variable_fields: { id: string; label: string; value: string }[];
@@ -1104,10 +1105,12 @@ export default function RenewClient() {
         );
       addToast(
         "success",
-        "Validade atualizada",
+        result.isTrial ? "Modo Teste" : "Validade atualizada",
         result.expireDate
           ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
-          : "Ainda não encontramos essa informação.",
+          : result.isTrial
+            ? "Ainda no trial grátis (15 dias) — o parceiro só informa vencimento depois de ativar a licença paga."
+            : "Ainda não encontramos essa informação.",
       );
       await refreshInstalledApps();
     } catch (err: any) {
@@ -4066,9 +4069,14 @@ export default function RenewClient() {
                             // não mostrava nada, e sem o botão Atualizar aqui, só reconfigurando
                             // o app inteiro dava pra popular a validade. Agora mostra "vazio" +
                             // Atualizar (quando disponível) pra checar sem precisar reconfigurar.
+                            // ✅ Trial (pedido do Márcio, 10/08/2026): quando o parceiro sinaliza
+                            // "trial sem vencimento" (ex: DUPLECAST, 15 dias grátis), "—" sozinho
+                            // parecia falha — troca por um aviso explicando o motivo.
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              <p className="text-xs text-muted-foreground">
-                                Vencimento: —
+                              <p className={`text-xs ${app.is_trial ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
+                                {app.is_trial
+                                  ? "Modo Teste — 15 dias grátis"
+                                  : "Vencimento: —"}
                               </p>
                               {app.has_pending_manual_renewal && (
                                 <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-1 text-[11px] font-bold text-rose-600">

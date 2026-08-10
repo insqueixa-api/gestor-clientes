@@ -28,6 +28,7 @@ type AppDetail = {
   has_pending_removal_request: boolean;
   has_pending_manual_renewal: boolean;
   expiration: string | null;
+  is_trial: boolean;
   fields: AppField[];
   portal_setup_instructions: string | null;
   license_price: number | null;
@@ -253,7 +254,15 @@ export default function AppDetailClient() {
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Não foi possível atualizar a validade.");
-      addToast("success", "Validade atualizada", result.expireDate ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}` : "Ainda não encontramos essa informação.");
+      addToast(
+        "success",
+        result.isTrial ? "Modo Teste" : "Validade atualizada",
+        result.expireDate
+          ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
+          : result.isTrial
+            ? "Ainda no trial grátis (15 dias) — o parceiro só informa vencimento depois de ativar a licença paga."
+            : "Ainda não encontramos essa informação.",
+      );
       await loadDetail();
     } catch (err: any) {
       addToast("error", "Não foi possível atualizar a validade", "Tente novamente.");
@@ -385,6 +394,25 @@ export default function AppDetailClient() {
                   <span className="text-[10px] font-bold text-rose-500">
                     Aguardando renovação manual pelo suporte
                   </span>
+                </div>
+              )}
+              {/* Trial sem vencimento (ex: DUPLECAST, 15 dias grátis) —
+                  sem isso a validade ficava totalmente em branco, sem
+                  explicar o motivo nem oferecer um jeito de confirmar. */}
+              {!app.expiration && !app.has_pending_manual_renewal && app.is_trial && (
+                <div className="flex items-center gap-1.5 -mt-2">
+                  <p className="text-xs text-amber-500 font-bold">
+                    Modo Teste — 15 dias grátis
+                  </p>
+                  {app.can_check_validity && (
+                    <button
+                      disabled={busy}
+                      onClick={handleCheckValidity}
+                      className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                    >
+                      {busy ? "..." : "Ver validade"}
+                    </button>
+                  )}
                 </div>
               )}
 

@@ -92,7 +92,10 @@ export async function POST(req: NextRequest) {
       }),
     );
 
-    return NextResponse.json({ ok: true, expireDate: result.expireDate }, { status: 200, headers: NO_STORE_HEADERS });
+    return NextResponse.json(
+      { ok: true, expireDate: result.expireDate, isTrial: result.isTrial || false },
+      { status: 200, headers: NO_STORE_HEADERS },
+    );
   } catch (e: any) {
     if (tenantId && client_app_id) {
       try {

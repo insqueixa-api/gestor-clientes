@@ -86,6 +86,10 @@ export type PartnerApiResponse = {
   repeat_warning?: boolean;
   suggest_secondary?: boolean;
   blocked?: boolean;
+  // Parceiro devolveu status "trial" sem vencimento (ex: DUPLECAST, 15 dias
+  // grátis) — diferente de simplesmente "não achou": aqui sabemos POR QUE
+  // não tem data, então dá pra explicar isso em vez de "não encontrado".
+  isTrial?: boolean;
 };
 
 // Resultado estruturado das funções de lib/apps/orchestration.ts — cada rota
@@ -104,7 +108,7 @@ export type ConfigureAppResult =
 // retorno → mantém o valor salvo no banco". A rota loga o raw (auditoria) e
 // devolve o final pro cliente/admin.
 export type CheckAppValidityResult =
-  | { ok: true; expireDate: string | null; rawExpireDate: string | null }
+  | { ok: true; expireDate: string | null; rawExpireDate: string | null; isTrial?: boolean }
   | { ok: false; error: string };
 
 // `attempted: false` = app sem integração automática, nada foi chamado no

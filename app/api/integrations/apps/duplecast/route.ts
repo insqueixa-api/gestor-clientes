@@ -118,6 +118,14 @@ function parseExpireDate(html: string): string | null {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+// Dispositivo ainda no trial (15 dias grátis, divulgado no próprio site da
+// Duplecast) nunca tem "Expire on" preenchido — o painel mostra só
+// "Status : trial" em vez de "Status : valid". Sem isso, o caller não
+// consegue distinguir "trial, sem data mesmo" de "falha ao consultar".
+function parseIsTrial(html: string): boolean {
+  return /Status\s*:\s*trial/i.test(html);
+}
+
 type DuplecastPlaylistRow = { id: string; name: string; protected: boolean };
 
 function parsePlaylistRows(html: string): DuplecastPlaylistRow[] {
@@ -303,10 +311,16 @@ export async function POST(req: Request) {
     if (action === "check") {
       const html = await fetchDeviceMain(siteRoot, jar);
       const expireDate = parseExpireDate(html);
+      const isTrial = !expireDate && parseIsTrial(html);
       return NextResponse.json({
         ok: true,
         expireDate,
-        message: expireDate ? "Vencimento atualizado." : "Não foi possível localizar o vencimento no painel.",
+        isTrial,
+        message: expireDate
+          ? "Vencimento atualizado."
+          : isTrial
+            ? "Dispositivo ainda em modo trial — Duplecast não informa vencimento até ativar a licença."
+            : "Não foi possível localizar o vencimento no painel.",
       });
     }
 

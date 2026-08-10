@@ -93,40 +93,10 @@ export default function BotMonitorPanel({
   const [activeTab, setActiveTab] = useState<"feed" | "contacts">("feed");
   const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
-  const [refreshingPhoto, setRefreshingPhoto] = useState(false);
 
   useEffect(() => {
     onEscalationCountChange?.(countActiveEscalations(events));
   }, [events, onEscalationCountChange]);
-
-  // ✅ Reaproveita a MESMA integração que /admin/agenda já usa pra sincronizar
-  // foto do WhatsApp — busca a foto atual e já sobe pro contato no Google
-  // Contacts, então da próxima vez que a Agenda carregar já vem atualizada.
-  async function refreshPhoto(ev: BotEvent) {
-    if (!ev.google_contact_id) return;
-    setRefreshingPhoto(true);
-    try {
-      const res = await fetch("/api/whatsapp/contact-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contact_id: ev.google_contact_id,
-          jid: `${ev.phone}@s.whatsapp.net`,
-        }),
-      });
-      const json = await res.json();
-      if (json?.avatar_url) {
-        setEvents((prev) =>
-          prev.map((e) =>
-            e.phone === ev.phone ? { ...e, avatar_url: json.avatar_url } : e,
-          ),
-        );
-      }
-    } catch {
-    } finally {
-      setRefreshingPhoto(false);
-    }
-  }
 
   async function fetchEvents() {
     setLoading(true);
@@ -472,24 +442,6 @@ export default function BotMonitorPanel({
                             contacts.find((c) => c.phone === selectedContact)!,
                           )}
                         </p>
-                      )}
-                      {contacts.find((c) => c.phone === selectedContact)
-                        ?.google_contact_id && (
-                        <button
-                          onClick={() =>
-                            void refreshPhoto(
-                              contacts.find(
-                                (c) => c.phone === selectedContact,
-                              )!,
-                            )
-                          }
-                          disabled={refreshingPhoto}
-                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline mt-1 disabled:opacity-50"
-                        >
-                          {refreshingPhoto
-                            ? "Atualizando..."
-                            : "🔄 Atualizar foto na Agenda"}
-                        </button>
                       )}
                     </div>
                   </div>

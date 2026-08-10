@@ -152,6 +152,11 @@ export async function POST(req: NextRequest) {
           has_pending_removal_request: hasPendingRemoval,
           has_pending_manual_renewal: !!pendingManualRenewal,
           expiration: isPartnership ? null : extractExpiration(vals, config),
+          // Trial sem vencimento (ex: DUPLECAST, 15 dias grátis) — marca
+          // persistida por lib/apps/orchestration.ts em field_values._trial_hint
+          // na última vez que "Verificar validade" rodou. Só vale enquanto não
+          // existe vencimento de verdade salvo (senão o vencimento real manda).
+          is_trial: !isPartnership && vals["_trial_hint"] === "1" && !extractExpiration(vals, config),
           fields: extractEditableFields(vals, config),
           portal_setup_instructions: (row as any).apps?.portal_setup_instructions || null,
           license_price:
