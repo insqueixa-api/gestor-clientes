@@ -941,11 +941,11 @@ function VmMaintenanceModal({
           </button>
         </div>
         <div className="space-y-3">
-          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
             <div className="flex items-start gap-2">
-              <RotateCw className="w-4 h-4 mt-0.5 text-amber-500" />
+              <RotateCw className="w-4 h-4 mt-0.5 text-emerald-500" />
               <div className="space-y-1">
-                <p className="text-[11px] font-medium text-amber-600">
+                <p className="text-[11px] font-medium text-emerald-600">
                   Reiniciar serviço
                 </p>
                 <p className="text-[10px] text-muted-foreground">
@@ -957,7 +957,7 @@ function VmMaintenanceModal({
             <button
               onClick={() => void handleRestartService()}
               disabled={restartingService}
-              className="mt-3 w-full py-2.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 flex items-center justify-center gap-2"
+              className="mt-3 w-full py-2.5 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-medium text-xs hover:bg-emerald-500/20 flex items-center justify-center gap-2"
             >
               {restartingService ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -968,11 +968,11 @@ function VmMaintenanceModal({
             </button>
           </div>
 
-          <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3">
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
             <div className="flex items-start gap-2">
-              <Power className="w-4 h-4 mt-0.5 text-rose-500" />
+              <Power className="w-4 h-4 mt-0.5 text-amber-500" />
               <div className="space-y-1">
-                <p className="text-[11px] font-medium text-rose-600">
+                <p className="text-[11px] font-medium text-amber-600">
                   Reiniciar VM
                 </p>
                 <p className="text-[10px] text-muted-foreground">
@@ -984,7 +984,7 @@ function VmMaintenanceModal({
             <button
               onClick={() => void handleRebootVm()}
               disabled={rebootingVm}
-              className="mt-3 w-full py-2.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs hover:bg-rose-500/20 flex items-center justify-center gap-2"
+              className="mt-3 w-full py-2.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 flex items-center justify-center gap-2"
             >
               {rebootingVm ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

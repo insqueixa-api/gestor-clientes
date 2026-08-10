@@ -2789,7 +2789,7 @@ export default function NovoCliente({
       let suffix = serverUsername.trim();
       if (
         suffix.toLowerCase().startsWith(firstName.toLowerCase()) &&
-        suffix.length > firstName.length
+        suffix.length >= firstName.length
       ) {
         suffix = suffix.slice(firstName.length).trim();
       }
