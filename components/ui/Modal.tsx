@@ -107,7 +107,11 @@ export function Modal({
       }}
     >
       <div
-        className={`w-full ${maxWidth} bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200`}
+        // dvh (não vh puro) — no mobile, vh às vezes é calculado com a barra
+        // de endereço recolhida (maior que a tela realmente visível), o que
+        // empurra o rodapé/fim do conteúdo pra fora da área visível sem
+        // conseguir rolar até lá. dvh acompanha o viewport visual de verdade.
+        className={`w-full ${maxWidth} bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90dvh] transition-all animate-in fade-in zoom-in-95 duration-200`}
         onPointerDown={(e) => e.stopPropagation()}
       >
         {children}

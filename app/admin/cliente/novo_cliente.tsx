@@ -597,35 +597,6 @@ export default function NovoCliente({
   onSuccess,
 }: Props) {
   const tenantId = useTenantId();
-  // ✅ Scroll lock padrão (não deixa “vazar” e restaura posição)
-  const modalScrollYRef = useRef(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const body = document.body;
-    const html = document.documentElement;
-    const scrollY = window.scrollY || window.pageYOffset || 0;
-    modalScrollYRef.current = scrollY;
-    const prevBodyOverflow = body.style.overflow;
-    const prevBodyPosition = body.style.position;
-    const prevBodyTop = body.style.top;
-    const prevBodyWidth = body.style.width;
-    const prevHtmlOverflow = html.style.overflow;
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.width = "100%";
-
-    return () => {
-      html.style.overflow = prevHtmlOverflow;
-      body.style.overflow = prevBodyOverflow;
-      body.style.position = prevBodyPosition;
-      body.style.top = prevBodyTop;
-      body.style.width = prevBodyWidth;
-      window.scrollTo(0, modalScrollYRef.current || 0);
-    };
-  }, []);
   const isEditing = !!clientToEdit?.id; // ✅ sem id = criação (ex: Teste Rápido)
   const isTrialMode = mode === "trial";
 
@@ -2781,32 +2752,13 @@ export default function NovoCliente({
       setLoading(false);
       setLoadingStep("");
     }
-  } // ✅ Mobile: scroll automático para o input focado quando o teclado abre
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport) return;
-
-    const handleViewportResize = () => {
-      const el = document.activeElement;
-      if (
-        el instanceof HTMLElement &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.tagName === "SELECT")
-      ) {
-        setTimeout(() => {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 80);
-      }
-    };
-
-    window.visualViewport.addEventListener("resize", handleViewportResize);
-    return () =>
-      window.visualViewport?.removeEventListener(
-        "resize",
-        handleViewportResize,
-      );
-  }, []);
+  }
+  // ✅ Trava de scroll do fundo + reposicionamento do input focado quando o
+  // teclado mobile abre: eram implementadas aqui antes, agora vêm de graça
+  // do <Modal> (components/ui/Modal.tsx) que envolve esse componente — tinha
+  // as DUAS rodando juntas depois da migração pro shell padrão, o que
+  // corrompia a posição de scroll do fundo (a 2ª a rodar lia
+  // `window.scrollY` já zerado pela 1ª, sobrescrevendo o valor certo).
 
   // ✅ NOVO: Função OUSADA para salvar contato na Agenda Google
   async function syncToGoogleAgenda(
