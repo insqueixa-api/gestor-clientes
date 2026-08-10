@@ -7,9 +7,9 @@
 // claras (fechar o app na TV, abrir de novo, recarregar a lista) em vez de
 // só um toast que some sozinho. Reaproveitado tanto em RenewBetaClient.tsx
 // (lista principal) quanto em apps/[id]/AppDetailClient.tsx (detalhe).
-import { createPortal } from "react-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { buildPortalSupportLink } from "@/lib/client-portal/support-link";
+import { Modal } from "@/components/ui/Modal";
 
 export type ConfigureResultData = {
   kind: "success" | "error" | "blocked";
@@ -47,9 +47,6 @@ export default function ConfigureResultModal({
   data: ConfigureResultData | null;
   supportPhone: string;
 }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -59,22 +56,18 @@ export default function ConfigureResultModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onCloseAction]);
 
-  if (!mounted || !open || !data) return null;
+  if (!open || !data) return null;
 
   const isSuccess = data.kind === "success";
   const isBlocked = data.kind === "blocked";
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCloseAction();
-      }}
+  return (
+    <Modal
+      onClose={onCloseAction}
+      maxWidth="max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl"
+      zIndex="z-[100000]"
     >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl p-6 sm:p-7 text-center animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
-      >
+      <div className="p-6 sm:p-7 text-center overflow-y-auto min-h-0 custom-scrollbar">
         <div
           className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
             isSuccess
@@ -215,7 +208,6 @@ export default function ConfigureResultModal({
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

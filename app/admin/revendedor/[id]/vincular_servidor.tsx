@@ -2,10 +2,10 @@
 // app/admin/revendedor/[id]/vincular_servidor.tsx
 
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import { useConfirm } from "@/hooks/useConfirm";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 // Tipos
 type ServerOption = {
@@ -239,24 +239,15 @@ export default function VincularServidor({
 
   if (typeof document === "undefined") return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
-        {/* HEADER */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
-          <h2 className="text-lg font-medium text-foreground tracking-tight">
-            {isEdit ? "Editar Vínculo" : "Vincular Servidor"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ✕
-          </button>
-        </div>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h2 className="text-lg font-medium text-foreground tracking-tight">
+          {isEdit ? "Editar Vínculo" : "Vincular Servidor"}
+        </h2>
+      </ModalHeader>
 
-        {/* BODY */}
-        <div className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto bg-card">
+        <ModalBody className="p-6 space-y-6 bg-card">
           {loadErr && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-medium">Erro:</span> {loadErr}
@@ -312,10 +303,9 @@ export default function VincularServidor({
               </div>
             </div>
           )}
-        </div>
+        </ModalBody>
 
-        {/* FOOTER */}
-        <div className="px-6 py-4 border-t border-border bg-transparent flex items-center justify-end gap-3 transition-colors">
+        <ModalFooter>
           <button
             onClick={onClose}
             className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-semibold transition-colors"
@@ -334,9 +324,7 @@ export default function VincularServidor({
           >
             {saving ? "Salvando..." : isEdit ? "Salvar alterações" : "Vincular"}
           </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </ModalFooter>
+    </Modal>
   );
 }

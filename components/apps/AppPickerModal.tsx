@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
 import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS, DeviceType } from "@/lib/apps/device-types";
 
 export type AppPickerCatalogItem = {
@@ -61,12 +61,9 @@ export default function AppPickerModal({
    * pelos tipos definidos aqui (ex.: P2P -> Android TV Box + Fire TV). */
   presetDeviceTypes?: DeviceType[];
 }) {
-  const [mounted, setMounted] = useState(false);
   const [deviceType, setDeviceType] = useState<DeviceType | null>(null);
   const [search, setSearch] = useState("");
   const [costTab, setCostTab] = useState<"paid" | "partner">("paid");
-
-  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (open) {
@@ -126,7 +123,7 @@ export default function AppPickerModal({
       .sort((a, b) => Number(!!b.has_integration) - Number(!!a.has_integration));
   }, [appsForDevice, costTab, search, showCostTabs]);
 
-  if (!mounted || !open) return null;
+  if (!open) return null;
 
   const isPortal = variant === "portal";
   const accentClass = isPortal
@@ -142,17 +139,9 @@ export default function AppPickerModal({
   const hasPresetDeviceTypes = (presetDeviceTypes?.length || 0) > 0;
   const showTiles = !hasPresetDeviceTypes && !deviceType && (isPortal || !search.trim());
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh]"
-      >
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl" zIndex="z-[100000]">
+      <div className="p-6 flex flex-col gap-4 overflow-y-auto min-h-0 custom-scrollbar">
         <div className="flex items-start gap-3">
           {deviceType && (
             <button
@@ -322,7 +311,6 @@ export default function AppPickerModal({
           </div>
         )}
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

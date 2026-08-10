@@ -29,6 +29,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import BotMenuTreeEditor from "@/components/whatsapp/BotMenuTreeEditor";
 import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS } from "@/lib/apps/device-types";
+import { Modal, ModalHeader, ModalBody } from "@/components/ui/Modal";
 
 // ── Ícone WhatsApp ────────────────────────────────────────────
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -922,25 +923,17 @@ function VmMaintenanceModal({
     }
   }
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-2xl space-y-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="text-base font-medium text-foreground flex items-center gap-2">
-              <Wrench className="w-4 h-4 text-muted-foreground" /> Manutenção VM
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Tente nesta ordem: serviço primeiro, VM só se não resolver.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="space-y-3">
+    <Modal onClose={onClose} maxWidth="max-w-md">
+      <ModalHeader onClose={onClose}>
+        <h3 className="text-base font-medium text-foreground flex items-center gap-2">
+          <Wrench className="w-4 h-4 text-muted-foreground" /> Manutenção VM
+        </h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Tente nesta ordem: serviço primeiro, VM só se não resolver.
+        </p>
+      </ModalHeader>
+
+      <ModalBody className="p-6 space-y-3">
           <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
             <div className="flex items-start gap-2">
               <RotateCw className="w-4 h-4 mt-0.5 text-emerald-500" />
@@ -1021,9 +1014,8 @@ function VmMaintenanceModal({
               Hard Reset — Apagar as 2 sessões
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+        </ModalBody>
+    </Modal>
   );
 }
 

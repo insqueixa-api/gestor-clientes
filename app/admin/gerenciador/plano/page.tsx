@@ -102,12 +102,7 @@ export default function PlanosPage() {
     const matched = !q
       ? plans
       : plans.filter((p) => {
-          const hay = [
-            p.name,
-            p.currency,
-            p.is_active ? "ativa" : "inativa",
-            p.is_system_default ? "padrao do sistema" : "",
-          ]
+          const hay = [p.name, p.currency, p.is_active ? "ativa" : "inativa"]
             .join(" ")
             .toLowerCase();
 
@@ -350,15 +345,18 @@ export default function PlanosPage() {
 
       {!loading &&
         (() => {
-          const groups = [
-            {
-              key: "iptv",
-              label: "Tabela de Preço",
+          // ✅ Pedido do Márcio, 10/08/2026: um container separado por moeda
+          // (BRL/EUR/USD), na mesma ordem fixa já usada pro sort da lista.
+          const groups = Object.keys(CURRENCY_ORDER)
+            .sort((a, b) => CURRENCY_ORDER[a] - CURRENCY_ORDER[b])
+            .map((currency) => ({
+              key: currency,
+              label: currency,
               icon: <IconTV />,
               color: "text-sky-500",
-              plans: filteredPlans,
-            },
-          ].filter((g) => g.plans.length > 0);
+              plans: filteredPlans.filter((p) => p.currency === currency),
+            }))
+            .filter((g) => g.plans.length > 0);
 
           if (groups.length === 0) {
             return (
@@ -405,10 +403,7 @@ export default function PlanosPage() {
                             <div className="px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                               <div className="flex items-center gap-3">
                                 <h2 className="text-lg font-medium text-foreground tracking-tight">
-                                  {plan.is_system_default &&
-                                  plan.name.startsWith("Padrão")
-                                    ? "Padrão"
-                                    : plan.name}
+                                  {plan.name}
                                 </h2>
 
                                 <div className="flex items-center gap-2">
@@ -416,23 +411,16 @@ export default function PlanosPage() {
                                     {plan.currency}
                                   </span>
 
-                                  {plan.is_system_default ||
-                                  plan.name.startsWith("Padrão") ? (
-                                    <span className="gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight bg-sky-500/10 text-sky-500 border border-sky-500/20 shadow-sm">
-                                      Padrão do Sistema
-                                    </span>
-                                  ) : (
-                                    <span
-                                      className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold tracking-tight border shadow-sm
+                                  <span
+                                    className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold tracking-tight border shadow-sm
                                     ${
                                       plan.is_active
                                         ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                                         : "bg-muted text-muted-foreground border-border"
                                     }`}
-                                    >
-                                      {plan.is_active ? "Ativa" : "Inativa"}
-                                    </span>
-                                  )}
+                                  >
+                                    {plan.is_active ? "Ativa" : "Inativa"}
+                                  </span>
                                 </div>
                               </div>
 

@@ -20,6 +20,7 @@ import {
   DEVICE_TYPE_LABELS,
 } from "@/lib/apps/device-types";
 import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 // --- TIPOS ---
 type AppField = {
@@ -131,40 +132,11 @@ export default function AppManagerPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const modalScrollYRef = useRef(0);
-
-  useEffect(() => {
-    if (!isModalOpen) return;
-    if (typeof window === "undefined") return;
-
-    const body = document.body;
-    const html = document.documentElement;
-
-    const scrollY = window.scrollY || window.pageYOffset || 0;
-    modalScrollYRef.current = scrollY;
-
-    const prevBodyOverflow = body.style.overflow;
-    const prevBodyPosition = body.style.position;
-    const prevBodyTop = body.style.top;
-    const prevBodyWidth = body.style.width;
-    const prevHtmlOverflow = html.style.overflow;
-
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.width = "100%";
-
-    return () => {
-      html.style.overflow = prevHtmlOverflow;
-      body.style.overflow = prevBodyOverflow;
-      body.style.position = prevBodyPosition;
-      body.style.top = prevBodyTop;
-      body.style.width = prevBodyWidth;
-
-      window.scrollTo(0, modalScrollYRef.current || 0);
-    };
-  }, [isModalOpen]);
+  // ✅ Trava de scroll do fundo agora vem de graça do <Modal> (components/ui/
+  // Modal.tsx) que envolve o modal logo abaixo — tinha uma versão própria
+  // aqui antes, rodando junto com a nova; a duplicidade corrompia a posição
+  // de scroll do fundo ao fechar (mesmo bug já achado e corrigido em
+  // novo_cliente.tsx, 10/08/2026).
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
@@ -1358,33 +1330,14 @@ export default function AppManagerPage() {
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
-          onMouseDown={(e) => {
-            // ✅ onMouseDown (não onClick) + checagem do alvo exatamente no
-            // fundo — só fecha se o clique COMEÇAR no backdrop. Com onClick
-            // puro, selecionar texto dentro do modal e soltar o mouse fora
-            // fechava o modal sem querer (pedido do Márcio, 31/07/2026).
-            if (e.target === e.currentTarget) setIsModalOpen(false);
-          }}
-        >
-          <div
-            className="w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent rounded-t-xl">
-              <h2 className="text-lg font-medium text-foreground">
-                {editingId ? "Editar Aplicativo" : "Novo Aplicativo"}
-              </h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                ✕
-              </button>
-            </div>
+        <Modal onClose={() => setIsModalOpen(false)} maxWidth="max-w-3xl">
+          <ModalHeader onClose={() => setIsModalOpen(false)}>
+            <h2 className="text-lg font-medium text-foreground">
+              {editingId ? "Editar Aplicativo" : "Novo Aplicativo"}
+            </h2>
+          </ModalHeader>
 
-            <div className="flex-1 p-6 overflow-y-auto space-y-6 overscroll-contain">
+            <ModalBody className="p-6 space-y-6">
               {/* DADOS BÁSICOS */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1912,9 +1865,9 @@ export default function AppManagerPage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </ModalBody>
 
-            <div className="px-6 py-4 border-t border-border bg-transparent flex justify-end gap-2 sm:rounded-b-xl">
+            <ModalFooter>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-sm font-medium transition-colors"
@@ -1928,9 +1881,8 @@ export default function AppManagerPage() {
               >
                 {saving ? "Salvando..." : "Salvar Configuração"}
               </button>
-            </div>
-          </div>
-        </div>
+            </ModalFooter>
+        </Modal>
       )}
     </div>
   );

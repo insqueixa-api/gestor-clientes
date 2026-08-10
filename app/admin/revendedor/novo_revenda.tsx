@@ -3,11 +3,11 @@
 import { Loader2 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 // --- HELPERS DE TELEFONE E PAÍSES (alinhados com NovoCliente) ---
 type DdiOption = { code: string; label: string; flag: string };
@@ -602,18 +602,15 @@ export default function ResellerFormModal({
     }
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-hidden overscroll-contain animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 transition-colors">
-        {/* HEADER */}
-        <div className="px-6 py-4 border-b bg-transparent shrink-0 rounded-t-xl">
-          <h2 className="text-lg font-semibold text-foreground">
-            {isEditing ? "Editar Revenda" : "Nova Revenda"}
-          </h2>
-        </div>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h2 className="text-lg font-medium text-foreground">
+          {isEditing ? "Editar Revenda" : "Nova Revenda"}
+        </h2>
+      </ModalHeader>
 
-        {/* BODY */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-6 space-y-6">
+        <ModalBody className="p-6 space-y-6">
           {submitAttempted && errors.length > 0 && (
             <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-medium animate-in slide-in-from-top-2">
               <ul className="list-disc pl-4 space-y-0.5">
@@ -761,10 +758,9 @@ export default function ResellerFormModal({
               placeholder="Anotações sobre este revendedor..."
             />
           </div>
-        </div>
+        </ModalBody>
 
-        {/* FOOTER FIXO */}
-        <div className="px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t bg-transparent shrink-0 sm:rounded-b-xl flex justify-end gap-3">
+        <ModalFooter>
           <button
             onClick={onClose}
             className="px-4 h-10 rounded-lg border border-border text-foreground/90 text-sm font-semibold hover:bg-muted transition"
@@ -779,9 +775,7 @@ export default function ResellerFormModal({
           >
             {loading ? "Salvando..." : "Salvar"}
           </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
+        </ModalFooter>
+    </Modal>
   );
 }

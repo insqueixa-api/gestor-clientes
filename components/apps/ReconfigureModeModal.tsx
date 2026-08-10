@@ -5,8 +5,8 @@
 // (gera uma configuração nova, sorteando outra DNS do servidor) ao
 // reconfigurar um app — usado tanto no admin (novo_cliente.tsx) quanto no
 // portal do cliente (renew-beta). Pedido do Márcio (28/07/2026).
-import { createPortal } from "react-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { Modal } from "@/components/ui/Modal";
 
 export type ReconfigureMode = "principal" | "secundaria";
 
@@ -21,9 +21,6 @@ export default function ReconfigureModeModal({
   onChoose: (mode: ReconfigureMode) => void;
   appName: string;
 }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -33,19 +30,11 @@ export default function ReconfigureModeModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!mounted || !open) return null;
+  if (!open) return null;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
-      >
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-md" zIndex="z-[100000]">
+      <div className="p-6 overflow-y-auto min-h-0 custom-scrollbar">
         <h3 className="text-lg font-bold text-foreground mb-1">
           Reconfigurar {appName}
         </h3>
@@ -88,7 +77,6 @@ export default function ReconfigureModeModal({
           Cancelar
         </button>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

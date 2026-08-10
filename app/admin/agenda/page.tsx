@@ -23,13 +23,17 @@ import {
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
-import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useSearchParams, useRouter } from "next/navigation";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import Pagination from "@/components/ui/Pagination";
+import {
+  Modal as SharedModal,
+  ModalHeader,
+  ModalBody,
+} from "@/components/ui/Modal";
 
 // ─── TIPOS ───────────────────────────────────────────────────────────────────
 type ContactItem = { label: string; value: string };
@@ -2005,7 +2009,7 @@ function AgendaPageContent() {
           title={editModal.contact ? "Editar Contato" : "Novo Contato"}
           onClose={() => setEditModal({ open: false, contact: null })}
         >
-          <div className="space-y-5 max-h-[80vh] overflow-y-auto px-1 pb-4">
+          <div className="space-y-5">
             {/* Foto clicável */}
             <div
               className="flex justify-center mb-2 relative group w-24 h-24 mx-auto cursor-pointer"
@@ -2707,33 +2711,13 @@ function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center p-4 z-[99999]"
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent shrink-0">
-          <div className="font-medium text-foreground">{title}</div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <IconX />
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-card">
-          {children}
-        </div>
-      </div>
-    </div>,
-    document.body,
+  return (
+    <SharedModal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <div className="font-medium text-foreground">{title}</div>
+      </ModalHeader>
+      <ModalBody className="p-4 bg-card">{children}</ModalBody>
+    </SharedModal>
   );
 }
 

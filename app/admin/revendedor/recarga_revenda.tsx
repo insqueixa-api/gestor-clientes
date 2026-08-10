@@ -3,10 +3,10 @@
 import { Loader2 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
+import { Modal, ModalHeader, ModalBody } from "@/components/ui/Modal";
 
 type Currency = "BRL" | "USD" | "EUR";
 
@@ -676,32 +676,18 @@ export default function QuickRechargeModal({
     }
   }
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden transition-colors">
-        {/* HEADER */}
-        <div className="px-6 py-4 border-b border-border flex justify-between items-center bg-transparent">
-          <div>
-            <h2 className="text-lg font-medium text-foreground tracking-tight">
-              Recarga rápida
-            </h2>
-            <div className="text-xs text-muted-foreground mt-0.5 font-medium">
-              {resellerName}
-            </div>
-          </div>
-
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Fechar"
-            type="button"
-          >
-            ✕
-          </button>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h2 className="text-lg font-medium text-foreground tracking-tight">
+          Recarga rápida
+        </h2>
+        <div className="text-xs text-muted-foreground mt-0.5 font-medium">
+          {resellerName}
         </div>
+      </ModalHeader>
 
-        {/* BODY */}
-        <div className="flex-1 min-h-0 p-6 space-y-6 overflow-y-auto bg-card">
+        <ModalBody className="p-6 space-y-6 bg-card">
           {loadErr && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-medium">Erro:</span> {loadErr}
@@ -955,10 +941,8 @@ export default function QuickRechargeModal({
               </div>
             </div>
           )}
-        </div>
-      </div>
-    </div>,
-    typeof document !== "undefined" ? document.body : null,
+        </ModalBody>
+    </Modal>
   );
 }
 

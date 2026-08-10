@@ -9,6 +9,11 @@ import { forwardRef, useImperativeHandle, useState } from "react";
 import { Bell, Pencil, Trash2, ThumbsUp, ThumbsDown, X } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
+import {
+  Modal as SharedModal,
+  ModalHeader,
+  ModalBody,
+} from "@/components/ui/Modal";
 
 export type ClientAlertBellHandle = {
   openList: () => void;
@@ -60,20 +65,12 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
-      <div className="w-full max-w-md bg-card rounded-2xl shadow-2xl border border-border max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <h3 className="font-bold text-foreground">{title}</h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="p-5 overflow-y-auto">{children}</div>
-      </div>
-    </div>
+    <SharedModal onClose={onClose} maxWidth="max-w-lg">
+      <ModalHeader onClose={onClose}>
+        <h3 className="font-medium text-foreground">{title}</h3>
+      </ModalHeader>
+      <ModalBody className="p-5">{children}</ModalBody>
+    </SharedModal>
   );
 }
 

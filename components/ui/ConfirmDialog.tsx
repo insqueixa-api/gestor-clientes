@@ -2,7 +2,7 @@
 // components/ui/ConfirmDialog.tsx
 
 import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { Modal } from "@/components/ui/Modal";
 
 type Tone = "emerald" | "rose" | "amber" | "sky" | "slate";
 
@@ -73,10 +73,6 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -86,21 +82,13 @@ export default function ConfirmDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onCancel]);
 
-  if (!mounted || !open) return null;
+  if (!open) return null;
 
   const t = toneClasses(tone);
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 duration-200"
-      >
+  return (
+    <Modal onClose={onCancel} maxWidth="max-w-sm" zIndex="z-[100000]">
+      <div className="p-6 flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <div
             className={`w-12 h-12 rounded-full ${t.iconBg} flex items-center justify-center text-2xl`}
@@ -175,7 +163,6 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

@@ -10,6 +10,11 @@ import { TenantProvider } from "@/lib/tenant-context";
 import { usePathname } from "next/navigation";
 import React from "react";
 import {
+  Modal as SharedModal,
+  ModalHeader,
+  ModalBody,
+} from "@/components/ui/Modal";
+import {
   LayoutDashboard,
   Users,
   Tv,
@@ -1079,31 +1084,13 @@ function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center p-4 z-[99999]"
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-transparent shrink-0">
-          <div className="font-medium text-foreground">{title}</div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="p-4 overflow-y-auto flex-1 min-h-0">{children}</div>
-      </div>
-    </div>,
-    document.body,
+  return (
+    <SharedModal onClose={onClose} maxWidth="max-w-lg">
+      <ModalHeader onClose={onClose}>
+        <div className="font-medium text-foreground">{title}</div>
+      </ModalHeader>
+      <ModalBody>{children}</ModalBody>
+    </SharedModal>
   );
 }
 

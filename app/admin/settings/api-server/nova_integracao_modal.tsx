@@ -2,9 +2,9 @@
 // app/admin/settings/api-server/nova_integracao_modal.tsx
 
 import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 export type IntegrationProvider = "NATV" | "FAST" | "ELITE";
 
@@ -185,36 +185,20 @@ export default function NovaIntegracaoModal({
     }
   }
 
-  const modal = (
-    <div className="fixed inset-0 z-[999999] flex items-center justify-center px-3">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onMouseDown={onClose}
-      />
-      <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="p-5 border-b border-border bg-transparent shrink-0">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight truncate">
-                {isEdit ? "Editar Integração" : "Nova Integração"}
-              </h2>
-              <p className="text-xs sm:text-sm text-foreground/70 mt-1">
-                {isEdit
-                  ? "Atualize os dados da integração (token/secret ficam visíveis para facilitar manutenção)."
-                  : "Cadastre a integração para automatizações e consulta de saldo."}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="h-9 px-3 rounded-lg border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"
-              type="button"
-            >
-              Fechar
-            </button>
-          </div>
-        </div>
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h2 className="text-base sm:text-lg font-medium text-foreground tracking-tight truncate">
+          {isEdit ? "Editar Integração" : "Nova Integração"}
+        </h2>
+        <p className="text-xs sm:text-sm text-foreground/70 mt-1">
+          {isEdit
+            ? "Atualize os dados da integração (token/secret ficam visíveis para facilitar manutenção)."
+            : "Cadastre a integração para automatizações e consulta de saldo."}
+        </p>
+      </ModalHeader>
 
-        <div className="p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+        <ModalBody className="p-5 space-y-4">
           <div>
             <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
               Servidor
@@ -390,9 +374,9 @@ export default function NovaIntegracaoModal({
                 : "Esse valor fica visível para facilitar manutenção."}
             </p>
           </div>
-        </div>
+        </ModalBody>
 
-        <div className="p-5 border-t border-border bg-transparent flex items-center justify-end gap-2 shrink-0">
+        <ModalFooter>
           <button
             onClick={onClose}
             className="h-10 px-4 rounded-xl border border-border bg-muted text-muted-foreground text-xs font-medium hover:bg-muted/70 transition-colors"
@@ -414,10 +398,7 @@ export default function NovaIntegracaoModal({
           >
             {saving ? "Salvando..." : "Salvar"}
           </button>
-        </div>
-      </div>
-    </div>
+        </ModalFooter>
+    </Modal>
   );
-
-  return createPortal(modal, document.body);
 }

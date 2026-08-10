@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import {
   CHECK_VALIDITY_HANDLERS,
@@ -75,9 +75,6 @@ export default function AppRequestModal({
   addToast: ToastFn;
   confirm: ConfirmFn;
 }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<LoadedData | null>(null);
   const [busy, setBusy] = useState(false);
@@ -760,8 +757,6 @@ export default function AppRequestModal({
     }
   }
 
-  if (!mounted) return null;
-
   const isClouddy = data?.integrationType === "CLOUDDY";
   const hasApiIntegration = !!data?.handler?.useApi;
   const canCheck =
@@ -769,15 +764,9 @@ export default function AppRequestModal({
       ? CHECK_VALIDITY_HANDLERS.has(data.handler!.actionPrefix)
       : false;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
-      >
+  return (
+    <Modal onClose={onClose} maxWidth="max-w-lg" zIndex="z-[100000]">
+      <div className="p-6 overflow-y-auto min-h-0 custom-scrollbar">
         <h3 className="text-lg font-bold mb-3">
           {action === "removal"
             ? "Pedido de exclusão"
@@ -939,7 +928,6 @@ export default function AppRequestModal({
           </div>
         )}
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

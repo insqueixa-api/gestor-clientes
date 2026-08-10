@@ -17,10 +17,14 @@ import {
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import {
+  Modal as SharedModal,
+  ModalHeader,
+  ModalBody,
+} from "@/components/ui/Modal";
 
 // --- HOOKS CUSTOMIZADOS ---
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ ADICIONADO: Importação obrigatória
@@ -2150,33 +2154,15 @@ function Modal({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm grid place-items-center z-[99999] p-4 animate-in fade-in duration-200"
-    >
-      <div
-        onMouseDown={(e) => e.stopPropagation()}
-        className="w-full max-w-xl max-h-[90vh] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300"
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-transparent shrink-0">
-          <div className="font-medium text-foreground tracking-tight">
-            {title}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
-          >
-            <IconX />
-          </button>
+  return (
+    <SharedModal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <div className="font-medium text-foreground tracking-tight">
+          {title}
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto p-6">{children}</div>
-      </div>
-    </div>,
-    document.body,
+      </ModalHeader>
+      <ModalBody className="p-6">{children}</ModalBody>
+    </SharedModal>
   );
 }
 
