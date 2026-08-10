@@ -129,6 +129,7 @@ async function consultarOperadoraExterna(
       "36": "Oi", // Telemar Fixo
       "38": "Vivo", // GVT Fixo
       "40": "TIM", // TIM Fixo
+      "78": "Claro", // confirmado em 10/08/2026 via consultanumero.abrtelecom.com.br
     };
 
     return mapOperadoras[codigoDaOperadora] || "Celular/Fixo";
