@@ -1078,14 +1078,47 @@ export default function ClientDetailsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-0 sm:px-0">
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4">
-          {/* 1. CARD CONTATOS E OBSERVAÇÕES */}
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-4 tracking-widest">
-              Contatos e observações
+          {/* 1. CARD ASSINATURA ATUAL */}
+          <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
+            <h3 className="text-[10px] font-medium text-foreground/80 uppercase mb-3 tracking-widest">
+              Assinatura atual
             </h3>
 
             <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-border">
+              {/* BLOCO DE ACESSO (Sem bordas internas) */}
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-medium">
+                  Servidor
+                </span>
+                <span className="font-medium text-foreground text-right">
+                  {client.server_name}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pb-3 border-b border-border">
+                <span className="text-muted-foreground font-medium">
+                  Tecnologia
+                </span>
+                {(() => {
+                  const tech = client.technology || "";
+                  const t = tech.toUpperCase();
+                  const colors =
+                    t === "IPTV"
+                      ? "bg-sky-500/10 text-sky-500 border-sky-500/20"
+                      : t === "P2P"
+                        ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                        : "bg-muted text-muted-foreground border-border";
+                  return (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}
+                    >
+                      {client.technology || "—"}
+                    </span>
+                  );
+                })()}
+              </div>
+
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground font-medium">
                   Data do Cadastro
                 </span>
@@ -1098,91 +1131,134 @@ export default function ClientDetailsPage() {
                 </span>
               </div>
 
-              {/* ✅ Foto salva na Agenda, ocupando as 3 linhas de identificação */}
-              <div className="flex gap-3 items-stretch pb-1">
-                <div className="shrink-0 flex flex-col items-center justify-center gap-1.5">
-                  <div className="w-14 h-14 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
-                    {primaryContact?.avatar_url ? (
-                      <img
-                        src={primaryContact.avatar_url}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground text-lg font-medium">
-                        {(client.client_name || "?").charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleSyncPhoto("primary")}
-                    disabled={syncingPhoto === "primary"}
-                    title="Atualizar foto (busca de novo no WhatsApp e salva na Agenda)"
-                    className="w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
+              {/* Tabela (com o período do plano no parêntese) */}
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-medium">
+                  Tabela
+                </span>
+                <span className="font-medium text-foreground/90 tracking-tight text-right">
+                  {tableLabelFromClient(client)}{" "}
+                  <span className="text-emerald-500">
+                    ({extractPeriod(client.plan_name)})
+                  </span>
+                </span>
+              </div>
+
+              {/* Valor (com a quantidade de telas no parêntese) */}
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-medium">Valor</span>
+                <span
+                  className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                >
+                  {fmtMoney(client.price_amount, client.price_currency)}{" "}
+                  <span className="text-muted-foreground/70 font-normal">
+                    ({client.screens} Tela{client.screens === 1 ? "" : "s"})
+                  </span>
+                </span>
+              </div>
+
+              {/* VENCIMENTO — badge dentro do badge */}
+              <div className="pt-2">
+                <div className="flex justify-between items-center bg-transparent p-3 rounded-lg border border-border mt-1">
+                  <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
+                    Vencimento
+                  </span>
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-lg border text-sm font-semibold transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${client.computed_status === "OVERDUE" ? "bg-rose-500/10 text-rose-500 border-rose-500/20" : client.computed_status === "ACTIVE" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-muted text-muted-foreground border-border"}`}
                   >
-                    {syncingPhoto === "primary" ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <RefreshCcw size={12} />
-                    )}
-                  </button>
+                    {client.vencimento ? fmtDateTime(client.vencimento) : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. CARD CONTATOS E APLICATIVOS */}
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-4 tracking-widest">
+              Contatos e aplicativos
+            </h3>
+
+            <div className="space-y-3 text-sm">
+              {/* Contato Principal — mesmo formato/tamanho do Secundário */}
+              <div className="bg-transparent p-3 rounded-lg border border-border">
+                <div className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-2 tracking-widest">
+                  Contato Principal
                 </div>
 
-                <div className="flex-1 min-w-0 space-y-3">
-                  <div className="flex justify-between items-center pb-2 border-b border-border">
-                    <span className="text-muted-foreground font-medium">
-                      Nome do Cliente
-                    </span>
-                    <span className="font-medium text-foreground text-right">
-                      {client.client_name}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center pb-2 border-b border-border">
-                    <span className="text-muted-foreground font-medium">
-                      Telefone Principal
-                    </span>
-                    <span
-                      className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
-                    >
-                      {formatPhoneDisplay(client.whatsapp_e164)}
-                    </span>
-                  </div>
-
-                  {/* WhatsApp Principal com Link */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground font-medium">
-                      WhatsApp Principal
-                    </span>
-                    <span
-                      className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
-                    >
-                      {client.whatsapp_username ? (
-                        <a
-                          href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
-                        >
-                          <IconWhatsapp />@{client.whatsapp_username}
-                        </a>
-                      ) : client.whatsapp_e164 ? (
-                        <a
-                          href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
-                        >
-                          <IconWhatsapp />
-                          {formatPhoneDisplay(client.whatsapp_e164)}
-                        </a>
+                <div className="flex gap-2.5 items-stretch">
+                  <div className="shrink-0 flex flex-col items-center justify-center gap-1">
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
+                      {primaryContact?.avatar_url ? (
+                        <img
+                          src={primaryContact.avatar_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
-                        <span className="text-muted-foreground italic text-sm text-right">
-                          Não informado
+                        <span className="text-muted-foreground text-xs font-medium">
+                          {(client.client_name || "?").charAt(0).toUpperCase()}
                         </span>
                       )}
-                    </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSyncPhoto("primary")}
+                      disabled={syncingPhoto === "primary"}
+                      title="Atualizar foto (busca de novo no WhatsApp e salva na Agenda)"
+                      className="w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
+                    >
+                      {syncingPhoto === "primary" ? (
+                        <Loader2 size={10} className="animate-spin" />
+                      ) : (
+                        <RefreshCcw size={10} />
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-muted-foreground">
+                        Nome
+                      </span>
+                      <span className="text-xs font-medium text-foreground/90 text-right">
+                        {client.client_name}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-xs text-muted-foreground">
+                        WhatsApp
+                      </span>
+                      <span
+                        className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                      >
+                        {client.whatsapp_username ? (
+                          <a
+                            href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 text-emerald-500 font-medium text-xs hover:underline text-right"
+                          >
+                            <IconWhatsapp />@{client.whatsapp_username}
+                          </a>
+                        ) : client.whatsapp_e164 ? (
+                          <a
+                            href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 text-emerald-500 font-medium text-xs hover:underline text-right"
+                          >
+                            <IconWhatsapp />
+                            {formatPhoneDisplay(client.whatsapp_e164)}
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground italic text-xs text-right">
+                            Não informado
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1191,7 +1267,7 @@ export default function ClientDetailsPage() {
               {(client.secondary_display_name ||
                 client.secondary_phone_e164 ||
                 client.secondary_whatsapp_username) && (
-                <div className="bg-transparent p-3 rounded-lg border border-border mt-2 mb-2">
+                <div className="bg-transparent p-3 rounded-lg border border-border">
                   <div className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-2 tracking-widest">
                     Contato Secundário
                   </div>
@@ -1232,7 +1308,7 @@ export default function ClientDetailsPage() {
                       {client.secondary_display_name && (
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-xs text-muted-foreground">
-                            Nome Secundário
+                            Nome
                           </span>
                           <span className="text-xs font-medium text-foreground/90 text-right">
                             {client.secondary_display_name}
@@ -1243,7 +1319,7 @@ export default function ClientDetailsPage() {
                       {client.secondary_phone_e164 && (
                         <div className="flex justify-between items-center mb-1">
                           <span className="text-xs text-muted-foreground">
-                            WhatsApp Secundário
+                            WhatsApp
                           </span>
                           <a
                             href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
@@ -1264,6 +1340,74 @@ export default function ClientDetailsPage() {
                   </div>
                 </div>
               )}
+
+              {/* Aplicativos — mesmo formato de badge dos contatos */}
+              {(client as any).apps_details &&
+                (client as any).apps_details.length > 0 && (
+                  <div className="bg-transparent p-3 rounded-lg border border-border">
+                    <div className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-2 tracking-widest">
+                      Aplicativos
+                    </div>
+                    <div className="space-y-2">
+                      {(client as any).apps_details.map((app: any) => {
+                        // ✅ Verifica se o vencimento é inferior a 30 dias (ou se já venceu)
+                        const expirationDatePart = app.expiration
+                          ? String(app.expiration).split("T")[0]
+                          : "";
+                        const isExpiringSoon =
+                          expirationDatePart &&
+                          (new Date(
+                            `${expirationDatePart}T12:00:00`,
+                          ).getTime() -
+                            Date.now()) /
+                            86400000 <
+                            30;
+
+                        return (
+                          <div
+                            key={app.id || app.name + Math.random()}
+                            className="flex justify-between items-center"
+                          >
+                            <span
+                              className="text-xs text-muted-foreground flex items-center gap-1.5"
+                              title={app.name}
+                            >
+                              {app.icon_url ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedAppIcon({
+                                      url: app.icon_url,
+                                      name: app.name,
+                                    })
+                                  }
+                                  className="shrink-0 rounded overflow-hidden active:scale-95 transition-transform"
+                                  title={`Ampliar ícone: ${app.name}`}
+                                >
+                                  <img
+                                    src={app.icon_url}
+                                    alt=""
+                                    className="w-5 h-5 rounded object-cover"
+                                  />
+                                </button>
+                              ) : (
+                                <span className="text-[11px]">📱</span>
+                              )}
+                              {app.name}
+                            </span>
+                            <span
+                              className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-emerald-500 font-medium") : "text-muted-foreground/60 italic"}`}
+                            >
+                              {expirationDatePart
+                                ? `Vence: ${new Date(`${expirationDatePart}T12:00:00-03:00`).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
+                                : "Vencimento: Não definido"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
               {/* ✅ AJUSTE: Receber Msg? na mesma linha */}
               <div className="flex justify-between items-center py-1">
@@ -1294,179 +1438,6 @@ export default function ClientDetailsPage() {
                   </span>
                 </div>
               )}
-
-              <div className="pt-2">
-                <div className="text-[11px] font-medium text-muted-foreground/60 mb-1.5">
-                  Observações
-                </div>
-                <div className="text-foreground/90 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
-                  {client.notes ? (
-                    client.notes
-                  ) : (
-                    <span className="italic text-muted-foreground">
-                      Sem observações registradas.
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 2. CARD ASSINATURA ATUAL */}
-          <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[10px] font-medium text-foreground/80 uppercase mb-3 tracking-widest">
-              Assinatura atual
-            </h3>
-
-            <div className="space-y-3 text-sm">
-              {/* BLOCO DE ACESSO (Sem bordas internas) */}
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">
-                  Servidor
-                </span>
-                <span className="font-medium text-foreground text-right">
-                  {client.server_name}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">
-                  Tecnologia
-                </span>
-                {(() => {
-                  const tech = client.technology || "";
-                  const t = tech.toUpperCase();
-                  const colors =
-                    t === "IPTV"
-                      ? "bg-sky-500/10 text-sky-500 border-sky-500/20"
-                      : t === "P2P"
-                        ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                        : "bg-muted text-muted-foreground border-border";
-                  return (
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}
-                    >
-                      {client.technology || "—"}
-                    </span>
-                  );
-                })()}
-              </div>
-
-              {/* LISTA DE APPS (Com Vencimento Real do Banco - Suportando Múltiplos) */}
-              {(client as any).apps_details &&
-                (client as any).apps_details.length > 0 && (
-                  <div className="space-y-3 pt-1">
-                    {(client as any).apps_details.map((app: any) => {
-                      // ✅ Verifica se o vencimento é inferior a 30 dias (ou se já venceu)
-                      const expirationDatePart = app.expiration
-                        ? String(app.expiration).split("T")[0]
-                        : "";
-                      const isExpiringSoon =
-                        expirationDatePart &&
-                        (new Date(`${expirationDatePart}T12:00:00`).getTime() -
-                          Date.now()) /
-                          86400000 <
-                          30;
-
-                      return (
-                        <div
-                          key={app.id || app.name + Math.random()}
-                          className="flex justify-between items-center"
-                        >
-                          <span
-                            className="text-muted-foreground font-medium flex items-center gap-1.5"
-                            title={app.name}
-                          >
-                            {app.icon_url ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandedAppIcon({
-                                    url: app.icon_url,
-                                    name: app.name,
-                                  })
-                                }
-                                className="shrink-0 rounded overflow-hidden active:scale-95 transition-transform"
-                                title={`Ampliar ícone: ${app.name}`}
-                              >
-                                <img
-                                  src={app.icon_url}
-                                  alt=""
-                                  className="w-6 h-6 rounded object-cover"
-                                />
-                              </button>
-                            ) : (
-                              <span className="text-[11px]">📱</span>
-                            )}
-                            {app.name}
-                          </span>
-                          <span
-                            className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-emerald-500 font-medium") : "text-muted-foreground/60 italic"}`}
-                          >
-                            {expirationDatePart
-                              ? `Vence: ${new Date(`${expirationDatePart}T12:00:00-03:00`).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
-                              : "Vencimento: Não definido"}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-              {/* DIVISOR FINANCEIRO (Com margem ajustada) */}
-              <div className="pt-3 pb-1">
-                <div className="border-t border-border mb-3"></div>
-                <div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">
-                  Financeiro
-                </div>
-              </div>
-
-              {/* BLOCO FINANCEIRO (Sem bordas internas) */}
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">
-                  Tabela
-                </span>
-                <span className="font-medium text-foreground/90 tracking-tight text-right">
-                  {tableLabelFromClient(client)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">Plano</span>
-                <span className="font-medium text-emerald-500 tracking-tight">
-                  {extractPeriod(client.plan_name)}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">Telas</span>
-                <span className="font-medium text-foreground">
-                  {client.screens}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">Valor</span>
-                <span
-                  className={`font-medium text-foreground bg-transparent px-2 py-0.5 rounded-md transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
-                >
-                  {fmtMoney(client.price_amount, client.price_currency)}
-                </span>
-              </div>
-
-              {/* VENCIMENTO GERAL DESTACADO */}
-              <div className="pt-2">
-                <div className="flex justify-between items-center bg-transparent p-3 rounded-lg border border-border mt-1">
-                  <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
-                    Vencimento
-                  </span>
-                  <div
-                    className={`text-right font-medium text-base transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""} ${client.computed_status === "OVERDUE" ? "text-rose-500" : client.computed_status === "ACTIVE" ? "text-emerald-500" : "text-muted-foreground"}`}
-                  >
-                    {client.vencimento ? fmtDateTime(client.vencimento) : "—"}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1538,6 +1509,22 @@ export default function ClientDetailsPage() {
               visíveis pro bot). Os demais são elegíveis mas não aparecem
               sozinhos no WhatsApp.
             </p>
+          </div>
+
+          {/* 4. CARD OBSERVAÇÕES */}
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-3 tracking-widest">
+              Observações
+            </h3>
+            <div className="text-foreground/90 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
+              {client.notes ? (
+                client.notes
+              ) : (
+                <span className="italic text-muted-foreground">
+                  Sem observações registradas.
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
