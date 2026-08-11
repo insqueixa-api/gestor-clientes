@@ -330,6 +330,20 @@ export default function ClientDetailsPage() {
   const [loadingCoupons, setLoadingCoupons] = useState(false);
   const [showCupomModal, setShowCupomModal] = useState(false);
 
+  // --- FOTO DA AGENDA (principal/secundário) ---
+  type AgendaContactRef = {
+    id: string;
+    avatar_url: string | null;
+    google_resource_name: string | null;
+  };
+  const [primaryContact, setPrimaryContact] =
+    useState<AgendaContactRef | null>(null);
+  const [secondaryContact, setSecondaryContact] =
+    useState<AgendaContactRef | null>(null);
+  const [syncingPhoto, setSyncingPhoto] = useState<
+    "primary" | "secondary" | null
+  >(null);
+
   async function handleDeleteEvent(item: TimelineItem) {
     const ok = await confirm({
       tone: "rose",
@@ -393,6 +407,105 @@ export default function ClientDetailsPage() {
     if (!until) return false;
     return new Date(until).getTime() > Date.now();
   }, [client?.dont_message_until]);
+
+  // ✅ Busca o contato correspondente na Agenda (Google) pra mostrar a foto
+  // já salva — comparação pelos últimos 9 dígitos, mesma convenção usada em
+  // novo_cliente.tsx (o mesmo número pode estar salvo com formatação
+  // diferente em registros antigos).
+  async function findAgendaContact(
+    tid: string,
+    e164: string | null | undefined,
+  ): Promise<AgendaContactRef | null> {
+    const tail = String(e164 || "").replace(/\D+/g, "").slice(-9);
+    if (tail.length < 8) return null;
+    const { data } = await supabaseBrowser
+      .from("google_contacts")
+      .select("id, avatar_url, google_resource_name")
+      .eq("tenant_id", tid)
+      .like("phone_e164", `%${tail}`)
+      .order("synced_at", { ascending: false })
+      .limit(1);
+    return (data?.[0] as AgendaContactRef) || null;
+  }
+
+  useEffect(() => {
+    if (!tenantId || !client) {
+      setPrimaryContact(null);
+      setSecondaryContact(null);
+      return;
+    }
+    findAgendaContact(tenantId, client.whatsapp_e164).then(setPrimaryContact);
+    if (client.secondary_phone_e164) {
+      findAgendaContact(tenantId, client.secondary_phone_e164).then(
+        setSecondaryContact,
+      );
+    } else {
+      setSecondaryContact(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId, client?.whatsapp_e164, client?.secondary_phone_e164]);
+
+  // ✅ Botão "atualizar foto": revalida no WhatsApp (com fallback de sessão,
+  // já embutido nas rotas) e sobrescreve a foto salva no Google + aqui — é
+  // a mesma lógica que roda na criação/edição do cliente, só que sob
+  // demanda em vez de automática. Sem contato na Agenda ainda, não tem o
+  // que atualizar (a busca de foto exige google_resource_name).
+  async function handleSyncPhoto(which: "primary" | "secondary") {
+    const contact = which === "primary" ? primaryContact : secondaryContact;
+    const e164 =
+      which === "primary" ? client?.whatsapp_e164 : client?.secondary_phone_e164;
+    if (!contact) {
+      addToast(
+        "error",
+        "Sem contato na Agenda",
+        "Esse telefone ainda não tem contato salvo na Agenda — crie/sincronize primeiro.",
+      );
+      return;
+    }
+    if (!e164) return;
+
+    setSyncingPhoto(which);
+    try {
+      const vRes = await fetch("/api/whatsapp/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: String(e164).replace(/\D+/g, "") }),
+      });
+      const vData = await vRes.json().catch(() => ({}));
+      if (!vData?.exists || !vData?.jid) {
+        addToast(
+          "error",
+          "Sem WhatsApp",
+          "Esse número não foi encontrado no WhatsApp.",
+        );
+        return;
+      }
+
+      const pRes = await fetch("/api/whatsapp/contact-photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contact_id: contact.id, jid: vData.jid }),
+      });
+      const pData = await pRes.json().catch(() => ({}));
+      if (!pRes.ok) {
+        addToast(
+          "error",
+          "Falha ao atualizar foto",
+          pData?.error || "Não foi possível buscar a foto no WhatsApp.",
+        );
+        return;
+      }
+
+      const updated = { ...contact, avatar_url: pData.avatar_url };
+      if (which === "primary") setPrimaryContact(updated);
+      else setSecondaryContact(updated);
+      addToast("success", "Foto atualizada", "Salva na Agenda também.");
+    } catch (e: any) {
+      addToast("error", "Erro", e?.message || "Falha ao atualizar foto.");
+    } finally {
+      setSyncingPhoto(null);
+    }
+  }
 
   async function loadData() {
     if (!clientIdSafe) return;
@@ -965,7 +1078,241 @@ export default function ClientDetailsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-0 sm:px-0">
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4">
-          {/* 1. CARD ASSINATURA ATUAL */}
+          {/* 1. CARD CONTATOS E OBSERVAÇÕES */}
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-4 tracking-widest">
+              Contatos e observações
+            </h3>
+
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <span className="text-muted-foreground font-medium">
+                  Data do Cadastro
+                </span>
+                <span className="font-medium text-foreground text-right">
+                  {client.created_at
+                    ? new Date(client.created_at).toLocaleDateString("pt-BR", {
+                        timeZone: "America/Sao_Paulo",
+                      })
+                    : "—"}
+                </span>
+              </div>
+
+              {/* ✅ Foto salva na Agenda, ocupando as 3 linhas de identificação */}
+              <div className="flex gap-3 items-stretch pb-1">
+                <div className="shrink-0 flex flex-col items-center justify-center gap-1.5">
+                  <div className="w-14 h-14 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
+                    {primaryContact?.avatar_url ? (
+                      <img
+                        src={primaryContact.avatar_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground text-lg font-medium">
+                        {(client.client_name || "?").charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSyncPhoto("primary")}
+                    disabled={syncingPhoto === "primary"}
+                    title="Atualizar foto (busca de novo no WhatsApp e salva na Agenda)"
+                    className="w-6 h-6 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
+                  >
+                    {syncingPhoto === "primary" ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <RefreshCcw size={12} />
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex-1 min-w-0 space-y-3">
+                  <div className="flex justify-between items-center pb-2 border-b border-border">
+                    <span className="text-muted-foreground font-medium">
+                      Nome do Cliente
+                    </span>
+                    <span className="font-medium text-foreground text-right">
+                      {client.client_name}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center pb-2 border-b border-border">
+                    <span className="text-muted-foreground font-medium">
+                      Telefone Principal
+                    </span>
+                    <span
+                      className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                    >
+                      {formatPhoneDisplay(client.whatsapp_e164)}
+                    </span>
+                  </div>
+
+                  {/* WhatsApp Principal com Link */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">
+                      WhatsApp Principal
+                    </span>
+                    <span
+                      className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                    >
+                      {client.whatsapp_username ? (
+                        <a
+                          href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
+                        >
+                          <IconWhatsapp />@{client.whatsapp_username}
+                        </a>
+                      ) : client.whatsapp_e164 ? (
+                        <a
+                          href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
+                        >
+                          <IconWhatsapp />
+                          {formatPhoneDisplay(client.whatsapp_e164)}
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground italic text-sm text-right">
+                          Não informado
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ✅ NOVO: Contato Secundário (Só aparece se existir) */}
+              {(client.secondary_display_name ||
+                client.secondary_phone_e164 ||
+                client.secondary_whatsapp_username) && (
+                <div className="bg-transparent p-3 rounded-lg border border-border mt-2 mb-2">
+                  <div className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-2 tracking-widest">
+                    Contato Secundário
+                  </div>
+
+                  <div className="flex gap-2.5 items-stretch">
+                    <div className="shrink-0 flex flex-col items-center justify-center gap-1">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
+                        {secondaryContact?.avatar_url ? (
+                          <img
+                            src={secondaryContact.avatar_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-xs font-medium">
+                            {(client.secondary_display_name || "?")
+                              .charAt(0)
+                              .toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSyncPhoto("secondary")}
+                        disabled={syncingPhoto === "secondary"}
+                        title="Atualizar foto (busca de novo no WhatsApp e salva na Agenda)"
+                        className="w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
+                      >
+                        {syncingPhoto === "secondary" ? (
+                          <Loader2 size={10} className="animate-spin" />
+                        ) : (
+                          <RefreshCcw size={10} />
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      {client.secondary_display_name && (
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-xs text-muted-foreground">
+                            Nome Secundário
+                          </span>
+                          <span className="text-xs font-medium text-foreground/90 text-right">
+                            {client.secondary_display_name}
+                          </span>
+                        </div>
+                      )}
+
+                      {client.secondary_phone_e164 && (
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-xs text-muted-foreground">
+                            WhatsApp Secundário
+                          </span>
+                          <a
+                            href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`inline-flex items-center gap-1.5 text-emerald-500 font-medium text-xs hover:underline text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
+                          >
+                            <IconWhatsapp />
+                            {client.secondary_whatsapp_username
+                              ? `@${client.secondary_whatsapp_username}`
+                              : formatPhoneDisplay(
+                                  client.secondary_phone_e164,
+                                )}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ✅ AJUSTE: Receber Msg? na mesma linha */}
+              <div className="flex justify-between items-center py-1">
+                <span className="text-muted-foreground font-medium">
+                  Receber Msg?
+                </span>
+                {client.whatsapp_opt_in ? (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500 text-right">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
+                    Sim
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-500 text-right">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
+                    Não
+                  </span>
+                )}
+              </div>
+
+              {/* ✅ AJUSTE: Bloqueado Até na mesma linha */}
+              {isMessageBlocked && (
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-muted-foreground font-medium">
+                    Bloqueado até
+                  </span>
+                  <span className="text-xs font-medium text-amber-500 bg-amber-500/20 px-2 py-0.5 rounded text-right">
+                    {fmtDateTime(client.dont_message_until!)}
+                  </span>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <div className="text-[11px] font-medium text-muted-foreground/60 mb-1.5">
+                  Observações
+                </div>
+                <div className="text-foreground/90 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
+                  {client.notes ? (
+                    client.notes
+                  ) : (
+                    <span className="italic text-muted-foreground">
+                      Sem observações registradas.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. CARD ASSINATURA ATUAL */}
           <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
             <h3 className="text-[10px] font-medium text-foreground/80 uppercase mb-3 tracking-widest">
               Assinatura atual
@@ -1118,169 +1465,6 @@ export default function ClientDetailsPage() {
                   >
                     {client.vencimento ? fmtDateTime(client.vencimento) : "—"}
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 2. CARD CONTATOS E OBSERVAÇÕES */}
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-foreground/80 uppercase mb-4 tracking-widest">
-              Contatos e observações
-            </h3>
-
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground font-medium">
-                  Data do Cadastro
-                </span>
-                <span className="font-medium text-foreground text-right">
-                  {client.created_at
-                    ? new Date(client.created_at).toLocaleDateString("pt-BR", {
-                        timeZone: "America/Sao_Paulo",
-                      })
-                    : "—"}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground font-medium">
-                  Nome do Cliente
-                </span>
-                <span className="font-medium text-foreground text-right">
-                  {client.client_name}
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground font-medium">
-                  Telefone Principal
-                </span>
-                <span
-                  className={`font-medium text-foreground text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
-                >
-                  {formatPhoneDisplay(client.whatsapp_e164)}
-                </span>
-              </div>
-
-              {/* WhatsApp Principal com Link */}
-              <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground font-medium">
-                  WhatsApp Principal
-                </span>
-                <span
-                  className={`transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
-                >
-                  {client.whatsapp_username ? (
-                    <a
-                      href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
-                    >
-                      <IconWhatsapp />@{client.whatsapp_username}
-                    </a>
-                  ) : client.whatsapp_e164 ? (
-                    <a
-                      href={`https://wa.me/${client.whatsapp_e164?.replace(/\D/g, "")}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1.5 text-emerald-500 font-medium hover:underline text-right"
-                    >
-                      <IconWhatsapp />
-                      {formatPhoneDisplay(client.whatsapp_e164)}
-                    </a>
-                  ) : (
-                    <span className="text-muted-foreground italic text-sm text-right">
-                      Não informado
-                    </span>
-                  )}
-                </span>
-              </div>
-
-              {/* ✅ NOVO: Contato Secundário (Só aparece se existir) */}
-              {(client.secondary_display_name ||
-                client.secondary_phone_e164 ||
-                client.secondary_whatsapp_username) && (
-                <div className="bg-transparent p-3 rounded-lg border border-border mt-2 mb-2">
-                  <div className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-2 tracking-widest">
-                    Contato Secundário
-                  </div>
-
-                  {client.secondary_display_name && (
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-muted-foreground">
-                        Nome Secundário
-                      </span>
-                      <span className="text-xs font-medium text-foreground/90 text-right">
-                        {client.secondary_display_name}
-                      </span>
-                    </div>
-                  )}
-
-                  {client.secondary_phone_e164 && (
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-muted-foreground">
-                        WhatsApp Secundário
-                      </span>
-                      <a
-                        href={`https://wa.me/${client.secondary_phone_e164.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={`inline-flex items-center gap-1.5 text-emerald-500 font-medium text-xs hover:underline text-right transition-all duration-300 ${valuesHidden ? "blur-sm select-none pointer-events-none" : ""}`}
-                      >
-                        <IconWhatsapp />
-                        {client.secondary_whatsapp_username
-                          ? `@${client.secondary_whatsapp_username}`
-                          : formatPhoneDisplay(client.secondary_phone_e164)}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ✅ AJUSTE: Receber Msg? na mesma linha */}
-              <div className="flex justify-between items-center py-1">
-                <span className="text-muted-foreground font-medium">
-                  Receber Msg?
-                </span>
-                {client.whatsapp_opt_in ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-500 text-right">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>{" "}
-                    Sim
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-500 text-right">
-                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>{" "}
-                    Não
-                  </span>
-                )}
-              </div>
-
-              {/* ✅ AJUSTE: Bloqueado Até na mesma linha */}
-              {isMessageBlocked && (
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-muted-foreground font-medium">
-                    Bloqueado até
-                  </span>
-                  <span className="text-xs font-medium text-amber-500 bg-amber-500/20 px-2 py-0.5 rounded text-right">
-                    {fmtDateTime(client.dont_message_until!)}
-                  </span>
-                </div>
-              )}
-
-              <div className="pt-2">
-                <div className="text-[11px] font-medium text-muted-foreground/60 mb-1.5">
-                  Observações
-                </div>
-                <div className="text-foreground/90 bg-transparent p-3 rounded-xl text-xs leading-relaxed border border-border min-h-[80px] whitespace-pre-wrap">
-                  {client.notes ? (
-                    client.notes
-                  ) : (
-                    <span className="italic text-muted-foreground">
-                      Sem observações registradas.
-                    </span>
-                  )}
                 </div>
               </div>
             </div>

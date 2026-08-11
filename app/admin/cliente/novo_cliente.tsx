@@ -2796,21 +2796,29 @@ export default function NovoCliente({
       const formattedName = suffix ? `${firstName} ${suffix}` : displayName;
 
       // --- Checa se o contato já existe ---
-      const { data: existingContact } = await supabaseBrowser
+      // ✅ Compara pelos ÚLTIMOS 9 DÍGITOS, não pelo phone_e164 inteiro —
+      // mesma convenção de phoneTail() em api/auth/google/create/route.ts.
+      // O mesmo número real pode estar salvo com formatações diferentes
+      // (com/sem 0 na frente, com/sem 9º dígito) em registros antigos; um
+      // match exato de string deixava passar contato existente e criava
+      // duplicata. Isso só afeta a COMPARAÇÃO — o que é salvo continua no
+      // mesmo formato de sempre.
+      const phoneTail = rawDigits.slice(-9);
+      const { data: existingMatches } = await supabaseBrowser
         .from("google_contacts")
         .select(
           "id, phones, google_resource_name, display_name, emails, labels",
         )
         .eq("tenant_id", tid)
-        .eq("phone_e164", phoneDigits)
-        .maybeSingle();
+        .like("phone_e164", `%${phoneTail}`)
+        .order("synced_at", { ascending: false })
+        .limit(1);
+      const existingContact = existingMatches?.[0] || null;
 
       if (existingContact) {
-        const existingLabels = (existingContact.labels as string[]) || [];
-        const updatedLabels = existingLabels.includes(selectedServerName)
-          ? existingLabels
-          : [...existingLabels, selectedServerName];
-
+        // ✅ Nome é o único campo que essa chamada mexe em grupo — labels
+        // vai igual ao que já estava, sem somar nem tirar nada aqui. Quem
+        // decide o grupo certo é o sync-labels-from-clients logo abaixo.
         const updateRes = await fetch("/api/auth/google/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2820,7 +2828,7 @@ export default function NovoCliente({
             display_name: formattedName, // ✅ atualiza o nome com firstName + suffix
             phones: existingContact.phones || [],
             emails: existingContact.emails || [],
-            labels: updatedLabels,
+            labels: existingContact.labels || [],
           }),
         });
 
@@ -2835,6 +2843,21 @@ export default function NovoCliente({
           });
           return;
         }
+
+        // ✅ Grupo certo — reaproveita a mesma lógica da Agenda (sync de
+        // grupos por servidor): olha os clientes ATIVOS de verdade
+        // vinculados a esse telefone e ajusta os grupos de acordo (soma o
+        // servidor novo, tira os antigos cujo cliente não existe mais
+        // ativo, mantém os que ainda existem — ex: cliente com conta em 2
+        // servidores ao mesmo tempo). Só depois do nome, pra não competir
+        // com aquele /update.
+        try {
+          await fetch("/api/auth/google/sync-labels-from-clients", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contact_ids: [existingContact.id] }),
+          });
+        } catch {}
 
         queueListToast(isTrialMode ? "trial" : "client", {
           type: "success",
@@ -2865,10 +2888,16 @@ export default function NovoCliente({
         return;
       }
 
-      // --- Contato novo: cria com label do servidor no telefone e grupo correto ---
+      // --- Contato novo: grupo = nome do servidor; telefone com label
+      // NEUTRO — esse campo hoje é o mesmo usado pra guardar operadora
+      // (Vivo/Claro/TIM), então não faz mais sentido nascer com o nome do
+      // servidor ali. Se o toggle "Operadora" estiver marcado, o bloco
+      // abaixo consulta a Telein e sobrescreve com o valor certo; se não
+      // estiver, fica "Celular" mesmo — nunca um valor de operadora
+      // inventado.
       const payload = {
         display_name: formattedName,
-        phones: [{ label: selectedServerName, value: finalE164 }],
+        phones: [{ label: "Celular", value: finalE164 }],
         emails: [],
         labels: [selectedServerName], // grupo = nome do servidor
         photo_base64: undefined,
@@ -3180,36 +3209,29 @@ export default function NovoCliente({
         if (syncOperadora) {
           setLoadingStep("Operadora...");
           try {
-            const contactIds: string[] = [];
-
-            // Busca id do contato principal
-            const rd1 = onlyDigits(finalPrimaryE164);
-            const phoneDigits1 =
-              rd1.startsWith("55") && rd1.length >= 12
-                ? "0" + rd1.slice(2)
-                : rd1;
-            const { data: contact1 } = await supabaseBrowser
-              .from("google_contacts")
-              .select("id")
-              .eq("tenant_id", tid)
-              .eq("phone_e164", phoneDigits1)
-              .maybeSingle();
-            if (contact1?.id) contactIds.push(contact1.id);
-
-            // Busca id do contato secundário
-            if (finalSecondaryE164) {
-              const rd2 = onlyDigits(finalSecondaryE164);
-              const phoneDigits2 =
-                rd2.startsWith("55") && rd2.length >= 12
-                  ? "0" + rd2.slice(2)
-                  : rd2;
-              const { data: contact2 } = await supabaseBrowser
+            // ✅ Mesma convenção de comparação da syncToGoogleAgenda: últimos
+            // 9 dígitos, não phone_e164 exato — o mesmo número real pode
+            // estar salvo com formatações diferentes em registros antigos.
+            const findContactIdByPhone = async (e164: string) => {
+              const tail = onlyDigits(e164).slice(-9);
+              const { data } = await supabaseBrowser
                 .from("google_contacts")
                 .select("id")
                 .eq("tenant_id", tid)
-                .eq("phone_e164", phoneDigits2)
-                .maybeSingle();
-              if (contact2?.id) contactIds.push(contact2.id);
+                .like("phone_e164", `%${tail}`)
+                .order("synced_at", { ascending: false })
+                .limit(1);
+              return data?.[0]?.id as string | undefined;
+            };
+
+            const contactIds: string[] = [];
+
+            const id1 = await findContactIdByPhone(finalPrimaryE164);
+            if (id1) contactIds.push(id1);
+
+            if (finalSecondaryE164) {
+              const id2 = await findContactIdByPhone(finalSecondaryE164);
+              if (id2) contactIds.push(id2);
             }
 
             if (contactIds.length > 0) {
