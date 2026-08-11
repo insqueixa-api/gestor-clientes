@@ -6,6 +6,7 @@ import {
   batchUpdatePeople,
   getGoogleAccessToken,
 } from "@/lib/google/people-batch";
+import { consultarOperadoraExterna } from "@/lib/telein";
 
 export const dynamic = "force-dynamic";
 
@@ -79,63 +80,6 @@ function inferDDI(digits: string): string {
     if (digits.startsWith(opt.code)) return opt.code;
   }
   return "55";
-}
-
-// 📡 INTEGRAÇÃO COM A TELEIN DE PORTABILIDADE/OPERADORA
-// (fica de fora do batch do Google de propósito — é uma API externa
-// diferente, com o próprio limite de taxa, então continua sendo consultada
-// telefone por telefone, com pausa entre chamadas.)
-async function consultarOperadoraExterna(
-  phoneDigits: string,
-): Promise<string | null> {
-  try {
-    const chave = (process.env.TELEIN_API_KEY || "")
-      .replace(/['"]/g, "")
-      .trim();
-    if (!chave) return null;
-
-    const numeroTratado = phoneDigits.startsWith("55")
-      ? phoneDigits.substring(2)
-      : phoneDigits;
-
-    const res = await fetch(
-      `http://consultanumero1.telein.com.br/sistema/consulta_numero.php?chave=${chave}&numero=${numeroTratado}`,
-      { signal: AbortSignal.timeout(5000) },
-    );
-
-    if (!res.ok) return null;
-
-    const textoRetorno = await res.text();
-    const partes = textoRetorno.split("#");
-
-    if (partes.length === 0) return null;
-
-    const codigoDaOperadora = partes[0].trim();
-
-    if (codigoDaOperadora.startsWith("99")) {
-      return null;
-    }
-
-    const mapOperadoras: Record<string, string> = {
-      "20": "Vivo",
-      "21": "Claro",
-      "31": "Oi",
-      "41": "TIM",
-      "12": "Algar",
-      "14": "Oi", // Antiga Brasil Telecom
-      "77": "Claro", // Antiga Nextel
-      "34": "Vivo", // Telefônica Fixo
-      "35": "Claro", // Embratel Fixo
-      "36": "Oi", // Telemar Fixo
-      "38": "Vivo", // GVT Fixo
-      "40": "TIM", // TIM Fixo
-      "78": "Claro", // confirmado em 10/08/2026 via consultanumero.abrtelecom.com.br
-    };
-
-    return mapOperadoras[codigoDaOperadora] || "Celular/Fixo";
-  } catch {
-    return null;
-  }
 }
 
 export async function POST(req: Request) {

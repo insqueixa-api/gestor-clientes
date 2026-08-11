@@ -1,6 +1,7 @@
 // app/api/auth/google/lookup-operadora/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { consultarOperadoraExterna } from "@/lib/telein";
 
 export const dynamic = "force-dynamic";
 
@@ -59,61 +60,6 @@ function inferCountryLabel(digits: string): string {
   return "Internacional";
 }
 
-// 📡 INTEGRAÇÃO COM A TELEIN DE PORTABILIDADE/OPERADORA
-async function consultarOperadoraExterna(phoneDigits: string): Promise<string | null> {
-  try {
-    // Pega estritamente a variável da Vercel e limpa qualquer aspa ou espaço acidental
-    const chave = (process.env.TELEIN_API_KEY || "").replace(/['"]/g, "").trim();
-    if (!chave) return null;
-
-    // Remove o '55' inicial se houver, pois a Telein trabalha com DDD + Número (ex: 21999999999)
-    const numeroTratado = phoneDigits.startsWith("55") ? phoneDigits.substring(2) : phoneDigits;
-
-    // Utilizando o servidor 1 da Telein com a resposta resumida
-    const res = await fetch(
-      `http://consultanumero1.telein.com.br/sistema/consulta_numero.php?chave=${chave}&numero=${numeroTratado}`,
-      { signal: AbortSignal.timeout(5000) }
-    );
-    
-    if (!res.ok) return null;
-
-    // Lê a resposta em texto puro (ex: "21#21992347771")
-    const textoRetorno = await res.text();
-    const partes = textoRetorno.split("#");
-    
-    if (partes.length === 0) return null;
-    
-    const codigoDaOperadora = partes[0].trim();
-
-    // Tratamento de erros da Telein (códigos 99, 990 a 999)
-    if (codigoDaOperadora.startsWith("99")) {
-      return null;
-    }
-
-    // Mapeamento oficial dos códigos da Telein para o nome da operadora
-    const mapOperadoras: Record<string, string> = {
-      "20": "Vivo",
-      "21": "Claro",
-      "31": "Oi",
-      "41": "TIM",
-      "12": "Algar",
-      "14": "Oi",       // Antiga Brasil Telecom
-      "77": "Claro",    // Antiga Nextel
-      "34": "Vivo",     // Telefônica Fixo
-      "35": "Claro",    // Embratel Fixo
-      "36": "Oi",       // Telemar Fixo
-      "38": "Vivo",     // GVT Fixo
-      "40": "TIM",      // TIM Fixo
-      "78": "Claro",    // confirmado em 10/08/2026 via consultanumero.abrtelecom.com.br
-    };
-
-    return mapOperadoras[codigoDaOperadora] || "Celular/Fixo";
-
-  } catch {
-    return null;
-  }
-}
-
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -131,7 +77,11 @@ export async function POST(req: Request) {
       if (national.length === 10) {
         return NextResponse.json({ operadora: "Fixo" });
       }
-      const operadora = await consultarOperadoraExterna(phone);
+      // true = ignora o cache e sempre bate na Telein: essa é a checagem
+      // manual de dentro da edição do contato — o Márcio quer forçar aqui
+      // porque pode ter havido portabilidade desde a última consulta. O
+      // cache é sobrescrito com a resposta nova (ver lib/telein.ts).
+      const operadora = await consultarOperadoraExterna(phone, true);
       if (operadora) {
         return NextResponse.json({ operadora: operadora });
       } else {
