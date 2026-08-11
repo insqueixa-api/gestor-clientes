@@ -31,6 +31,7 @@ export const MAP_OPERADORAS: Record<string, string> = {
   "38": "Vivo", // GVT Fixo
   "40": "TIM", // TIM Fixo
   "78": "Claro", // confirmado em 10/08/2026 (Sandra Santana, Hygor)
+  "82": "TIM", // confirmado em 11/08/2026 (Jackeline Elite)
 };
 
 /**
