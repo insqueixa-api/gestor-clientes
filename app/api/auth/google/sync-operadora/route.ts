@@ -249,7 +249,12 @@ export async function POST(req: Request) {
 
     // ── Grava tudo de volta no banco local numa tacada só (upsert em lote) ────
     const nowIso = new Date().toISOString();
-    const rowsToUpsert: { id: string; phones: any[]; synced_at: string }[] = [];
+    const rowsToUpsert: {
+      id: string;
+      tenant_id: string;
+      phones: any[];
+      synced_at: string;
+    }[] = [];
     for (const [resourceName, outcome] of results) {
       const contact = contacts.find(
         (c) => c.google_resource_name === resourceName,
@@ -259,6 +264,13 @@ export async function POST(req: Request) {
       if (outcome.ok) {
         rowsToUpsert.push({
           id: contact.id,
+          // ✅ obrigatório: um upsert (INSERT ... ON CONFLICT DO UPDATE) é
+          // barrado pela RLS se a linha não trouxer tenant_id — mesmo numa
+          // linha que já existe e só vai ser atualizada. Sem isso, o Google
+          // fica correto mas o banco local silenciosamente não grava nada
+          // (achado em 11/08/2026 — nenhum contato da sincronização em massa
+          // persistia localmente, sem erro visível).
+          tenant_id: tenantId,
           phones: localPhonesByResource.get(resourceName),
           synced_at: nowIso,
         });
@@ -270,9 +282,12 @@ export async function POST(req: Request) {
       }
     }
     if (rowsToUpsert.length > 0) {
-      await supabase.from("google_contacts").upsert(rowsToUpsert, {
-        onConflict: "id",
-      });
+      const { error: upsertErr } = await supabase
+        .from("google_contacts")
+        .upsert(rowsToUpsert, { onConflict: "id" });
+      if (upsertErr) {
+        errors.push(`Falha ao gravar localmente: ${upsertErr.message}`);
+      }
     }
 
     return NextResponse.json({

@@ -255,8 +255,12 @@ export async function POST(req: Request) {
     // ── Grava tudo de volta no banco local numa tacada só (upsert em lote) ────
     let updatedCount = 0;
     const nowIso = new Date().toISOString();
-    const rowsToUpsert: { id: string; labels: string[]; synced_at: string }[] =
-      [];
+    const rowsToUpsert: {
+      id: string;
+      tenant_id: string;
+      labels: string[];
+      synced_at: string;
+    }[] = [];
     for (const [resourceName, outcome] of results) {
       const p = pending.find(
         (x) => x.contact.google_resource_name === resourceName,
@@ -266,6 +270,10 @@ export async function POST(req: Request) {
       if (outcome.ok) {
         rowsToUpsert.push({
           id: p.contact.id,
+          // ✅ obrigatório pro upsert passar na RLS (ver mesmo achado em
+          // sync-operadora/route.ts, 11/08/2026) — sem isso o Google fica
+          // correto mas o banco local não grava nada, sem erro visível.
+          tenant_id: tenantId,
           labels: newLabelsByResource.get(resourceName) as string[],
           synced_at: nowIso,
         });
@@ -275,9 +283,12 @@ export async function POST(req: Request) {
       }
     }
     if (rowsToUpsert.length > 0) {
-      await supabase.from("google_contacts").upsert(rowsToUpsert, {
-        onConflict: "id",
-      });
+      const { error: upsertErr } = await supabase
+        .from("google_contacts")
+        .upsert(rowsToUpsert, { onConflict: "id" });
+      if (upsertErr) {
+        errors.push(`Falha ao gravar localmente: ${upsertErr.message}`);
+      }
     }
 
     return NextResponse.json({
