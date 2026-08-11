@@ -1085,37 +1085,33 @@ export default function ClientDetailsPage() {
             </h3>
 
             <div className="space-y-3 text-sm">
-              {/* BLOCO DE ACESSO (Sem bordas internas) */}
-              <div className="flex justify-between items-center">
+              {/* BLOCO DE ACESSO (Servidor + Tecnologia na mesma linha) */}
+              <div className="flex justify-between items-center pb-3 border-b border-border">
                 <span className="text-muted-foreground font-medium">
                   Servidor
                 </span>
-                <span className="font-medium text-foreground text-right">
-                  {client.server_name}
+                <span className="inline-flex items-center gap-2">
+                  <span className="font-medium text-foreground text-right">
+                    {client.server_name}
+                  </span>
+                  {(() => {
+                    const tech = client.technology || "";
+                    const t = tech.toUpperCase();
+                    const colors =
+                      t === "IPTV"
+                        ? "bg-sky-500/10 text-sky-500 border-sky-500/20"
+                        : t === "P2P"
+                          ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                          : "bg-muted text-muted-foreground border-border";
+                    return (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}
+                      >
+                        {client.technology || "—"}
+                      </span>
+                    );
+                  })()}
                 </span>
-              </div>
-
-              <div className="flex justify-between items-center pb-3 border-b border-border">
-                <span className="text-muted-foreground font-medium">
-                  Tecnologia
-                </span>
-                {(() => {
-                  const tech = client.technology || "";
-                  const t = tech.toUpperCase();
-                  const colors =
-                    t === "IPTV"
-                      ? "bg-sky-500/10 text-sky-500 border-sky-500/20"
-                      : t === "P2P"
-                        ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                        : "bg-muted text-muted-foreground border-border";
-                  return (
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm uppercase ${colors}`}
-                    >
-                      {client.technology || "—"}
-                    </span>
-                  );
-                })()}
               </div>
 
               <div className="flex justify-between items-center">
@@ -1182,38 +1178,39 @@ export default function ClientDetailsPage() {
             <div className="space-y-3 text-sm">
               {/* Contato Principal — mesmo formato/tamanho do Secundário */}
               <div className="bg-transparent p-3 rounded-lg border border-border">
-                <div className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-2 tracking-widest">
-                  Contato Principal
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">
+                    Contato Principal
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSyncPhoto("primary")}
+                    disabled={syncingPhoto === "primary"}
+                    title="Busca de novo no WhatsApp e salva na Agenda"
+                    className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    {syncingPhoto === "primary" ? (
+                      <Loader2 size={10} className="animate-spin" />
+                    ) : (
+                      <RefreshCcw size={10} />
+                    )}
+                    Atualizar foto
+                  </button>
                 </div>
 
-                <div className="flex gap-2.5 items-stretch">
-                  <div className="shrink-0 flex flex-col items-center justify-center gap-1">
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
-                      {primaryContact?.avatar_url ? (
-                        <img
-                          src={primaryContact.avatar_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-muted-foreground text-xs font-medium">
-                          {(client.client_name || "?").charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSyncPhoto("primary")}
-                      disabled={syncingPhoto === "primary"}
-                      title="Atualizar foto (busca de novo no WhatsApp e salva na Agenda)"
-                      className="w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
-                    >
-                      {syncingPhoto === "primary" ? (
-                        <Loader2 size={10} className="animate-spin" />
-                      ) : (
-                        <RefreshCcw size={10} />
-                      )}
-                    </button>
+                <div className="flex gap-2.5 items-center">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
+                    {primaryContact?.avatar_url ? (
+                      <img
+                        src={primaryContact.avatar_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground text-xs font-medium">
+                        {(client.client_name || "?").charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -1268,40 +1265,41 @@ export default function ClientDetailsPage() {
                 client.secondary_phone_e164 ||
                 client.secondary_whatsapp_username) && (
                 <div className="bg-transparent p-3 rounded-lg border border-border">
-                  <div className="text-[10px] font-medium text-muted-foreground/60 uppercase mb-2 tracking-widest">
-                    Contato Secundário
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-[10px] font-medium text-muted-foreground/60 uppercase tracking-widest">
+                      Contato Secundário
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSyncPhoto("secondary")}
+                      disabled={syncingPhoto === "secondary"}
+                      title="Busca de novo no WhatsApp e salva na Agenda"
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                    >
+                      {syncingPhoto === "secondary" ? (
+                        <Loader2 size={10} className="animate-spin" />
+                      ) : (
+                        <RefreshCcw size={10} />
+                      )}
+                      Atualizar foto
+                    </button>
                   </div>
 
-                  <div className="flex gap-2.5 items-stretch">
-                    <div className="shrink-0 flex flex-col items-center justify-center gap-1">
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
-                        {secondaryContact?.avatar_url ? (
-                          <img
-                            src={secondaryContact.avatar_url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-muted-foreground text-xs font-medium">
-                            {(client.secondary_display_name || "?")
-                              .charAt(0)
-                              .toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleSyncPhoto("secondary")}
-                        disabled={syncingPhoto === "secondary"}
-                        title="Atualizar foto (busca de novo no WhatsApp e salva na Agenda)"
-                        className="w-5 h-5 rounded-full bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors disabled:opacity-50"
-                      >
-                        {syncingPhoto === "secondary" ? (
-                          <Loader2 size={10} className="animate-spin" />
-                        ) : (
-                          <RefreshCcw size={10} />
-                        )}
-                      </button>
+                  <div className="flex gap-2.5 items-center">
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
+                      {secondaryContact?.avatar_url ? (
+                        <img
+                          src={secondaryContact.avatar_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground text-xs font-medium">
+                          {(client.secondary_display_name || "?")
+                            .charAt(0)
+                            .toUpperCase()}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -1503,12 +1501,6 @@ export default function ClientDetailsPage() {
                 })}
               </div>
             )}
-            <p className="text-[10px] text-muted-foreground mt-2">
-              "Bot usa este" = o cupom que o bot de atendimento realmente
-              ofereceria hoje via {"{cupom_frase}"} (maior desconto entre os
-              visíveis pro bot). Os demais são elegíveis mas não aparecem
-              sozinhos no WhatsApp.
-            </p>
           </div>
 
           {/* 4. CARD OBSERVAÇÕES */}
