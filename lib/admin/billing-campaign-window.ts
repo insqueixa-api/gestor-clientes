@@ -56,3 +56,25 @@ export function normalizeSecondaryContactDelay(minSecs: number, maxSecs: number)
     DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
   );
 }
+
+// ✅ Início do disparo por FAIXA, não mais horário fixo (pedido do Márcio,
+// 11/08/2026) — window_start cravado todo dia no mesmo minuto era, ele
+// mesmo, um padrão robótico (o "primeiro disparo do dia" sempre no mesmo
+// segundo é um sinal e tanto). Agora window_start_min/max definem uma
+// faixa e o banco sorteia 1 horário-âncora por dia dentro dela (ver
+// billing_enqueue_scheduled em docs/sql/billing_campaign_window_start_range.sql) —
+// o sorteio é determinístico por (tenant, dia), não por chamada, senão os
+// múltiplos ticks do cron dentro da mesma janela de tolerância calculariam
+// horários-âncora diferentes entre si.
+export const DEFAULT_WINDOW_START_MIN = "09:10";
+export const DEFAULT_WINDOW_START_MAX = "09:30";
+
+/** "HH:MM" sempre tem 5 chars zero-padded, então comparação lexicográfica == comparação de horário. */
+export function normalizeWindowStartRange(min: string, max: string) {
+  const normalizedMin = /^\d{2}:\d{2}$/.test(min) ? min : DEFAULT_WINDOW_START_MIN;
+  const normalizedMax = /^\d{2}:\d{2}$/.test(max) ? max : DEFAULT_WINDOW_START_MAX;
+  if (normalizedMax < normalizedMin) {
+    return { min: normalizedMin, max: normalizedMin };
+  }
+  return { min: normalizedMin, max: normalizedMax };
+}

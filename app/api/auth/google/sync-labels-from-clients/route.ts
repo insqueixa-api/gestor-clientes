@@ -258,6 +258,7 @@ export async function POST(req: Request) {
     const rowsToUpsert: {
       id: string;
       tenant_id: string;
+      google_resource_name: string;
       labels: string[];
       synced_at: string;
     }[] = [];
@@ -274,6 +275,11 @@ export async function POST(req: Request) {
           // sync-operadora/route.ts, 11/08/2026) — sem isso o Google fica
           // correto mas o banco local não grava nada, sem erro visível.
           tenant_id: tenantId,
+          // ✅ obrigatório (NOT NULL sem default) — cobre o caso do `id`
+          // capturado no início da requisição não existir mais na tabela
+          // (ex: reimport rodou no meio do caminho), que faria o upsert
+          // cair no caminho de INSERT em vez de UPDATE.
+          google_resource_name: resourceName,
           labels: newLabelsByResource.get(resourceName) as string[],
           synced_at: nowIso,
         });
@@ -282,12 +288,18 @@ export async function POST(req: Request) {
         errors.push(`${p.contact.display_name}: ${outcome.error}`);
       }
     }
-    if (rowsToUpsert.length > 0) {
+    // ✅ upsert linha por linha — ver mesmo achado em sync-operadora/route.ts
+    // (11/08/2026): um upsert em lote falha por inteiro se 1 linha quebrar
+    // uma constraint, mesmo com o Google já atualizado pras outras.
+    for (const row of rowsToUpsert) {
       const { error: upsertErr } = await supabase
         .from("google_contacts")
-        .upsert(rowsToUpsert, { onConflict: "id" });
+        .upsert(row, { onConflict: "id" });
       if (upsertErr) {
-        errors.push(`Falha ao gravar localmente: ${upsertErr.message}`);
+        const p = pending.find((x) => x.contact.id === row.id);
+        errors.push(
+          `${p?.contact.display_name || row.id}: Falha ao gravar localmente — ${upsertErr.message}`,
+        );
       }
     }
 

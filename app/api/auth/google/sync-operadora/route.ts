@@ -252,6 +252,7 @@ export async function POST(req: Request) {
     const rowsToUpsert: {
       id: string;
       tenant_id: string;
+      google_resource_name: string;
       phones: any[];
       synced_at: string;
     }[] = [];
@@ -271,6 +272,14 @@ export async function POST(req: Request) {
           // (achado em 11/08/2026 — nenhum contato da sincronização em massa
           // persistia localmente, sem erro visível).
           tenant_id: tenantId,
+          // ✅ também obrigatório (NOT NULL sem default): se o `id` capturado
+          // no início da requisição não existir mais na tabela por qualquer
+          // motivo (ex: "Importar do Google" rodou no meio do caminho e
+          // recriou as linhas com IDs novos), o ON CONFLICT não acha nada
+          // pra atualizar e o upsert vira um INSERT de verdade — sem isso
+          // aqui, esse INSERT quebra a constraint e aparece como "Falha ao
+          // gravar localmente" pro usuário.
+          google_resource_name: resourceName,
           phones: localPhonesByResource.get(resourceName),
           synced_at: nowIso,
         });
@@ -281,12 +290,22 @@ export async function POST(req: Request) {
         );
       }
     }
-    if (rowsToUpsert.length > 0) {
+    // ✅ upsert LINHA POR LINHA, não em lote — um upsert em lote é uma
+    // única instrução (todos os VALUES de uma vez); se UMA linha do lote
+    // quebrar uma constraint, a instrução inteira falha e nenhuma das
+    // outras é gravada, mesmo que o Google já tenha sido atualizado com
+    // sucesso pra todas elas (achado em 11/08/2026 — "9 contatos
+    // atualizados" no toast, mas 0 gravados localmente por causa de 1
+    // linha ruim no meio do lote).
+    for (const row of rowsToUpsert) {
       const { error: upsertErr } = await supabase
         .from("google_contacts")
-        .upsert(rowsToUpsert, { onConflict: "id" });
+        .upsert(row, { onConflict: "id" });
       if (upsertErr) {
-        errors.push(`Falha ao gravar localmente: ${upsertErr.message}`);
+        const contact = contacts.find((c) => c.id === row.id);
+        errors.push(
+          `${contact?.display_name || row.id}: Falha ao gravar localmente — ${upsertErr.message}`,
+        );
       }
     }
 

@@ -30,6 +30,9 @@ import {
   DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
   DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
   normalizeSecondaryContactDelay,
+  DEFAULT_WINDOW_START_MIN,
+  DEFAULT_WINDOW_START_MAX,
+  normalizeWindowStartRange,
 } from "@/lib/admin/billing-campaign-window";
 
 // --- TIPOS ---
@@ -515,7 +518,8 @@ function CampaignWindowCard({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState({
-    window_start: "09:30",
+    window_start_min: DEFAULT_WINDOW_START_MIN,
+    window_start_max: DEFAULT_WINDOW_START_MAX,
     delay_min_secs: MIN_DELAY_SECS,
     delay_max_secs: MAX_DELAY_SECS,
     secondary_contact_delay_min_secs: DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
@@ -546,7 +550,7 @@ function CampaignWindowCard({
       const { data } = await supabaseBrowser
         .from("billing_campaign_settings")
         .select(
-          "window_start, delay_min_secs, delay_max_secs, secondary_contact_delay_min_secs, secondary_contact_delay_max_secs, schedule_days, is_active",
+          "window_start_min, window_start_max, delay_min_secs, delay_max_secs, secondary_contact_delay_min_secs, secondary_contact_delay_max_secs, schedule_days, is_active",
         )
         .eq("tenant_id", tid)
         .maybeSingle();
@@ -559,8 +563,13 @@ function CampaignWindowCard({
           data.secondary_contact_delay_min_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
           data.secondary_contact_delay_max_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
         );
+        const normalizedWindow = normalizeWindowStartRange(
+          String(data.window_start_min || DEFAULT_WINDOW_START_MIN).slice(0, 5),
+          String(data.window_start_max || DEFAULT_WINDOW_START_MAX).slice(0, 5),
+        );
         setSettings({
-          window_start: String(data.window_start || "09:30").slice(0, 5),
+          window_start_min: normalizedWindow.min,
+          window_start_max: normalizedWindow.max,
           delay_min_secs: normalized.minSecs,
           delay_max_secs: normalized.maxSecs,
           secondary_contact_delay_min_secs: normalizedSecondary.minSecs,
@@ -593,8 +602,14 @@ function CampaignWindowCard({
       Number(draft.secondaryMin) * 60,
       Number(draft.secondaryMax) * 60,
     );
+    const normalizedWindow = normalizeWindowStartRange(
+      settings.window_start_min,
+      settings.window_start_max,
+    );
     const nextSettings = {
       ...settings,
+      window_start_min: normalizedWindow.min,
+      window_start_max: normalizedWindow.max,
       delay_min_secs: normalized.minSecs,
       delay_max_secs: normalized.maxSecs,
       secondary_contact_delay_min_secs: normalizedSecondary.minSecs,
@@ -625,7 +640,8 @@ function CampaignWindowCard({
         .upsert(
           {
             tenant_id: tid,
-            window_start: nextSettings.window_start,
+            window_start_min: nextSettings.window_start_min,
+            window_start_max: nextSettings.window_start_max,
             delay_min_secs: nextSettings.delay_min_secs,
             delay_max_secs: nextSettings.delay_max_secs,
             secondary_contact_delay_min_secs: nextSettings.secondary_contact_delay_min_secs,
@@ -648,7 +664,11 @@ function CampaignWindowCard({
   if (loading) return null;
 
   const activeDays = settings.schedule_days.length;
-  const windowLabel = `${settings.window_start} · ${Math.round(settings.delay_min_secs / 60)}–${Math.round(settings.delay_max_secs / 60)} min`;
+  const windowStartLabel =
+    settings.window_start_min === settings.window_start_max
+      ? settings.window_start_min
+      : `${settings.window_start_min}–${settings.window_start_max}`;
+  const windowLabel = `${windowStartLabel} · ${Math.round(settings.delay_min_secs / 60)}–${Math.round(settings.delay_max_secs / 60)} min`;
 
   return (
     <div className="px-3 sm:px-0 md:px-4">
@@ -671,7 +691,9 @@ function CampaignWindowCard({
               </div>
               <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground max-w-3xl">
                 Disparo embaralhado entre as regras, respeitando a faixa de 2 a
-                30 minutos entre envios.
+                30 minutos entre envios. O horário de início também é
+                sorteado dentro da faixa configurada — 1 vez por dia, não a
+                cada envio.
               </p>
             </div>
 
@@ -703,12 +725,22 @@ function CampaignWindowCard({
           </div>
 
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-12">
-            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-3">
-              <Label>Início</Label>
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-2">
+              <Label>Início (mín.)</Label>
               <FormattedTimeInput
-                value={settings.window_start}
+                value={settings.window_start_min}
                 onChange={(e) =>
-                  setSettings((s) => ({ ...s, window_start: e.target.value }))
+                  setSettings((s) => ({ ...s, window_start_min: e.target.value }))
+                }
+                className="h-10 w-full rounded-lg border border-border/70 bg-background px-3 text-sm"
+              />
+            </div>
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-2">
+              <Label>Início (máx.)</Label>
+              <FormattedTimeInput
+                value={settings.window_start_max}
+                onChange={(e) =>
+                  setSettings((s) => ({ ...s, window_start_max: e.target.value }))
                 }
                 className="h-10 w-full rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
@@ -763,7 +795,7 @@ function CampaignWindowCard({
                 className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm"
               />
             </div>
-            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-5">
+            <div className="rounded-xl border border-border/70 bg-background/60 p-2.5 xl:col-span-4">
               <Label>Dias da semana</Label>
               <div className="flex flex-wrap gap-1 pt-0.5">
                 {DAYS_OF_WEEK.map((d) => {
