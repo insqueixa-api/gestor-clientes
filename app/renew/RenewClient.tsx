@@ -4149,10 +4149,10 @@ export default function RenewClient() {
                           10/08/2026, pra deixar isso explícito igual acontece
                           nos apps com instruções manuais. */}
                     {app.has_integration && (
-                      <p className="text-[11px] text-sky-600 dark:text-sky-400 bg-sky-500/10 border border-sky-500/20 rounded-lg px-2.5 py-1.5">
+                      <p className="text-[11px] text-muted-foreground px-0.5">
                         ⚡ Esse aplicativo tem configuração automática — não
                         precisa mexer em nada nele, é só clicar em{" "}
-                        <strong>
+                        <strong className="text-foreground font-semibold">
                           {app.expiration
                             ? "Reconfigurar aplicativo"
                             : "Configurar aplicativo"}

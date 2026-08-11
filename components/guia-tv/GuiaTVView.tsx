@@ -4945,7 +4945,9 @@ export default function GuiaTVView({
       })
       .catch(() =>
         setErroEpg(
-          "Grade de canais não encontrada localmente. Rode o botão 'Sync EPG Grade' para gerar.",
+          modoCliente
+            ? "Grade de canais indisponível no momento. Tente novamente mais tarde."
+            : "Grade de canais não encontrada localmente. Rode o botão 'Sync EPG Grade' para gerar.",
         ),
       )
       .finally(() => setLoadingEpg(false));
@@ -5214,7 +5216,7 @@ export default function GuiaTVView({
             epg={epg}
             loadingEpg={loadingEpg}
             erroEpg={erroEpg}
-            onRetrySync={handleSync}
+            onRetrySync={modoCliente ? undefined : handleSync}
             syncing={syncing}
             progsPorCanal={progsPorCanal}
             onJogosDoDia={() => {}}

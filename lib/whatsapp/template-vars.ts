@@ -434,7 +434,16 @@ export async function fetchResellerWhatsApp(
     }
 
     if (data) {
-      const phone = normalizeToPhone((data as any).whatsapp_username);
+      // ✅ Mesmo fallback de fetchClientWhatsApp (linha ~289): sem isso, uma
+      // revenda com telefone certo cadastrado mas sem o campo
+      // whatsapp_username confirmado no formulário (ex: operador não clicou
+      // no ✓) ficava sem nenhum destino de envio, mesmo com o telefone
+      // salvo corretamente em whatsapp_e164/phone_e164.
+      const phone = normalizeToPhone(
+        (data as any).whatsapp_username ||
+          (data as any).whatsapp_e164 ||
+          (data as any).phone_e164,
+      );
 
       let serverQuery = sb
         .from("reseller_servers")

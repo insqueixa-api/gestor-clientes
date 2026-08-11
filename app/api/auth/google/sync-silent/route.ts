@@ -66,12 +66,23 @@ export async function POST(req: Request) {
       groupsData.contactGroups.forEach((g: any) => groupMap.set(g.resourceName, g.name || g.formattedName));
     }
 
-    const contactsRes = await fetch(
-      "https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers,photos,birthdays,memberships&pageSize=1000",
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    const contactsData = await contactsRes.json();
-    const connections = contactsData.connections || [];
+    // Pagina todas as páginas de contatos — sem isso, contas com mais de
+    // 1000 contatos perdiam tudo além da 1ª página no modo "replace" (que
+    // apaga os contatos locais antes de reinserir só o que veio aqui).
+    const connections: any[] = [];
+    let pageToken: string | undefined;
+    do {
+      const url = new URL("https://people.googleapis.com/v1/people/me/connections");
+      url.searchParams.set("personFields", "names,emailAddresses,phoneNumbers,photos,birthdays,memberships");
+      url.searchParams.set("pageSize", "1000");
+      if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+      const contactsRes = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      const contactsData = await contactsRes.json();
+      if (!contactsRes.ok) throw new Error(contactsData?.error?.message || "Falha ao buscar contatos do Google.");
+      connections.push(...(contactsData.connections || []));
+      pageToken = contactsData.nextPageToken;
+    } while (pageToken);
 
     const recordsToInsert = connections.map((person: any) => {
       const phonesList = (person.phoneNumbers || []).map((p: any) => ({ label: p.formattedType || p.type || "Celular", value: formatPhone(p.value) }));

@@ -1277,11 +1277,20 @@ function AgendaPageContent() {
         }),
       });
       if (!res.ok) throw new Error("Erro ao excluir.");
-      addToast(
-        "success",
-        "Excluído",
-        `Contato removido${deleteFromGoogle ? " do sistema e do Google" : " apenas do sistema"}.`,
-      );
+      const resData = await res.json().catch(() => ({}));
+      if (deleteFromGoogle && resData?.googleDeleteFailed) {
+        addToast(
+          "error",
+          "Removido só do sistema",
+          "Não foi possível excluir do Google (token expirado ou falha na API). O contato pode continuar no celular.",
+        );
+      } else {
+        addToast(
+          "success",
+          "Excluído",
+          `Contato removido${deleteFromGoogle ? " do sistema e do Google" : " apenas do sistema"}.`,
+        );
+      }
       setDeleteModal({ open: false, contact: null });
       loadData();
     } catch (err: any) {

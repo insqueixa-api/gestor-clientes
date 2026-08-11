@@ -34,11 +34,22 @@ function parseLooseNumber(input: string): number | null {
 export async function POST(req: Request) {
   try {
     // Autenticação de Segurança
+    let callerTenantId: string | null = null;
     if (!isInternalRequest(req)) {
       const { createClient } = await import("@/lib/supabase/server");
       const supabaseAuth = await createClient();
       const { data: auth, error: authErr } = await supabaseAuth.auth.getUser();
       if (authErr || !auth?.user?.id) {
+        return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      }
+      const { data: tm } = await supabaseAuth
+        .from("tenant_members")
+        .select("tenant_id")
+        .eq("user_id", auth.user.id)
+        .limit(1)
+        .single();
+      callerTenantId = tm?.tenant_id ?? null;
+      if (!callerTenantId) {
         return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
       }
     }
@@ -62,11 +73,19 @@ export async function POST(req: Request) {
     if (action === "get_credentials") {
       const { data: integ, error } = await sb
         .from("server_integrations")
-        .select("id, api_token, api_secret, api_base_url, provider, is_active")
+        .select("id, tenant_id, api_token, api_secret, api_base_url, provider, is_active")
         .eq("id", integration_id)
         .single();
 
       if (error || !integ) throw new Error("Integração não encontrada.");
+      // Requisição vinda do browser (não interna): a integração precisa
+      // pertencer ao mesmo tenant do usuário autenticado — sem isso, quem
+      // soubesse/adivinhasse o UUID de uma integração de outro tenant
+      // conseguiria ler a senha real do painel Elite dele (esta rota usa
+      // Service Role, que ignora RLS).
+      if (callerTenantId && integ.tenant_id !== callerTenantId) {
+        throw new Error("Integração não encontrada.");
+      }
       if (String(integ.provider).toUpperCase() !== "ELITE") throw new Error("A integração não é ELITE.");
       if (!integ.is_active) throw new Error("A integração está inativa.");
 

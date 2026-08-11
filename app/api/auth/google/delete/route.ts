@@ -26,6 +26,7 @@ export async function POST(req: Request) {
     const tenantId = tenantData.tenant_id;
 
     // 3. Se o usuário marcou para deletar do celular também
+    let googleDeleteFailed = false;
     if (deleteFromGoogle && resourceName) {
       const { data: tenantConfig } = await supabase
         .from("tenants")
@@ -49,13 +50,19 @@ export async function POST(req: Request) {
         const tokenData = await tokenRes.json();
         if (tokenRes.ok) {
           const accessToken = tokenData.access_token;
-          
-          // Manda o comando de exclusão para a API do Google.
-          await fetch(`https://people.googleapis.com/v1/${resourceName}:deleteContact`, {
+
+          // Manda o comando de exclusão para a API do Google. 404 conta como
+          // sucesso (contato já não existe mais lá — nada a fazer).
+          const googleRes = await fetch(`https://people.googleapis.com/v1/${resourceName}:deleteContact`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${accessToken}` }
           });
+          if (!googleRes.ok && googleRes.status !== 404) googleDeleteFailed = true;
+        } else {
+          googleDeleteFailed = true;
         }
+      } else {
+        googleDeleteFailed = true;
       }
     }
 
@@ -68,7 +75,7 @@ export async function POST(req: Request) {
 
     if (dbErr) throw new Error("Erro ao deletar do banco local: " + dbErr.message);
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, googleDeleteFailed });
 
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

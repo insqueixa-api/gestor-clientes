@@ -31,7 +31,14 @@ import {
   limparMasterOrfaos,
 } from "@/lib/catalogo/limpar-orfaos";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const isCron = isCronRequest(req, "EPG_SYNC_CRON_SECRET");
+  if (!isCron) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
+
   const preview = await previewOrfaos();
   return NextResponse.json({ ok: true, preview });
 }

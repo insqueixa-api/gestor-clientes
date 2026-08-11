@@ -580,6 +580,7 @@ function ImpactListModal({
     "all",
   );
   const [resettingId, setResettingId] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   async function handleReset(row: RedemptionRow) {
     const ok = await confirm({
@@ -592,13 +593,17 @@ function ImpactListModal({
     if (!ok) return;
 
     setResettingId(row.id);
+    setResetError(null);
     try {
       if (!tenantId) throw new Error("Tenant não encontrado.");
       const result = await resetCouponRedemption(tenantId, row.id);
       if (!result.ok) throw new Error(result.error);
       setUsedRows((prev) => prev.filter((r) => r.id !== row.id));
-    } catch {
-      // silencioso — a linha continua na lista se falhar, o admin pode tentar de novo
+    } catch (e: any) {
+      // A linha continua na lista se falhar — mas agora avisa o admin em vez
+      // de falhar em silêncio (ele só via o botão voltar ao normal, sem
+      // saber se resetou ou não).
+      setResetError(e?.message || "Falha ao resetar o cupom deste cliente.");
     } finally {
       setResettingId(null);
     }
@@ -727,6 +732,9 @@ function ImpactListModal({
             </div>
           )}
           {error && <p className="text-rose-500 text-sm">{error}</p>}
+          {resetError && (
+            <p className="text-rose-500 text-sm mb-2">{resetError}</p>
+          )}
 
           {result && (
             <div className="space-y-3">
@@ -878,6 +886,7 @@ function UsageLogModal({
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<RedemptionRow[]>([]);
   const [resettingId, setResettingId] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   async function handleReset(row: RedemptionRow) {
     const ok = await confirm({
@@ -890,13 +899,14 @@ function UsageLogModal({
     if (!ok) return;
 
     setResettingId(row.id);
+    setResetError(null);
     try {
       if (!tenantId) throw new Error("Tenant não encontrado.");
       const result = await resetCouponRedemption(tenantId, row.id);
       if (!result.ok) throw new Error(result.error);
       setRows((prev) => prev.filter((r) => r.id !== row.id));
-    } catch {
-      // silencioso — a linha continua na lista se falhar, o admin pode tentar de novo
+    } catch (e: any) {
+      setResetError(e?.message || "Falha ao resetar o cupom deste cliente.");
     } finally {
       setResettingId(null);
     }
@@ -937,6 +947,9 @@ function UsageLogModal({
             <div className="text-center text-muted-foreground text-sm py-8">
               Carregando...
             </div>
+          )}
+          {resetError && (
+            <p className="text-rose-500 text-sm mb-2">{resetError}</p>
           )}
           {!loading && rows.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">

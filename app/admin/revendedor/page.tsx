@@ -383,7 +383,7 @@ export default function RevendaPage() {
           .eq("tenant_id", tid),
         supabaseBrowser
           .from("servers")
-          .select("id, name, avg_credit_cost_brl") // ✅ Tudo do servidor de uma vez só
+          .select("id, name, avg_credit_cost_brl, is_archived") // ✅ Tudo do servidor de uma vez só
           .eq("tenant_id", tid)
           .order("name", { ascending: true }),
         supabaseBrowser
@@ -415,10 +415,12 @@ export default function RevendaPage() {
     // 2. Mapa de custo do servidor e nomes
     const serverCostMap = new Map<string, number>();
     const serverNameMap = new Map<string, string>();
+    const serverArchivedMap = new Map<string, boolean>();
     if (serversDataRes.data) {
       for (const s of serversDataRes.data as any[]) {
         serverCostMap.set(String(s.id), Number(s.avg_credit_cost_brl || 0));
         serverNameMap.set(String(s.id), String(s.name || ""));
+        serverArchivedMap.set(String(s.id), Boolean(s.is_archived));
       }
     }
 
@@ -460,6 +462,10 @@ export default function RevendaPage() {
         const rid = String(row.reseller_id);
         const name = serverNameMap.get(String(row.server_id));
         if (!name) return;
+        // ✅ Não mostra pílula de servidor arquivado (mesmo filtro já
+        // aplicado no QuickRechargeModal) — o vínculo continua existindo no
+        // banco, só não aparece mais como "servidor ativo" na listagem.
+        if (serverArchivedMap.get(String(row.server_id))) return;
         if (!mapServers[rid]) mapServers[rid] = [];
         mapServers[rid].push(name);
         mapServers[rid] = Array.from(new Set(mapServers[rid])).sort((a, b) =>
@@ -825,9 +831,9 @@ export default function RevendaPage() {
       return;
     }
 
-    const sendAtIso = "";
+    let sendAtIso: string;
     try {
-      const sendAtRaw = scheduleDate.trim(); // ex: "2026-02-19T10:30" (sem TZ)
+      sendAtIso = localDateTimeToIso(local);
     } catch (e: any) {
       addToast(
         "error",
@@ -841,7 +847,7 @@ export default function RevendaPage() {
       setScheduling(true);
       const token = await getToken();
 
-      const res = await fetch("/api/whatsapp/envio_agendado", {
+      const res = await fetch("/api/whatsapp/envio_programado", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

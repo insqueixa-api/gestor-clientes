@@ -168,6 +168,7 @@ const PAYMENT_OPTIONS = [
 const WHATSAPP_OPTIONS = [
   { value: "sent", label: "Enviado" },
   { value: "error", label: "Erro" },
+  { value: "manual", label: "Manual" },
   { value: "aguardando", label: "Aguardando" },
   { value: "na", label: "Não se Aplica" },
 ];
@@ -224,9 +225,13 @@ function matchesWhatsapp(r: LogRow, value: string) {
     isApprovedPayment && !isCancelledFulfillment && isDoneFulfillment;
   if (value === "sent") return r.whatsapp_status === "sent";
   if (value === "error") return r.whatsapp_status === "error";
+  if (value === "manual") return r.whatsapp_status === "manual";
   if (value === "aguardando")
     return (
-      eligible && r.whatsapp_status !== "sent" && r.whatsapp_status !== "error"
+      eligible &&
+      r.whatsapp_status !== "sent" &&
+      r.whatsapp_status !== "error" &&
+      r.whatsapp_status !== "manual"
     );
   if (value === "na") return !eligible;
   return false;

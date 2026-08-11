@@ -2,14 +2,21 @@
 // app/reset-password/page.tsx
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseBrowser as supabase } from "@/lib/supabase/browser";
 import { useRouter } from "next/navigation";
 
-// Inicializa o cliente Supabase
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+// ✅ Usa o MESMO client (supabaseBrowser, @supabase/ssr) que a tela de login
+// usa pra pedir o reset (resetPasswordForEmail). Antes esta página criava um
+// client @supabase/supabase-js "puro" à parte, com flowType padrão
+// "implicit" — só que o link de recuperação gerado pelo supabaseBrowser é
+// PKCE (createBrowserClient fixa flowType:"pkce"), chegando aqui como
+// `?code=...`. Um client em modo implicit não sabe processar esse formato:
+// a troca do código pela sessão nunca acontecia, e a página sempre mostrava
+// "Link Inválido" mesmo num link recém-clicado (achado em 11/08/2026).
+// Com o mesmo client (PKCE + detectSessionInUrl, ambos default no
+// createBrowserClient), a troca do `?code=` pela sessão acontece sozinha
+// durante a inicialização, antes do primeiro getSession() resolver — não
+// precisa chamar exchangeCodeForSession manualmente.
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -69,7 +76,7 @@ export default function ResetPasswordPage() {
 
       setTimeout(() => {
         // Redirecionamento absoluto para o endereço correto
-        window.location.href = "https://unigestor.net.br/login";
+        window.location.href = `${window.location.origin}/login`;
       }, 2000);
     } catch (err: unknown) {
       setErrorMsg(
@@ -188,7 +195,7 @@ if (isValidating) {
             ) : (
               <button
                 onClick={() =>
-                  (window.location.href = "https://unigestor.net.br/login")
+                  (window.location.href = `${window.location.origin}/login`)
                 }
                 className="w-full rounded-xl py-3 font-semibold transition bg-emerald-600 text-white hover:bg-emerald-700"
               >

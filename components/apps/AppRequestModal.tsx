@@ -369,13 +369,27 @@ export default function AppRequestModal({
   }
 
   async function handleCheck() {
-    if (!clientAppId) return;
+    if (!clientAppId || !data) return;
     setBusy(true);
     try {
       const result = await apiCall("/api/admin/apps/check-validity", {
         tenant_id: tenantId,
         client_app_id: clientAppId,
       });
+      // ✅ Escreve a data verificada de volta no campo do formulário — antes
+      // só aparecia no toast, o campo Vencimento do modal ficava vazio até
+      // fechar/reabrir (achado em 11/08/2026; mesmo padrão já usado em
+      // handleClouddyCheck logo abaixo).
+      if (result.expireDate) {
+        const dateField = data.fieldsConfig.find(
+          (f) => String(f.type || "").toLowerCase() === "date",
+        );
+        if (dateField)
+          await persistFieldValue(
+            fieldKeyOf(dateField),
+            String(result.expireDate).split("T")[0],
+          );
+      }
       addToast(
         "success",
         "Validade",
