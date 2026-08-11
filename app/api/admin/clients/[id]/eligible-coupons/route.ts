@@ -1,12 +1,9 @@
 // app/api/admin/clients/[id]/eligible-coupons/route.ts
 // Lista TODOS os cupons (pessoal + geral) que um cliente é elegível agora,
-// pra exibir na página do cliente (app/admin/cliente/[id]/page.tsx). Marca
-// `is_bot_pick` no cupom que o bot de atendimento realmente usaria em
-// {cupom_frase} hoje (findEligibleCoupon com onlyBotVisible) — pode não ter
-// nenhum, mesmo com cupons elegíveis na lista, se nenhum for bot_visible.
+// pra exibir na página do cliente (app/admin/cliente/[id]/page.tsx).
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
-import { listEligibleCoupons, findEligibleCoupon, formatDiscountLabel } from "@/lib/client-portal/coupons";
+import { listEligibleCoupons, formatDiscountLabel } from "@/lib/client-portal/coupons";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,10 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const clientRow = r1.data || r2?.data || null;
   if (!clientRow) return NextResponse.json({ error: "Cliente não encontrado." }, { status: 404 });
 
-  const [list, botPick] = await Promise.all([
-    listEligibleCoupons({ supabaseAdmin: supabase, tenantId, clientRow }),
-    findEligibleCoupon({ supabaseAdmin: supabase, tenantId, clientRow, onlyBotVisible: true }),
-  ]);
+  const list = await listEligibleCoupons({ supabaseAdmin: supabase, tenantId, clientRow });
 
   // Resolve nomes de servidor (target_server_ids guarda id, não nome) só pra
   // exibir a regra por extenso na página do cliente — sem isso o admin veria
@@ -61,8 +55,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       description: coupon.description,
       kind,
       discount_label: formatDiscountLabel(coupon),
-      bot_visible: coupon.bot_visible,
-      is_bot_pick: botPick?.id === coupon.id,
       rule: kind === "personal" ? null : {
         target_status: coupon.target_status,
         target_server_names: (coupon.target_server_ids || []).map((id) => serverNameById[id] || id),

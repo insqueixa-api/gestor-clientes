@@ -59,44 +59,6 @@ function stringifyAllowed(rows: AllowedRow[]): string[] {
     .map((r) => `${onlyDigits(r.raw)} ${r.name}`.trim());
 }
 
-// ── Tipos ─────────────────────────────────────────────────────
-type KnowledgeItem = {
-  id: string;
-  title: string;
-  category: string;
-  content: string;
-  is_active: boolean;
-  applies_to_servers: string[] | null;
-  created_at: string;
-  updated_at: string;
-  portal_visible: boolean;
-  portal_category: "faq" | "device_setup" | null;
-  portal_content: string | null;
-  portal_device_types: string[];
-};
-
-// ✅ Enum fechado do sistema — os únicos providers de servidor suportados.
-const SERVER_OPTIONS = [
-  { value: "NATV", label: "NaTV" },
-  { value: "FAST", label: "Fast" },
-  { value: "ELITE", label: "Elite" },
-];
-
-type ChatMessage = {
-  role: "user" | "bot";
-  text: string;
-  // ✅ Metadados de depuração — só preenchidos em mensagens do bot, mostram
-  // o que o motor de menu decidiu nessa resposta (útil pra validar cada
-  // cenário no simulador, igual você pediu).
-  meta?: {
-    action?: string;
-    next_state?: string;
-    next_state_label?: string | null;
-    escalate?: boolean;
-    mark_read?: boolean;
-  };
-};
-
 // ── Formatação do número conectado (mesmo padrão usado nas outras páginas
 // que mostram "Contato Principal/Secundário • +55 (21) 9...") ────────────
 function extractWaNumberFromJid(jid?: unknown): string {
@@ -149,7 +111,16 @@ function WhatsAppSessionCard({
   const [showMessageSection, setShowMessageSection] = useState(false);
   const [allowedList, setAllowedList] = useState<AllowedRow[]>([]);
   const [savedAllowedNumbers, setSavedAllowedNumbers] = useState<string[]>([]);
+  // ✅ Sem isso, qualquer saveConfig() disparado antes do 1º fetchConfig()
+  // bem-sucedido (ex: VM ainda reiniciando logo após um Hard Reset, ou
+  // fetchConfig() que falhou em silêncio) mandava allowedNumbers vazio —
+  // o `allowedList` inicial do useState — e APAGAVA a lista real gravada
+  // no disco da VM, mesmo que o clique do admin fosse só "Rejeitar
+  // Chamadas" ou editar a mensagem de rejeição, sem nunca tocar na lista.
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [backingUpAllowed, setBackingUpAllowed] = useState(false);
+  const [importingAllowed, setImportingAllowed] = useState(false);
   const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
   const route = (path: string) => `/api/whatsapp/${path}${apiSuffix}`;
 
@@ -183,6 +154,7 @@ function WhatsAppSessionCard({
         setRejectMessage(json.rejectMessage ?? "");
         setAllowedList(parseAllowed(json.allowedNumbers ?? []));
         setSavedAllowedNumbers(json.allowedNumbers ?? []);
+        setConfigLoaded(true);
       }
     } catch {}
   }
@@ -236,13 +208,26 @@ function WhatsAppSessionCard({
   ) {
     setSavingConfig(true);
     try {
-      const payload = {
+      const payload: {
+        rejectCalls: boolean;
+        rejectMessage: string;
+        allowedNumbers?: string[];
+        tenantId?: string;
+      } = {
         rejectCalls: overrides.rejectCalls ?? rejectCalls,
         rejectMessage: overrides.rejectMessage ?? rejectMessage,
-        allowedNumbers:
-          overrides.allowedNumbers ?? stringifyAllowed(allowedList),
         ...(tenantId ? { tenantId } : {}),
       };
+      // ✅ Só manda allowedNumbers se veio explícito (ex: botão "Salvar" da
+      // lista) OU se já confirmamos ter carregado a lista real do servidor
+      // pelo menos uma vez (configLoaded) — nunca a partir do estado inicial
+      // vazio do React, senão uma ação sem relação nenhuma com a lista
+      // (ex: toggle de Rejeitar Chamadas) apaga os números permitidos.
+      if (overrides.allowedNumbers !== undefined) {
+        payload.allowedNumbers = overrides.allowedNumbers;
+      } else if (configLoaded) {
+        payload.allowedNumbers = stringifyAllowed(allowedList);
+      }
       const res = await fetch(route("config"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -250,7 +235,9 @@ function WhatsAppSessionCard({
       });
       if (res.ok) {
         addToast("success", "Configuração salva");
-        setSavedAllowedNumbers(payload.allowedNumbers);
+        if (payload.allowedNumbers !== undefined) {
+          setSavedAllowedNumbers(payload.allowedNumbers);
+        }
       }
     } finally {
       setSavingConfig(false);
@@ -260,6 +247,66 @@ function WhatsAppSessionCard({
     const next = !rejectCalls;
     setRejectCalls(next);
     await saveConfig({ rejectCalls: next });
+  }
+
+  // ✅ Backup/Import manual da lista de números permitidos (pedido do
+  // Márcio, 10/08/2026) — segunda camada de segurança além do fix do bug
+  // de sobrescrita: guarda uma cópia no Supabase, sobrevive a qualquer
+  // acidente na VM (hard reset, rebuild, disco perdido).
+  async function handleBackupAllowed() {
+    setBackingUpAllowed(true);
+    try {
+      const res = await fetch("/api/whatsapp/allowed-backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session: apiSuffix === "2" ? "2" : "1",
+          allowedNumbers: stringifyAllowed(allowedList),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) {
+        addToast(
+          "success",
+          "Backup salvo",
+          `${json.count ?? allowedList.length} número(s) salvos no Supabase.`,
+        );
+      } else {
+        addToast("error", "Falha ao salvar backup", json.error);
+      }
+    } catch {
+      addToast("error", "Falha ao salvar backup");
+    } finally {
+      setBackingUpAllowed(false);
+    }
+  }
+  async function handleImportAllowed() {
+    setImportingAllowed(true);
+    try {
+      const res = await fetch(
+        `/api/whatsapp/allowed-backup?session=${apiSuffix === "2" ? "2" : "1"}`,
+        { cache: "no-store" },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        addToast("error", "Falha ao importar backup", json.error);
+        return;
+      }
+      if (!json.allowedNumbers) {
+        addToast("error", "Nenhum backup encontrado", "Faça um backup primeiro.");
+        return;
+      }
+      setAllowedList(parseAllowed(json.allowedNumbers));
+      addToast(
+        "success",
+        "Backup importado",
+        `${json.allowedNumbers.length} número(s) carregados — clique em "Salvar Lista" pra aplicar.`,
+      );
+    } catch {
+      addToast("error", "Falha ao importar backup");
+    } finally {
+      setImportingAllowed(false);
+    }
   }
   function startEditMessage() {
     setDraftMessage(rejectMessage);
@@ -450,7 +497,21 @@ function WhatsAppSessionCard({
                     </button>
                     {showAllowedSection && (
                       <>
-                        <div className="flex justify-end mb-1.5">
+                        <div className="flex items-center justify-end gap-3 mb-1.5">
+                          <button
+                            onClick={() => void handleImportAllowed()}
+                            disabled={importingAllowed}
+                            className="text-[10px] font-medium text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50"
+                          >
+                            {importingAllowed ? "Importando..." : "⇩ Importar backup"}
+                          </button>
+                          <button
+                            onClick={() => void handleBackupAllowed()}
+                            disabled={backingUpAllowed || allowedList.length === 0}
+                            className="text-[10px] font-medium text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50"
+                          >
+                            {backingUpAllowed ? "Salvando..." : "☁ Backup"}
+                          </button>
                           <button
                             onClick={() =>
                               setAllowedList([

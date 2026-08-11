@@ -35,7 +35,6 @@ export type CouponEditPayload = {
   rule_date_field: "vencimento" | "cadastro" | null;
   rule_days_min: number | null;
   rule_days_max: number | null;
-  bot_visible: boolean;
 };
 
 const STATUS_OPTIONS = [
@@ -44,7 +43,7 @@ const STATUS_OPTIONS = [
   { id: "TRIAL", label: "Teste" },
 ];
 
-/** Switch compacto (label + descrição opcional à esquerda, toggle à direita) — usado pra Ativo/Visível pro bot, evita repetir o card grande de antes. */
+/** Switch compacto (label + descrição opcional à esquerda, toggle à direita) — evita repetir o card grande de antes. */
 function Switch({
   label,
   hint,
@@ -186,9 +185,6 @@ export default function CupomModal({
     coupon?.message_template ?? "",
   );
   const [isActive, setIsActive] = useState<boolean>(coupon?.is_active ?? true);
-  const [botVisible, setBotVisible] = useState<boolean>(
-    coupon?.bot_visible ?? false,
-  );
   const [saving, setSaving] = useState(false);
 
   const [hasPersonalClient, setHasPersonalClient] = useState(
@@ -213,8 +209,7 @@ export default function CupomModal({
       coupon?.target_app_names?.length ||
       coupon?.rule_date_field ||
       coupon?.max_total_redemptions != null ||
-      coupon?.message_template ||
-      coupon?.bot_visible
+      coupon?.message_template
     ),
   );
 
@@ -443,7 +438,6 @@ export default function CupomModal({
           !hasPersonalClient && hasMaxUses ? Number(maxTotalRedemptions) : null,
         message_template: messageTemplate.trim() || null,
         is_active: isActive,
-        bot_visible: botVisible,
       };
 
       if (!isEdit) {
@@ -843,17 +837,6 @@ export default function CupomModal({
                   placeholder={`Padrão se deixar em branco: "🎁 Use o cupom *{codigo}* e ganhe {desconto} de desconto na sua próxima renovação!"`}
                   rows={2}
                   className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30 resize-none"
-                />
-              </div>
-
-              <div className="rounded-lg border border-border bg-transparent px-3">
-                <Switch
-                  label="Visível pro bot de atendimento"
-                  hint='Só cupons marcados aqui aparecem sozinhos no menu "Cupom de desconto" do WhatsApp.'
-                  checked={botVisible}
-                  onChange={setBotVisible}
-                  onLabel="Visível"
-                  offLabel="Oculto"
                 />
               </div>
             </div>

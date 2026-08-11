@@ -238,8 +238,6 @@ type EligibleCouponRow = {
   description: string | null;
   kind: "personal" | "general";
   discount_label: string;
-  bot_visible: boolean;
-  is_bot_pick: boolean;
   rule: EligibleCouponRule | null;
 };
 
@@ -1318,17 +1316,11 @@ export default function ClientDetailsPage() {
                   return (
                     <div
                       key={c.id}
-                      className={`rounded-lg border px-3 py-2 text-xs ${
-                        c.is_bot_pick
-                          ? "border-emerald-500/30 bg-emerald-500/5"
-                          : "border-border bg-transparent"
-                      }`}
+                      className="rounded-lg border px-3 py-2 text-xs border-border bg-transparent"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
-                          <span
-                            className={`font-mono ${c.is_bot_pick ? "font-bold text-emerald-500" : "font-medium text-foreground/90"}`}
-                          >
+                          <span className="font-mono font-medium text-foreground/90">
                             {c.code}
                           </span>
                           <span className="text-muted-foreground ml-2">
@@ -1338,11 +1330,6 @@ export default function ClientDetailsPage() {
                             {c.kind === "personal" ? "· pessoal" : "· geral"}
                           </span>
                         </div>
-                        {c.is_bot_pick && (
-                          <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-500 text-[10px] font-bold uppercase">
-                            bot usa este
-                          </span>
-                        )}
                       </div>
                       {chips.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
