@@ -17,10 +17,10 @@ import {
   renderTemplate,
   getSPParts,
   pickRandomDns,
+  toolConsultarPrecosTexto,
 } from "@/lib/whatsapp/template-vars";
 import { notify } from "@/lib/notifications/notify";
 import { getCouponPhraseForClient, getPendencyPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
-import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
 import {
   normalizeSecondaryContactDelay,
   DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,

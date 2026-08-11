@@ -17,9 +17,9 @@ import {
   generatePortalLink,
   renderTemplate,
   pickRandomDns,
+  toolConsultarPrecosTexto,
 } from "@/lib/whatsapp/template-vars";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
-import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

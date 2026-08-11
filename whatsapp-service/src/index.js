@@ -8,7 +8,6 @@ import {
   createSession, disconnectSession, reconnectSession, hardResetSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
-  getBotEvents,
 } from "./sessionManager.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -329,8 +328,8 @@ app.post("/session-config", authMiddleware, (req, res) => {
   const sessionKey = getSessionKey(req);
   if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
 
-const { rejectCalls, rejectMessage, allowedNumbers, botEnabled, tenantId, redirectEnabled, redirectMessage, redirectToSessionKey } = req.body || {};
-const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage, allowedNumbers, botEnabled, tenantId, redirectEnabled, redirectMessage, redirectToSessionKey });
+const { rejectCalls, rejectMessage, allowedNumbers, tenantId } = req.body || {};
+const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage, allowedNumbers, tenantId });
   return res.json({ ok: true, config });
 });
 
@@ -403,16 +402,6 @@ app.post("/fast-sync/proxy-m3u", authMiddleware, async (req, res) => {
     console.error("[FAST-PROXY] erro:", e?.message);
     res.status(502).json({ error: e?.message || "Falha ao baixar M3U do Fast." });
   }
-});
-
-// ── GET /bot-events — últimos eventos do bot ──────────────────
-// ✅ Escopado por sessionKey — sem isso, qualquer chamada (mesmo com o
-// bearer token de infraestrutura certo) devolvia o buffer inteiro, misturando
-// eventos de todas as sessões/tenants que já passaram por essa VM.
-app.get("/bot-events", authMiddleware, (req, res) => {
-  const sessionKey = getSessionKey(req);
-  if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
-  return res.json({ ok: true, events: getBotEvents(sessionKey) });
 });
 
 // ── 404 ───────────────────────────────────────────────────────

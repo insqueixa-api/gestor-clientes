@@ -16,9 +16,9 @@ import {
   generatePortalLink,
   renderTemplate,
   pickRandomDns,
+  toolConsultarPrecosTexto,
 } from "@/lib/whatsapp/template-vars";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
-import { toolConsultarPrecosTexto } from "@/lib/whatsapp/bot-engine";
 
 function safeServerLog(...args: any[]) {
   console.error(...args);

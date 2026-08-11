@@ -2923,11 +2923,19 @@ export default function NovoCliente({
       // Operadora (só Brasil e se marcado na UI)
       if (syncOperadora) {
         try {
-          await fetch("/api/auth/google/sync-operadora", {
+          const opRes = await fetch("/api/auth/google/sync-operadora", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ contact_ids: [newContactData.id] }),
           });
+          const opData = await opRes.json().catch(() => ({}));
+          if (opData?.errors?.length) {
+            queueListToast(isTrialMode ? "trial" : "client", {
+              type: "error",
+              title: "Operadora não identificada",
+              message: opData.errors[0],
+            });
+          }
         } catch {}
       }
 

@@ -564,3 +564,57 @@ export function buildResellerTemplateVars(params: { resellerRow: any }): Record<
   };
 }
 
+// Mantém a checagem de servidor Elite (exclui o período Anual da tabela).
+// Movida de lib/whatsapp/bot-engine.ts (removido junto com o bot de
+// atendimento) — usada pela tag {tabela_precos} em envio_agora/envio_programado.
+export async function toolConsultarPrecosTexto(sb: any, tenantId: string, client: any): Promise<string> {
+  const PERIOD_LABELS: Record<string, string> = {
+    MONTHLY: "Mensal", BIMONTHLY: "Bimestral", QUARTERLY: "Trimestral",
+    SEMIANNUAL: "Semestral", ANNUAL: "Anual",
+  };
+  const ORDER = ["MONTHLY", "BIMONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"];
+
+  let planTableId = client.plan_table_id;
+  if (!planTableId) {
+    const { data: def } = await sb
+      .from("plan_tables").select("id")
+      .eq("tenant_id", tenantId).eq("is_system_default", true)
+      .eq("currency", client.price_currency || "BRL").eq("is_active", true)
+      .maybeSingle();
+    if (def) planTableId = def.id;
+  }
+  if (!planTableId) return "(tabela de preços não encontrada)";
+
+  let isElite = false;
+  if (client.server_id) {
+    const { data: srv } = await sb.from("servers").select("panel_integration").eq("id", client.server_id).single();
+    if (srv?.panel_integration) {
+      const { data: integ } = await sb.from("server_integrations").select("provider").eq("id", srv.panel_integration).single();
+      if (integ?.provider?.toUpperCase() === "ELITE") isElite = true;
+    }
+  }
+
+  const { data: items } = await sb
+    .from("plan_table_items")
+    .select("period, plan_table_item_prices(screens_count, price_amount)")
+    .eq("plan_table_id", planTableId);
+
+  const screens = Number(client.screens || 1);
+  const linhas = (items || [])
+    .filter((item: any) => !isElite || item.period !== "ANNUAL")
+    .map((item: any) => {
+      let valor = 0;
+      if (client.price_amount > 0 && PERIOD_LABELS[item.period] === client.plan_label) valor = client.price_amount;
+      else {
+        const exact = item.plan_table_item_prices?.find((p: any) => p.screens_count === screens);
+        if (exact) valor = exact.price_amount;
+      }
+      return { periodo: PERIOD_LABELS[item.period] || item.period, valor, order: ORDER.indexOf(item.period) };
+    })
+    .filter((p: any) => p.valor > 0)
+    .sort((a: any, b: any) => a.order - b.order)
+    .map((p: any) => `- ${p.periodo}: ${client.price_currency || "BRL"} ${Number(p.valor).toFixed(2)}`);
+
+  return linhas.length ? linhas.join("\n") : "(nenhum preço configurado)";
+}
+
