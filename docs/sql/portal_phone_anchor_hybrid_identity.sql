@@ -62,12 +62,22 @@ STABLE
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
+  -- ⚠️ CORRIGIDO em 12/08/2026 (achado testando com um username aleatório de
+  -- verdade, com underscore): p_whatsapp_username chega aqui já NORMALIZADO
+  -- quando vem de um token/sessão (portal_admin_create_token_for_whatsapp_v2
+  -- sempre grava normalize_phone(valor) em client_portal_tokens.whatsapp_username,
+  -- nunca o texto cru) — mas clients.whatsapp_username guarda o texto CRU,
+  -- como o admin digitou (pode ter "_", ".", etc.). Comparar sem normalizar
+  -- os dois lados só "funcionava" por acidente para telefone (dígitos puros
+  -- não mudam ao normalizar) — qualquer username com caractere fora de
+  -- [a-zA-Z0-9] quebrava o login (client_id nunca era encontrado). Mesma
+  -- normalização dos dois lados, igual o resto do sistema já fazia.
   SELECT c.id
   FROM public.clients c
   WHERE c.tenant_id = p_tenant_id
     AND (
-      c.whatsapp_username = p_whatsapp_username
-      OR c.secondary_whatsapp_username = p_whatsapp_username
+      public.normalize_phone(c.whatsapp_username) = public.normalize_phone(p_whatsapp_username)
+      OR public.normalize_phone(c.secondary_whatsapp_username) = public.normalize_phone(p_whatsapp_username)
       OR (p_phone_anchor IS NOT NULL AND public.normalize_phone(c.phone_e164) = p_phone_anchor)
       OR (p_phone_anchor IS NOT NULL AND public.normalize_phone(c.secondary_phone_e164) = p_phone_anchor)
     );
