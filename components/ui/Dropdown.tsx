@@ -78,9 +78,22 @@ export function Dropdown({
 
   useLayoutEffect(() => {
     if (!open) return;
+    let rafId: number | null = null;
     function updatePos() {
       const r = triggerRef.current?.getBoundingClientRect();
-      if (!r) return;
+      if (!r) {
+        // ✅ Achado em 12/08/2026: no primeiro clique (ref do trigger ainda
+        // sendo anexado nesse mesmo commit, ex: tabelas grandes/mais lentas
+        // pra montar), getBoundingClientRect() podia vir vazio nessa
+        // primeira passada — `pos` ficava `null` pra sempre e o menu nunca
+        // aparecia (renderiza null), MESMO com `open=true`. Só "aparecia"
+        // depois de um scroll/resize acontecer por acaso (o listener abaixo
+        // recalculava e enfim achava o ref pronto) — daí o sintoma "clico e
+        // não abre nada, mas se eu rolar a página aparece". Tenta de novo no
+        // próximo frame em vez de desistir.
+        rafId = requestAnimationFrame(updatePos);
+        return;
+      }
       setPos({
         ...(placement === "below"
           ? { top: r.bottom + 8 }
@@ -97,6 +110,7 @@ export function Dropdown({
     window.addEventListener("resize", updatePos);
     window.addEventListener("scroll", updatePos, true);
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
       window.removeEventListener("resize", updatePos);
       window.removeEventListener("scroll", updatePos, true);
     };
