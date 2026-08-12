@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
 
     const { data: sessao, error: sessaoErr } = await supabaseAdmin
       .from("client_portal_sessions")
-      .select("tenant_id, whatsapp_username")
+      .select("tenant_id, whatsapp_username, phone_anchor")
       .eq("session_token", session_token)
       .gt("expires_at", new Date().toISOString())
       .single();
@@ -75,16 +75,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ CRÍTICO: garante que a conta pertence ao mesmo whatsapp da sessão (Principal ou Secundário)
-    const { data: cliente, error: clienteErr } = await supabaseAdmin
-      .from("clients")
-      .select("id")
-      .eq("id", conta)
-      .eq("tenant_id", sessao.tenant_id)
-      .or(`whatsapp_username.eq.${sessao.whatsapp_username},secondary_whatsapp_username.eq.${sessao.whatsapp_username}`)
-      .maybeSingle();
-
-    if (clienteErr || !cliente) {
+    // ✅ CRÍTICO: garante que a conta pertence ao mesmo whatsapp da sessão
+    // (Principal ou Secundário) OU compartilha a mesma âncora de telefone
+    // (ver docs/sql/portal_phone_anchor_hybrid_identity.sql)
+    const { data: idsData, error: idsErr } = await supabaseAdmin.rpc(
+      "portal_client_ids_for_identity",
+      {
+        p_tenant_id: sessao.tenant_id,
+        p_whatsapp_username: sessao.whatsapp_username,
+        p_phone_anchor: (sessao as any).phone_anchor ?? null,
+      },
+    );
+    if (idsErr || !((idsData as { id: string }[] | null) || []).some((r) => r.id === conta)) {
       return NextResponse.json(
         { ok: false, error: "Conta inválida para esta sessão" },
         { status: 403, headers: NO_STORE_HEADERS },

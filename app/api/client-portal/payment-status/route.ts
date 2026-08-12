@@ -72,22 +72,25 @@ async function fetchPayment(supabaseAdmin: any, tenantId: string, paymentId: str
   return data as any;
 }
 
+// ✅ Texto (whatsapp_username/secondary, de sempre) OU âncora de telefone
+// (ver docs/sql/portal_phone_anchor_hybrid_identity.sql) — sem a âncora, uma
+// conta que trocou de whatsapp_username pra um username reservado do
+// WhatsApp nunca confirmava o próprio pagamento, mesmo já pago (o polling de
+// payment-status caía sempre em "Pagamento não encontrado").
 async function paymentBelongsToWhatsapp(
   supabaseAdmin: any,
   tenantId: string,
   clientId: string,
-  whatsapp: string
+  whatsapp: string,
+  phoneAnchor: string | null,
 ) {
-  const { data, error } = await supabaseAdmin
-    .from("clients")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .eq("id", clientId)
-    .or(`whatsapp_username.eq.${whatsapp},secondary_whatsapp_username.eq.${whatsapp}`)
-    .maybeSingle();
-
-  if (error) return false;
-  return !!data?.id;
+  const { data, error } = await supabaseAdmin.rpc("portal_client_ids_for_identity", {
+    p_tenant_id: tenantId,
+    p_whatsapp_username: whatsapp,
+    p_phone_anchor: phoneAnchor,
+  });
+  if (error || !data) return false;
+  return (data as { id: string }[]).some((r) => r.id === clientId);
 }
 
 async function refreshMercadoPagoStatusIfNotApproved(
@@ -185,7 +188,7 @@ export async function POST(req: NextRequest) {
     // 1) Validar sessão (tenant + whatsapp)
     const { data: sess, error: sErr } = await supabaseAdmin
       .from("client_portal_sessions")
-      .select("tenant_id, whatsapp_username")
+      .select("tenant_id, whatsapp_username, phone_anchor")
       .eq("session_token", session_token)
       .gt("expires_at", new Date().toISOString())
       .single();
@@ -220,7 +223,7 @@ export async function POST(req: NextRequest) {
     let payment = await fetchPayment(supabaseAdmin, tenantId, String(payment_id));
 
     // ✅ garante que o pagamento pertence ao mesmo whatsapp da sessão
-    const owns = await paymentBelongsToWhatsapp(supabaseAdmin, tenantId, String(payment.client_id), whatsapp);
+    const owns = await paymentBelongsToWhatsapp(supabaseAdmin, tenantId, String(payment.client_id), whatsapp, (sess as any).phone_anchor ?? null);
     if (!owns) {
       return NextResponse.json({ ok: false, error: "Pagamento não encontrado" }, { status: 404, headers: NO_STORE_HEADERS });
     }

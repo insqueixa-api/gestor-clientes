@@ -113,7 +113,7 @@ if (!session_token || !client_id || !period) {
     // 1) Validar sessão
     const { data: sess, error: sessErr } = await supabaseAdmin
       .from("client_portal_sessions")
-      .select("tenant_id, whatsapp_username")
+      .select("tenant_id, whatsapp_username, phone_anchor")
       .eq("session_token", session_token)
       .gt("expires_at", new Date().toISOString())
       .single();
@@ -128,13 +128,34 @@ if (!session_token || !client_id || !period) {
     after(() => touchPortalSession(supabaseAdmin, session_token));
 
     // 2) Buscar dados do cliente
-    // ✅ CRÍTICO: garante que o client_id pertence ao whatsapp da sessão (Principal ou Secundário)
-const { data: client, error: clientErr } = await supabaseAdmin
+    // ✅ CRÍTICO: garante que o client_id pertence ao whatsapp da sessão
+    // (Principal ou Secundário) OU compartilha a mesma âncora de telefone
+    // (ver docs/sql/portal_phone_anchor_hybrid_identity.sql — sem isso, uma
+    // conta que trocou de whatsapp_username pra um username reservado do
+    // WhatsApp não conseguia mais pagar, mesmo com sessão válida).
+    const { data: idsData, error: idsErr } = await supabaseAdmin.rpc(
+      "portal_client_ids_for_identity",
+      {
+        p_tenant_id: sess.tenant_id,
+        p_whatsapp_username: sess.whatsapp_username,
+        p_phone_anchor: (sess as any).phone_anchor ?? null,
+      },
+    );
+    if (idsErr) {
+      safeServerLog("create-payment: rpc error", idsErr?.message);
+      return jsonError("Erro interno", 500);
+    }
+    const accessibleIds = new Set(((idsData as { id: string }[] | null) || []).map((r) => r.id));
+    if (!accessibleIds.has(client_id)) {
+      safeServerLog("create-payment: client not found or not owned");
+      return jsonError("Cliente não encontrado", 404);
+    }
+
+    const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")
       .select("id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, server_username, plan_label, price_currency, screens, plan_table_id, price_amount, servers(name)")
       .eq("id", client_id)
       .eq("tenant_id", sess.tenant_id)
-      .or(`whatsapp_username.eq.${sess.whatsapp_username},secondary_whatsapp_username.eq.${sess.whatsapp_username}`)
       .single();
 
     if (clientErr || !client) {
