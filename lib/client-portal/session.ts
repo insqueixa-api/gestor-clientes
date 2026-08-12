@@ -28,6 +28,27 @@ export type PortalClientContext = {
   client_id: string;
 };
 
+// Resolve quais client_id essa sessão pode acessar — via o texto
+// (whatsapp_username/secondary, comportamento de sempre) OU via a âncora de
+// telefone (phone_anchor), que continua batendo mesmo quando uma das contas
+// do mesmo WhatsApp trocou de identidade pra um username (ver
+// docs/sql/portal_phone_anchor_hybrid_identity.sql). RPC única — evita
+// reimplementar essa lógica combinada em cada rota.
+async function resolveAccessibleClientIds(
+  supabaseAdmin: SupabaseClient,
+  tenantId: string,
+  whatsappUsername: string,
+  phoneAnchor: string | null,
+): Promise<string[]> {
+  const { data, error } = await supabaseAdmin.rpc("portal_client_ids_for_identity", {
+    p_tenant_id: tenantId,
+    p_whatsapp_username: whatsappUsername,
+    p_phone_anchor: phoneAnchor,
+  });
+  if (error || !data) return [];
+  return (data as { id: string }[]).map((r) => r.id);
+}
+
 // Sessão desliza: cada chamada válida empurra expires_at +30min de novo
 // (mesma janela do login, portal_start_session). Sem isso, um cliente que
 // demora a navegar/pagar (ex: PIX gerado aos 20min, pago aos 35min) perdia
@@ -65,22 +86,20 @@ export async function validatePortalClient(
 
   const { data: sess, error: sessErr } = await supabaseAdmin
     .from("client_portal_sessions")
-    .select("tenant_id, whatsapp_username")
+    .select("tenant_id, whatsapp_username, phone_anchor")
     .eq("session_token", session_token)
     .gt("expires_at", new Date().toISOString())
     .single();
 
   if (sessErr || !sess) return null;
 
-  const { data: client, error: clientErr } = await supabaseAdmin
-    .from("clients")
-    .select("id")
-    .eq("id", client_id)
-    .eq("tenant_id", sess.tenant_id)
-    .or(`whatsapp_username.eq.${sess.whatsapp_username},secondary_whatsapp_username.eq.${sess.whatsapp_username}`)
-    .single();
-
-  if (clientErr || !client) return null;
+  const accessibleIds = await resolveAccessibleClientIds(
+    supabaseAdmin,
+    sess.tenant_id,
+    sess.whatsapp_username,
+    (sess as any).phone_anchor ?? null,
+  );
+  if (!accessibleIds.includes(client_id)) return null;
 
   // ✅ Não bloqueia a resposta por causa disso (pedido do Márcio, 26/07/2026
   // — lentidão sentida ao carregar/adicionar apps): touchPortalSession é só
