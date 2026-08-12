@@ -199,14 +199,33 @@ export async function markAppRenewalPaid(
     .eq("id", paymentRowId)
     .maybeSingle();
 
-  await supabaseAdmin
+  // ✅ Idempotência (achado em 11/08/2026 — cliente recebeu 2 emails
+  // idênticos pela mesma renovação de licença de app): essa função é
+  // chamada por 4 caminhos diferentes que podem disparar pro MESMO
+  // pagamento — webhook do Mercado Pago/Stripe (que pode reenviar o mesmo
+  // evento) E o polling de /client-portal/payment-status (chamado repetidas
+  // vezes pelo navegador do cliente enquanto aguarda a confirmação), às
+  // vezes quase simultâneos. payment_type='app_renewal' nunca chega a
+  // fulfillment_status='done' (fica em 'manual_pending' até o admin
+  // concluir na Auditoria), então um guard tipo "só roda se != done" no
+  // chamador NUNCA bloqueia reexecução. Update condicional (só troca se
+  // ainda não tinha sido marcado) garante que só a primeira chamada de
+  // verdade manda o sino + o email — as demais só encontram 0 linhas
+  // afetadas e saem sem notificar de novo.
+  const { data: updatedRows } = await supabaseAdmin
     .from("client_portal_payments")
     .update({
       fulfillment_status: "manual_pending",
       fulfillment_error: null,
     })
     .eq("tenant_id", tenantId)
-    .eq("id", paymentRowId);
+    .eq("id", paymentRowId)
+    .or("fulfillment_status.is.null,fulfillment_status.eq.pending")
+    .select("id");
+
+  if (!updatedRows || updatedRows.length === 0) {
+    return; // já tinha sido processado por outra chamada — não notifica de novo
+  }
 
   // ✅ Sino de notificação — mesmo padrão do manual_pending de assinatura
   // IPTV (notifyManual acima). Sem isso, o pagamento cai pra ação manual
