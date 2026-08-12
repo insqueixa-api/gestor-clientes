@@ -191,13 +191,34 @@ async function resolveLinkedClientIds(
 ): Promise<string[]> {
   const wa = String(clientRow?.whatsapp_username || "").trim();
   const ownId = clientRow?.id ? String(clientRow.id) : null;
-  if (!wa) return ownId ? [ownId] : [];
+  if (!wa && !ownId) return [];
 
-  const { data } = await supabaseAdmin
-    .from("clients")
-    .select("id")
-    .eq("tenant_id", tenantId)
-    .or(`whatsapp_username.eq.${wa},secondary_whatsapp_username.eq.${wa}`);
+  // ✅ Resolve também pela âncora de telefone (ver
+  // docs/sql/portal_phone_anchor_hybrid_identity.sql) — sem isso, uma conta
+  // que compartilha WhatsApp com outras mas já trocou seu whatsapp_username
+  // pra um username reservado deixava de ser agrupada com as "irmãs" pra
+  // efeito de "1 uso de cupom por pessoa", enfraquecendo o antiabuso (não
+  // bloqueia pagamento — só permitiria, em tese, reusar um cupom trocando
+  // de conta). Busca o telefone da própria conta direto (não depende de o
+  // chamador já ter selecionado phone_e164 em clientRow).
+  let phoneAnchor: string | null = null;
+  if (ownId) {
+    const { data: ownRow } = await supabaseAdmin
+      .from("clients")
+      .select("phone_e164")
+      .eq("id", ownId)
+      .maybeSingle();
+    const raw = ownRow?.phone_e164 ? String(ownRow.phone_e164).replace(/[^a-zA-Z0-9]/g, "").toLowerCase() : "";
+    phoneAnchor = raw || null;
+  }
+
+  if (!wa && !phoneAnchor) return ownId ? [ownId] : [];
+
+  const { data } = await supabaseAdmin.rpc("portal_client_ids_for_identity", {
+    p_tenant_id: tenantId,
+    p_whatsapp_username: wa,
+    p_phone_anchor: phoneAnchor,
+  });
 
   const ids = ((data as { id: string }[]) || []).map((r) => r.id);
   if (ownId && !ids.includes(ownId)) ids.push(ownId);
