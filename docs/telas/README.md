@@ -29,6 +29,7 @@ Um arquivo por tela do Admin e do Portal do Cliente: o que cada uma faz, de onde
 - [Detalhe de app](portal-apps-detalhe.md) — `/renew/apps/[id]`
 - [Guia de TV](portal-guia-tv.md) — `/renew/guia-tv`
 - [Identidade híbrida no WhatsApp](portal-identidade-hibrida.md) — arquitetura transversal (telefone ou username), não é uma tela
+- [Pendência: username no WhatsApp](pendencia-whatsapp-username.md) — o que falta (não é código seu, é o Baileys/WhatsApp), e exatamente onde mexer quando existir
 
 ## Autenticação
 
