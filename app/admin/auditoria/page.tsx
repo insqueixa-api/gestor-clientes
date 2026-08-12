@@ -1428,16 +1428,16 @@ function AuditoriaPageContent() {
                 </button>
               </div>
 
-              <div className="w-[180px]">
+              <div className="w-[160px]">
                 <select
-                  value={filterFulfillment}
-                  onChange={(e) => setFilterFulfillment(e.target.value)}
+                  value={filterGateway}
+                  onChange={(e) => setFilterGateway(e.target.value)}
                   className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
                 >
-                  <option value="Todos">Renovação (Todos)</option>
-                  {availableFulfillmentOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
+                  <option value="Todos">Banco (Todos)</option>
+                  {uniqueGateways.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
                     </option>
                   ))}
                 </select>
@@ -1458,16 +1458,16 @@ function AuditoriaPageContent() {
                 </select>
               </div>
 
-              <div className="w-[160px]">
+              <div className="w-[180px]">
                 <select
-                  value={filterGateway}
-                  onChange={(e) => setFilterGateway(e.target.value)}
+                  value={filterFulfillment}
+                  onChange={(e) => setFilterFulfillment(e.target.value)}
                   className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
                 >
-                  <option value="Todos">Banco (Todos)</option>
-                  {uniqueGateways.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
+                  <option value="Todos">Renovação (Todos)</option>
+                  {availableFulfillmentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
                     </option>
                   ))}
                 </select>
@@ -1500,14 +1500,14 @@ function AuditoriaPageContent() {
             {mobileFiltersOpen && (
               <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
                 <select
-                  value={filterFulfillment}
-                  onChange={(e) => setFilterFulfillment(e.target.value)}
+                  value={filterGateway}
+                  onChange={(e) => setFilterGateway(e.target.value)}
                   className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
                 >
-                  <option value="Todos">Renovação (Todos)</option>
-                  {availableFulfillmentOptions.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
+                  <option value="Todos">Banco (Todos)</option>
+                  {uniqueGateways.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
                     </option>
                   ))}
                 </select>
@@ -1526,14 +1526,14 @@ function AuditoriaPageContent() {
                 </select>
 
                 <select
-                  value={filterGateway}
-                  onChange={(e) => setFilterGateway(e.target.value)}
+                  value={filterFulfillment}
+                  onChange={(e) => setFilterFulfillment(e.target.value)}
                   className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
                 >
-                  <option value="Todos">Banco (Todos)</option>
-                  {uniqueGateways.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
+                  <option value="Todos">Renovação (Todos)</option>
+                  {availableFulfillmentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
                     </option>
                   ))}
                 </select>
