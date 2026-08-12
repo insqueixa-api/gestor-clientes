@@ -236,3 +236,60 @@ begin
   return next;
 end;
 $function$;
+
+-- 5) portal_resolve_token — exibição usa o texto CRU do cliente, não o
+--    normalizado guardado no token ------------------------------------------
+-- ⚠️ CORRIGIDO em 12/08/2026 (achado testando com um username real com "_"):
+-- a versão anterior devolvia t.whatsapp_username (SEMPRE normalizado — é
+-- assim que fica gravado no token desde a criação) direto pra tela de login,
+-- que usa esse valor só pra EXIBIR/pré-preencher o campo. Pra telefone isso
+-- nunca importou (dígitos puros não mudam ao normalizar), mas pra username
+-- com caractere fora de [a-zA-Z0-9] (ex: "zeleite_bd79f4") o cliente via
+-- "zeleitebd79f4" na tela — sumia o "_", parecia (e não é) um valor errado.
+-- Passa a buscar o whatsapp_username CRU de um cliente de verdade que bate
+-- com essa identidade (texto OU âncora de telefone) e mostra esse; a
+-- checagem de acesso (portal_client_ids_for_identity, portal_start_session)
+-- continua 100% baseada em normalização — isto é puramente cosmético, não
+-- muda quem consegue entrar em lugar nenhum.
+CREATE OR REPLACE FUNCTION public.portal_resolve_token(p_token text)
+ RETURNS TABLE(tenant_id uuid, whatsapp_username text)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_now timestamptz := now();
+  v_tenant_id uuid;
+  v_whats text;
+  v_phone_anchor text;
+  v_raw text;
+begin
+  select t.tenant_id, t.whatsapp_username, t.phone_anchor
+    into v_tenant_id, v_whats, v_phone_anchor
+  from public.client_portal_tokens t
+  where t.token = p_token
+    and t.is_active is true
+    and (t.expires_at is null or t.expires_at > v_now)
+  limit 1;
+
+  if v_tenant_id is null then
+    return;
+  end if;
+
+  select c.whatsapp_username into v_raw
+  from public.clients c
+  where c.tenant_id = v_tenant_id
+    and (
+      public.normalize_phone(c.whatsapp_username) = v_whats
+      or public.normalize_phone(c.secondary_whatsapp_username) = v_whats
+      or (v_phone_anchor is not null and public.normalize_phone(c.phone_e164) = v_phone_anchor)
+      or (v_phone_anchor is not null and public.normalize_phone(c.secondary_phone_e164) = v_phone_anchor)
+    )
+  order by c.created_at asc
+  limit 1;
+
+  tenant_id := v_tenant_id;
+  whatsapp_username := coalesce(v_raw, v_whats);
+  return next;
+end;
+$function$;
