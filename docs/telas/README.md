@@ -28,6 +28,7 @@ Um arquivo por tela do Admin e do Portal do Cliente: o que cada uma faz, de onde
 - [Portal principal (Renew)](portal-renew.md) — `/renew`
 - [Detalhe de app](portal-apps-detalhe.md) — `/renew/apps/[id]`
 - [Guia de TV](portal-guia-tv.md) — `/renew/guia-tv`
+- [Identidade híbrida no WhatsApp](portal-identidade-hibrida.md) — arquitetura transversal (telefone ou username), não é uma tela
 
 ## Autenticação
 

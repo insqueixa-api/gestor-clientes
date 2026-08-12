@@ -19,9 +19,9 @@ CRUD de cupons de desconto usados no fluxo de renovação do Portal do Cliente. 
 - `POST /api/admin/coupons/redeem-manual` — não é chamada por esta tela (é acionada pelo fluxo de Auditoria/Renovação Manual), grava resgate quando o admin conclui um pagamento manualmente. Idempotente por `payment_id`, desativa cupom pessoal após uso.
 - `POST /api/client-portal/validate-coupon` — não é desta tela (é do Portal), mas confirma a arquitetura: rate-limit de 5 códigos por `client_id`.
 
-## Regra "1 uso por conta" — confirmada correta
+## Regra "1 uso por conta" — confirmada correta (reconfirmado em 12/08/2026)
 
-A memória do projeto registrava um ponto de confusão passado sobre "1 uso" ser por `client_id` (conta) e não por WhatsApp/pessoa. **Confirmado nesta auditoria que a implementação atual está correta e bem documentada** em `lib/client-portal/coupons.ts` (comentários explícitos em várias linhas) e em `app/api/client-portal/validate-coupon/route.ts` — inclusive o rate-limit anti-abuso é por `client_id`, com checagem extra de que o `client_id` pertence à sessão. Nenhum vestígio de confusão residual encontrado.
+A memória do projeto registrava um ponto de confusão passado sobre "1 uso" ser por `client_id` (conta) e não por WhatsApp/pessoa — corrigido 3 vezes no histórico do projeto (ver `feedback_client_portal_scoping`). **Confirmado nesta auditoria, e reconfirmado ao vivo depois do trabalho de identidade híbrida no WhatsApp** ([portal-identidade-hibrida.md](portal-identidade-hibrida.md)), que a implementação atual está correta: `hasClientRedeemed` (já usou) e `checkCouponAbuseGuard` (rate-limit) são sempre por `client_id` exato, nunca por WhatsApp/telefone. A única função que agrupa por identidade (`resolveLinkedClientIds`) é usada exclusivamente para resolver a quem um **cupom pessoal/indicação** pertence — decisão de produto deliberada, já que recompensa de indicação vale pra pessoa inteira, não pra uma assinatura isolada. Nenhum vestígio de confusão residual encontrado; o rate-limit anti-abuso é por `client_id`, com checagem extra de que o `client_id` pertence à sessão.
 
 ## Bug `<ConfirmUI />` como tag JSX — confirmado corrigido, sem vestígios
 

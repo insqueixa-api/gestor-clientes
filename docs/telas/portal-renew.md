@@ -6,6 +6,8 @@ Arquivos: [app/renew/page.tsx](../../app/renew/page.tsx) (só monta `ConfirmProv
 
 Diferente do admin (Supabase Auth), o Portal é acessado pelos **clientes finais** da IPTV, autenticados por sessão própria (`client_portal_sessions`, token via `?session=` na URL — mandado pelo WhatsApp/bot — ou salvo em `sessionStorage`). Um mesmo login de WhatsApp pode ter várias contas/assinaturas vinculadas (`whatsapp_username` ou `secondary_whatsapp_username`); o cliente escolhe qual gerenciar.
 
+> Desde 12/08/2026, `whatsapp_username` aceita telefone OU um username reservado do WhatsApp — todo o escopo de sessão/pagamento (`get-accounts`, `get-prices`, `create-payment`, `payment-status`, etc.) foi atualizado para continuar funcionando mesmo quando uma conta troca de identidade. Ver [Identidade híbrida no WhatsApp](portal-identidade-hibrida.md) para a arquitetura completa.
+
 Três blocos:
 1. **Pagamento/Renovação** — planos disponíveis, cupom de desconto, pendências financeiras, checkout (PIX/cartão/transferência manual), polling de status.
 2. **Novidades/Conteúdo** — link para o [Guia de TV](portal-guia-tv.md).
