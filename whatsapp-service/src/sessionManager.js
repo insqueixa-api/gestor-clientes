@@ -142,21 +142,13 @@ function updateSessionConfig(sessionKey, updates) {
     const sess = sessions.get(sessionKey);
     if (sess?.socket && sess.status === "connected") {
       (async () => {
-        if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
-        const map = lidPhoneMap.get(sessionKey);
         for (const num of updates.allowedNumbers) {
           const digits = String(num).replace(/\D/g, "");
           if (!digits) continue;
           try {
             // Pede à API do WhatsApp as informações do número
             const [info] = await sess.socket.onWhatsApp(`${digits}@s.whatsapp.net`).catch(() => [null]);
-            
-            // PULO DO GATO: Pega o LID (Identidade Fantasma) e não o JID (Telefone)
-            if (info && info.lid) {
-              const lidBase = String(info.lid).split("@")[0].split(":")[0].replace(/\D/g, "");
-              map.set(lidBase, digits);
-              console.log(`[WA] Sucesso: Telefone ${digits} atrelado ao LID Fantasma ${lidBase}`);
-            }
+            rememberLidMapping(sessionKey, digits, info?.lid);
           } catch {}
         }
         saveLidMap(sessionKey);
@@ -201,6 +193,28 @@ function loadLidMap(sessionKey) {
     const map = lidPhoneMap.get(sessionKey);
     for (const [k, v] of Object.entries(obj)) map.set(k, v);
     console.log(`[WA] lid-map carregado: ${map.size} entradas`);
+  } catch {}
+}
+
+// Registra telefone↔LID no mapa em memória a partir de um `info.lid` cru
+// devolvido pelo Baileys (ex: sock.onWhatsApp(...)). Mesmo "pulo do gato" que
+// já existia só no fluxo de salvar `allowedNumbers` (acima) — agora também
+// chamado em validateNumber(), pra popular o mapa em toda validação de
+// número, não só quando a lista de permitidos é salva. Puramente aditivo:
+// não muda o que validateNumber/sendMessage retornam ou enviam, só deixa o
+// mapa que já resolve LID→telefone nas mensagens/ligações recebidas mais
+// completo com o tempo.
+function rememberLidMapping(sessionKey, digits, lidRaw) {
+  if (!digits || !lidRaw) return;
+  try {
+    const lidBase = String(lidRaw).split("@")[0].split(":")[0].replace(/\D/g, "");
+    if (!lidBase) return;
+    if (!lidPhoneMap.has(sessionKey)) lidPhoneMap.set(sessionKey, new Map());
+    const map = lidPhoneMap.get(sessionKey);
+    if (map.get(lidBase) === digits) return; // já sabido, evita I/O à toa
+    map.set(lidBase, digits);
+    console.log(`[WA] Telefone ${digits} atrelado ao LID ${lidBase}`);
+    saveLidMap(sessionKey);
   } catch {}
 }
 
@@ -812,6 +826,12 @@ async function validateNumber(sessionKey, phone) {
 
   const jid = normalizeJid(phone);
   const [result] = await sess.socket.onWhatsApp(jid);
+
+  // Aproveita toda validação de número (cadastro de cliente, agenda, revenda,
+  // perfil do admin) pra também alimentar o mapa lid→telefone — não muda em
+  // nada a resposta desta função, só deixa a resolução de LID nas mensagens/
+  // ligações recebidas mais completa com o tempo (ver rememberLidMapping).
+  rememberLidMapping(sessionKey, String(phone).replace(/\D/g, ""), result?.lid);
 
   return {
     phone,

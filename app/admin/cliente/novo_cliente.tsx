@@ -699,19 +699,29 @@ export default function NovoCliente({
 
   async function checkPapaTeste(username: string) {
     const digits = username.replace(/\D/g, "");
-    if (digits.length < 8) {
+    const isPhoneLike = digits.length >= 8;
+    const trimmed = username.trim();
+    // ✅ WhatsApp está migrando pra permitir login por username (não só
+    // telefone) — sem isso, um username de verdade (sem 8+ dígitos, ex:
+    // "insqueixa") nunca disparava a checagem de duplicidade. Telefone segue
+    // comparando por dígitos (100% igual a antes); texto compara por
+    // igualdade exata sem diferenciar maiúscula/minúscula (ver auditoria de
+    // 12/08/2026).
+    if (!isPhoneLike && trimmed.length < 3) {
       setPapaTesteInfo(null);
       return;
     }
     setPapaTesteLoading(true);
     try {
       const tid = tenantId;
-      const { data } = await supabaseBrowser
+      const baseQuery = supabaseBrowser
         .from("papa_testes")
         .select("*")
         .eq("tenant_id", tid)
-        .eq("whatsapp_username", digits)
         .order("created_at", { ascending: false });
+      const { data } = isPhoneLike
+        ? await baseQuery.eq("whatsapp_username", digits)
+        : await baseQuery.ilike("whatsapp_username", trimmed);
       if (data && data.length > 0) {
         setPapaTesteInfo({ count: data.length, records: data });
       } else {
@@ -730,6 +740,12 @@ export default function NovoCliente({
     countryLabelSetter?: (v: string) => void,
   ) {
     const digits = username.replace(/\D/g, "");
+    // ✅ Um username de verdade (ex: "insqueixa") nunca tem 8+ dígitos e cai
+    // aqui de propósito: hoje não existe API pública (nem no WhatsApp Web,
+    // nem no Baileys) pra confirmar a existência de uma conta pelo username
+    // — só por telefone. Não é limitação deste código, é do que a Meta expõe
+    // até agora (ver auditoria de 12/08/2026). Por isso não mostra badge
+    // nenhum em vez de fingir uma validação que não é possível.
     if (digits.length < 8) {
       setter(null);
       return;
@@ -4602,18 +4618,32 @@ export default function NovoCliente({
                         placeholder="username"
                       />
 
-                      {whatsappUsername && (
-                        <a
-                          href={`https://wa.me/${whatsappUsername}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-400"
-                          title="Abrir conversa"
-                        >
-                          <IconChat />
-                        </a>
-                      )}
+                      {/* ✅ wa.me só aceita dígitos de telefone — se o campo WhatsApp
+                          for um username de verdade (sem dígito suficiente,
+                          ex: "insqueixa"), cai pro Telefone ao lado, que é
+                          sempre um número real (campo obrigatório à parte).
+                          Sem telefone nenhum disponível ainda, não mostra o
+                          atalho em vez de gerar um link quebrado. */}
+                      {(() => {
+                        const waDigits = onlyDigits(whatsappUsername);
+                        const targetDigits =
+                          waDigits.length >= 8
+                            ? waDigits
+                            : onlyDigits(primaryPhoneRaw);
+                        if (targetDigits.length < 8) return null;
+                        return (
+                          <a
+                            href={`https://wa.me/${targetDigits}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 hover:text-emerald-400"
+                            title="Abrir conversa"
+                          >
+                            <IconChat />
+                          </a>
+                        );
+                      })()}
                     </div>
                     {waValidation && (
                       <div

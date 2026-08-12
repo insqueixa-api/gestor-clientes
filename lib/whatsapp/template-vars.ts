@@ -88,6 +88,42 @@ export function normalizeToPhone(usernameRaw: unknown): string {
   return s.replace(/[^\d]/g, "");
 }
 
+// ✅ Tenta cada candidato NA ORDEM, normalizando um de cada vez, e só passa
+// pro próximo se o atual não virar telefone válido — não escolher o primeiro
+// valor truthy e SÓ DEPOIS normalizar. Achado em 12/08/2026: com
+// `normalizeToPhone(a || b || c)`, um `whatsapp_username` que seja um
+// username de verdade (WhatsApp está migrando pra permitir isso, ex:
+// "insqueixa") é truthy e "vence" o `||` antes de qualquer normalização —
+// vira string vazia depois de normalizado e NUNCA cai pro telefone real em
+// `whatsapp_e164`/`phone_e164`, mesmo ele existindo. Com essa função, o
+// campo de identidade pode ser um handle (usado só para exibição/variável de
+// template) que o envio de verdade continua achando o telefone real.
+function firstNormalizedPhone(...candidates: unknown[]): string {
+  for (const candidate of candidates) {
+    const phone = normalizeToPhone(candidate);
+    if (phone) return phone;
+  }
+  return "";
+}
+
+// ✅ Sanitiza um valor pra usar como parte local de um e-mail sintético
+// (ex: `${sanitizeEmailLocalPart(client.whatsapp_username)}@unigestor.net.br`,
+// usado como comprador no Mercado Pago quando o cliente não tem e-mail
+// cadastrado). Antes interpolava `whatsapp_username` direto — com um
+// telefone (só dígitos) nunca dava problema, mas um username de verdade
+// pode conter caracteres fora do alfabeto local-part de e-mail (ex: um "@"
+// colado por engano), gerando um endereço com dois arrobas e syntax
+// inválida pro gateway. Mantém só letras/dígitos/ponto/hífen/underscore
+// (subconjunto seguro de RFC 5322), com fallback pra "cliente" se sobrar
+// vazio.
+export function sanitizeEmailLocalPart(raw: unknown): string {
+  const cleaned = String(raw ?? "")
+    .trim()
+    .replace(/^@+/, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "");
+  return cleaned || "cliente";
+}
+
 // ── DNS do servidor ──
 // ✅ Sorteia uma DNS entre as cadastradas no servidor, evitando a primeira
 // sempre que houver alternativa — a primeira só é usada em último caso
@@ -286,7 +322,7 @@ export async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: s
 
   const phones: { number: string; username: string; is_secondary: boolean }[] = [];
 
-  const phoneMain = normalizeToPhone(rowData.whatsapp_username || rowData.whatsapp_e164 || rowData.phone_e164);
+  const phoneMain = firstNormalizedPhone(rowData.whatsapp_username, rowData.whatsapp_e164, rowData.phone_e164);
   if (phoneMain) {
     phones.push({
       number: phoneMain,
@@ -295,7 +331,7 @@ export async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: s
     });
   }
 
-  const phoneSec = normalizeToPhone(rowData.secondary_whatsapp_username || rowData.secondary_phone_e164);
+  const phoneSec = firstNormalizedPhone(rowData.secondary_whatsapp_username, rowData.secondary_phone_e164);
   if (phoneSec) {
     phones.push({
       number: phoneSec,
@@ -437,12 +473,13 @@ export async function fetchResellerWhatsApp(
       // ✅ Mesmo fallback de fetchClientWhatsApp (linha ~289): sem isso, uma
       // revenda com telefone certo cadastrado mas sem o campo
       // whatsapp_username confirmado no formulário (ex: operador não clicou
-      // no ✓) ficava sem nenhum destino de envio, mesmo com o telefone
-      // salvo corretamente em whatsapp_e164/phone_e164.
-      const phone = normalizeToPhone(
-        (data as any).whatsapp_username ||
-          (data as any).whatsapp_e164 ||
-          (data as any).phone_e164,
+      // no ✓), ou com um username de verdade em vez de telefone, ficava sem
+      // nenhum destino de envio, mesmo com o telefone salvo corretamente em
+      // whatsapp_e164/phone_e164.
+      const phone = firstNormalizedPhone(
+        (data as any).whatsapp_username,
+        (data as any).whatsapp_e164,
+        (data as any).phone_e164,
       );
 
       let serverQuery = sb

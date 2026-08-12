@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
+import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
 
 export const dynamic = "force-dynamic";
 
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
         statement_descriptor: "UNIGESTOR",
         binary_mode: true,
         payer: {
-          email: `${String(ctx.whatsapp_username)}@unigestor.net.br`,
+          email: `${sanitizeEmailLocalPart(ctx.whatsapp_username)}@unigestor.net.br`,
           first_name: String(displayName).split(" ")[0],
           last_name: String(displayName).split(" ").slice(1).join(" ") || "Cliente",
         },

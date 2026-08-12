@@ -11,6 +11,7 @@ import {
   checkCouponAbuseGuard,
 } from "@/lib/client-portal/coupons";
 import { touchPortalSession } from "@/lib/client-portal/session";
+import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
 
 export const dynamic = "force-dynamic";
 
@@ -546,7 +547,7 @@ if (!mpToken) {
               statement_descriptor: "UNIGESTOR",
               binary_mode: true,
               payer: {
-                email: `${String(client.whatsapp_username)}@unigestor.net.br`,
+                email: `${sanitizeEmailLocalPart(client.whatsapp_username)}@unigestor.net.br`,
                 first_name: String(displayName).split(" ")[0],
                 last_name: String(displayName).split(" ").slice(1).join(" ") || "Cliente",
               },

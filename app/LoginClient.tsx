@@ -127,12 +127,24 @@ export default function LoginClient() {
 
   const canSubmit = useMemo(() => {
     // ✅ PIN não é mais exigido — login depende só do token mágico + captcha
+    //
+    // ✅ `whatsapp` vem resolvido e confiável do backend (portal_resolve_token
+    // já validou o token) — esta checagem é só uma blindagem de sanidade, não
+    // a segurança de verdade (essa é o token). Antes exigia >=10 dígitos,
+    // travando pra sempre quem tiver `whatsapp_username` como um handle de
+    // verdade (ex: "insqueixa", sem dígito nenhum) em vez de telefone — o
+    // WhatsApp está migrando pra permitir login por username, ver auditoria
+    // de 12/08/2026. Aceita telefone (>=10 dígitos) OU um identificador não
+    // vazio com tamanho mínimo razoável (mesma regra mínima que o próprio
+    // WhatsApp usa pra username: 3 caracteres).
+    const looksLikePhone = cleanPhone.length >= 10;
+    const looksLikeIdentity = whatsapp.trim().length >= 3;
     return (
       (token ?? "").length > 10 &&
-      cleanPhone.length >= 10 &&
+      (looksLikePhone || looksLikeIdentity) &&
       turnstileToken !== null
     );
-  }, [token, cleanPhone, turnstileToken]);
+  }, [token, cleanPhone, whatsapp, turnstileToken]);
 
   useEffect(() => {
     let cancelled = false;
