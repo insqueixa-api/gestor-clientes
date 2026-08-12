@@ -4372,21 +4372,38 @@ export default function NovoCliente({
 
   function handleSave() {
     // Validação reforçada
-
+    //
+    // ✅ Telefone deixou de ser obrigatório (12/08/2026) — a trava agora é
+    // só em WhatsApp, que aceita telefone OU um username reservado de
+    // verdade (o WhatsApp está migrando pra permitir isso). Ver aviso logo
+    // abaixo: sem telefone em NENHUM lugar (nem aqui, nem um username com
+    // dígito suficiente), o sistema não consegue mandar mensagem automática
+    // pra esse cliente hoje — nenhuma biblioteca não-oficial de WhatsApp
+    // sabe enviar só pelo username ainda.
     if (
       !name.trim() ||
       !username.trim() ||
       !serverId ||
-      !primaryPhoneRaw.trim() ||
       !whatsappUsername.trim()
     ) {
       addToast(
         "error",
         "Campos obrigatórios",
-        "Preencha Nome, Usuário, Servidor, Telefone e WhatsApp.",
+        "Preencha Nome, Usuário, Servidor e WhatsApp.",
       );
 
       return;
+    }
+
+    if (
+      onlyDigits(whatsappUsername).length < 8 &&
+      !primaryPhoneRaw.trim()
+    ) {
+      addToast(
+        "warning",
+        "Sem telefone identificável",
+        "Esse cliente não tem nenhum número de telefone salvo (nem no WhatsApp, nem no campo Telefone) — hoje não é possível mandar mensagens automáticas pra ele. Salvando mesmo assim.",
+      );
     }
 
     if (technology === "Personalizado" && !customTechnology.trim()) {
