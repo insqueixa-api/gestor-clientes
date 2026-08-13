@@ -1278,9 +1278,6 @@ function AuditoriaPageContent() {
             </h1>
             <EyeToggle />
           </div>
-          <p className="text-xs sm:text-sm text-foreground/70 mt-1">
-            Log completo de ponta a ponta dos pagamentos e renovações.
-          </p>
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">
           <div className="flex bg-transparent p-1 rounded-xl border border-border">
