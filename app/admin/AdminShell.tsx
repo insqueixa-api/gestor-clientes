@@ -475,6 +475,15 @@ export default function AdminShell({
                 }
               />
 
+              <NavLink
+                href="/admin/auditoria"
+                label={
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <ScrollText className="w-4 h-4 text-emerald-400" /> Log
+                  </span>
+                }
+              />
+
               <div ref={mobileRef} className="relative">
                 <button
                   onClick={openMobileMenu}
@@ -485,15 +494,7 @@ export default function AdminShell({
                       : "text-white/80 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
-                  <span className="text-base leading-none">☰</span> Menu{" "}
-                  <span
-                    className={[
-                      "transition-transform duration-200 text-[8px] opacity-40",
-                      openMenu === "mobile" ? "rotate-180" : "",
-                    ].join(" ")}
-                  >
-                    ▼
-                  </span>
+                  <span className="text-base leading-none">☰</span> Menu
                 </button>
               </div>
             </div>
@@ -708,15 +709,6 @@ export default function AdminShell({
               Navegação
             </div>
 
-            <MenuLink
-              href="/admin/auditoria"
-              label={
-                <span className="flex items-center gap-2 text-emerald-400">
-                  <ScrollText className="w-4 h-4 text-emerald-400" /> Log Portal
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
             <MenuLink
               href="/admin"
               label={
