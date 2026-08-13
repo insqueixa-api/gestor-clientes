@@ -36,7 +36,6 @@ interface ClientFromView {
   price_amount: number | null;
   price_currency: string | null;
 
-  whatsapp?: string | null;
   notes?: string | null;
 }
 
@@ -465,7 +464,6 @@ export default function RecargaCliente({
           username: rawClient.server_username,
           server_name: rawClient.servers?.name || null,
           plan_name: rawClient.plan_label,
-          whatsapp: rawClient.phone_e164,
           // ✅ Espelha exatamente a CASE de computed_status das views
           // vw_clients_list_* (docs/sql/add_name_prefix_to_list_views.sql) —
           // faltava o ramo OVERDUE (achado em auditoria: todo cliente não
