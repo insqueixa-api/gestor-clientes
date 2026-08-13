@@ -20,7 +20,7 @@ CRUD de servidores IPTV (créditos, DNS, painel, WhatsApp do portal), com sincro
 - `POST /api/integrations/fast/sync` — chama `api.painelcliente.com/profile/{token}`, atualiza `server_integrations`.
 - `POST /api/integrations/natv/sync` — mesmo padrão.
 - `POST /api/integrations/elite/sync` — 2 ações: `get_credentials` (devolve credenciais pra extensão) e `save_sync` (grava saldo lido de volta).
-- RPCs: `toggle_server_offline`, `toggle_server_archive`, `delete_archived_server`, `update_server_credits_manual`, `log_server_credit_purchase_only` e `topup_server_credits_and_log` (ambas `SECURITY DEFINER` guardadas por `tenant_members`, com validação de valores > 0 — confirmado em `docs/sql/fix_unguarded_security_definer_functions.sql`).
+- RPCs: `toggle_server_archive`, `delete_archived_server`, `update_server_credits_manual`, `log_server_credit_purchase_only` e `topup_server_credits_and_log` (ambas `SECURITY DEFINER` guardadas por `tenant_members`, com validação de valores > 0 — confirmado em `docs/sql/fix_unguarded_security_definer_functions.sql`).
 - `POST /api/upload/presign` — logo do servidor.
 - `GET /api/whatsapp/profile[2]` — status de sessão para o select "Sessão para o Portal".
 
