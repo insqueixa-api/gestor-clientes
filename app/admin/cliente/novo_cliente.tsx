@@ -3910,8 +3910,15 @@ export default function NovoCliente({
             const tid2 = tenantId;
             const selectedServerName2 =
               servers.find((s) => s.id === serverId)?.name || null;
+            // ✅ NÃO usar onlyDigits aqui: pra telefone não faz diferença
+            // (whatsappUsername já nasce só com dígitos nesse fluxo — ver
+            // handleDonePrimary), mas pra um username de verdade (ex:
+            // "zuleidenew-159") onlyDigits() cortava tudo que não é número,
+            // salvando "159" — quebrava tanto a exibição no Papa Testes
+            // quanto o próprio checkPapaTeste (que compara o texto CRU
+            // digitado pra usernames, então nunca batia com o "159" salvo).
             const papaWaUsername =
-              onlyDigits(whatsappUsername) ||
+              whatsappUsername.trim() ||
               onlyDigits(finalPrimaryE164) ||
               "desconhecido";
 
@@ -3934,7 +3941,7 @@ export default function NovoCliente({
             if (finalSecondaryE164 && secWhatsUser) {
               papaTestes.push({
                 tenant_id: tid2,
-                whatsapp_username: onlyDigits(secWhatsUser),
+                whatsapp_username: secWhatsUser.trim(),
                 client_name: secName || displayName,
                 phone_e164: finalSecondaryE164,
                 server_name: selectedServerName2,
