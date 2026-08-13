@@ -1,6 +1,7 @@
 // app/layout.tsx
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 // 1. IMPORTANTE: Importe o Provider que você criou
@@ -65,6 +66,7 @@ export default function RootLayout({
       >
         {/* 3. AQUI ESTÁ A MÁGICA: O Provider precisa "abraçar" todo o site */}
         <ThemeProvider>{children}</ThemeProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
