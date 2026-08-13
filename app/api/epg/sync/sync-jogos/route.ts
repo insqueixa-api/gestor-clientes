@@ -60,7 +60,10 @@ const CANAIS_BLOQUEADOS = ['vbtv', 'Canal GolBrasil', 'Xsports', 'Youtube Paulis
 
 function canalBloqueado(nome: string): boolean {
   const n = nome.toLowerCase()
-  return CANAIS_BLOQUEADOS.some((b) => n.includes(b))
+  // ✅ b também precisa virar minúsculo — .includes() é case-sensitive.
+  // Itens digitados com maiúscula (ex: "Canal GolBrasil", "Xsports")
+  // nunca batiam contra o nome do canal (sempre comparado em minúsculo).
+  return CANAIS_BLOQUEADOS.some((b) => n.includes(b.toLowerCase()))
 }
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────────
