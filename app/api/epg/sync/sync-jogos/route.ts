@@ -58,12 +58,17 @@ const API_HEADERS = {
 // e Antel são de outros países, bet365 é casa de apostas, não canal).
 const CANAIS_BLOQUEADOS = ['vbtv', 'Canal GolBrasil', 'Xsports', 'Youtube Paulistão', 'Youtube Canal GOAT', 'Youtube SportyNet', 'SportyNet', 'Youtube Xsports', 'getv', 'youtube uol', 'bet365', 'fanatiz', 'antel tv internacional', 'youtube metrópoles']
 
+// ✅ Normaliza pra bloqueio funcionar com o que for colado ali (copiar da
+// tela e colar direto, sem ajustar nada): minúsculo (.includes() é
+// case-sensitive),   (espaço "duro" que vem de copiar de página web)
+// virando espaço normal, e sem espaço sobrando nas pontas.
+function normalizarNomeCanal(s: string): string {
+  return s.toLowerCase().replace(/ /g, ' ').trim()
+}
+
 function canalBloqueado(nome: string): boolean {
-  const n = nome.toLowerCase()
-  // ✅ b também precisa virar minúsculo — .includes() é case-sensitive.
-  // Itens digitados com maiúscula (ex: "Canal GolBrasil", "Xsports")
-  // nunca batiam contra o nome do canal (sempre comparado em minúsculo).
-  return CANAIS_BLOQUEADOS.some((b) => n.includes(b.toLowerCase()))
+  const n = normalizarNomeCanal(nome)
+  return CANAIS_BLOQUEADOS.some((b) => n.includes(normalizarNomeCanal(b)))
 }
 
 // ─── Tipos ──────────────────────────────────────────────────────────────────────
