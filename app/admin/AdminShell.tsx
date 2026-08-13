@@ -431,8 +431,8 @@ export default function AdminShell({
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
       <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
-        <div className="mx-auto flex w-full items-center gap-2 px-3 sm:px-4 py-2">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex w-full items-center gap-1 px-1.5 sm:gap-2 sm:px-4 py-2">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Link
               href="/admin"
               prefetch={false}
@@ -465,7 +465,7 @@ export default function AdminShell({
           <div className="flex-1" />
 
           <nav className="flex items-center gap-1 text-sm whitespace-nowrap">
-            <div className="flex items-center gap-1 sm:hidden">
+            <div className="flex items-center gap-0.5 sm:hidden">
               <NavLink
                 href="/admin/cliente"
                 label={
@@ -488,7 +488,7 @@ export default function AdminShell({
                 <button
                   onClick={openMobileMenu}
                   className={[
-                    "rounded-lg px-3 py-2 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
+                    "rounded-lg px-2 py-2 sm:px-3 text-sm transition-all duration-200 font-medium flex items-center gap-2 tracking-tight",
                     openMenu === "mobile"
                       ? "bg-white/10 text-emerald-400"
                       : "text-white/80 hover:text-white hover:bg-white/5",
@@ -1172,7 +1172,7 @@ function NavLink({ href, label }: { href: string; label: React.ReactNode }) {
       href={href}
       prefetch={false}
       className={[
-        "rounded-lg px-3 py-2 text-sm transition-all duration-200 inline-flex items-center font-medium tracking-tight",
+        "rounded-lg px-2 py-2 sm:px-3 text-sm transition-all duration-200 inline-flex items-center font-medium tracking-tight",
         active
           ? "bg-white/10 text-emerald-400 shadow-sm"
           : "text-white/80 hover:text-white hover:bg-white/5",
