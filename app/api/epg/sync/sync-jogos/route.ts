@@ -145,11 +145,27 @@ interface JogoDia {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-/** Formata data para o padrão esperado pela API: DD/MM/YYYY */
+/** Formata data para o padrão esperado pela API: DD/MM/YYYY
+ *
+ * ⚠️ Precisa ser sempre em horário de Brasília, nunca no horário local do
+ * servidor. `date.getDate()/getMonth()/getFullYear()` leem o fuso do
+ * PROCESSO (na Vercel é UTC), não o de São Paulo — depois das 21h de
+ * Brasília (=00h UTC do dia seguinte), "hoje" virava amanhã e "amanhã"
+ * virava depois de amanhã. Como o passo 6 REESCREVE o JSON inteiro do R2 a
+ * cada sync (não é um append), os jogos de hoje que ainda iam começar
+ * (ex: 21:30) simplesmente saíam do arquivo publicado — pareceu que o sync
+ * "apagou" jogos de hoje, quando na verdade nunca chegou a buscá-los.
+ */
 function formatDateForAPI(date: Date): string {
-  const d = date.getDate().toString().padStart(2, '0')
-  const m = (date.getMonth() + 1).toString().padStart(2, '0')
-  const y = date.getFullYear()
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(date)
+  const d = parts.find((p) => p.type === 'day')!.value
+  const m = parts.find((p) => p.type === 'month')!.value
+  const y = parts.find((p) => p.type === 'year')!.value
   return `${d}/${m}/${y}`
 }
 
