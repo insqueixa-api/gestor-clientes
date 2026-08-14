@@ -24,11 +24,11 @@ function extractCsrfToken(html) {
   return m ? m[1] : null;
 }
 
-async function solveChallenge(url) {
+async function solveChallengeOnce(url, maxTimeout) {
   const res = await fetch(FLARESOLVERR_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cmd: "request.get", url, maxTimeout: 60000 }),
+    body: JSON.stringify({ cmd: "request.get", url, maxTimeout }),
   });
   if (!res.ok) throw new Error(`FlareSolverr HTTP ${res.status}`);
   const json = await res.json();
@@ -38,6 +38,26 @@ async function solveChallenge(url) {
     cookies: json.solution?.cookies || [],
     userAgent: json.solution?.userAgent || "",
   };
+}
+
+// ✅ Retry (14/08/2026): o tempo pra resolver o desafio do Cloudflare varia —
+// normalmente 14-17s, mas achado ao vivo que ocasionalmente demora bem mais
+// (ou nem resolve dentro do maxTimeout), fazendo o timeout de 55s do lado da
+// Vercel estourar antes. 1ª tentativa com orçamento enxuto (20s — cobre o
+// caso normal com folga); se falhar, 1 segunda tentativa com mais fôlego
+// (25s). Total do pior caso (~46s) + resto do fluxo (login+ação, poucos
+// segundos) ainda cabe dentro de maxDuration=60s da rota na Vercel.
+async function solveChallenge(url) {
+  try {
+    return await solveChallengeOnce(url, 20000);
+  } catch (firstErr) {
+    console.error("[DUPLECAST] 1ª tentativa de resolver o Cloudflare falhou, tentando de novo:", firstErr?.message);
+    try {
+      return await solveChallengeOnce(url, 25000);
+    } catch (secondErr) {
+      throw new Error(`Cloudflare não resolveu após 2 tentativas: ${secondErr?.message}`);
+    }
+  }
 }
 
 class CookieJar {

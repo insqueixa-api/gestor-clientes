@@ -101,7 +101,10 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${vmToken}`,
       },
       body: JSON.stringify(vmPayload),
-      signal: AbortSignal.timeout(55000),
+      // ✅ 58s (maxDuration é 60s) — dá espaço pro retry de 2 tentativas do
+      // duplecastClient.js na VM (até ~46s só pra resolver o Cloudflare nos
+      // casos mais lentos) + o resto do fluxo (login + ação).
+      signal: AbortSignal.timeout(58000),
     });
     const vmJson = await vmRes.json().catch(() => ({}) as any);
 
