@@ -9,6 +9,7 @@ import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/ses
 import { logAppActivity } from "@/lib/apps/panel";
 import { loadClientApp, checkClientAppValidity } from "@/lib/apps/orchestration";
 import { describeCredentialFields } from "@/lib/apps/field-types";
+import { fileAppSetupRequest } from "@/lib/apps/portal-app-requests";
 
 export const dynamic = "force-dynamic";
 
@@ -68,14 +69,49 @@ export async function POST(req: NextRequest) {
         }),
       );
 
+      // ✅ Mesma escalada do .../configure/route.ts (pedido do Márcio,
+      // 14/08/2026): 1ª falha na janela de 30min pede pra tentar de novo;
+      // 2ª+ falha seguida já registra um pedido de configuração pro admin
+      // (client_app_requests) em vez de deixar o cliente preso sem saber o
+      // que fazer — mesmo raciocínio do Configurar, reaproveitando
+      // fileAppSetupRequest.
+      const RATE_LIMIT_WINDOW_MIN = 30;
+      const { data: recentEvents } = await supabaseAdmin
+        .from("client_app_activity_log")
+        .select("event")
+        .eq("client_app_id", client_app_id)
+        .in("event", ["check_validity", "check_validity_failed"])
+        .gte("created_at", new Date(Date.now() - RATE_LIMIT_WINDOW_MIN * 60 * 1000).toISOString());
+
+      const recentFailures = (recentEvents || []).filter((e: any) => e.event === "check_validity_failed").length;
+      const escalate = recentFailures >= 1;
+
+      let requestFiled = false;
+      if (escalate) {
+        try {
+          await fileAppSetupRequest(supabaseAdmin, {
+            tenantId,
+            clientId: client_id,
+            clientAppId: client_app_id,
+            appName,
+            fieldValues: row.field_values,
+          });
+          requestFiled = true;
+        } catch {
+          // ✅ Falha ao registrar o pedido não pode esconder o erro original
+          // — best-effort, mesma regra do configure/route.ts.
+        }
+      }
+
       // ✅ Nunca mostra o erro técnico cru do parceiro pro cliente (mesma
       // regra do .../configure/route.ts, pedido do Márcio 05/08/2026) — aqui
       // a rota mandava result.error direto, que podia ser o texto em inglês
       // do parceiro. Cita os campos de credencial reais do app em vez disso.
       const fieldsHint = describeCredentialFields(row.fieldsConfig);
-      const message = fieldsHint
-        ? `Não foi possível verificar a validade agora. Confira se ${fieldsHint} estão certos e tente novamente.`
-        : "Não foi possível verificar a validade agora. Tente novamente em instantes.";
+      const checkFieldsMsg = fieldsHint ? ` Confira se ${fieldsHint} estão certos.` : "";
+      const message = requestFiled
+        ? `Não foi possível verificar a validade agora.${checkFieldsMsg} Já registramos um pedido pra nossa equipe conferir isso — você não precisa fazer mais nada.`
+        : `Não foi possível verificar a validade agora.${checkFieldsMsg} Tente novamente em instantes.`;
       return jsonError(message, 400);
     }
 

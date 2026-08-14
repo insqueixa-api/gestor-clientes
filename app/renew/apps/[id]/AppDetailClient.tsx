@@ -271,7 +271,14 @@ export default function AppDetailClient() {
       );
       await loadDetail();
     } catch (err: any) {
-      addToast("error", "Não foi possível atualizar a validade", "Tente novamente.");
+      // ✅ Usa a mensagem real do servidor (cita campos/avisa quando já
+      // registrou pedido pro admin), igual RenewClient.tsx já fazia — era só
+      // esse arquivo que ainda tinha o texto fixo genérico.
+      addToast(
+        "error",
+        "Não foi possível atualizar a validade",
+        err?.message || "Tente novamente.",
+      );
     } finally {
       setBusy(false);
     }
