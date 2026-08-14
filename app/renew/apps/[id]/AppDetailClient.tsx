@@ -195,8 +195,14 @@ export default function AppDetailClient() {
           kind: result?.blocked ? "blocked" : "error",
           isReconfigure,
           appName: app.name,
-          errorMessage: "Não foi possível concluir a configuração. Tente novamente.",
+          // ✅ Usa a mensagem real do servidor (cita campos/avisa quando já
+          // registrou pedido pro admin) — igual RenewClient.tsx já fazia,
+          // era só esse arquivo que ainda tinha o texto fixo genérico.
+          errorMessage:
+            result?.error ||
+            "Não foi possível concluir a configuração. Tente novamente.",
           escalate: !!result?.escalate,
+          requestFiled: !!result?.request_filed,
           suggestSecondary: !!result?.suggest_secondary,
         });
         return;

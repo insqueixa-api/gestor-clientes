@@ -8,8 +8,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
-import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
+import { fileAppSetupRequest } from "@/lib/apps/portal-app-requests";
 
 export const dynamic = "force-dynamic";
 
@@ -84,51 +84,20 @@ export async function POST(req: NextRequest) {
       return jsonError(`Preencha antes de solicitar: ${missingLabels.join(", ")}.`, 400);
     }
 
-    // Idempotente: se já existe um pedido pendente pra esse app, não duplica.
-    const { data: existing } = await supabaseAdmin
-      .from("client_app_requests")
-      .select("id")
-      .eq("client_app_id", client_app_id)
-      .eq("action", "setup")
-      .eq("status", "pending")
-      .maybeSingle();
-
-    if (existing) {
-      return NextResponse.json({ ok: true, data: { id: existing.id, already_pending: true } }, { status: 200, headers: NO_STORE_HEADERS });
+    let result;
+    try {
+      result = await fileAppSetupRequest(supabaseAdmin, {
+        tenantId: ctx.tenant_id,
+        clientId: client_id,
+        clientAppId: client_app_id,
+        appName,
+        fieldValues: row.field_values,
+      });
+    } catch {
+      return jsonError("Erro interno", 500);
     }
 
-    const { data: inserted, error: insErr } = await supabaseAdmin
-      .from("client_app_requests")
-      .insert({
-        tenant_id: ctx.tenant_id,
-        client_id,
-        client_app_id,
-        app_name: appName,
-        fields_snapshot: row.field_values || {},
-        action: "setup",
-        status: "pending",
-      })
-      .select("id")
-      .single();
-
-    if (insErr || !inserted) return jsonError("Erro interno", 500);
-
-    const { data: client } = await supabaseAdmin
-      .from("clients")
-      .select("display_name, server_username, servers(name)")
-      .eq("id", client_id)
-      .maybeSingle();
-
-    await notify({
-      tenantId: ctx.tenant_id,
-      type: "app_setup_pending",
-      title: "📱 Configuração de app solicitada",
-      message: `${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} pediu ajuda pra configurar "${appName}" pelo portal.`,
-      link: "/admin/auditoria?view=aplicativos",
-      sourceId: inserted.id,
-    });
-
-    return NextResponse.json({ ok: true, data: { id: inserted.id, already_pending: false } }, { status: 200, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ ok: true, data: result }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {
     return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
   }

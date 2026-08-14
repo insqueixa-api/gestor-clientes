@@ -9,6 +9,7 @@ import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/ses
 import { logAppActivity } from "@/lib/apps/panel";
 import { loadClientApp, configureClientApp } from "@/lib/apps/orchestration";
 import { describeCredentialFields } from "@/lib/apps/field-types";
+import { fileAppSetupRequest } from "@/lib/apps/portal-app-requests";
 
 export const dynamic = "force-dynamic";
 
@@ -113,8 +114,15 @@ export async function POST(req: NextRequest) {
       // ✅ Nunca mostra o erro técnico cru pro cliente (pedido do Márcio,
       // 28/07/2026) — o motivo real (result.error) já foi pro log abaixo pra
       // auditoria. 1ª falha na janela: pede pra tentar de novo. 2ª+ falha
-      // seguida (recentFailures já tinha pelo menos 1 antes dessa): escala
-      // pro suporte em vez de insistir.
+      // seguida (recentFailures já tinha pelo menos 1 antes dessa): escala —
+      // registra um pedido de configuração pro admin resolver manualmente
+      // (mesmo destino de "Solicitar configuração", ver
+      // lib/apps/portal-app-requests.ts) em vez de deixar o cliente preso
+      // tentando de novo sozinho ou tendo que descobrir como falar com o
+      // suporte. Achado ao vivo (14/08/2026, integração Duplecast/
+      // Cloudflare): o app pode ter integração automática que funciona na
+      // maioria das vezes mas falha ocasionalmente — vale a mesma rede de
+      // segurança que já existia pros apps sem integração nenhuma.
       const escalate = recentFailures >= 1;
       // ✅ Guia o cliente pela sequência Principal → Secundária → suporte
       // (pedido do Márcio, 28/07/2026).
@@ -141,14 +149,34 @@ export async function POST(req: NextRequest) {
         }),
       );
 
+      let requestFiled: { id: string; already_pending: boolean } | null = null;
+      if (escalate) {
+        try {
+          requestFiled = await fileAppSetupRequest(supabaseAdmin, {
+            tenantId,
+            clientId: client_id,
+            clientAppId: client_app_id,
+            appName,
+            fieldValues: row.field_values,
+          });
+        } catch {
+          // ✅ Falha ao registrar o pedido não pode esconder o erro original
+          // de configuração — cliente ainda vê a mensagem de falha, só sem a
+          // confirmação de que já foi registrado (best-effort).
+        }
+      }
+
       return NextResponse.json(
         {
           ok: false,
           escalate,
+          request_filed: !!requestFiled,
           suggest_secondary: suggestSecondary,
-          error: escalate
-            ? `Houve uma nova falha ao configurar esse aplicativo.${checkFieldsMsg} Fale com o suporte pra gente resolver juntos.`
-            : `Houve uma falha ao configurar esse aplicativo.${checkFieldsMsg} Tente mais uma vez — se continuar falhando, fale com o suporte.`,
+          error: requestFiled
+            ? `Houve uma nova falha ao configurar esse aplicativo.${checkFieldsMsg} Já registramos um pedido pra nossa equipe finalizar manualmente — você não precisa fazer mais nada.`
+            : escalate
+              ? `Houve uma nova falha ao configurar esse aplicativo.${checkFieldsMsg} Fale com o suporte pra gente resolver juntos.`
+              : `Houve uma falha ao configurar esse aplicativo.${checkFieldsMsg} Tente mais uma vez — se continuar falhando, a gente registra automaticamente pra nossa equipe cuidar.`,
         },
         { status: 400, headers: NO_STORE_HEADERS },
       );

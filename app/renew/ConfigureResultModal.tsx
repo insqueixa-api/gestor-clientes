@@ -19,6 +19,10 @@ export type ConfigureResultData = {
   repeatWarning?: boolean;
   errorMessage?: string;
   escalate?: boolean;
+  /** 2ª falha seguida: já registramos um pedido de configuração pro admin
+   * resolver manualmente (ver lib/apps/portal-app-requests.ts) — o cliente
+   * não precisa fazer mais nada nem falar com o suporte, só esperar. */
+  requestFiled?: boolean;
   suggestSecondary?: boolean;
 };
 
@@ -60,6 +64,11 @@ export default function ConfigureResultModal({
 
   const isSuccess = data.kind === "success";
   const isBlocked = data.kind === "blocked";
+  // ✅ Já registramos o pedido pro admin — não é mais "algo deu errado e
+  // você precisa fazer alguma coisa", é "a gente já assumiu daqui". Trata
+  // visualmente mais perto do aviso amarelo (bloqueado) do que do erro
+  // vermelho puro, mesmo continuando kind:"error" do lado dos dados.
+  const isRequestFiled = !isSuccess && !isBlocked && !!data.requestFiled;
 
   return (
     <Modal
@@ -72,7 +81,7 @@ export default function ConfigureResultModal({
           className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
             isSuccess
               ? "bg-emerald-500/20"
-              : isBlocked
+              : isBlocked || isRequestFiled
                 ? "bg-amber-500/20"
                 : "bg-rose-500/10"
           }`}
@@ -91,7 +100,7 @@ export default function ConfigureResultModal({
                 d="M5 13l4 4L19 7"
               />
             </svg>
-          ) : isBlocked ? (
+          ) : isBlocked || isRequestFiled ? (
             <svg
               className="w-8 h-8 text-amber-500"
               fill="none"
@@ -129,7 +138,9 @@ export default function ConfigureResultModal({
               : "Configurado com sucesso ✅"
             : isBlocked
               ? "Muitas tentativas seguidas"
-              : "Não foi possível concluir"}
+              : isRequestFiled
+                ? "Pedido enviado pra nossa equipe 📩"
+                : "Não foi possível concluir"}
         </h2>
 
         {isSuccess ? (
@@ -179,7 +190,7 @@ export default function ConfigureResultModal({
               {data.errorMessage ||
                 "Não foi possível concluir agora. Tente novamente em instantes."}
             </p>
-            {data.suggestSecondary && (
+            {data.suggestSecondary && !isRequestFiled && (
               <p className="text-xs text-amber-500 font-medium">
                 Se quiser tentar novamente, use a outra opção de configuração.
               </p>

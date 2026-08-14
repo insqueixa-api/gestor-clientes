@@ -978,6 +978,7 @@ export default function RenewClient() {
             result?.error ||
             "Não foi possível concluir a configuração. Tente novamente.",
           escalate: !!result?.escalate,
+          requestFiled: !!result?.request_filed,
           suggestSecondary: !!result?.suggest_secondary,
         });
         return;
