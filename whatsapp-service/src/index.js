@@ -9,6 +9,7 @@ import {
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
 } from "./sessionManager.js";
+import { runDuplecastAction } from "./duplecastClient.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -401,6 +402,23 @@ app.post("/fast-sync/proxy-m3u", authMiddleware, async (req, res) => {
   } catch (e) {
     console.error("[FAST-PROXY] erro:", e?.message);
     res.status(502).json({ error: e?.message || "Falha ao baixar M3U do Fast." });
+  }
+});
+
+// ── POST /duplecast/action ────────────────────────────────────
+// A Vercel não consegue passar do Cloudflare do duplecast.com (desafio
+// "Just a moment", bloqueia qualquer requisição sem motor de JS — testado de
+// vários IPs, não é reputação de IP). Aqui na VM tem o FlareSolverr
+// (container local, docker-compose.yml) resolvendo o desafio uma vez; o
+// resto do fluxo (login, criar/checar/apagar playlist) reaproveita os
+// cookies direto — ver duplecastClient.js pro porquê disso funcionar.
+app.post("/duplecast/action", authMiddleware, async (req, res) => {
+  try {
+    const result = await runDuplecastAction(req.body || {});
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error("[DUPLECAST] erro:", e?.message);
+    res.status(e?.notFound ? 404 : 500).json({ ok: false, error: e?.message || "Erro no Duplecast." });
   }
 });
 

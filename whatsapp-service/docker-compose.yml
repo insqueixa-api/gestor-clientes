@@ -14,6 +14,8 @@ services:
       - .env
     environment:
       - NODE_ENV=production
+    depends_on:
+      - flaresolverr
     # Limites de memória (seguro para o Droplet de 1GB)
     mem_limit: 400m
     memswap_limit: 400m
@@ -24,6 +26,27 @@ services:
       timeout: 15s
       retries: 3
       start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ✅ Resolve o desafio Cloudflare "Just a moment" do duplecast.com (rota
+  # server-to-server direta sempre voltava 403 — testado de 3 IPs
+  # diferentes, confirmado que não é reputação de IP). Só a porta local
+  # (127.0.0.1), nunca exposta pra fora — a rede interna do compose já deixa
+  # o container "whatsapp" chamar http://flaresolverr:8191 sem precisar
+  # publicar porta nenhuma pro host. Ver src/duplecastClient.js.
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
+    ports:
+      - "127.0.0.1:8191:8191"
+    mem_limit: 1024m
     logging:
       driver: "json-file"
       options:
