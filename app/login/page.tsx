@@ -2,6 +2,7 @@
 // app/login/page.tsx
 
 import { useMemo, useState, useActionState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { loginAction, type LoginState } from "./actions";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
@@ -353,6 +354,16 @@ export default function LoginPage() {
         {/* ✅ Subiu e ficou um pouco mais discreto */}
         <div className="mt-3 sm:mt-5 text-center text-[10px] sm:text-xs text-white/70">
           Acesso protegido • Use seu e-mail cadastrado
+        </div>
+
+        <div className="mt-2 text-center text-[10px] text-white/40">
+          <Link href="/termos-de-uso" className="hover:text-white/70 hover:underline transition">
+            Termos de Uso
+          </Link>
+          {" "}·{" "}
+          <Link href="/politica-de-privacidade" className="hover:text-white/70 hover:underline transition">
+            Política de Privacidade
+          </Link>
         </div>
       </div>
     </div>

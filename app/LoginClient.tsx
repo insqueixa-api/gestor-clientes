@@ -2,6 +2,7 @@
 // app/LoginClient.tsx
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
@@ -388,6 +389,16 @@ export default function LoginClient() {
         {/* Hint embaixo do card */}
         <div className="mt-3 sm:mt-5 text-center text-[10px] sm:text-xs text-white/70">
           Acesso protegido • Renovação automática
+        </div>
+
+        <div className="mt-2 text-center text-[10px] text-white/40">
+          <Link href="/termos-de-uso" className="hover:text-white/70 hover:underline transition">
+            Termos de Uso
+          </Link>
+          {" "}·{" "}
+          <Link href="/politica-de-privacidade" className="hover:text-white/70 hover:underline transition">
+            Política de Privacidade
+          </Link>
         </div>
       </div>
     </div>
