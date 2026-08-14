@@ -16,6 +16,7 @@ import {
   resolveIntegrationTypeByName,
 } from "@/lib/apps/panel";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
+import { dispatchDuplecastAction } from "@/lib/apps/duplecast-extension";
 import { dispatchIbosolAction } from "@/lib/apps/ibosol-extension";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
@@ -2066,6 +2067,19 @@ export default function NovoCliente({
     return macValue;
   }
 
+  // ✅ Duplecast (14/08/2026) — extrai o Device Key de qualquer app, mesmo
+  // padrão de getMacFromApp (sem fallback "solto": ao contrário do MAC, um
+  // Device Key não tem formato reconhecível pra adivinhar em campos soltos).
+  function getDeviceKeyFromApp(appInstance?: SelectedAppInstance) {
+    if (!appInstance) return "";
+    const field = appInstance.fields_config?.find(
+      (f: any) => String(f?.type || "").toUpperCase() === "DEVICE_KEY",
+    );
+    if (!field) return "";
+    const key = String(field.id || field.label || "").trim();
+    return appInstance.values[key] || "";
+  }
+
   // 🔥 FUNÇÃO SALVA-VIDAS: Tenta pegar a integração do banco. Se vier vazio OU a chave for velha, deduz pelo NOME!
   function resolveIntegration(appInstance?: SelectedAppInstance) {
     if (!appInstance) return null;
@@ -2762,6 +2776,231 @@ export default function NovoCliente({
           "error",
           "Falha ao remover",
           result.error || "Não foi possível remover no ClouDDy.",
+        );
+      }
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  // ✅ Duplecast (14/08/2026) — a rota server-side foi bloqueada pelo
+  // Cloudflare (mesmo diagnóstico do ClouDDy), migrado pro mesmo padrão via
+  // extensão. baseUrl vem de app_integrations (api_url), mac+deviceKey do
+  // próprio app-instância, PIN (se houver) da integração — mesma origem que
+  // o fluxo antigo via API usava (ver lib/apps/orchestration.ts).
+  function getDuplecastBaseUrl() {
+    return (
+      appIntegrations.find(
+        (a) => String(a.app_name || "").toUpperCase() === "DUPLECAST",
+      )?.api_url || ""
+    );
+  }
+
+  // ✅ Duplecast — abre, loga por mac+device_key, cria a playlist com o
+  // m3uUrl atual, e pega o vencimento (best-effort).
+  async function handleDuplecastConfigure(
+    instanceId: string,
+    mode: ReconfigureMode = "principal",
+  ) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    const macValue = getMacFromApp(currentApp);
+    const deviceKey = getDeviceKeyFromApp(currentApp);
+    const baseUrl = getDuplecastBaseUrl();
+    if (!macValue || !deviceKey) {
+      addToast(
+        "error",
+        "MAC/Device Key obrigatórios",
+        "Preencha o Device ID (MAC) e o Device Key antes de configurar.",
+      );
+      return;
+    }
+    if (!baseUrl) {
+      addToast(
+        "error",
+        "Integração não configurada",
+        "URL do Duplecast não encontrada (Configurações → Integrações).",
+      );
+      return;
+    }
+
+    // Mesmo fluxo Principal/Secundária das demais automações via extensão.
+    let m3uToSend = mode === "secundaria" ? "" : m3uUrl.trim();
+    if (!m3uToSend) {
+      m3uToSend =
+        mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
+      if (!m3uToSend) {
+        addToast(
+          "warning",
+          "Sem Domínio",
+          "Não foi possível gerar o link M3U. Verifique se o servidor possui DNS configurado.",
+        );
+        return;
+      }
+      setM3uUrl(m3uToSend);
+    }
+
+    const pin = String(
+      appIntegrations.find(
+        (a) => String(a.app_name || "").toUpperCase() === "DUPLECAST",
+      )?.pin || "",
+    );
+    // Convenção própria do Duplecast: nome da playlist = nome do servidor
+    // (não o finalServerName com username prefixado) — ver
+    // lib/integrations/duplecast.ts.
+    const m3uName = servers.find((s) => s.id === serverId)?.name || "Playlist";
+
+    setLoading(true);
+    setLoadingStep("Abrindo Duplecast na extensão...");
+    try {
+      const result = await dispatchDuplecastAction("DUPLECAST_CONFIGURE", {
+        baseUrl,
+        macValue,
+        deviceKey,
+        m3uName,
+        m3uUrl: m3uToSend,
+        pin,
+      });
+      if (result.ok) {
+        if (result.expireDate)
+          await persistClouddyExpireDate(currentApp, result.expireDate);
+        addToast(
+          "success",
+          "Duplecast configurado",
+          result.expireDate
+            ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
+            : "Playlist configurada.",
+        );
+      } else {
+        addToast(
+          "error",
+          "Falha ao configurar",
+          result.error || "Não foi possível configurar o Duplecast.",
+        );
+      }
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  // ✅ Duplecast — abre, loga, lê "Expire on" (ou "Status: trial"), fecha.
+  async function handleDuplecastCheck(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    const macValue = getMacFromApp(currentApp);
+    const deviceKey = getDeviceKeyFromApp(currentApp);
+    const baseUrl = getDuplecastBaseUrl();
+    if (!macValue || !deviceKey) {
+      addToast(
+        "error",
+        "MAC/Device Key obrigatórios",
+        "Preencha o Device ID (MAC) e o Device Key antes de verificar.",
+      );
+      return;
+    }
+    if (!baseUrl) {
+      addToast(
+        "error",
+        "Integração não configurada",
+        "URL do Duplecast não encontrada (Configurações → Integrações).",
+      );
+      return;
+    }
+
+    setLoading(true);
+    setLoadingStep("Abrindo Duplecast na extensão...");
+    try {
+      const result = await dispatchDuplecastAction("DUPLECAST_CHECK", {
+        baseUrl,
+        macValue,
+        deviceKey,
+      });
+      if (result.ok && result.expireDate) {
+        await persistClouddyExpireDate(currentApp, result.expireDate);
+        addToast(
+          "success",
+          "Vencimento verificado",
+          `Duplecast: ${String(result.expireDate).split("-").reverse().join("/")}`,
+        );
+      } else if (result.ok && result.isTrial) {
+        addToast(
+          "warning",
+          "Ainda em trial",
+          "Duplecast não informa vencimento até a licença ser ativada.",
+        );
+      } else if (result.ok) {
+        addToast(
+          "warning",
+          "Sem vencimento",
+          "Não foi possível localizar o vencimento.",
+        );
+      } else {
+        addToast(
+          "error",
+          "Não foi possível verificar",
+          result.error || "Falha desconhecida.",
+        );
+      }
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  // ✅ Duplecast — abre, loga, acha a playlist pelo nome do servidor e
+  // apaga (com PIN se protegida), fecha.
+  async function handleDuplecastDelete(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    const macValue = getMacFromApp(currentApp);
+    const deviceKey = getDeviceKeyFromApp(currentApp);
+    const baseUrl = getDuplecastBaseUrl();
+    if (!macValue || !deviceKey) {
+      addToast(
+        "error",
+        "MAC/Device Key obrigatórios",
+        "Preencha o Device ID (MAC) e o Device Key antes de remover.",
+      );
+      return;
+    }
+    if (!baseUrl) {
+      addToast(
+        "error",
+        "Integração não configurada",
+        "URL do Duplecast não encontrada (Configurações → Integrações).",
+      );
+      return;
+    }
+
+    const pin = String(
+      appIntegrations.find(
+        (a) => String(a.app_name || "").toUpperCase() === "DUPLECAST",
+      )?.pin || "",
+    );
+    const searchName = servers.find((s) => s.id === serverId)?.name || "";
+
+    setLoading(true);
+    setLoadingStep("Abrindo Duplecast na extensão...");
+    try {
+      const result = await dispatchDuplecastAction("DUPLECAST_DELETE", {
+        baseUrl,
+        macValue,
+        deviceKey,
+        searchName,
+        pin,
+      });
+      if (result.ok) {
+        addToast("success", "Duplecast removido", "Playlist removida.");
+      } else {
+        addToast(
+          "error",
+          "Falha ao remover",
+          result.error || "Não foi possível remover no Duplecast.",
         );
       }
     } finally {
@@ -6011,7 +6250,7 @@ export default function NovoCliente({
                             {catApp?.name === "ClouDDy" && (
                               <div className="mb-3 mt-2">
                                 <AppIntegrationActions
-                                  isClouddy
+                                  useExtension
                                   hasApiIntegration={false}
                                   appLabel={appLabel}
                                   panelUrl={
@@ -6035,24 +6274,75 @@ export default function NovoCliente({
                                   }}
                                   onConfigure={() => {}}
                                   onCheck={() => {}}
-                                  onClouddyConfigure={(mode) =>
+                                  onExtensionConfigure={(mode) =>
                                     handleClouddyConfigure(app.instanceId, mode)
                                   }
-                                  onClouddyCheck={() =>
+                                  onExtensionCheck={() =>
                                     handleClouddyCheck(app.instanceId)
                                   }
-                                  onClouddyDelete={() =>
+                                  onExtensionDelete={() =>
                                     handleClouddyDelete(app.instanceId)
                                   }
                                 />
                               </div>
                             )}
 
-                            {hasInteg && catApp?.name !== "ClouDDy" && (
+                            {/* Duplecast (14/08/2026) — mesmo motivo do
+                                ClouDDy: rota server-side bloqueada pelo
+                                Cloudflare, migrado pra extensão. Por MAC+
+                                Device Key (não conta), mas mesmo tratamento
+                                de "aparece independente de isEditing" —
+                                mac/device_key já ficam no state do app antes
+                                de salvar o cliente. */}
+                            {catApp?.name === "DupleCast" && (
+                              <div className="mb-3 mt-2">
+                                <AppIntegrationActions
+                                  useExtension
+                                  hasApiIntegration={false}
+                                  appLabel={appLabel}
+                                  panelUrl={
+                                    appIntegrations.find(
+                                      (a) =>
+                                        a.app_name.toUpperCase() ===
+                                        "DUPLECAST",
+                                    )?.api_url || "https://duplecast.com"
+                                  }
+                                  canCheckVencimento={false}
+                                  loading={loading}
+                                  onOpenPanel={() => {
+                                    const url =
+                                      appIntegrations.find(
+                                        (a) =>
+                                          a.app_name.toUpperCase() ===
+                                          "DUPLECAST",
+                                      )?.api_url || "https://duplecast.com";
+                                    window.open(url, "_blank");
+                                  }}
+                                  onConfigure={() => {}}
+                                  onCheck={() => {}}
+                                  onExtensionConfigure={(mode) =>
+                                    handleDuplecastConfigure(
+                                      app.instanceId,
+                                      mode,
+                                    )
+                                  }
+                                  onExtensionCheck={() =>
+                                    handleDuplecastCheck(app.instanceId)
+                                  }
+                                  onExtensionDelete={() =>
+                                    handleDuplecastDelete(app.instanceId)
+                                  }
+                                />
+                              </div>
+                            )}
+
+                            {hasInteg &&
+                              catApp?.name !== "ClouDDy" &&
+                              catApp?.name !== "DupleCast" && (
                               <div className="bg-transparent border-0 mb-3 mt-2">
                                 {isEditing ? (
                                   <AppIntegrationActions
-                                    isClouddy={false}
+                                    useExtension={false}
                                     hasApiIntegration
                                     appLabel={appLabel}
                                     panelUrl={
@@ -6097,9 +6387,9 @@ export default function NovoCliente({
                                       if (ok)
                                         await handleDeleteApp(app.instanceId);
                                     }}
-                                    onClouddyConfigure={() => {}}
-                                    onClouddyCheck={() => {}}
-                                    onClouddyDelete={() => {}}
+                                    onExtensionConfigure={() => {}}
+                                    onExtensionCheck={() => {}}
+                                    onExtensionDelete={() => {}}
                                   />
                                 ) : (
                                   // CRIAÇÃO (Teste / Teste Rápido): toggle de configuração automática

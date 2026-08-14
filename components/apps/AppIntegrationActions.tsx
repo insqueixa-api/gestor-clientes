@@ -58,8 +58,10 @@ function IconTrash({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
 }
 
 export type AppIntegrationActionsProps = {
-  /** ClouDDy usa o fluxo via extensão do Chrome (3 botões), sem API própria. */
-  isClouddy: boolean;
+  /** ClouDDy e DupleCast usam o fluxo via extensão do Chrome (3 botões),
+   * sem API server-side própria — ver lib/apps/clouddy-extension.ts e
+   * lib/apps/duplecast-extension.ts. */
+  useExtension: boolean;
   /** Handler tem `useApi: true`? Sem isso, nenhum botão é renderizado. */
   hasApiIntegration: boolean;
   /** Nome pro título do seletor Principal/Secundária e pros tooltips. */
@@ -75,15 +77,15 @@ export type AppIntegrationActionsProps = {
   onConfigure: (mode: ReconfigureMode) => void | Promise<void>;
   onCheck: () => void | Promise<void>;
   onRemove?: () => void | Promise<void>;
-  /** ClouDDy também é uma automação — segue o mesmo seletor Principal/
+  /** Extensão também é uma automação — segue o mesmo seletor Principal/
    * Secundária das demais antes de mandar pra extensão. */
-  onClouddyConfigure: (mode: ReconfigureMode) => void | Promise<void>;
-  onClouddyCheck: () => void | Promise<void>;
-  onClouddyDelete: () => void | Promise<void>;
+  onExtensionConfigure: (mode: ReconfigureMode) => void | Promise<void>;
+  onExtensionCheck: () => void | Promise<void>;
+  onExtensionDelete: () => void | Promise<void>;
 };
 
 export default function AppIntegrationActions({
-  isClouddy,
+  useExtension,
   hasApiIntegration,
   appLabel,
   panelUrl,
@@ -94,13 +96,13 @@ export default function AppIntegrationActions({
   onConfigure,
   onCheck,
   onRemove,
-  onClouddyConfigure,
-  onClouddyCheck,
-  onClouddyDelete,
+  onExtensionConfigure,
+  onExtensionCheck,
+  onExtensionDelete,
 }: AppIntegrationActionsProps) {
   const [showReconfigure, setShowReconfigure] = useState(false);
 
-  if (isClouddy) {
+  if (useExtension) {
     return (
       <div className="bg-transparent border-0">
         <div className="grid grid-cols-3 gap-2">
@@ -109,7 +111,7 @@ export default function AppIntegrationActions({
             onClick={() => setShowReconfigure(true)}
             disabled={loading}
             className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-            title="Configura TV + VOD com o M3U do cliente e pega o vencimento"
+            title="Configura com o M3U do cliente e pega o vencimento"
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconSparkle />}
             Configurar
@@ -126,28 +128,28 @@ export default function AppIntegrationActions({
             </button>
             <button
               type="button"
-              onClick={() => onClouddyCheck()}
+              onClick={() => onExtensionCheck()}
               disabled={loading}
               className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors flex items-center justify-center"
-              title="Verificar vencimento (sem mexer em TV/VOD)"
+              title="Verificar vencimento (sem mexer na configuração)"
             >
               {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconCheckCircle />}
             </button>
           </div>
           <button
             type="button"
-            onClick={() => onClouddyDelete()}
+            onClick={() => onExtensionDelete()}
             disabled={loading}
             className="h-10 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
-            title="Remove TV + VOD"
+            title="Remove a configuração"
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconTrash />}
             Remover
           </button>
         </div>
         <p className="text-[10px] text-muted-foreground mt-1">
-          Cada clique abre uma aba de verdade no seu Chrome, loga com o email/senha desse cliente, faz a ação e fecha
-          a sessão. Se aparecer o captcha do Cloudflare, resolve manualmente na aba — o resto continua sozinho.
+          Cada clique abre uma aba de verdade no seu Chrome, faz a ação e fecha a sessão. Se aparecer alguma
+          verificação do Cloudflare, resolve manualmente na aba — o resto continua sozinho.
         </p>
         <ReconfigureModeModal
           open={showReconfigure}
@@ -155,7 +157,7 @@ export default function AppIntegrationActions({
           appName={appLabel}
           onChoose={(mode) => {
             setShowReconfigure(false);
-            onClouddyConfigure(mode);
+            onExtensionConfigure(mode);
           }}
         />
       </div>

@@ -2,7 +2,17 @@
 
 export const DupleCastIntegration = {
     actionPrefix: "DUPLECAST",
-    useApi: true, // login+criação+remoção rodam em app/api/integrations/apps/duplecast (server-side)
+    // ⚠️ useApi:false desde 14/08/2026 — a rota server-side (apiEndpoint
+    // abaixo) ficou permanentemente bloqueada pelo Cloudflare do
+    // duplecast.com ("Just a moment", requisição sem motor de JS nunca
+    // passa, confirmado testando de 3 IPs diferentes). Migrado pro mesmo
+    // padrão do ClouDDy: tudo via extensão do Chrome (aba real, sem CDP) —
+    // ver lib/apps/duplecast-extension.ts e a seção DUPLECAST em
+    // unigestor-extensao/background.js. Com useApi:false,
+    // lib/apps/orchestration.ts para de tentar configurar sozinho no Portal
+    // do cliente e cai no fluxo genérico de "pedido de configuração"
+    // (client_app_requests) — o admin resolve manualmente pela extensão.
+    useApi: false,
     apiEndpoint: "/api/integrations/apps/duplecast",
 
     buildCreatePayload: (params: {

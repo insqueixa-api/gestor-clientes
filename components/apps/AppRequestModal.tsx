@@ -12,6 +12,7 @@ import {
 } from "@/lib/apps/panel";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
+import { dispatchDuplecastAction } from "@/lib/apps/duplecast-extension";
 import type { AppFieldConfig, IntegrationHandler } from "@/lib/apps/types";
 import type { ConfirmDialogProps } from "@/components/ui/ConfirmDialog";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
@@ -126,7 +127,11 @@ export default function AppRequestModal({
         .maybeSingle();
       return (
         integ?.api_url ||
-        (integrationType === "CLOUDDY" ? "https://console.clouddy.online" : "")
+        (integrationType === "CLOUDDY"
+          ? "https://console.clouddy.online"
+          : integrationType === "DUPLECAST"
+            ? "https://duplecast.com"
+            : "")
       );
     }
 
@@ -571,6 +576,226 @@ export default function AppRequestModal({
     }
   }
 
+  // ===== Ações — Duplecast (via extensão do Chrome, igual novo_cliente.tsx) =====
+  // Rota server-side (app/api/integrations/apps/duplecast/route.ts) foi
+  // bloqueada pelo Cloudflare (14/08/2026, mesmo diagnóstico do ClouDDy) —
+  // migrado pro mesmo padrão via extensão.
+  function getDuplecastFields() {
+    if (!data) return { macValue: "", deviceKey: "" };
+    const macField = data.fieldsConfig.find(
+      (f) => String(f.type || "").toUpperCase() === "MAC",
+    );
+    const keyField = data.fieldsConfig.find(
+      (f) => String(f.type || "").toUpperCase() === "DEVICE_KEY",
+    );
+    return {
+      macValue: macField ? data.fieldValues[fieldKeyOf(macField)] || "" : "",
+      deviceKey: keyField ? data.fieldValues[fieldKeyOf(keyField)] || "" : "",
+    };
+  }
+
+  async function getDuplecastPin() {
+    const { data: integ } = await supabaseBrowser
+      .from("app_integrations")
+      .select("pin")
+      .eq("app_name", "DUPLECAST")
+      .maybeSingle();
+    return String(integ?.pin || "");
+  }
+
+  async function handleDuplecastConfigure(mode: ReconfigureMode) {
+    if (!data) return;
+    const { macValue, deviceKey } = getDuplecastFields();
+    if (!macValue || !deviceKey) {
+      addToast(
+        "error",
+        "MAC/Device Key obrigatórios",
+        "Preencha o Device ID (MAC) e o Device Key antes de configurar.",
+      );
+      return;
+    }
+    if (!data.panelUrl) {
+      addToast(
+        "error",
+        "Integração não configurada",
+        "URL do Duplecast não encontrada (Configurações → Integrações).",
+      );
+      return;
+    }
+    let m3uToSend = mode === "secundaria" ? "" : data.clientM3uUrl.trim();
+    if (!m3uToSend) {
+      m3uToSend =
+        mode === "secundaria"
+          ? buildM3uUrlSecondary(
+              data.serverDns,
+              data.serverUsername,
+              data.serverPassword,
+              data.serverName,
+            )
+          : buildM3uUrlFromDns(
+              data.serverDns,
+              data.serverUsername,
+              data.serverPassword,
+            );
+    }
+    if (!m3uToSend) {
+      addToast(
+        "error",
+        "Sem link M3U",
+        "Não foi possível gerar o link M3U. Verifique o DNS do servidor.",
+      );
+      return;
+    }
+    if (mode === "secundaria") {
+      await supabaseBrowser
+        .from("clients")
+        .update({ m3u_url: m3uToSend })
+        .eq("id", data.clientId);
+      setData((prev) => (prev ? { ...prev, clientM3uUrl: m3uToSend } : prev));
+    }
+    setBusy(true);
+    try {
+      const pin = await getDuplecastPin();
+      const result = await dispatchDuplecastAction("DUPLECAST_CONFIGURE", {
+        baseUrl: data.panelUrl,
+        macValue,
+        deviceKey,
+        // Convenção própria do Duplecast: nome da playlist = nome do
+        // servidor (ver lib/integrations/duplecast.ts).
+        m3uName: data.serverName || "Playlist",
+        m3uUrl: m3uToSend,
+        pin,
+      });
+      if (result.ok) {
+        if (result.expireDate) {
+          const dateField = data.fieldsConfig.find(
+            (f) => String(f.type || "").toLowerCase() === "date",
+          );
+          if (dateField)
+            await persistFieldValue(fieldKeyOf(dateField), result.expireDate);
+        }
+        addToast(
+          "success",
+          "Duplecast configurado",
+          result.expireDate
+            ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
+            : "Playlist configurada.",
+        );
+      } else {
+        addToast(
+          "error",
+          "Falha ao configurar",
+          result.error || "Não foi possível configurar o Duplecast.",
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDuplecastCheck() {
+    if (!data) return;
+    const { macValue, deviceKey } = getDuplecastFields();
+    if (!macValue || !deviceKey) {
+      addToast(
+        "error",
+        "MAC/Device Key obrigatórios",
+        "Preencha o Device ID (MAC) e o Device Key antes de verificar.",
+      );
+      return;
+    }
+    if (!data.panelUrl) {
+      addToast(
+        "error",
+        "Integração não configurada",
+        "URL do Duplecast não encontrada (Configurações → Integrações).",
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await dispatchDuplecastAction("DUPLECAST_CHECK", {
+        baseUrl: data.panelUrl,
+        macValue,
+        deviceKey,
+      });
+      if (result.ok && result.expireDate) {
+        const dateField = data.fieldsConfig.find(
+          (f) => String(f.type || "").toLowerCase() === "date",
+        );
+        if (dateField)
+          await persistFieldValue(fieldKeyOf(dateField), result.expireDate);
+        addToast(
+          "success",
+          "Vencimento verificado",
+          `Duplecast: ${String(result.expireDate).split("-").reverse().join("/")}`,
+        );
+      } else if (result.ok && result.isTrial) {
+        addToast(
+          "warning",
+          "Ainda em trial",
+          "Duplecast não informa vencimento até a licença ser ativada.",
+        );
+      } else if (result.ok) {
+        addToast(
+          "warning",
+          "Sem vencimento",
+          "Não foi possível localizar o vencimento.",
+        );
+      } else {
+        addToast(
+          "error",
+          "Não foi possível verificar",
+          result.error || "Falha desconhecida.",
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDuplecastDelete() {
+    if (!data) return;
+    const { macValue, deviceKey } = getDuplecastFields();
+    if (!macValue || !deviceKey) {
+      addToast(
+        "error",
+        "MAC/Device Key obrigatórios",
+        "Preencha o Device ID (MAC) e o Device Key antes de remover.",
+      );
+      return;
+    }
+    if (!data.panelUrl) {
+      addToast(
+        "error",
+        "Integração não configurada",
+        "URL do Duplecast não encontrada (Configurações → Integrações).",
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      const pin = await getDuplecastPin();
+      const result = await dispatchDuplecastAction("DUPLECAST_DELETE", {
+        baseUrl: data.panelUrl,
+        macValue,
+        deviceKey,
+        searchName: data.serverName || "",
+        pin,
+      });
+      if (result.ok)
+        addToast("success", "Duplecast removido", "Playlist removida.");
+      else
+        addToast(
+          "error",
+          "Falha ao remover",
+          result.error || "Não foi possível remover no Duplecast.",
+        );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Único botão de conclusão — o que ele faz depende do tipo de pedido:
   //   - "removal": exclusão de verdade é aqui, sempre (via /api/admin/apps/
   //     remove — tenta o parceiro e depois apaga client_apps). Nunca sem
@@ -772,6 +997,8 @@ export default function AppRequestModal({
   }
 
   const isClouddy = data?.integrationType === "CLOUDDY";
+  const isDuplecast = data?.integrationType === "DUPLECAST";
+  const useExtension = isClouddy || isDuplecast;
   const hasApiIntegration = !!data?.handler?.useApi;
   const canCheck =
     hasApiIntegration && data
@@ -822,10 +1049,10 @@ export default function AppRequestModal({
               />
             </div>
 
-            {clientAppId && (isClouddy || hasApiIntegration) && (
+            {clientAppId && (useExtension || hasApiIntegration) && (
               <div className="pt-2 border-t border-border">
                 <AppIntegrationActions
-                  isClouddy={isClouddy}
+                  useExtension={useExtension}
                   hasApiIntegration={hasApiIntegration}
                   appLabel={data.appName}
                   panelUrl={data.panelUrl}
@@ -835,14 +1062,20 @@ export default function AppRequestModal({
                   onConfigure={handleConfigure}
                   onCheck={handleCheck}
                   onRemove={handleRemove}
-                  onClouddyConfigure={handleClouddyConfigure}
-                  onClouddyCheck={handleClouddyCheck}
-                  onClouddyDelete={handleClouddyDelete}
+                  onExtensionConfigure={
+                    isDuplecast ? handleDuplecastConfigure : handleClouddyConfigure
+                  }
+                  onExtensionCheck={
+                    isDuplecast ? handleDuplecastCheck : handleClouddyCheck
+                  }
+                  onExtensionDelete={
+                    isDuplecast ? handleDuplecastDelete : handleClouddyDelete
+                  }
                 />
               </div>
             )}
 
-            {clientAppId && !isClouddy && !hasApiIntegration && (
+            {clientAppId && !useExtension && !hasApiIntegration && (
               <p className="text-xs text-muted-foreground italic pt-1">
                 Sem integração automática disponível para este aplicativo —
                 resolva manualmente antes de concluir.
