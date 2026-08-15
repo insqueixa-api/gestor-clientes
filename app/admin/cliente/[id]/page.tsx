@@ -8,9 +8,11 @@ import {
   EyeOff,
   Eye,
   Trash2,
+  ExternalLink,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useTenantId } from "@/lib/tenant-context";
@@ -20,10 +22,17 @@ import { useConfirm } from "@/hooks/useConfirm";
 import ClientAlertBell from "@/components/alerts/ClientAlertBell";
 import { Modal } from "@/components/ui/Modal";
 
-// Componentes (CORRIGIDO: PascalCase)
-import NovoCliente, { ClientData } from "../novo_cliente";
-import RecargaCliente from "../recarga_cliente";
-import CupomModal from "../../settings/cupons/cupom_modal";
+// Componentes (CORRIGIDO: PascalCase) — carregamento sob demanda (14/08/2026),
+// mesmo motivo de app/admin/cliente/page.tsx.
+import type { ClientData } from "../novo_cliente";
+const NovoCliente = dynamic(() => import("../novo_cliente"), { ssr: false });
+const RecargaCliente = dynamic(() => import("../recarga_cliente"), {
+  ssr: false,
+});
+const CupomModal = dynamic(
+  () => import("../../settings/cupons/cupom_modal"),
+  { ssr: false },
+);
 
 // --- HELPERS ---
 function formatPhoneDisplay(e164: string | null | undefined) {
@@ -318,6 +327,7 @@ export default function ClientDetailsPage() {
   const [isTrialLoading, setIsTrialLoading] = useState(false);
   const [isRenewLoading, setIsRenewLoading] = useState(false); // ✅ NOVO: Estado para o aviso de alerta antes da renovação
   const [showRenewWarning, setShowRenewWarning] = useState(false);
+  const [isPortalLoading, setIsPortalLoading] = useState(false);
 
   // --- TOASTS (5s) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -400,6 +410,52 @@ export default function ClientDetailsPage() {
   }
   function removeToast(id: number) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  // ✅ Abre o Portal do Cliente já logado nesta conta (pedido do Márcio,
+  // 15/08/2026) — mesmo mecanismo do link mágico (token → sessão), só que
+  // resolvido de uma vez pelo admin, sem precisar receber nada por WhatsApp.
+  async function handleOpenPortalPreview() {
+    if (!client?.id || isPortalLoading) return;
+    setIsPortalLoading(true);
+    // Abre a aba já na primeira interação (evita bloqueio de pop-up dos
+    // navegadores, que só permite window.open síncrono ao clique).
+    const win = window.open("about:blank", "_blank");
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      const res = await fetch("/api/admin/portal-preview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ client_id: client.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok || !json?.session_token) {
+        win?.close();
+        addToast(
+          "error",
+          "Não deu pra abrir o Portal",
+          json?.error || "Erro inesperado.",
+        );
+        return;
+      }
+      if (win) {
+        win.location.href = `/renew?session=${encodeURIComponent(json.session_token)}`;
+      } else {
+        window.open(
+          `/renew?session=${encodeURIComponent(json.session_token)}`,
+          "_blank",
+        );
+      }
+    } catch (e: any) {
+      win?.close();
+      addToast("error", "Não deu pra abrir o Portal", e?.message || "Erro inesperado.");
+    } finally {
+      setIsPortalLoading(false);
+    }
   }
 
   const isMessageBlocked = useMemo(() => {
@@ -969,6 +1025,18 @@ export default function ClientDetailsPage() {
           >
             Voltar
           </Link>
+
+          {/* ✅ Botão Portal do Cliente — abre o Portal já logado nesta conta,
+              pra testar sem precisar do link mágico por WhatsApp. */}
+          <button
+            onClick={handleOpenPortalPreview}
+            disabled={isPortalLoading}
+            className="h-9 px-3 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 font-medium text-xs hover:bg-violet-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            title="Abrir Portal do Cliente já logado"
+          >
+            {isPortalLoading ? <IconLoading /> : <ExternalLink className="w-4 h-4" />}
+            <span className="hidden sm:inline">Portal</span>
+          </button>
 
           {/* ✅ Botão Excluir Definitivamente (Só aparece se estiver arquivado) */}
           {client.client_is_archived && (

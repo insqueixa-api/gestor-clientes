@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -25,11 +26,18 @@ import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { getIntegrationHandler } from "@/lib/integrations";
 import Pagination from "@/components/ui/Pagination";
 
-// ✅ Modal ÚNICO (criar/editar teste vem do mesmo modal do cliente)
-import NovoCliente, { type ClientData } from "../cliente/novo_cliente";
+// ✅ Modal ÚNICO (criar/editar teste vem do mesmo modal do cliente) —
+// carregamento sob demanda (14/08/2026), mesmo motivo de app/admin/cliente/
+// page.tsx (arquivo de 6.427 linhas, só precisa quando o modal abre).
+import type { ClientData } from "../cliente/novo_cliente";
+const NovoCliente = dynamic(() => import("../cliente/novo_cliente"), {
+  ssr: false,
+});
 
-// ✅ Modal de confirmação / conversão (o mesmo da renovação)
-import RecargaCliente from "../cliente/recarga_cliente";
+// ✅ Modal de confirmação / conversão (o mesmo da renovação) — mesmo motivo.
+const RecargaCliente = dynamic(() => import("../cliente/recarga_cliente"), {
+  ssr: false,
+});
 
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Hook adicionado

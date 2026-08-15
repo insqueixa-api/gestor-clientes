@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import dynamic from "next/dynamic";
 
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -35,8 +36,18 @@ import {
   loadWhatsAppSessionOptions,
   type MessageTemplate,
 } from "@/lib/admin/whatsapp-modal-data";
-import NovoCliente, { ClientData } from "./novo_cliente";
-import RecargaCliente from "./recarga_cliente";
+// ✅ Carregamento sob demanda (14/08/2026) — novo_cliente.tsx (6.427 linhas)
+// e recarga_cliente.tsx (2.535 linhas) só são necessários quando o modal
+// é aberto de verdade (clique em "Novo Cliente"/"Renovar"), mas antes
+// entravam no pacote inicial da rota inteira — achado ao vivo via Vercel
+// Speed Insights: essa rota tinha TTFB/LCP bem pior que rotas irmãs do
+// mesmo tamanho de tela (/admin/auditoria), na mesma proporção do peso
+// extra desses dois arquivos. Comportamento não muda, só ADIA o download.
+import type { ClientData } from "./novo_cliente";
+const NovoCliente = dynamic(() => import("./novo_cliente"), { ssr: false });
+const RecargaCliente = dynamic(() => import("./recarga_cliente"), {
+  ssr: false,
+});
 import { useConfirm } from "@/hooks/useConfirm";
 
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -35,9 +36,14 @@ import {
   type MessageTemplate,
 } from "@/lib/admin/whatsapp-modal-data";
 
-// --- COMPONENTES MODAIS ---
-import ResellerFormModal from "./novo_revenda";
-import QuickRechargeModal from "./recarga_revenda";
+// --- COMPONENTES MODAIS --- (carregamento sob demanda, 14/08/2026, mesmo
+// motivo de app/admin/cliente/page.tsx)
+const ResellerFormModal = dynamic(() => import("./novo_revenda"), {
+  ssr: false,
+});
+const QuickRechargeModal = dynamic(() => import("./recarga_revenda"), {
+  ssr: false,
+});
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 
 // --- TIPOS ---
