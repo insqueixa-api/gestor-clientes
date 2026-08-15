@@ -6,213 +6,47 @@ import {
   ChevronUp,
   ChevronDown,
   MessageCircle,
-  Send,
   Pencil,
   EyeOff,
   Eye,
-  Trash2,
   Upload,
   RefreshCw,
-  Camera,
-  Lock,
-  Radio,
-  AlertTriangle,
-  Globe,
-  CheckCircle2,
-  XCircle,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useSearchParams, useRouter } from "next/navigation";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import Pagination from "@/components/ui/Pagination";
-import {
-  Modal as SharedModal,
-  ModalHeader,
-  ModalBody,
-} from "@/components/ui/Modal";
 import { Dropdown } from "@/components/ui/Dropdown";
+import {
+  type GoogleContact,
+  displayPhone,
+  getPhonesArray,
+  getEmailsArray,
+  IconTrash,
+  IconSend,
+} from "./shared";
 
-// ─── TIPOS ───────────────────────────────────────────────────────────────────
-type ContactItem = { label: string; value: string };
-
-type GoogleContact = {
-  id: string;
-  tenant_id: string;
-  google_resource_name: string;
-  display_name: string | null;
-  phones: ContactItem[] | null;
-  emails: ContactItem[] | null;
-  avatar_url: string | null;
-  birthday: string | null;
-  labels: string[] | null;
-  synced_at: string;
-  phone_e164?: string | null;
-  secondary_phone?: string | null;
-  email?: string | null;
-};
+// ✅ Carregamento sob demanda (14/08/2026) — cada um só baixa quando o
+// respectivo modal abre: Editar/Criar Contato (o mais pesado, form
+// completo com validação de WhatsApp/operadora), Enviar Mensagem Rápida e
+// Excluir Contato.
+const EditContatoModal = dynamic(() => import("./EditContatoModal"), {
+  ssr: false,
+});
+const EnviarMensagemModal = dynamic(() => import("./EnviarMensagemModal"), {
+  ssr: false,
+});
+const ExcluirContatoModal = dynamic(() => import("./ExcluirContatoModal"), {
+  ssr: false,
+});
 
 type SortKey = "name" | "labels" | "birthday";
 type SortDir = "asc" | "desc";
-
-// Tipo de telefone no editForm — agora com DDI e confirmed separados
-type EditPhone = {
-  id: string;
-  label: string;
-  ddi: string;
-  national: string;
-  confirmed: boolean;
-};
-type EditEmail = { id: string; label: string; value: string };
-
-// ─── DDI ─────────────────────────────────────────────────────────────────────
-type DdiOption = { code: string; label: string; flag: string };
-
-// ⚠️ IMPORTANTE: mantido sorted longest-to-shortest igual ao padrão do sistema
-const DDI_OPTIONS: DdiOption[] = [
-  { code: "55", label: "Brasil", flag: "🇧🇷" },
-  { code: "1", label: "EUA/Canadá", flag: "🇺🇸" },
-  { code: "351", label: "Portugal", flag: "🇵🇹" },
-  { code: "353", label: "Irlanda", flag: "🇮🇪" },
-  { code: "507", label: "Panamá", flag: "🇵🇦" },
-  { code: "506", label: "Costa Rica", flag: "🇨🇷" },
-  { code: "595", label: "Paraguai", flag: "🇵🇾" },
-  { code: "591", label: "Bolívia", flag: "🇧🇴" },
-  { code: "234", label: "Nigéria", flag: "🇳🇬" },
-  { code: "254", label: "Quênia", flag: "🇰🇪" },
-  { code: "212", label: "Marrocos", flag: "🇲🇦" },
-  { code: "971", label: "Emirados Árabes", flag: "🇦🇪" },
-  { code: "966", label: "Arábia Saudita", flag: "🇸🇦" },
-  { code: "44", label: "Reino Unido", flag: "🇬🇧" },
-  { code: "34", label: "Espanha", flag: "🇪🇸" },
-  { code: "49", label: "Alemanha", flag: "🇩🇪" },
-  { code: "33", label: "França", flag: "🇫🇷" },
-  { code: "39", label: "Itália", flag: "🇮🇹" },
-  { code: "52", label: "México", flag: "🇲🇽" },
-  { code: "54", label: "Argentina", flag: "🇦🇷" },
-  { code: "56", label: "Chile", flag: "🇨🇱" },
-  { code: "57", label: "Colômbia", flag: "🇨🇴" },
-  { code: "58", label: "Venezuela", flag: "🇻🇪" },
-  { code: "32", label: "Bélgica", flag: "🇧🇪" },
-  { code: "46", label: "Suécia", flag: "🇸🇪" },
-  { code: "31", label: "Holanda", flag: "🇳🇱" },
-  { code: "41", label: "Suíça", flag: "🇨🇭" },
-  { code: "45", label: "Dinamarca", flag: "🇩🇰" },
-  { code: "48", label: "Polônia", flag: "🇵🇱" },
-  { code: "30", label: "Grécia", flag: "🇬🇷" },
-  { code: "27", label: "África do Sul", flag: "🇿🇦" },
-  { code: "20", label: "Egito", flag: "🇪🇬" },
-  { code: "86", label: "China", flag: "🇨🇳" },
-  { code: "91", label: "Índia", flag: "🇮🇳" },
-  { code: "81", label: "Japão", flag: "🇯🇵" },
-  { code: "82", label: "Coreia do Sul", flag: "🇰🇷" },
-  { code: "66", label: "Tailândia", flag: "🇹🇭" },
-  { code: "62", label: "Indonésia", flag: "🇮🇩" },
-  { code: "60", label: "Malásia", flag: "🇲🇾" },
-  { code: "98", label: "Irã", flag: "🇮🇷" },
-  { code: "90", label: "Turquia", flag: "🇹🇷" },
-  { code: "61", label: "Austrália", flag: "🇦🇺" },
-  { code: "64", label: "Nova Zelândia", flag: "🇳🇿" },
-];
-
-function onlyDigits(raw: string) {
-  return (raw || "").replace(/\D+/g, "");
-}
-
-// Infere DDI testando do maior código pro menor (evita colisão 1 vs 353)
-function inferDDI(digits: string): string {
-  if (!digits) return "55";
-  const sorted = [...DDI_OPTIONS].sort((a, b) => b.code.length - a.code.length);
-  for (const opt of sorted) {
-    if (digits.startsWith(opt.code)) return opt.code;
-  }
-  return "55";
-}
-
-// Formata o número nacional por DDI
-function formatNational(ddi: string, nat: string): string {
-  let d = onlyDigits(nat);
-  // Strip zero inicial apenas para processar, mas não para exibir
-  if (ddi === "55" && d.startsWith("0")) d = d.slice(1);
-  if (ddi === "55") {
-    const area = d.slice(0, 2);
-    const rest = d.slice(2);
-    if (!area) return d;
-    if (rest.length === 9)
-      return `(0${area}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8)
-      return `(0${area}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-    return `(0${area}) ${rest}`.trim();
-  }
-  // Genérico: agrupa em blocos
-  const groups: string[] = [];
-  let i = 0;
-  while (i < d.length) {
-    const step = d.length - i > 7 ? 3 : 4;
-    groups.push(d.slice(i, i + step));
-    i += step;
-  }
-  return groups.join(" ").trim();
-}
-
-// 🌟 NOVA função central de exibição:
-// Brasil  → (021) 99999-8888
-// Outros  → 🇵🇹 +351 XXX XXX XXX
-function displayPhone(raw: string | null | undefined): string {
-  if (!raw) return "";
-  const digits = onlyDigits(raw);
-  if (!digits) return raw || "";
-
-  const hasPlus = raw.trim().startsWith("+");
-  let ddi = "55";
-  let national = digits;
-
-  if (hasPlus || digits.length > 11) {
-    ddi = inferDDI(digits);
-    national = digits.startsWith(ddi) ? digits.slice(ddi.length) : digits;
-  }
-
-  if (ddi === "55") {
-    if (national.startsWith("0")) national = national.slice(1);
-    const ddd = national.slice(0, 2);
-    const rest = national.slice(2);
-    if (rest.length === 9)
-      return `(0${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
-    if (rest.length === 8)
-      return `(0${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
-    return `(0${ddd}) ${rest}`.trim();
-  }
-
-  const opt = DDI_OPTIONS.find((o) => o.code === ddi);
-  const flag = opt?.flag || "🌐";
-  return `${flag} +${ddi} ${formatNational(ddi, national)}`;
-}
-
-// Converte um phone raw (ex: "+5521999998888" ou "21999998888") para EditPhone
-function parsePhoneToEditPhone(
-  raw: string,
-  label: string,
-  id: string,
-): EditPhone {
-  const digits = onlyDigits(raw);
-  if (!digits) return { id, label, ddi: "55", national: "", confirmed: false };
-  let ddi = "55";
-  let national = digits;
-  if (digits.length > 11 || raw.trim().startsWith("+")) {
-    ddi = inferDDI(digits);
-    national = digits.startsWith(ddi) ? digits.slice(ddi.length) : digits;
-  }
-  return {
-    id,
-    label,
-    ddi,
-    national: formatNational(ddi, national) || national,
-    confirmed: true,
-  };
-}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function compareText(a: string, b: string) {
@@ -235,47 +69,6 @@ function getBirthdayMonth(b: string | null): number | null {
     return isNaN(m) ? null : m;
   }
   return null;
-}
-
-function getPhonesArray(
-  contact: GoogleContact,
-): { id: string; label: string; value: string }[] {
-  if (
-    contact.phones &&
-    Array.isArray(contact.phones) &&
-    contact.phones.length > 0
-  ) {
-    return contact.phones.map((p, i) => ({
-      id: i.toString(),
-      label: p.label || "Celular",
-      value: p.value,
-    }));
-  }
-  const arr = [];
-  if (contact.phone_e164)
-    arr.push({ id: "old1", label: "Celular", value: contact.phone_e164 });
-  if (contact.secondary_phone)
-    arr.push({ id: "old2", label: "Telefone", value: contact.secondary_phone });
-  return arr;
-}
-
-function getEmailsArray(
-  contact: GoogleContact,
-): { id: string; label: string; value: string }[] {
-  if (
-    contact.emails &&
-    Array.isArray(contact.emails) &&
-    contact.emails.length > 0
-  ) {
-    return contact.emails.map((e, i) => ({
-      id: i.toString(),
-      label: e.label || "Pessoal",
-      value: e.value,
-    }));
-  }
-  if (contact.email)
-    return [{ id: "old1", label: "Pessoal", value: contact.email }];
-  return [];
 }
 
 const MONTH_NAMES = [
@@ -388,104 +181,27 @@ function AgendaPageContent() {
     contactId: string | null;
     phone: string | null;
   }>({ open: false, contactId: null, phone: null });
-  const [messageText, setMessageText] = useState("");
-  const [sendingNow, setSendingNow] = useState(false);
+  // ✅ sessionOptions/selectedSessionNow ficam aqui (não no modal extraído):
+  // pré-carregados no mount da página (loadWhatsAppSessions abaixo) e o
+  // valor escolhido persiste entre aberturas do modal — comportamento
+  // original preservado.
   const [sessionOptions, setSessionOptions] = useState<
     { id: string; label: string }[]
   >([{ id: "default", label: "Carregando..." }]);
   const [selectedSessionNow, setSelectedSessionNow] = useState("default");
 
-  // Edit modal
+  // Edit modal — o form em si (editForm/waValidations/etc.) vive dentro de
+  // EditContatoModal.tsx agora; aqui só fica o "gatilho" (o quê abrir).
   const [editModal, setEditModal] = useState<{
     open: boolean;
     contact: GoogleContact | null;
   }>({ open: false, contact: null });
-  const [editForm, setEditForm] = useState<{
-    display_name: string;
-    phones: EditPhone[];
-    emails: EditEmail[];
-    labels: string[];
-    new_photo_base64?: string;
-  }>({ display_name: "", phones: [], emails: [], labels: [] });
-  const [isSaving, setIsSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // WA validation por phoneId
-  type WaValidation = {
-    loading?: boolean;
-    exists?: boolean;
-    jid?: string;
-    photoStatus?: "loading" | "synced" | "protected" | null;
-    opLoading?: boolean;
-    opName?: string;
-    opError?: boolean;
-  } | null;
-  const [waValidations, setWaValidations] = useState<
-    Record<string, WaValidation>
-  >({});
-  const waTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  async function validateWaForPhone(
-    phoneId: string,
-    e164: string,
-    autoSyncContactId?: string,
-  ) {
-    const digits = onlyDigits(e164);
-    if (digits.length < 8) {
-      setWaValidations((prev) => {
-        const n = { ...prev };
-        delete n[phoneId];
-        return n;
-      });
-      return;
-    }
-    // Preserva o estado anterior e ativa SÓ o loading do WA
-    setWaValidations((prev) => ({
-      ...prev,
-      [phoneId]: { ...(prev[phoneId] || {}), loading: true },
-    }));
-
-    try {
-      const res = await fetch("/api/whatsapp/validate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: digits }),
-      });
-      const json = await res.json().catch(() => ({}));
-
-      // Preserva o estado anterior e atualiza SÓ o status do WA
-      setWaValidations((prev) => ({
-        ...prev,
-        [phoneId]: {
-          ...(prev[phoneId] || {}),
-          loading: false,
-          exists: !!json.exists,
-          jid: json.jid,
-        },
-      }));
-
-      // Auto-sync foto se WA ativo e contactId fornecido
-      if (json.exists && json.jid && autoSyncContactId) {
-        setTimeout(
-          () => handleSyncWaPhotoSilent(autoSyncContactId, json.jid, phoneId),
-          300,
-        );
-      }
-    } catch {
-      setWaValidations((prev) => ({
-        ...prev,
-        [phoneId]: { ...(prev[phoneId] || {}), loading: false, exists: false },
-      }));
-    }
-  }
-
-  // Delete modal
+  // Delete modal — mesma ideia: só o gatilho, o resto vive em ExcluirContatoModal.tsx.
   const [deleteModal, setDeleteModal] = useState<{
     open: boolean;
     contact: GoogleContact | null;
   }>({ open: false, contact: null });
-  const [deleteFromGoogle, setDeleteFromGoogle] = useState(true);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [isSyncingLabels, setIsSyncingLabels] = useState(false);
   const [isSyncingOperadora, setIsSyncingOperadora] = useState(false); // <--- ADICIONADO
 
@@ -838,42 +554,6 @@ function AgendaPageContent() {
   }
 
   // ─── AÇÕES ─────────────────────────────────────────────────────────────────
-  async function handleSendMessage() {
-    if (!tenantId || !showSendNow.contactId || !showSendNow.phone) return;
-    const msg = messageText.trim();
-    if (!msg) return addToast("error", "Mensagem vazia", "Digite algo.");
-    setSendingNow(true);
-    try {
-      const { data: session } = await supabaseBrowser.auth.getSession();
-      const token = session.session?.access_token;
-
-      const res = await fetch("/api/whatsapp/envio_avulso", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          tenant_id: tenantId,
-          phone: showSendNow.phone,
-          message: msg,
-          whatsapp_session: selectedSessionNow,
-        }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || "Falha ao enviar");
-      }
-      if (!res.ok) throw new Error("Falha ao enviar");
-      addToast("success", "Enviado", "Mensagem enviada com sucesso.");
-      setShowSendNow({ open: false, contactId: null, phone: null });
-      setMessageText("");
-    } catch (e: any) {
-      addToast("error", "Falha no envio", e.message);
-    } finally {
-      setSendingNow(false);
-    }
-  }
 
   async function handleSilentSync() {
     const ok = await confirm({
@@ -977,327 +657,15 @@ function AgendaPageContent() {
     }
   }
 
-  // Busca a operadora on the fly para o modal de edição
-  async function lookupOperadoraForPhone(
-    phoneId: string,
-    ddi: string,
-    digits: string,
-  ) {
-    if (digits.length < 5) return;
-
-    // 1. Ativa o loading visual da operadora SEM sobrescrever o WA com false
-    setWaValidations((prev) => ({
-      ...prev,
-      [phoneId]: { ...(prev[phoneId] || {}), opLoading: true, opError: false },
-    }));
-    try {
-      const res = await fetch("/api/auth/google/lookup-operadora", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: `${ddi}${digits}` }),
-      });
-
-      if (!res.ok) throw new Error("Erro na API");
-      const data = await res.json();
-
-      if (data.operadora) {
-        // Atualiza o label no formulário
-        setEditForm((prev) => {
-          const phones = [...prev.phones];
-          const index = phones.findIndex((x) => x.id === phoneId);
-          if (index > -1)
-            phones[index] = { ...phones[index], label: data.operadora };
-          return { ...prev, phones };
-        });
-        // Sucesso
-        setWaValidations((prev) => ({
-          ...prev,
-          [phoneId]: {
-            ...prev[phoneId]!,
-            opLoading: false,
-            opName: data.operadora,
-            opError: false,
-          },
-        }));
-      } else {
-        // Falha (não encontrou operadora)
-        setWaValidations((prev) => ({
-          ...prev,
-          [phoneId]: { ...prev[phoneId]!, opLoading: false, opError: true },
-        }));
-      }
-    } catch {
-      // Falha (erro na requisição)
-      setWaValidations((prev) => ({
-        ...prev,
-        [phoneId]: { ...prev[phoneId]!, opLoading: false, opError: true },
-      }));
-    }
-  }
-
   // ─── MODAL EDIT ────────────────────────────────────────────────────────────
+  // ✅ O form (editForm/waValidations/etc.) agora inicializa sozinho dentro
+  // de EditContatoModal.tsx a partir do prop `contact` — aqui só abre.
   function openEditModal(contact: GoogleContact) {
-    const phones = getPhonesArray(contact).map((p) =>
-      parsePhoneToEditPhone(p.value, p.label, p.id),
-    );
-    const emails = getEmailsArray(contact).map((e) => ({ ...e }));
-    setEditForm({
-      display_name: contact.display_name || "",
-      phones,
-      emails,
-      labels: contact.labels || [],
-      new_photo_base64: undefined,
-    });
-    setWaValidations({});
     setEditModal({ open: true, contact });
   }
 
   function openCreateModal() {
-    setEditForm({
-      display_name: "",
-      phones: [
-        {
-          id: Date.now().toString(),
-          label: "Celular",
-          ddi: "55",
-          national: "",
-          confirmed: false,
-        },
-      ],
-      emails: [],
-      labels: [],
-      new_photo_base64: undefined,
-    });
-    setWaValidations({});
     setEditModal({ open: true, contact: null });
-  }
-
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () =>
-        setEditForm((prev) => ({
-          ...prev,
-          new_photo_base64: reader.result as string,
-        }));
-      reader.readAsDataURL(file);
-    }
-  };
-
-  // Confirma e normaliza um telefone do modal, e dispara APENAS a validação de Operadora
-  function confirmPhone(idx: number) {
-    setEditForm((prev) => {
-      const phones = [...prev.phones];
-      const p = phones[idx];
-      let digits = onlyDigits(p.national);
-
-      // Strip zero inicial para Brasil (ex: "021..." → "21...")
-      if (p.ddi === "55" && digits.startsWith("0")) digits = digits.slice(1);
-      if (digits.length < 8) {
-        phones[idx] = { ...p, confirmed: false };
-        return { ...prev, phones };
-      }
-
-      let ddi = p.ddi;
-      let national = digits;
-      if (digits.length > 11) {
-        ddi = inferDDI(digits);
-        national = digits.startsWith(ddi) ? digits.slice(ddi.length) : digits;
-      }
-      const formatted = formatNational(ddi, national);
-      phones[idx] = {
-        ...p,
-        ddi,
-        national: formatted || national,
-        confirmed: true,
-      };
-
-      // Dispara APENAS a validação de Operadora/País com debounce
-      const cleanNational = onlyDigits(formatted || national);
-      if (waTimers.current[p.id]) clearTimeout(waTimers.current[p.id]);
-
-      waTimers.current[p.id] = setTimeout(() => {
-        lookupOperadoraForPhone(p.id, ddi, cleanNational); // 🚀 CHAMA A OPERADORA
-      }, 400);
-
-      return { ...prev, phones };
-    });
-  }
-
-  // Sincroniza foto do WhatsApp (requer rota /api/whatsapp/contact-photo na VM)
-  async function handleSyncWaPhoto(phoneId: string, contactId: string) {
-    const wa = waValidations[phoneId];
-    if (!wa?.exists || !wa.jid) return;
-    try {
-      const res = await fetch("/api/whatsapp/contact-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_id: contactId, jid: wa.jid }),
-      });
-      const data = await res.json();
-      if (res.ok && data.avatar_url) {
-        addToast(
-          "success",
-          "Foto atualizada",
-          "Foto do WhatsApp sincronizada com sucesso.",
-        );
-        loadData();
-        setEditModal((prev) => ({
-          ...prev,
-          contact: prev.contact
-            ? { ...prev.contact, avatar_url: data.avatar_url }
-            : null,
-        }));
-      } else {
-        addToast(
-          "warning",
-          "Foto não sincronizada",
-          data.error || "Este contato tem a foto privada no WhatsApp.",
-        );
-      }
-    } catch {
-      addToast(
-        "error",
-        "Erro",
-        "Rota /api/whatsapp/contact-photo ainda não implementada na VM.",
-      );
-    }
-  }
-
-  async function handleSyncWaPhotoSilent(
-    contactId: string,
-    jid: string,
-    phoneId?: string,
-  ) {
-    if (phoneId)
-      setWaValidations((prev) => ({
-        ...prev,
-        [phoneId]: { ...prev[phoneId]!, photoStatus: "loading" },
-      }));
-    try {
-      const res = await fetch("/api/whatsapp/contact-photo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contact_id: contactId, jid }),
-      });
-      const data = await res.json();
-      if (res.ok && data.avatar_url) {
-        if (phoneId)
-          setWaValidations((prev) => ({
-            ...prev,
-            [phoneId]: { ...prev[phoneId]!, photoStatus: "synced" },
-          }));
-        setEditModal((prev) => ({
-          ...prev,
-          contact: prev.contact
-            ? { ...prev.contact, avatar_url: data.avatar_url }
-            : null,
-        }));
-        loadData();
-      } else {
-        if (phoneId)
-          setWaValidations((prev) => ({
-            ...prev,
-            [phoneId]: { ...prev[phoneId]!, photoStatus: "protected" },
-          }));
-      }
-    } catch {
-      if (phoneId)
-        setWaValidations((prev) => ({
-          ...prev,
-          [phoneId]: { ...prev[phoneId]!, photoStatus: "protected" },
-        }));
-    }
-  }
-
-  async function handleSaveContact() {
-    setIsSaving(true);
-    try {
-      const isNew = !editModal.contact;
-      const endpoint = isNew
-        ? "/api/auth/google/create"
-        : "/api/auth/google/update";
-
-      // Reconstrói os phones com e164 completo para o backend
-      const phones = editForm.phones
-        .filter((p) => p.national.trim())
-        .map((p) => ({
-          label: p.label,
-          value: `+${p.ddi}${onlyDigits(p.national)}`,
-        }));
-
-      const payload = {
-        id: editModal.contact?.id,
-        google_resource_name: editModal.contact?.google_resource_name,
-        display_name: editForm.display_name,
-        phones,
-        emails: editForm.emails.map((e) => ({
-          label: e.label,
-          value: e.value,
-        })),
-        labels: editForm.labels,
-        photo_base64: editForm.new_photo_base64,
-      };
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error || "Erro ao salvar.");
-      }
-      addToast(
-        "success",
-        "Salvo",
-        `Contato ${isNew ? "criado" : "atualizado"} com sucesso.`,
-      );
-      setEditModal({ open: false, contact: null });
-      loadData();
-    } catch (err: any) {
-      addToast("error", "Aviso de API", err.message);
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function handleDeleteContact() {
-    if (!deleteModal.contact) return;
-    setIsDeleting(true);
-    try {
-      const res = await fetch("/api/auth/google/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: deleteModal.contact.id,
-          resourceName: deleteModal.contact.google_resource_name,
-          deleteFromGoogle,
-        }),
-      });
-      if (!res.ok) throw new Error("Erro ao excluir.");
-      const resData = await res.json().catch(() => ({}));
-      if (deleteFromGoogle && resData?.googleDeleteFailed) {
-        addToast(
-          "error",
-          "Removido só do sistema",
-          "Não foi possível excluir do Google (token expirado ou falha na API). O contato pode continuar no celular.",
-        );
-      } else {
-        addToast(
-          "success",
-          "Excluído",
-          `Contato removido${deleteFromGoogle ? " do sistema e do Google" : " apenas do sistema"}.`,
-        );
-      }
-      setDeleteModal({ open: false, contact: null });
-      loadData();
-    } catch (err: any) {
-      addToast("error", "Aviso de API", err.message);
-    } finally {
-      setIsDeleting(false);
-    }
   }
 
   // ─── RENDER ────────────────────────────────────────────────────────────────
@@ -1908,7 +1276,6 @@ function AgendaPageContent() {
 
                                     onClick={() => {
                                       setMsgMenuForId(null);
-                                      setMessageText("");
                                       setShowSendNow({
                                         open: true,
                                         contactId: r.id,
@@ -1965,588 +1332,48 @@ function AgendaPageContent() {
       )}
 
       {/* ── MODAL WHATSAPP ───────────────────────────────────────────────── */}
-      {showSendNow.open && (
-        <Modal
-          title="Enviar Mensagem Rápida"
+      {showSendNow.open && showSendNow.contactId && showSendNow.phone && (
+        <EnviarMensagemModal
+          contactId={showSendNow.contactId}
+          phone={showSendNow.phone}
+          tenantId={tenantId}
+          sessionOptions={sessionOptions}
+          selectedSessionNow={selectedSessionNow}
+          setSelectedSessionNow={setSelectedSessionNow}
+          addToast={addToast}
           onClose={() =>
             setShowSendNow({ open: false, contactId: null, phone: null })
           }
-        >
-          <div className="space-y-4">
-            <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg flex items-center gap-3">
-              <span className="text-xl">
-                <MessageCircle className="w-4 h-4" />
-              </span>
-              <div className="text-sm text-emerald-700">
-                Enviando para{" "}
-                <strong>{displayPhone(showSendNow.phone!)}</strong>
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                Sessão WhatsApp
-              </label>
-              <select
-                value={selectedSessionNow}
-                onChange={(e) => setSelectedSessionNow(e.target.value)}
-                className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-foreground outline-none text-sm font-medium"
-              >
-                {sessionOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <textarea
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none min-h-[120px] text-sm resize-none"
-              placeholder="Digite a sua mensagem..."
-              autoFocus
-            />
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() =>
-                  setShowSendNow({ open: false, contactId: null, phone: null })
-                }
-                className="px-4 py-2 rounded-lg text-muted-foreground text-sm font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSendMessage}
-                disabled={sendingNow}
-                className="px-6 py-2 rounded-lg bg-emerald-600 text-white font-bold flex items-center gap-2 text-sm disabled:opacity-50"
-              >
-                <IconSend /> {sendingNow ? "Enviando..." : "Enviar Agora"}
-              </button>
-            </div>
-          </div>
-        </Modal>
+        />
       )}
 
       {/* ── MODAL CRIAR / EDITAR ─────────────────────────────────────────── */}
       {editModal.open && (
-        <Modal
-          title={editModal.contact ? "Editar Contato" : "Novo Contato"}
+        <EditContatoModal
+          contact={editModal.contact}
+          tenantId={tenantId}
+          uniqueLabels={uniqueLabels}
+          addToast={addToast}
           onClose={() => setEditModal({ open: false, contact: null })}
-        >
-          <div className="space-y-5">
-            {/* Foto clicável */}
-            <div
-              className="flex justify-center mb-2 relative group w-24 h-24 mx-auto cursor-pointer"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handlePhotoUpload}
-              />
-              {editForm.new_photo_base64 || editModal.contact?.avatar_url ? (
-                <img
-                  src={
-                    editForm.new_photo_base64 ||
-                    editModal.contact?.avatar_url ||
-                    ""
-                  }
-                  alt="Foto"
-                  className="w-24 h-24 rounded-full object-cover border-2 border-border group-hover:opacity-50 transition-opacity"
-                />
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-transparent flex items-center justify-center font-medium text-muted-foreground text-2xl group-hover:opacity-50 transition-opacity">
-                  {editForm.display_name?.charAt(0) || "?"}
-                </div>
-              )}
-              <div className="absolute inset-0 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-foreground drop-shadow-md text-sm font-medium">
-                <Camera className="w-4 h-4" /> Alterar
-              </div>
-            </div>
-
-            {/* Nome */}
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
-                Nome Completo
-              </label>
-              <input
-                value={editForm.display_name}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, display_name: e.target.value })
-                }
-                className="w-full p-2.5 border border-border rounded-lg bg-transparent text-foreground outline-none focus:border-amber-500 text-sm font-medium"
-              />
-            </div>
-
-            <div className="border-t border-border" />
-
-            {/* ── TELEFONES ── */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-xs font-medium text-muted-foreground">
-                  Telefones
-                </label>
-                <button
-                  onClick={() =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      phones: [
-                        ...prev.phones,
-                        {
-                          id: Date.now().toString(),
-                          label: "Celular",
-                          ddi: "55",
-                          national: "",
-                          confirmed: false,
-                        },
-                      ],
-                    }))
-                  }
-                  className="text-xs text-amber-500 hover:text-amber-600 font-medium flex items-center gap-1"
-                >
-                  + Add Telefone
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {editForm.phones.map((p, idx) => {
-                  const wa = waValidations[p.id];
-                  const e164Preview =
-                    p.confirmed && p.national
-                      ? `+${p.ddi}${onlyDigits(p.national)}`
-                      : null;
-
-                  return (
-                    <div
-                      key={p.id}
-                      className="space-y-2 p-3 rounded-lg border border-border bg-transparent/50"
-                    >
-                      {/* Linha 1: rótulo + DDI + número + confirmar + remover */}
-                      <div className="flex gap-2 items-center">
-                        {/* Rótulo */}
-                        <input
-                          placeholder="Rótulo"
-                          value={p.label}
-                          onChange={(e) =>
-                            setEditForm((prev) => {
-                              const phones = [...prev.phones];
-                              phones[idx] = {
-                                ...phones[idx],
-                                label: e.target.value,
-                              };
-                              return { ...prev, phones };
-                            })
-                          }
-                          className="w-20 p-2 border border-border rounded-lg bg-transparent text-foreground text-xs font-medium"
-                        />
-                        {/* DDI */}
-                        <select
-                          value={p.ddi}
-                          onChange={(e) =>
-                            setEditForm((prev) => {
-                              const phones = [...prev.phones];
-                              phones[idx] = {
-                                ...phones[idx],
-                                ddi: e.target.value,
-                                confirmed: false,
-                              };
-                              return { ...prev, phones };
-                            })
-                          }
-                          className="h-9 px-2 bg-transparent border border-border rounded-lg text-xs text-foreground/90"
-                        >
-                          {DDI_OPTIONS.map((o) => (
-                            <option key={o.code} value={o.code}>
-                              {o.flag} +{o.code}
-                            </option>
-                          ))}
-                        </select>
-                        {/* Número nacional */}
-                        <input
-                          placeholder={
-                            p.ddi === "55" ? "21 99999-9999" : "número"
-                          }
-                          value={p.national}
-                          onChange={(e) =>
-                            setEditForm((prev) => {
-                              const phones = [...prev.phones];
-                              phones[idx] = {
-                                ...phones[idx],
-                                national: e.target.value,
-                                confirmed: false,
-                              };
-                              return { ...prev, phones };
-                            })
-                          }
-                          onBlur={() => confirmPhone(idx)}
-                          className="flex-1 p-2 border border-border rounded-lg bg-transparent text-foreground text-sm min-w-0"
-                        />
-
-                        {/* Remover */}
-                        <button
-                          onClick={() => {
-                            setEditForm((prev) => ({
-                              ...prev,
-                              phones: prev.phones.filter((x) => x.id !== p.id),
-                            }));
-                            setWaValidations((prev) => {
-                              const n = { ...prev };
-                              delete n[p.id];
-                              return n;
-                            });
-                          }}
-                          className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg"
-                        >
-                          <IconTrash />
-                        </button>
-                      </div>
-
-                      {/* Linha 2: Botões de Ação e Status */}
-                      <div className="flex flex-wrap items-center gap-2 px-1">
-                        {/* Botão 1: WhatsApp Status */}
-                        <button
-                          onClick={() => {
-                            const clean = onlyDigits(p.national);
-                            if (clean.length >= 8)
-                              validateWaForPhone(p.id, `+${p.ddi}${clean}`);
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1 ${
-                            wa?.loading
-                              ? "bg-transparent text-muted-foreground border-border"
-                              : wa?.exists
-                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                : wa?.exists === false
-                                  ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                                  : "bg-transparent text-muted-foreground border-border hover:bg-muted"
-                          }`}
-                        >
-                          {wa?.loading ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />{" "}
-                              Validando...
-                            </>
-                          ) : wa?.exists ? (
-                            <>
-                              <CheckCircle2 className="w-3 h-3" /> WhatsApp
-                              Ativo
-                            </>
-                          ) : wa?.exists === false && p.confirmed ? (
-                            <>
-                              <XCircle className="w-3 h-3" /> Não Encontrado
-                            </>
-                          ) : (
-                            "Status WhatsApp"
-                          )}
-                        </button>
-
-                        {/* Botão 2: Sincronizar Foto */}
-                        <button
-                          onClick={() => {
-                            const clean = onlyDigits(p.national);
-                            if (!editModal.contact?.id) {
-                              addToast(
-                                "warning",
-                                "Atenção",
-                                "Salve o contato antes de sincronizar a foto.",
-                              );
-                              return;
-                            }
-
-                            if (wa?.exists && wa?.jid) {
-                              // Já possui o JID validado, busca a foto direto
-                              handleSyncWaPhotoSilent(
-                                editModal.contact.id,
-                                wa.jid,
-                                p.id,
-                              );
-                            } else if (clean.length >= 8) {
-                              // Não validou o WA ainda: ativa o loading visual da foto, valida o WA e passa o ID para o auto-sync da foto rodar em seguida
-                              setWaValidations((prev) => ({
-                                ...prev,
-                                [p.id]: {
-                                  ...prev[p.id],
-                                  photoStatus: "loading",
-                                },
-                              }));
-                              validateWaForPhone(
-                                p.id,
-                                `+${p.ddi}${clean}`,
-                                editModal.contact.id,
-                              );
-                            }
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1 ${
-                            wa?.photoStatus === "loading"
-                              ? "bg-transparent text-muted-foreground border-border"
-                              : wa?.photoStatus === "synced"
-                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                : wa?.photoStatus === "protected"
-                                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                                  : "bg-transparent text-muted-foreground border-border hover:bg-muted"
-                          }`}
-                        >
-                          {wa?.photoStatus === "loading" ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />{" "}
-                              Buscando Foto...
-                            </>
-                          ) : wa?.photoStatus === "synced" ? (
-                            <>
-                              <Camera className="w-3 h-3" /> Foto Sincronizada
-                            </>
-                          ) : wa?.photoStatus === "protected" ? (
-                            <>
-                              <Lock className="w-3 h-3" /> Foto Protegida
-                            </>
-                          ) : (
-                            "Sincronizar Foto"
-                          )}
-                        </button>
-
-                        {/* Botão 3: Sincronizar Operadora / Info do País */}
-                        {p.ddi === "55" ? (
-                          <button
-                            onClick={() => {
-                              const clean = onlyDigits(p.national);
-                              if (clean.length >= 10)
-                                lookupOperadoraForPhone(p.id, p.ddi, clean);
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1 ${
-                              wa?.opLoading
-                                ? "bg-transparent text-muted-foreground border-border"
-                                : wa?.opName
-                                  ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                  : wa?.opError
-                                    ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                                    : "bg-transparent text-muted-foreground border-border hover:bg-muted"
-                            }`}
-                          >
-                            {wa?.opLoading ? (
-                              <>
-                                <Loader2 className="w-3 h-3 animate-spin" />{" "}
-                                Buscando...
-                              </>
-                            ) : wa?.opName ? (
-                              <>
-                                <Radio className="w-3 h-3" /> Operadora
-                                Atualizada
-                              </>
-                            ) : wa?.opError ? (
-                              <>
-                                <AlertTriangle className="w-3 h-3" /> Falha ao
-                                buscar
-                              </>
-                            ) : (
-                              "Sincronizar Operadora"
-                            )}
-                          </button>
-                        ) : (
-                          <div className="px-3 py-1.5 rounded-lg text-[11px] font-medium border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 flex items-center gap-1 cursor-default">
-                            <Globe className="w-3 h-3" />
-                            {DDI_OPTIONS.find((o) => o.code === p.ddi)?.label ||
-                              "Internacional"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {editForm.phones.length === 0 && (
-                  <div className="text-xs text-muted-foreground italic">
-                    Nenhum telefone.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t border-border" />
-
-            {/* ── EMAILS ── */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-xs font-medium text-muted-foreground">
-                  E-mails
-                </label>
-                <button
-                  onClick={() =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      emails: [
-                        ...prev.emails,
-                        {
-                          id: Date.now().toString(),
-                          label: "Pessoal",
-                          value: "",
-                        },
-                      ],
-                    }))
-                  }
-                  className="text-xs text-amber-500 hover:text-amber-600 font-medium"
-                >
-                  + Add E-mail
-                </button>
-              </div>
-              <div className="space-y-2">
-                {editForm.emails.map((e, idx) => (
-                  <div key={e.id} className="flex gap-2 items-center">
-                    <input
-                      placeholder="Rótulo"
-                      value={e.label}
-                      onChange={(ev) =>
-                        setEditForm((prev) => {
-                          const emails = [...prev.emails];
-                          emails[idx] = {
-                            ...emails[idx],
-                            label: ev.target.value,
-                          };
-                          return { ...prev, emails };
-                        })
-                      }
-                      className="w-20 p-2 border border-border rounded-lg bg-transparent text-foreground text-xs font-medium"
-                    />
-                    <input
-                      placeholder="email@exemplo.com"
-                      value={e.value}
-                      onChange={(ev) =>
-                        setEditForm((prev) => {
-                          const emails = [...prev.emails];
-                          emails[idx] = {
-                            ...emails[idx],
-                            value: ev.target.value,
-                          };
-                          return { ...prev, emails };
-                        })
-                      }
-                      className="flex-1 p-2 border border-border rounded-lg bg-transparent text-foreground text-sm"
-                    />
-                    <button
-                      onClick={() =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          emails: prev.emails.filter((x) => x.id !== e.id),
-                        }))
-                      }
-                      className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg"
-                    >
-                      <IconTrash />
-                    </button>
-                  </div>
-                ))}
-                {editForm.emails.length === 0 && (
-                  <div className="text-xs text-muted-foreground italic">
-                    Nenhum e-mail.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t border-border" />
-
-            {/* ── GRUPOS ── */}
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Grupos / Marcadores (Google)
-              </label>
-              <input
-                value={(editForm.labels || []).join(", ")}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    labels: e.target.value
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter((s) => s),
-                  })
-                }
-                className="w-full p-2.5 border border-border rounded-lg bg-transparent text-foreground outline-none focus:border-amber-500 text-sm"
-                placeholder="Ex: VIP, Família, Empresa"
-              />
-              {/* Tags clicáveis dos grupos existentes */}
-              {uniqueLabels.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {uniqueLabels.map((lbl) => {
-                    const active = editForm.labels.includes(lbl);
-                    return (
-                      <button
-                        key={lbl}
-                        onClick={() =>
-                          setEditForm((prev) => ({
-                            ...prev,
-                            labels: active
-                              ? prev.labels.filter((l) => l !== lbl)
-                              : [...prev.labels, lbl],
-                          }))
-                        }
-                        className={`text-[10px] px-2 py-0.5 rounded font-medium border transition-colors ${active ? "bg-amber-500 text-white border-amber-500" : "bg-transparent text-muted-foreground border-border hover:bg-muted"}`}
-                      >
-                        {lbl}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Botões */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-border">
-              <button
-                onClick={() => setEditModal({ open: false, contact: null })}
-                className="px-4 py-2 rounded-lg text-muted-foreground text-sm font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveContact}
-                disabled={isSaving}
-                className="px-6 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-medium flex items-center gap-2 text-sm disabled:opacity-50"
-              >
-                {isSaving ? "Salvando..." : "Salvar no Google"}
-              </button>
-            </div>
-          </div>
-        </Modal>
+          onSuccess={() => {
+            setEditModal({ open: false, contact: null });
+            loadData();
+          }}
+          onDataChanged={loadData}
+        />
       )}
 
       {/* ── MODAL EXCLUSÃO ───────────────────────────────────────────────── */}
       {deleteModal.open && deleteModal.contact && (
-        <Modal
-          title="Excluir Contato"
+        <ExcluirContatoModal
+          contact={deleteModal.contact}
+          addToast={addToast}
           onClose={() => setDeleteModal({ open: false, contact: null })}
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Você está prestes a excluir o contato{" "}
-              <strong>{deleteModal.contact.display_name}</strong>.
-            </p>
-            <label className="flex items-center gap-3 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg cursor-pointer">
-              <input
-                type="checkbox"
-                checked={deleteFromGoogle}
-                onChange={(e) => setDeleteFromGoogle(e.target.checked)}
-                className="w-5 h-5 rounded border-rose-300 text-rose-400 focus:ring-rose-500"
-              />
-              <span className="text-sm font-medium text-rose-700">
-                Excluir também da agenda do celular (Google Contacts)
-              </span>
-            </label>
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                onClick={() => setDeleteModal({ open: false, contact: null })}
-                className="px-4 py-2 rounded-lg text-muted-foreground text-sm font-medium"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDeleteContact}
-                disabled={isDeleting}
-                className="px-6 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold flex items-center gap-2 text-sm disabled:opacity-50"
-              >
-                {isDeleting ? "Excluindo..." : "Confirmar Exclusão"}
-              </button>
-            </div>
-          </div>
-        </Modal>
+          onSuccess={() => {
+            setDeleteModal({ open: false, contact: null });
+            loadData();
+          }}
+        />
       )}
 
       {/* 👇 Renderiza o modal na tela quando acionado */}
@@ -2724,26 +1551,9 @@ function MenuItem({
   );
 }
 
-// Modal com dark mode corrigido — usa dark:bg-card alinhado ao padrão do sistema
-function Modal({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <SharedModal onClose={onClose} maxWidth="max-w-3xl">
-      <ModalHeader onClose={onClose}>
-        <div className="font-medium text-foreground">{title}</div>
-      </ModalHeader>
-      <ModalBody className="p-4 bg-card">{children}</ModalBody>
-    </SharedModal>
-  );
-}
-
+// ✅ Modal, IconSend e IconTrash agora vivem em ./shared (usados também
+// pelos modais extraídos). Os ícones abaixo continuam aqui — só a lista
+// principal usa.
 // ─── ÍCONES ──────────────────────────────────────────────────────────────────
 function IconX() {
   return <X className="w-4 h-4" />;
@@ -2757,14 +1567,8 @@ function IconSortDown() {
 function IconChat() {
   return <MessageCircle className="w-4 h-4" />;
 }
-function IconSend() {
-  return <Send className="w-4 h-4" />;
-}
 function IconEdit() {
   return <Pencil className="w-4 h-4" />;
-}
-function IconTrash() {
-  return <Trash2 className="w-4 h-4" />;
 }
 function IconSync() {
   return (
