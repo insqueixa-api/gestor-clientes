@@ -4,17 +4,29 @@ import { X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import AplicativosLog, { AplicativosLogHandle } from "./AplicativosLog";
+import dynamic from "next/dynamic";
+import type { AplicativosLogHandle } from "./AplicativosLog";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { EyeToggle } from "@/components/ui/eye-toggle";
-
-// ✅ Importa os modais de recarga
-import RecargaCliente from "../cliente/recarga_cliente";
-import AppRequestModal from "@/components/apps/AppRequestModal";
 import Pagination from "@/components/ui/Pagination";
+
+// ✅ Carregamento sob demanda (14/08/2026) — cada um só baixa quando a
+// respectiva aba/modal abre: AplicativosLog só quando activeLogView vira
+// "aplicativos"; RecargaCliente/AppRequestModal só quando o admin clica em
+// "Concluir"/"Ver pedido" num item específico do log.
+const AplicativosLog = dynamic(() => import("./AplicativosLog"), {
+  ssr: false,
+});
+const RecargaCliente = dynamic(() => import("../cliente/recarga_cliente"), {
+  ssr: false,
+});
+const AppRequestModal = dynamic(
+  () => import("@/components/apps/AppRequestModal"),
+  { ssr: false },
+);
 
 // --- TIPOS ---
 type LogRow = {
