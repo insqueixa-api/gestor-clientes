@@ -165,6 +165,42 @@ function getExpectedRunDateSP(baseDateStr: string, daysDiff: number) {
   return isoDateInSaoPaulo(dTarget);
 }
 
+// ✅ Weekday (0=Dom..6=Sáb, igual schedule_days) + minutos desde 00:00, sempre
+// em horário de São Paulo — usado pra saber se o poll da fila deve rodar
+// agora ou esperar (billing_enqueue_scheduled_campaign_window só enfileira
+// dentro dessa janela; fora dela nunca existe nada novo pra pegar).
+function nowPartsSP(): { weekday: number; minutesOfDay: number } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: BILLING_TZ,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date());
+  const map: Record<string, string> = {};
+  for (const p of parts) map[p.type] = p.value;
+  const WEEKDAY_MAP: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+  };
+  const weekday = WEEKDAY_MAP[map.weekday] ?? new Date().getDay();
+  const hour = parseInt(map.hour, 10) || 0;
+  const minute = parseInt(map.minute, 10) || 0;
+  return { weekday, minutesOfDay: hour * 60 + minute };
+}
+
+function parseHHMMToMinutes(hhmmss?: string | null): number | null {
+  if (!hhmmss) return null;
+  const [h, m] = hhmmss.split(":").map((x) => parseInt(x, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+}
+
 // ============================================================================
 // PÁGINA PRINCIPAL
 // ============================================================================
@@ -189,20 +225,46 @@ function GlobalQueueMonitor({
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   // 1. Polling: Busca a fila (Simplificado para não falhar)
-  // ✅ Ritmo adaptativo (14/08/2026, pedido do Márcio): sem nada agendado,
-  // ficar batendo a cada 30s é processamento jogado fora. Enquanto a fila
-  // está vazia, o intervalo alarga pra 5min; assim que aparece algo
-  // SCHEDULED/QUEUED/SENDING/PAUSED, volta pro ritmo de 30s (cron roda a
-  // cada 1min) pra acompanhar o envio em tempo real.
+  // ✅ Poll preso na janela de agendamento (14/08/2026, ajustado a pedido do
+  // Márcio): o enfileiramento (billing_enqueue_scheduled_campaign_window)
+  // só roda dentro de [window_start_min, window_start_max] de
+  // billing_campaign_settings — fora dela nunca existe nada novo pra
+  // aparecer aqui, então nem bate no banco (só reavalia o relógio, de graça,
+  // a cada 2min). Dentro da janela: 1min (era 30s — cron real roda a cada
+  // 1min, não precisa ser mais rápido que isso). Uma vez que a fila esvazia
+  // E já passou window_start_max, marca o dia como concluído e para de
+  // consultar até amanhã (o disparo em si pode continuar depois de
+  // window_start_max com muitos clientes — delay_min/max_secs entre
+  // mensagens —, por isso só declara "concluído" quando some da fila).
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
-    const POLL_ACTIVE_MS = 30000;
-    const POLL_IDLE_MS = 5 * 60000;
+    const POLL_ACTIVE_MS = 60000;
+    const LOCAL_CHECK_MS = 2 * 60000;
+    let doneForDateSP: string | null = null;
+
+    const fetchWindowConfig = async () => {
+      const tid = tenantId;
+      if (!tid) return null;
+      const { data } = await supabaseBrowser
+        .from("billing_campaign_settings")
+        .select("window_start_min, window_start_max, schedule_days, is_active")
+        .eq("tenant_id", tid)
+        .maybeSingle();
+      if (!data) return null;
+      return {
+        startMin: parseHHMMToMinutes(data.window_start_min) ?? 0,
+        startMax: parseHHMMToMinutes(data.window_start_max) ?? 24 * 60,
+        scheduleDays: Array.isArray(data.schedule_days)
+          ? (data.schedule_days as number[])
+          : [0, 1, 2, 3, 4, 5, 6],
+        isActive: data.is_active !== false,
+      };
+    };
 
     const fetchQueue = async () => {
       const tid = tenantId;
-      if (!tid) return;
+      if (!tid) return [];
 
       // ✅ BLINDAGEM: garante que o usuário logado pertence ao tenant
       {
@@ -211,7 +273,7 @@ function GlobalQueueMonitor({
 
         if (!userId) {
           addToast("error", "Sessão inválida", "Faça login novamente.");
-          return;
+          return [];
         }
 
         const { data: mem, error: memErr } = await supabaseBrowser
@@ -227,7 +289,7 @@ function GlobalQueueMonitor({
             "Acesso negado",
             "Você não tem permissão neste tenant.",
           );
-          return;
+          return [];
         }
       }
 
@@ -254,14 +316,47 @@ function GlobalQueueMonitor({
       return rows;
     };
 
-    const tick = async () => {
-      const rows = await fetchQueue();
+    (async () => {
+      const cfg = await fetchWindowConfig();
       if (cancelled) return;
-      const nextDelay = rows && rows.length > 0 ? POLL_ACTIVE_MS : POLL_IDLE_MS;
-      timeoutId = setTimeout(tick, nextDelay);
-    };
 
-    tick();
+      const tick = async () => {
+        if (cancelled) return;
+        const { weekday, minutesOfDay } = nowPartsSP();
+        const todaySP = isoDateInSaoPaulo(new Date());
+
+        if (cfg && doneForDateSP === todaySP) {
+          // já sabemos que hoje acabou — só reavalia o relógio, sem bater no banco
+          timeoutId = setTimeout(tick, LOCAL_CHECK_MS);
+          return;
+        }
+
+        if (cfg) {
+          const activeDay = cfg.isActive && cfg.scheduleDays.includes(weekday);
+          if (!activeDay || minutesOfDay < cfg.startMin) {
+            // fora da janela de hoje (ou dia não agendado) — nada pra buscar ainda
+            timeoutId = setTimeout(tick, LOCAL_CHECK_MS);
+            return;
+          }
+        }
+
+        const rows = await fetchQueue();
+        if (cancelled) return;
+
+        if (cfg && rows.length === 0 && minutesOfDay > cfg.startMax) {
+          // janela de enfileiramento já fechou e não sobrou nada rodando —
+          // acabou por hoje, só volta a consultar amanhã
+          doneForDateSP = todaySP;
+          timeoutId = setTimeout(tick, LOCAL_CHECK_MS);
+          return;
+        }
+
+        timeoutId = setTimeout(tick, POLL_ACTIVE_MS);
+      };
+
+      tick();
+    })();
+
     return () => {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
