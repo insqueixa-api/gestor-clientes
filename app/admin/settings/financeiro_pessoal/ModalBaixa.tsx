@@ -3,9 +3,40 @@
 // Extraído de page.tsx (14/08/2026) — ação esporádica (confirmar pagamento/
 // recebimento ou reverter pra pendente), carrega via next/dynamic só quando
 // o admin abre.
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Modal, IconCalendar, ModalDayPicker, type Transacao } from "./shared";
+
+type ParcelaPendente = {
+  id: string;
+  parcela_atual: number | null;
+  parcela_total: number | null;
+  valor: number;
+  data_vencimento: string;
+};
+
+// ✅ Distribui centavos igualmente entre N parcelas sem perder/inventar
+// centavo por arredondamento — a sobra da divisão vai pra última parcela da
+// lista (14/08/2026, feature "Antecipar Parcelas").
+function distribuirCentavos(totalCents: number, n: number): number[] {
+  if (n <= 0) return [];
+  const base = Math.floor(totalCents / n);
+  const resto = totalCents - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i === n - 1 ? resto : 0));
+}
+
+function formatDataCurta(input: string): string {
+  let d = new Date(input);
+  if (input.length === 10 && input.includes("-")) {
+    d = new Date(`${input}T12:00:00-03:00`);
+  }
+  if (isNaN(d.getTime())) return input;
+  return d.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
+}
 
 export default function ModalBaixa({
   tenantId,
@@ -160,167 +191,579 @@ export default function ModalBaixa({
       : "bg-rose-600 hover:bg-rose-500 shadow-rose-900/20"
     : "bg-amber-500 hover:bg-amber-400 shadow-amber-900/20";
 
+  // ─── Antecipar Parcelas (14/08/2026) ──────────────────────────────────────
+  // Só faz sentido confirmando pagamento (não ao reverter) de um parcelamento
+  // de verdade (recorrencia_id + parcela_total, não recorrência sem fim).
+  const [view, setView] = useState<"baixa" | "antecipar">("baixa");
+  const podeAntecipar =
+    isBaixando && !!transacao.recorrencia_id && !!transacao.parcela_total;
+
+  const [pendentes, setPendentes] = useState<ParcelaPendente[]>([]);
+  const [loadingPendentes, setLoadingPendentes] = useState(false);
+  const [quantidade, setQuantidade] = useState(1);
+  const [direcao, setDirecao] = useState<"PROXIMAS" | "ULTIMAS">("PROXIMAS");
+  const [rawCentsAntecipar, setRawCentsAntecipar] = useState(0);
+  const [valorAntecTocado, setValorAntecTocado] = useState(false);
+  const [contaAntecipar, setContaAntecipar] = useState(
+    transacao.conta_id || (contasDB[0]?.id ?? ""),
+  );
+  const [dataAntecipar, setDataAntecipar] = useState(initDateIso);
+  const [rawDigitsAntecipar, setRawDigitsAntecipar] = useState(
+    isoToRaw(initDateIso),
+  );
+  const [showPickerAntecipar, setShowPickerAntecipar] = useState(false);
+  const [salvandoAntecipar, setSalvandoAntecipar] = useState(false);
+
+  useEffect(() => {
+    if (view !== "antecipar" || !transacao.recorrencia_id) return;
+    let cancelled = false;
+    setLoadingPendentes(true);
+    supabaseBrowser
+      .from("fin_transacoes")
+      .select("id, parcela_atual, parcela_total, valor, data_vencimento")
+      .eq("recorrencia_id", transacao.recorrencia_id)
+      .eq("status", "PENDENTE")
+      .order("data_vencimento", { ascending: true })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          addToast(
+            "error",
+            "Erro ao buscar parcelas pendentes",
+            error.message,
+          );
+          setPendentes([]);
+        } else {
+          const rows = (data ?? []) as ParcelaPendente[];
+          setPendentes(rows);
+          setQuantidade((q) => Math.min(Math.max(q, 1), rows.length || 1));
+        }
+        setLoadingPendentes(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, transacao.recorrencia_id]);
+
+  // pendentes já vem ordenada por vencimento ascendente — "próximas" = as N
+  // primeiras (mais antigas), "últimas" = as N finais (mais recentes).
+  const selecionadas = useMemo(() => {
+    if (pendentes.length === 0) return [];
+    if (direcao === "PROXIMAS") return pendentes.slice(0, quantidade);
+    return pendentes.slice(Math.max(0, pendentes.length - quantidade));
+  }, [pendentes, direcao, quantidade]);
+
+  // Enquanto o admin não editar o campo manualmente, o valor total sugerido
+  // acompanha a soma original das parcelas selecionadas.
+  useEffect(() => {
+    if (valorAntecTocado) return;
+    const somaCents = selecionadas.reduce(
+      (acc, p) => acc + Math.round(p.valor * 100),
+      0,
+    );
+    setRawCentsAntecipar(somaCents);
+  }, [selecionadas, valorAntecTocado]);
+
+  const valoresPorParcela = useMemo(
+    () => distribuirCentavos(rawCentsAntecipar, selecionadas.length),
+    [rawCentsAntecipar, selecionadas.length],
+  );
+
+  const handleDigitsChangeAntecipar = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const input = e.target;
+    const cursorPos = input.selectionStart;
+    const raw = input.value.replace(/\D/g, "").slice(0, 8);
+    setRawDigitsAntecipar(raw);
+    if (raw.length === 8) {
+      const d = raw.slice(0, 2),
+        m = raw.slice(2, 4),
+        y = raw.slice(4);
+      setDataAntecipar(`${y}-${m}-${d}`);
+    }
+    requestAnimationFrame(() => {
+      if (cursorPos !== null && input)
+        input.setSelectionRange(cursorPos, cursorPos);
+    });
+  };
+
+  function abrirAntecipar() {
+    setValorAntecTocado(false);
+    setView("antecipar");
+  }
+
+  async function handleConfirmAntecipar() {
+    if (selecionadas.length === 0 || rawCentsAntecipar <= 0) return;
+    setSalvandoAntecipar(true);
+    try {
+      const novaDataPagamento = new Date(
+        `${dataAntecipar}T12:00:00`,
+      ).toISOString();
+
+      const results = await Promise.all(
+        selecionadas.map((p, i) =>
+          supabaseBrowser
+            .from("fin_transacoes")
+            .update({
+              status: "PAGO",
+              valor: valoresPorParcela[i] / 100,
+              conta_id: contaAntecipar || null,
+              data_pagamento: novaDataPagamento,
+            })
+            .eq("id", p.id),
+        ),
+      );
+      const erro = results.find((r) => r.error)?.error;
+      if (erro) throw erro;
+
+      // Best-effort — resolve a notificação de vencimento de cada parcela paga
+      await Promise.allSettled(
+        selecionadas.map((p) =>
+          supabaseBrowser.rpc("resolve_notification", {
+            p_tenant_id: tenantId,
+            p_type: "fin_vencido",
+            p_source_id: p.id,
+          }),
+        ),
+      );
+
+      const isQuitacao = quantidade === pendentes.length;
+      addToast(
+        "success",
+        isQuitacao ? "Parcelamento quitado" : "Parcelas antecipadas",
+        `${selecionadas.length} parcela${selecionadas.length > 1 ? "s" : ""} confirmada${selecionadas.length > 1 ? "s" : ""} com sucesso.`,
+      );
+      onSuccess();
+      onClose();
+    } catch (e: any) {
+      addToast("error", "Erro ao antecipar", e.message);
+    } finally {
+      setSalvandoAntecipar(false);
+    }
+  }
+
   return (
     <Modal
       title={
-        isBaixando
-          ? isReceita
-            ? "Confirmar Recebimento"
-            : "Confirmar Pagamento"
-          : "Reverter para Pendente"
+        view === "antecipar"
+          ? "Antecipar Parcelas"
+          : isBaixando
+            ? isReceita
+              ? "Confirmar Recebimento"
+              : "Confirmar Pagamento"
+            : "Reverter para Pendente"
       }
       onClose={onClose}
     >
-      <div className="space-y-4">
-        {/* Descrição + Valor */}
-        <div className="p-3 rounded-xl border border-border bg-transparent flex items-center justify-between gap-3">
-          <div className="min-w-0">
+      {view === "antecipar" ? (
+        <div className="space-y-4">
+          <div className="p-3 rounded-xl border border-border bg-transparent">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
-              {isReceita ? "📈 Receita" : "📉 Despesa"}
+              {isReceita ? "📈 Receita parcelada" : "📉 Despesa parcelada"}
             </p>
             <p className="text-sm font-medium text-foreground/90 truncate">
               {transacao.descricao}
             </p>
-            {transacao.categoria_nome && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {transacao.categoria_nome}
-              </p>
-            )}
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
-              Valor (R$)
+            <p className="text-xs text-muted-foreground mt-1">
+              {loadingPendentes
+                ? "Carregando parcelas pendentes..."
+                : `${pendentes.length} parcela${pendentes.length !== 1 ? "s" : ""} pendente${pendentes.length !== 1 ? "s" : ""}`}
             </p>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={centsToDisplay(rawCents)}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "").slice(0, 13);
-                setRawCents(parseInt(digits || "0", 10));
-              }}
-              onFocus={(e) => e.target.select()}
-              className={`w-28 h-9 px-2 text-right font-medium rounded-lg border bg-card outline-none focus:border-emerald-500/50 text-sm ${
-                isReceita
-                  ? "text-emerald-500 border-emerald-500/20"
-                  : "text-rose-500 border-rose-500/20"
-              }`}
-            />
-            {valorAlterado && (
-              <p className="text-[10px] text-amber-500 mt-0.5">
-                Valor alterado
-              </p>
-            )}
+          </div>
+
+          {!loadingPendentes && pendentes.length > 0 && (
+            <>
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  Quantas parcelas antecipar?
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuantidade((q) => Math.max(1, q - 1));
+                      setValorAntecTocado(false);
+                    }}
+                    className="w-9 h-9 rounded-lg border border-border text-muted-foreground hover:bg-muted flex items-center justify-center font-bold"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={quantidade}
+                    onChange={(e) => {
+                      const n = parseInt(
+                        e.target.value.replace(/\D/g, ""),
+                        10,
+                      );
+                      setQuantidade(
+                        Number.isNaN(n)
+                          ? 1
+                          : Math.min(Math.max(n, 1), pendentes.length),
+                      );
+                      setValorAntecTocado(false);
+                    }}
+                    className="w-16 h-9 text-center bg-transparent border border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuantidade((q) => Math.min(pendentes.length, q + 1));
+                      setValorAntecTocado(false);
+                    }}
+                    className="w-9 h-9 rounded-lg border border-border text-muted-foreground hover:bg-muted flex items-center justify-center font-bold"
+                  >
+                    +
+                  </button>
+                  {quantidade < pendentes.length && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuantidade(pendentes.length);
+                        setValorAntecTocado(false);
+                      }}
+                      className="ml-auto text-xs font-semibold text-sky-500 hover:text-sky-400"
+                    >
+                      Selecionar todas (quita)
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {quantidade < pendentes.length && (
+                <div>
+                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                    Quais parcelas?
+                  </label>
+                  <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
+                    <button
+                      type="button"
+                      onClick={() => setDirecao("PROXIMAS")}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${direcao === "PROXIMAS" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      📅 Próximas (mais antigas)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDirecao("ULTIMAS")}
+                      className={`flex-1 rounded-md text-xs font-medium transition-colors ${direcao === "ULTIMAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      ⏪ Últimas (mais recentes)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  Parcelas selecionadas
+                </label>
+                <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                  {selecionadas.map((p, i) => (
+                    <div
+                      key={p.id}
+                      className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/40 border border-border/60"
+                    >
+                      <span className="text-foreground/90">
+                        {p.parcela_total
+                          ? `Parcela ${p.parcela_atual}/${p.parcela_total}`
+                          : "Parcela"}{" "}
+                        · {formatDataCurta(p.data_vencimento)}
+                      </span>
+                      <span className="font-medium text-foreground tabular-nums">
+                        R${" "}
+                        {((valoresPorParcela[i] ?? 0) / 100)
+                          .toFixed(2)
+                          .replace(".", ",")}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  Valor total pago (R$)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={centsToDisplay(rawCentsAntecipar)}
+                  onChange={(e) => {
+                    const digits = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 13);
+                    setRawCentsAntecipar(parseInt(digits || "0", 10));
+                    setValorAntecTocado(true);
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm font-medium text-foreground outline-none focus:border-emerald-500/50"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Dividido entre as {selecionadas.length} parcela
+                  {selecionadas.length !== 1 ? "s" : ""} selecionada
+                  {selecionadas.length !== 1 ? "s" : ""}.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  Data de Pagamento
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={rawToDisplay(rawDigitsAntecipar)}
+                    onChange={handleDigitsChangeAntecipar}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="DD/MM/AAAA"
+                    maxLength={10}
+                    className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPickerAntecipar(true)}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
+                  >
+                    <IconCalendar />
+                  </button>
+                </div>
+                {showPickerAntecipar && (
+                  <ModalDayPicker
+                    currentDate={
+                      dataAntecipar
+                        ? new Date(`${dataAntecipar}T12:00:00`)
+                        : new Date()
+                    }
+                    onSelect={(date) => {
+                      const d = String(date.getDate()).padStart(2, "0");
+                      const m = String(date.getMonth() + 1).padStart(2, "0");
+                      const y = date.getFullYear();
+                      setDataAntecipar(`${y}-${m}-${d}`);
+                      setRawDigitsAntecipar(`${d}${m}${y}`);
+                      setShowPickerAntecipar(false);
+                    }}
+                    onClose={() => setShowPickerAntecipar(false)}
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  Conta / Carteira
+                </label>
+                <select
+                  value={contaAntecipar}
+                  onChange={(e) => setContaAntecipar(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                >
+                  <option value="">Sem conta</option>
+                  {contasDB.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.icone} {c.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          {!loadingPendentes && pendentes.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground italic py-4">
+              Nenhuma parcela pendente encontrada.
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setView("baixa")}
+              className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+            >
+              Voltar
+            </button>
+            <button
+              onClick={handleConfirmAntecipar}
+              disabled={
+                salvandoAntecipar ||
+                loadingPendentes ||
+                selecionadas.length === 0 ||
+                rawCentsAntecipar <= 0
+              }
+              className="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium shadow-lg transition-all disabled:opacity-50"
+            >
+              {salvandoAntecipar
+                ? "Salvando..."
+                : quantidade === pendentes.length
+                  ? "Confirmar Quitação"
+                  : `Confirmar Antecipação (${quantidade})`}
+            </button>
           </div>
         </div>
-
-        {/* Escopo — só aparece se valor mudou e tem recorrência */}
-        {valorAlterado && transacao.recorrencia_id && (
-          <div className="animate-in fade-in zoom-in-95 duration-150">
-            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-              Aplicar novo valor em:
-            </label>
-            <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
-              <button
-                type="button"
-                onClick={() => setEscopo("UNICA")}
-                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                📅 Apenas nesta
-              </button>
-              <button
-                type="button"
-                onClick={() => setEscopo("TODAS")}
-                className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-              >
-                🔁 Nesta e nas futuras
-              </button>
+      ) : (
+        <div className="space-y-4">
+          {/* Descrição + Valor */}
+          <div className="p-3 rounded-xl border border-border bg-transparent flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-0.5">
+                {isReceita ? "📈 Receita" : "📉 Despesa"}
+              </p>
+              <p className="text-sm font-medium text-foreground/90 truncate">
+                {transacao.descricao}
+              </p>
+              {transacao.categoria_nome && (
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {transacao.categoria_nome}
+                </p>
+              )}
             </div>
-          </div>
-        )}
-
-        {/* Data de pagamento (só na baixa) */}
-        {isBaixando && (
-          <div>
-            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-              Data de Pagamento
-            </label>
-            <div className="relative">
+            <div className="text-right shrink-0">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                Valor (R$)
+              </p>
               <input
                 type="text"
                 inputMode="numeric"
-                value={rawToDisplay(rawDigits)}
-                onChange={handleDigitsChange}
-                onFocus={(e) => e.target.select()}
-                placeholder="DD/MM/AAAA"
-                maxLength={10}
-                className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPicker(true)}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
-              >
-                <IconCalendar />
-              </button>
-            </div>
-            {showPicker && (
-              <ModalDayPicker
-                currentDate={
-                  dataPagamento
-                    ? new Date(`${dataPagamento}T12:00:00`)
-                    : new Date()
-                }
-                onSelect={(date) => {
-                  const d = String(date.getDate()).padStart(2, "0");
-                  const m = String(date.getMonth() + 1).padStart(2, "0");
-                  const y = date.getFullYear();
-                  setDataPagamento(`${y}-${m}-${d}`);
-                  setRawDigits(`${d}${m}${y}`);
-                  setShowPicker(false);
+                value={centsToDisplay(rawCents)}
+                onChange={(e) => {
+                  const digits = e.target.value
+                    .replace(/\D/g, "")
+                    .slice(0, 13);
+                  setRawCents(parseInt(digits || "0", 10));
                 }}
-                onClose={() => setShowPicker(false)}
+                onFocus={(e) => e.target.select()}
+                className={`w-28 h-9 px-2 text-right font-medium rounded-lg border bg-card outline-none focus:border-emerald-500/50 text-sm ${
+                  isReceita
+                    ? "text-emerald-500 border-emerald-500/20"
+                    : "text-rose-500 border-rose-500/20"
+                }`}
               />
-            )}
+              {valorAlterado && (
+                <p className="text-[10px] text-amber-500 mt-0.5">
+                  Valor alterado
+                </p>
+              )}
+            </div>
           </div>
-        )}
 
-        {/* Conta */}
-        <div>
-          <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-            Conta / Carteira
-          </label>
-          <select
-            value={contaSelecionada}
-            onChange={(e) => setContaSelecionada(e.target.value)}
-            className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-          >
-            <option value="">Sem conta</option>
-            {contasDB.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.icone} {c.nome}
-              </option>
-            ))}
-          </select>
-        </div>
+          {/* Escopo — só aparece se valor mudou e tem recorrência */}
+          {valorAlterado && transacao.recorrencia_id && (
+            <div className="animate-in fade-in zoom-in-95 duration-150">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                Aplicar novo valor em:
+              </label>
+              <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
+                <button
+                  type="button"
+                  onClick={() => setEscopo("UNICA")}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "UNICA" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  📅 Apenas nesta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEscopo("TODAS")}
+                  className={`flex-1 rounded-md text-xs font-medium transition-colors ${escopo === "TODAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  🔁 Nesta e nas futuras
+                </button>
+              </div>
+            </div>
+          )}
 
-        {/* Botões */}
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={salvando}
-            className={`flex-1 py-2.5 rounded-lg text-white text-sm font-medium shadow-lg transition-all disabled:opacity-50 ${btnColor}`}
-          >
-            {salvando ? "Salvando..." : btnLabel}
-          </button>
+          {/* Data de pagamento (só na baixa) */}
+          {isBaixando && (
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                Data de Pagamento
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={rawToDisplay(rawDigits)}
+                  onChange={handleDigitsChange}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="DD/MM/AAAA"
+                  maxLength={10}
+                  className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
+                >
+                  <IconCalendar />
+                </button>
+              </div>
+              {showPicker && (
+                <ModalDayPicker
+                  currentDate={
+                    dataPagamento
+                      ? new Date(`${dataPagamento}T12:00:00`)
+                      : new Date()
+                  }
+                  onSelect={(date) => {
+                    const d = String(date.getDate()).padStart(2, "0");
+                    const m = String(date.getMonth() + 1).padStart(2, "0");
+                    const y = date.getFullYear();
+                    setDataPagamento(`${y}-${m}-${d}`);
+                    setRawDigits(`${d}${m}${y}`);
+                    setShowPicker(false);
+                  }}
+                  onClose={() => setShowPicker(false)}
+                />
+              )}
+            </div>
+          )}
+
+          {/* Conta */}
+          <div>
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+              Conta / Carteira
+            </label>
+            <select
+              value={contaSelecionada}
+              onChange={(e) => setContaSelecionada(e.target.value)}
+              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+            >
+              <option value="">Sem conta</option>
+              {contasDB.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.icone} {c.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Botões */}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+            >
+              Cancelar
+            </button>
+            {podeAntecipar && (
+              <button
+                onClick={abrirAntecipar}
+                className="flex-1 py-2.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-sm font-medium hover:bg-sky-500/20 transition-colors"
+              >
+                Antecipar
+              </button>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={salvando}
+              className={`flex-1 py-2.5 rounded-lg text-white text-sm font-medium shadow-lg transition-all disabled:opacity-50 ${btnColor}`}
+            >
+              {salvando ? "Salvando..." : btnLabel}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </Modal>
   );
 }
