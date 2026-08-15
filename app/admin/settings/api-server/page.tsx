@@ -4,12 +4,17 @@ import { Pencil, RefreshCcw, Trash2 } from "lucide-react";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
+import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
-import NovaIntegracaoModal from "./nova_integracao_modal";
-import AppIntegracaoModal from "./app_integracao_modal";
+const NovaIntegracaoModal = dynamic(() => import("./nova_integracao_modal"), {
+  ssr: false,
+});
+const AppIntegracaoModal = dynamic(() => import("./app_integracao_modal"), {
+  ssr: false,
+});
 
 type IntegrationRow = {
   id: string;

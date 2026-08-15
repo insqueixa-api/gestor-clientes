@@ -3,9 +3,10 @@
 import { X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import PlanoModal from "./plano_modal";
+const PlanoModal = dynamic(() => import("./plano_modal"), { ssr: false });
 import ToastNotifications from "@/hooks/ToastNotifications"; // ✅ Novo import
 import { useConfirm } from "@/hooks/useConfirm";
 

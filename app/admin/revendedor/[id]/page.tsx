@@ -4,6 +4,7 @@ import { Loader2, Pencil, RefreshCcw, EyeOff, Eye, Trash2 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import Link from "next/link";
@@ -12,8 +13,12 @@ import Link from "next/link";
 import { useConfirm } from "@/hooks/useConfirm";
 
 // Modais
-import VincularServidor from "./vincular_servidor";
-import QuickRechargeModal from "../recarga_revenda";
+const VincularServidor = dynamic(() => import("./vincular_servidor"), {
+  ssr: false,
+});
+const QuickRechargeModal = dynamic(() => import("../recarga_revenda"), {
+  ssr: false,
+});
 
 // Componentes Visuais
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";

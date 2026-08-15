@@ -14,10 +14,15 @@ import {
 import React, { useEffect, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import NovoServidorModal from "./novo_servidor";
-import RecargaServidorModal from "./recarga_servidor";
+const NovoServidorModal = dynamic(() => import("./novo_servidor"), {
+  ssr: false,
+});
+const RecargaServidorModal = dynamic(() => import("./recarga_servidor"), {
+  ssr: false,
+});
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 

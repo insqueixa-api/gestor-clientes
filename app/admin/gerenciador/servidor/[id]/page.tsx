@@ -5,9 +5,12 @@ import { Loader2, CreditCard, EyeOff, Eye } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import RecargaServidorModal from "../recarga_servidor";
+const RecargaServidorModal = dynamic(() => import("../recarga_servidor"), {
+  ssr: false,
+});
 import type { ServerRow } from "../page";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";

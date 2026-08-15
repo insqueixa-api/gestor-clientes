@@ -4,12 +4,14 @@ import { Pencil, Play, Pause, Trash2 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
+import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader } from "@/components/ui/Modal";
-import CupomModal, { CouponEditPayload } from "./cupom_modal";
+const CupomModal = dynamic(() => import("./cupom_modal"), { ssr: false });
+import type { CouponEditPayload } from "./cupom_modal";
 import {
   computeCouponImpact,
   ImpactResult,
