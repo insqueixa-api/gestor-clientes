@@ -18,6 +18,7 @@ import { extractDateOnly } from "@/lib/apps/panel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
@@ -78,7 +79,13 @@ async function solveCaptcha(siteRoot: string, geminiKey: string): Promise<{ toke
         },
       ],
     },
-    15_000,
+    // ✅ 15s -> 25s (14/08/2026): achado ao vivo — o modelo por trás de
+    // "gemini-flash-latest" hoje "pensa" antes de responder (mesmo achado já
+    // documentado em generate-variant/route.ts), um captcha real (imagem
+    // maior, texto de verdade) passava dos 15s e abortava sempre. 25s dá
+    // folga real sem deixar a rota pendurada pra sempre — maxDuration=60 no
+    // topo do arquivo garante que a função da Vercel não mata antes disso.
+    25_000,
   );
   const answer = geminiRes?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
   if (!answer) throw new Error("Não foi possível ler o captcha do IBO Player.");
