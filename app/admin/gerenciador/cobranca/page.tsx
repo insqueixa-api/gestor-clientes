@@ -189,7 +189,17 @@ function GlobalQueueMonitor({
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   // 1. Polling: Busca a fila (Simplificado para não falhar)
+  // ✅ Ritmo adaptativo (14/08/2026, pedido do Márcio): sem nada agendado,
+  // ficar batendo a cada 30s é processamento jogado fora. Enquanto a fila
+  // está vazia, o intervalo alarga pra 5min; assim que aparece algo
+  // SCHEDULED/QUEUED/SENDING/PAUSED, volta pro ritmo de 30s (cron roda a
+  // cada 1min) pra acompanhar o envio em tempo real.
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+    const POLL_ACTIVE_MS = 30000;
+    const POLL_IDLE_MS = 5 * 60000;
+
     const fetchQueue = async () => {
       const tid = tenantId;
       if (!tid) return;
@@ -234,18 +244,28 @@ function GlobalQueueMonitor({
 
       if (error) {
         setQueueData([]);
-        return;
+        return [];
       }
 
       const rows = (data ?? []) as any[];
 
       setQueueData(rows);
       setLastUpdate(new Date());
+      return rows;
     };
 
-    fetchQueue();
-    const interval = setInterval(fetchQueue, 30000); // 30s (cron roda a cada 1 min)
-    return () => clearInterval(interval);
+    const tick = async () => {
+      const rows = await fetchQueue();
+      if (cancelled) return;
+      const nextDelay = rows && rows.length > 0 ? POLL_ACTIVE_MS : POLL_IDLE_MS;
+      timeoutId = setTimeout(tick, nextDelay);
+    };
+
+    tick();
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [tenantId]);
 
   // 2. Ação: PAUSAR TUDO
