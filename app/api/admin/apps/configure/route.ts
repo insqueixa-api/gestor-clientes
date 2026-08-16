@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   const row = clientAppId
     ? await loadClientApp(supabase, { clientAppId, tenantId, fieldValuesOverride: fieldValues })
     : appId && draftClientId
-      ? await loadClientAppDraft(supabase, { appId, clientId: draftClientId, fieldValues: fieldValues || {} })
+      ? await loadClientAppDraft(supabase, { appId, clientId: draftClientId, tenantId, fieldValues: fieldValues || {} })
       : null;
 
   if (!clientAppId && !(appId && draftClientId)) {

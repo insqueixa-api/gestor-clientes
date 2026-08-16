@@ -80,7 +80,20 @@ export async function POST(req: Request) {
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
         const listJson = await listRes.json().catch(() => null);
-        const playlists: any[] = Array.isArray(listJson?.message) ? listJson.message : [];
+        const allPlaylists: any[] = Array.isArray(listJson?.message) ? listJson.message : [];
+
+        // ✅ Antes apagava TODAS as playlists do MAC, sem isolar por
+        // cliente — diferente de toda outra integração da família, que
+        // sempre filtra por nome antes de apagar. Se o mesmo MAC acabar
+        // associado a mais de uma playlist (typo de MAC, device
+        // reaproveitado), remover o app de UM client_app apagava as de
+        // outros clientes junto. Mesmo truncamento de 30 caracteres do
+        // create (rawName.slice(0,30)) pra bater o nome certo.
+        const rawWanted = (playlist_name || "").toString().trim();
+        const wantedName = rawWanted.length > 30 ? rawWanted.slice(0, 30) : rawWanted;
+        const playlists = wantedName
+          ? allPlaylists.filter((pl) => String(pl?.name || "").trim() === wantedName)
+          : allPlaylists;
 
         if (playlists.length === 0) {
           return NextResponse.json({ ok: true, message: "Nenhuma playlist configurada neste dispositivo." });

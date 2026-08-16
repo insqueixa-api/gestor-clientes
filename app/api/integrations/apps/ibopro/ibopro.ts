@@ -21,7 +21,13 @@ export const IboProAPI = {
     return {
       action: "create",
       mac: macValue,
-      playlist_name: serverName || finalServerName || "Playlist",
+      // ✅ Era serverName || finalServerName — ordem invertida em relação a
+      // TODA outra integração da família (bobplayer/iboplayer/messitv/
+      // iptvduplex/iptvplayerio). finalServerName (ex: "Insqueixa_NaTV") é
+      // único por cliente; serverName sozinho (ex: "NaTV") colide entre
+      // clientes diferentes no mesmo servidor — exatamente o motivo
+      // documentado nas outras integrações.
+      playlist_name: finalServerName || serverName || "Playlist",
       playlist_url: m3uUrl,
       pin: password || undefined,
       // deviceKey é injetado pelo modal via getDeviceKeyFromApp
@@ -42,7 +48,10 @@ export const IboProAPI = {
     return {
       action: "delete",
       mac: macValue,
-      playlist_name: serverName || finalServerName || "",
+      // ✅ Mesma correção do buildCreatePayload acima — precisa buscar a
+      // playlist pelo nome único do cliente, senão um "Remover" pode achar
+      // a playlist de OUTRO cliente que compartilha o mesmo servidor.
+      playlist_name: finalServerName || serverName || "",
       pin: password || undefined,
       // deviceKey é injetado via payloadDelete.deviceKey
     };

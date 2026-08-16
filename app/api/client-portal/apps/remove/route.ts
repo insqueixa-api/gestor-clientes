@@ -114,14 +114,23 @@ export async function POST(req: NextRequest) {
         .eq("id", client_id)
         .maybeSingle();
 
-      await notify({
-        tenantId,
-        type: "app_removal_pending",
-        title: "🗑️ Exclusão de app solicitada",
-        message: `${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} pediu pra remover "${appName}" do portal.`,
-        link: "/admin/auditoria?view=aplicativos",
-        sourceId: inserted.id,
-      });
+      // ✅ Best-effort — o pedido de remoção JÁ foi gravado (insert acima).
+      // Sem o try/catch, uma falha aqui (ex: erro de rede) caía no catch
+      // geral da rota e devolvia "Erro interno" pro cliente mesmo com o
+      // pedido já registrado de verdade — ele achava que precisava tentar
+      // de novo.
+      try {
+        await notify({
+          tenantId,
+          type: "app_removal_pending",
+          title: "🗑️ Exclusão de app solicitada",
+          message: `${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} pediu pra remover "${appName}" do portal.`,
+          link: "/admin/auditoria?view=aplicativos",
+          sourceId: inserted.id,
+        });
+      } catch (e) {
+        console.error("apps/remove: notify failed", (e as any)?.message);
+      }
 
       return NextResponse.json({ ok: true, data: { pending_admin: false, already_requested: false } }, { status: 200, headers: NO_STORE_HEADERS });
     }

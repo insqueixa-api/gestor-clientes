@@ -131,8 +131,23 @@ export async function loadClientApp(
 // filtra por id.
 export async function loadClientAppDraft(
   supabaseAdmin: SupabaseClient,
-  params: { appId: string; clientId: string; fieldValues: Record<string, string> },
+  params: { appId: string; clientId: string; tenantId: string; fieldValues: Record<string, string> },
 ): Promise<LoadedClientApp | null> {
+  // ✅ Faltava confirmar que clientId pertence ao tenant do admin
+  // autenticado — diferente de loadClientApp (linha ~88), que sempre
+  // escopa por tenant_id/client_id validado. Sem isso, um admin
+  // autenticado que soubesse/adivinhasse o client_id de OUTRO tenant
+  // conseguia reconfigurar/remover/verificar apps usando as credenciais
+  // reais de servidor daquele cliente (as funções de baixo nunca
+  // rechecam tenant depois deste ponto).
+  const { data: clientCheck, error: clientCheckErr } = await supabaseAdmin
+    .from("clients")
+    .select("id")
+    .eq("id", params.clientId)
+    .eq("tenant_id", params.tenantId)
+    .maybeSingle();
+  if (clientCheckErr || !clientCheck) return null;
+
   const { data: app, error } = await supabaseAdmin
     .from("apps")
     .select("id, name, integration_type, fields_config, cost_type, is_active")

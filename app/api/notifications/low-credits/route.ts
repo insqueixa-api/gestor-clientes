@@ -15,15 +15,23 @@ export async function POST(req: Request) {
     const { serverId, serverName, credits, tenantId, reason } = data;
 
     // ✅ NOVO: notificação no sino (tabela notifications) — não bloqueia o envio do e-mail
+    // O comentário já dizia "não bloqueia", mas faltava o try/catch de
+    // verdade — sem ele, uma falha aqui (exceção real, não só erro lógico
+    // do Postgrest) derrubava a rota inteira e o sendMail() abaixo (o
+    // alerta que de fato importa) nunca rodava.
     if (tenantId && serverId) {
-      await notify({
-        tenantId,
-        type: "saldo_baixo",
-        title: "🪫 Saldo Baixo",
-        message: `O servidor "${serverName || "Desconhecido"}" está com apenas ${credits} créditos. Recarregue imediatamente para evitar interrupções!`,
-        link: "/admin/gerenciador/servidor",
-        sourceId: serverId,
-      });
+      try {
+        await notify({
+          tenantId,
+          type: "saldo_baixo",
+          title: "🪫 Saldo Baixo",
+          message: `O servidor "${serverName || "Desconhecido"}" está com apenas ${credits} créditos. Recarregue imediatamente para evitar interrupções!`,
+          link: "/admin/gerenciador/servidor",
+          sourceId: serverId,
+        });
+      } catch (e) {
+        console.error("[NOTIFY] low-credits: falha no sino, seguindo pro e-mail mesmo assim", (e as any)?.message);
+      }
     } else {
       console.error("[NOTIFY] low-credits: tenantId ou serverId ausente, notificação do sino pulada");
     }

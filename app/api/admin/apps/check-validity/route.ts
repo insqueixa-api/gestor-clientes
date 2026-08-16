@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   try {
     const row = clientAppId
       ? await loadClientApp(supabaseAdmin, { clientAppId, tenantId, fieldValuesOverride: fieldValues })
-      : await loadClientAppDraft(supabaseAdmin, { appId, clientId: draftClientId, fieldValues: fieldValues || {} });
+      : await loadClientAppDraft(supabaseAdmin, { appId, clientId: draftClientId, tenantId, fieldValues: fieldValues || {} });
     if (!row) return NextResponse.json({ ok: false, error: "Aplicativo não encontrado" }, { status: 404 });
 
     const result = await checkClientAppValidity(supabaseAdmin, row);

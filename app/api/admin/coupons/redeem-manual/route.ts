@@ -39,6 +39,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // ✅ Faltava confirmar que coupon_id e client_id recebidos no body
+  // realmente pertencem a este tenant — a checagem acima só validava o
+  // próprio tenant_id. Como o insert usa service role (ignora RLS), sem
+  // isso um admin autenticado que soubesse/adivinhasse ids de OUTRO tenant
+  // conseguia gravar um resgate cruzado, e — se o cupom referenciado for
+  // pessoal — desativar um cupom que não é dele.
+  const [{ data: couponCheck }, { data: clientCheck }] = await Promise.all([
+    supabaseAdmin.from("coupons").select("id").eq("id", couponId).eq("tenant_id", tenantId).maybeSingle(),
+    supabaseAdmin.from("clients").select("id").eq("id", clientId).eq("tenant_id", tenantId).maybeSingle(),
+  ]);
+  if (!couponCheck || !clientCheck) {
+    return NextResponse.json({ error: "Cupom ou cliente não encontrado" }, { status: 404 });
+  }
+
   // Idempotente por payment_id — evita gravar 2x se o admin clicar
   // "Concluir" mais de uma vez pro mesmo pagamento.
   if (paymentId) {

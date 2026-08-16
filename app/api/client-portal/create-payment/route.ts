@@ -468,14 +468,22 @@ if (coupon_code_raw) {
       }
 
       // ✅ NOVO: notificação no sino (tabela notifications)
-      await notify({
-        tenantId: sess.tenant_id,
-        type: "transfer_aguardando",
-        title: "🏦 Transferência Aguardando",
-        message: `${formatClientLabel(displayName, (client as any).server_username, serverName)} informou que vai transferir ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(computedPrice)}. Confirme o recebimento na Auditoria.`,
-        link: "/admin/auditoria",
-        sourceId: inserted.id,
-      });
+      // Best-effort — o pagamento manual JÁ foi gravado (insert acima).
+      // Sem o try/catch, uma falha aqui caía no catch geral da rota e
+      // devolvia "Erro ao criar pagamento" pro cliente mesmo com o
+      // registro (status awaiting_transfer) já criado de verdade.
+      try {
+        await notify({
+          tenantId: sess.tenant_id,
+          type: "transfer_aguardando",
+          title: "🏦 Transferência Aguardando",
+          message: `${formatClientLabel(displayName, (client as any).server_username, serverName)} informou que vai transferir ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(computedPrice)}. Confirme o recebimento na Auditoria.`,
+          link: "/admin/auditoria",
+          sourceId: inserted.id,
+        });
+      } catch (e) {
+        safeServerLog("create-payment: notify failed", (e as any)?.message);
+      }
 
       // ✅ Email imediato: cliente informou que vai transferir
       try {

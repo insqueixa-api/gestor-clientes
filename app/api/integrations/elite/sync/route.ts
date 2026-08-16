@@ -103,6 +103,24 @@ export async function POST(req: Request) {
     // AÇÃO 2: O Frontend devolve o Saldo Lido e nós salvamos no Banco
     // =======================================================================
     if (action === "save_sync") {
+      // ✅ Faltava a mesma checagem de tenant que "get_credentials" já tem
+      // logo acima — sem isso, uma requisição vinda do browser (não
+      // interna) podia sobrescrever credits_last_known/owner_username de
+      // uma integração de OUTRO tenant só sabendo/adivinhando o UUID (esta
+      // rota usa Service Role, que ignora RLS). Chamadas internas
+      // (isInternalRequest, ex: fulfillment.ts) continuam sem essa
+      // checagem, igual já era.
+      if (callerTenantId) {
+        const { data: integCheck, error: integCheckErr } = await sb
+          .from("server_integrations")
+          .select("id, tenant_id")
+          .eq("id", integration_id)
+          .single();
+        if (integCheckErr || !integCheck || integCheck.tenant_id !== callerTenantId) {
+          throw new Error("Integração não encontrada.");
+        }
+      }
+
       const parsedCredits = parseLooseNumber(saldo);
       const patch: any = {
         credits_last_sync_at: new Date().toISOString(),

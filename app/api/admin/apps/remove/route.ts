@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   const row = clientAppId
     ? await loadClientApp(supabase, { clientAppId, tenantId, fieldValuesOverride: fieldValues })
-    : await loadClientAppDraft(supabase, { appId, clientId: draftClientId, fieldValues: fieldValues || {} });
+    : await loadClientAppDraft(supabase, { appId, clientId: draftClientId, tenantId, fieldValues: fieldValues || {} });
   if (!row) return NextResponse.json({ ok: false, error: "Aplicativo não encontrado" }, { status: 404 });
 
   const partnerResult = await removeClientAppFromPartner(supabase, row);

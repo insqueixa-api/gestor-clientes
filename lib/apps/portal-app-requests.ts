@@ -54,14 +54,26 @@ export async function fileAppSetupRequest(
     .eq("id", clientId)
     .maybeSingle();
 
-  await notify({
-    tenantId,
-    type: "app_setup_pending",
-    title: "📱 Configuração de app solicitada",
-    message: `${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} pediu ajuda pra configurar "${appName}" pelo portal.`,
-    link: "/admin/auditoria?view=aplicativos",
-    sourceId: inserted.id,
-  });
+  // ✅ Best-effort — o pedido JÁ foi gravado (insert acima). Sem o
+  // try/catch, uma falha aqui derrubava esta função inteira com exceção,
+  // e os 3 chamadores tratavam isso de formas inconsistentes:
+  // configure/route.ts e check-validity/route.ts engolem a falha (o
+  // pedido fica registrado, só sem o sino), mas request-setup/route.ts
+  // devolvia "Erro interno" (500) pro cliente mesmo com o pedido já salvo
+  // — ele achava que precisava tentar de novo, quando na verdade já tinha
+  // dado certo.
+  try {
+    await notify({
+      tenantId,
+      type: "app_setup_pending",
+      title: "📱 Configuração de app solicitada",
+      message: `${formatClientLabel(client?.display_name, client?.server_username, (client?.servers as any)?.name)} pediu ajuda pra configurar "${appName}" pelo portal.`,
+      link: "/admin/auditoria?view=aplicativos",
+      sourceId: inserted.id,
+    });
+  } catch (e) {
+    console.error("fileAppSetupRequest: notify failed", (e as any)?.message);
+  }
 
   return { id: inserted.id, already_pending: false };
 }

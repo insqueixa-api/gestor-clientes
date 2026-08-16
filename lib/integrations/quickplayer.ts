@@ -38,11 +38,23 @@ export const QuickPlayerAPI = {
     };
   },
 
-  buildDeletePayload({ macValue }: { macValue: string }) {
+  buildDeletePayload({
+    macValue,
+    finalServerName,
+    serverName,
+  }: {
+    macValue: string;
+    finalServerName?: string;
+    serverName?: string;
+  }) {
     // deviceKey vem injetado pelo modal, igual no create.
+    // ✅ Faltava mandar o nome da playlist — sem isso, route.ts não tinha
+    // como saber QUAL playlist apagar e apagava TODAS as do MAC, mesmo as
+    // de outro client_app que porventura compartilhe o mesmo dispositivo.
     return {
       action: "delete",
       mac: macValue,
+      playlist_name: finalServerName || serverName || "",
     };
   },
 };
