@@ -101,6 +101,64 @@ export async function POST(req: NextRequest) {
     const mpToken = String(gateway?.config?.access_token || "").trim();
     if (!mpToken) return jsonError("Erro interno", 500);
 
+    // ✅ A chave de idempotência do MP (mais abaixo) só cobre uma janela de
+    // 10min — clicar "Renovar" de novo depois disso (ex: esqueceu que já
+    // tinha gerado um QR e pagou os dois) criava uma SEGUNDA cobrança PIX
+    // independente pra mesma licença de app. Antes de criar um pagamento
+    // novo, confere se já existe um "pending" recente pra este
+    // client_app_id e consulta o status real no MP: se ainda está pending
+    // lá, devolve o MESMO QR em vez de gerar outro; se já foi pago/está em
+    // processamento, bloqueia (evita pagar 2x); só cria um novo se o
+    // anterior realmente morreu (cancelado/expirado/rejeitado no MP).
+    const { data: existingPending } = await supabaseAdmin
+      .from("client_portal_payments")
+      .select("id, mp_payment_id, price_amount, price_currency, created_at")
+      .eq("tenant_id", ctx.tenant_id)
+      .eq("client_id", client_id)
+      .eq("client_app_id", client_app_id)
+      .eq("payment_type", "app_renewal")
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingPending?.mp_payment_id) {
+      try {
+        const getRes = await fetch(
+          `https://api.mercadopago.com/v1/payments/${existingPending.mp_payment_id}`,
+          { headers: { Authorization: `Bearer ${mpToken}` } },
+        );
+        const getData = await getRes.json().catch(() => ({} as any));
+
+        if (getRes.ok && getData?.status === "pending") {
+          return NextResponse.json(
+            {
+              ok: true,
+              payment_id: String(existingPending.mp_payment_id),
+              internal_payment_id: existingPending.id,
+              price_amount: Number(existingPending.price_amount),
+              currency: existingPending.price_currency,
+              pix_qr_code: getData.point_of_interaction?.transaction_data?.qr_code,
+              pix_qr_code_base64: getData.point_of_interaction?.transaction_data?.qr_code_base64,
+              expires_at: getData.date_of_expiration,
+            },
+            { status: 200, headers: NO_STORE_HEADERS },
+          );
+        }
+
+        if (getRes.ok && (getData?.status === "approved" || getData?.status === "in_process")) {
+          return jsonError("Este pagamento já está sendo processado. Aguarde a confirmação.", 409);
+        }
+        // outros status (cancelled/rejected/expired) — pagamento anterior
+        // realmente morreu, segue o fluxo normal e cria um novo abaixo.
+      } catch (e) {
+        // Falha ao consultar o MP não deve travar a renovação — segue o
+        // fluxo normal (a idempotency key de 10min ainda cobre o caso mais
+        // comum de duplo-clique).
+        console.error("[apps/renew-payment] failed to check existing payment", (e as any)?.message);
+      }
+    }
+
     const appUrl = getAppOrigin();
     if (!appUrl) return jsonError("Erro interno", 500);
     const webhookUrl = `${appUrl}/api/webhooks/mercadopago`;
