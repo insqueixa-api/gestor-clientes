@@ -572,6 +572,17 @@ function ClientePageContent() {
   const [scheduledMap, setScheduledMap] = useState<
     Record<string, ScheduledMsg[]>
   >({});
+  // ✅ NOVO: contagem de instâncias vencendo em até 30 dias, por cliente e
+  // por nome de app (pro reloginho vermelho na pill de "Aplicativos" da
+  // lista). Não dá pra ser um Set/booleano por nome — o mesmo cliente pode
+  // ter o mesmo app repetido (ex: 2x "IBO Revenda"), e só marcar "vencendo"
+  // se aquele nome existir no set acenderia as DUAS pills mesmo se só 1
+  // instância estivesse vencendo. Guarda quantas instâncias daquele nome
+  // estão vencendo; na hora de renderizar, marca só essa quantidade de
+  // pills (por ordem), não todas as pills daquele nome.
+  const [expiringAppsByClient, setExpiringAppsByClient] = useState<
+    Record<string, Record<string, number>>
+  >({});
   const [showScheduledModal, setShowScheduledModal] = useState<{
     open: boolean;
     clientId: string | null;
@@ -788,6 +799,64 @@ function ClientePageContent() {
     setScheduledMap(map);
   }
 
+  // ✅ NOVO: mesma ideia do loadScheduledForClients acima — busca só pra
+  // quem está na página atual, roda em segundo plano depois da lista já
+  // ter aparecido. Usa appsIndex.byId (catálogo já carregado à parte) pra
+  // achar o campo de vencimento de cada app sem precisar de join.
+  async function loadExpiringAppsForClients(tid: string, clientIds: string[]) {
+    if (!clientIds.length) {
+      setExpiringAppsByClient({});
+      return;
+    }
+    if (Object.keys(appsIndex.byId).length === 0) {
+      // catálogo de apps ainda não carregou — o useEffect abaixo (que
+      // observa appsIndex) refaz essa busca assim que ele chegar.
+      return;
+    }
+
+    const { data, error } = await supabaseBrowser
+      .from("client_apps")
+      .select("client_id, app_id, field_values")
+      .eq("tenant_id", tid)
+      .in("client_id", clientIds);
+
+    if (error || !data) return;
+
+    const now = Date.now();
+    // client_id -> { appName: quantas instâncias daquele nome vencendo }
+    const map: Record<string, Record<string, number>> = {};
+
+    for (const row of data as any[]) {
+      const catApp = appsIndex.byId[String(row.app_id)];
+      if (!catApp || catApp.cost_type === "partnership") continue;
+
+      const fieldsConfig = Array.isArray(catApp.fields_config)
+        ? catApp.fields_config
+        : [];
+      const dateField = fieldsConfig.find(
+        (f: any) => String(f?.type || "").toLowerCase() === "date",
+      );
+      if (!dateField) continue;
+
+      const fieldKey = dateField.id || dateField.label;
+      const expireIso = fieldKey ? row.field_values?.[String(fieldKey)] : null;
+      if (!expireIso) continue;
+
+      const datePart = String(expireIso).split("T")[0];
+      const diffDays =
+        (new Date(`${datePart}T12:00:00-03:00`).getTime() - now) / 86400000;
+      if (diffDays >= 30) continue;
+
+      const cid = String(row.client_id);
+      const appName = String(catApp.name || "").trim();
+      if (!appName) continue;
+      if (!map[cid]) map[cid] = {};
+      map[cid][appName] = (map[cid][appName] || 0) + 1;
+    }
+
+    setExpiringAppsByClient(map);
+  }
+
   async function loadMessageTemplates(tid: string) {
     const templates = await loadTenantMessageTemplates(tid);
     setMessageTemplates(templates);
@@ -878,6 +947,10 @@ function ClientePageContent() {
       // ✅ Escopo mudou pra só a página atual (get_clients_list_page já
       // devolve só ela) — antes buscava pro tenant inteiro numa passada só.
       loadScheduledForClients(
+        tid,
+        mapped.map((m) => m.id),
+      );
+      loadExpiringAppsForClients(
         tid,
         mapped.map((m) => m.id),
       );
@@ -1052,6 +1125,21 @@ function ClientePageContent() {
       alive = false;
     };
   }, [tenantId]);
+
+  // ✅ Cobre a corrida entre o catálogo de apps (acima) e a 1ª página de
+  // clientes: se as linhas já chegaram antes do catálogo, o early-return
+  // dentro de loadExpiringAppsForClients pulou o cálculo silenciosamente —
+  // refaz assim que o catálogo estiver pronto.
+  useEffect(() => {
+    if (!tenantId) return;
+    if (Object.keys(appsIndex.byId).length === 0) return;
+    if (rows.length === 0) return;
+    loadExpiringAppsForClients(
+      tenantId,
+      rows.map((r) => r.id),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appsIndex, tenantId]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -2226,8 +2314,17 @@ function ClientePageContent() {
 
                       <Td align="center">
                         <div className="flex flex-wrap gap-1 justify-center max-w-[200px] sm:max-w-[400px] mx-auto">
-                          {r.apps && r.apps.length > 0 ? (
-                            r.apps.map((app, i) => {
+                          {r.apps && r.apps.length > 0 ? (() => {
+                            // ✅ Contador por nome, zerado a cada linha de
+                            // cliente — nunca por Set/booleano de nome: o
+                            // mesmo cliente pode ter o mesmo app repetido
+                            // (ex: 2x "IBO Revenda"), e marcar todas as
+                            // pills daquele nome quando só 1 instância está
+                            // vencendo mentiria sobre qual delas é a certa.
+                            const seenSoFar: Record<string, number> = {};
+                            const expiringCounts =
+                              expiringAppsByClient[r.id] || {};
+                            return r.apps.map((app, i) => {
                               const catApp = appsIndex.byName[
                                 normAppKey(app)
                               ] as any;
@@ -2236,6 +2333,14 @@ function ClientePageContent() {
                                 catApp?.integration_type &&
                                 catApp.integration_type !== "SEM_INTEGRACAO",
                               );
+                              // ✅ Reloginho vermelho — mesmo pedido do
+                              // modal/página de detalhe, aplicado aqui na
+                              // pill da listagem (onde o Márcio realmente
+                              // escaneia visualmente qual app está vencendo).
+                              const name = String(app).trim();
+                              seenSoFar[name] = (seenSoFar[name] || 0) + 1;
+                              const isExpiringSoon =
+                                seenSoFar[name] <= (expiringCounts[name] || 0);
 
                               return (
                                 <button
@@ -2249,15 +2354,31 @@ function ClientePageContent() {
                                       ? "border-sky-500/20 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
                                       : "border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
                                   }`}
-                                  title={`Configurar aplicativo: ${app}`}
+                                  title={`Configurar aplicativo: ${app}${isExpiringSoon ? " — vencendo em até 30 dias" : ""}`}
                                 >
                                   <span className="truncate flex-1 min-w-0 text-left">
                                     {app}
                                   </span>
+                                  {isExpiringSoon && (
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      className="text-rose-500 shrink-0"
+                                    >
+                                      <circle cx="12" cy="12" r="10"></circle>
+                                      <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                  )}
                                 </button>
                               );
-                            })
-                          ) : (
+                            });
+                          })() : (
                             <span className="text-muted-foreground/60 text-xs italic">
                               —
                             </span>

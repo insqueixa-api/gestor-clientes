@@ -537,6 +537,14 @@ export default function TrialsPage() {
   const [scheduledMap, setScheduledMap] = useState<
     Record<string, ScheduledMsg[]>
   >({});
+  // ✅ NOVO: contagem de instâncias vencendo em até 30 dias, por teste e por
+  // nome de app (pro reloginho vermelho na pill de "Aplicativos" da lista)
+  // — mesmo padrão de app/admin/cliente/page.tsx. Contagem, não Set: o
+  // mesmo teste pode ter o mesmo app repetido, e um Set/booleano por nome
+  // acenderia todas as pills daquele nome mesmo com só 1 instância vencendo.
+  const [expiringAppsByClient, setExpiringAppsByClient] = useState<
+    Record<string, Record<string, number>>
+  >({});
   const [messageTemplates, setMessageTemplates] = useState<MessageTemplate[]>(
     [],
   );
@@ -802,6 +810,64 @@ export default function TrialsPage() {
     setScheduledMap(map);
   }
 
+  // ✅ NOVO: mesma ideia do loadScheduledForClients acima — busca só pra
+  // quem está na página atual, roda em segundo plano. Usa appsIndex.byId
+  // (catálogo já carregado à parte, loadAppsIndex) pra achar o campo de
+  // vencimento de cada app sem precisar de join.
+  async function loadExpiringAppsForClients(tid: string, clientIds: string[]) {
+    if (!clientIds.length) {
+      setExpiringAppsByClient({});
+      return;
+    }
+    if (Object.keys(appsIndex.byId).length === 0) {
+      // catálogo de apps ainda não carregou — o useEffect que observa
+      // appsIndex refaz essa busca assim que ele chegar.
+      return;
+    }
+
+    const { data, error } = await supabaseBrowser
+      .from("client_apps")
+      .select("client_id, app_id, field_values")
+      .eq("tenant_id", tid)
+      .in("client_id", clientIds);
+
+    if (error || !data) return;
+
+    const now = Date.now();
+    // client_id -> { appName: quantas instâncias daquele nome vencendo }
+    const map: Record<string, Record<string, number>> = {};
+
+    for (const row of data as any[]) {
+      const catApp = (appsIndex.byId as any)[String(row.app_id)];
+      if (!catApp || catApp.cost_type === "partnership") continue;
+
+      const fieldsConfig = Array.isArray(catApp.fields_config)
+        ? catApp.fields_config
+        : [];
+      const dateField = fieldsConfig.find(
+        (f: any) => String(f?.type || "").toLowerCase() === "date",
+      );
+      if (!dateField) continue;
+
+      const fieldKey = dateField.id || dateField.label;
+      const expireIso = fieldKey ? row.field_values?.[String(fieldKey)] : null;
+      if (!expireIso) continue;
+
+      const datePart = String(expireIso).split("T")[0];
+      const diffDays =
+        (new Date(`${datePart}T12:00:00-03:00`).getTime() - now) / 86400000;
+      if (diffDays >= 30) continue;
+
+      const cid = String(row.client_id);
+      const appName = String(catApp.name || "").trim();
+      if (!appName) continue;
+      if (!map[cid]) map[cid] = {};
+      map[cid][appName] = (map[cid][appName] || 0) + 1;
+    }
+
+    setExpiringAppsByClient(map);
+  }
+
   async function loadAppsIndex(tid: string) {
     setAppsLoading(true);
     try {
@@ -959,6 +1025,10 @@ export default function TrialsPage() {
         tid,
         mapped.map((m) => m.id),
       );
+      loadExpiringAppsForClients(
+        tid,
+        mapped.map((m) => m.id),
+      );
     } finally {
       loadingRef.current = false;
       setLoading(false);
@@ -991,6 +1061,21 @@ export default function TrialsPage() {
     if (tenantId) loadAppsIndex(tenantId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
+
+  // ✅ Cobre a corrida entre o catálogo de apps (acima) e a 1ª página de
+  // testes: se as linhas já chegaram antes do catálogo, o early-return
+  // dentro de loadExpiringAppsForClients pulou o cálculo silenciosamente —
+  // refaz assim que o catálogo estiver pronto.
+  useEffect(() => {
+    if (!tenantId) return;
+    if (Object.keys(appsIndex.byId).length === 0) return;
+    if (rows.length === 0) return;
+    loadExpiringAppsForClients(
+      tenantId,
+      rows.map((r) => r.id),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appsIndex, tenantId]);
 
   // Opções dos dropdowns de Servidor/Plano/Aplicativos — vêm do banco,
   // refeitas só quando o tenant ou o toggle Ativos/Lixeira mudam.
@@ -1896,7 +1981,15 @@ export default function TrialsPage() {
                       <Td>
                         {r.apps_names.length > 0 ? (
                           <div className="flex flex-wrap gap-1 max-w-[300px]">
-                            {r.apps_names.map((appName, idx) => {
+                            {(() => {
+                              // ✅ Contador por nome, zerado a cada linha —
+                              // mesmo motivo de app/admin/cliente/page.tsx:
+                              // não dá pra marcar TODAS as pills de um nome
+                              // repetido quando só 1 instância está vencendo.
+                              const seenSoFar: Record<string, number> = {};
+                              const expiringCounts =
+                                expiringAppsByClient[r.id] || {};
+                              return r.apps_names.map((appName, idx) => {
                               const name = String(appName || "").trim();
                               const catApp = appsIndex.byName[
                                 normKey(name)
@@ -1905,6 +1998,11 @@ export default function TrialsPage() {
                                 catApp?.integration_type &&
                                 catApp.integration_type !== "SEM_INTEGRACAO",
                               );
+                              // ✅ Reloginho vermelho — mesmo padrão de
+                              // app/admin/cliente/page.tsx.
+                              seenSoFar[name] = (seenSoFar[name] || 0) + 1;
+                              const isExpiringSoon =
+                                seenSoFar[name] <= (expiringCounts[name] || 0);
                               return (
                                 <button
                                   key={`${r.id}-${name}-${idx}`}
@@ -1918,12 +2016,33 @@ export default function TrialsPage() {
                                       ? "border-sky-500/20 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
                                       : "border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
                                   }`}
-                                  title="Configurar aplicativo"
+                                  title={
+                                    isExpiringSoon
+                                      ? "Configurar aplicativo — vencendo em até 30 dias"
+                                      : "Configurar aplicativo"
+                                  }
                                 >
                                   {name || "App"}
+                                  {isExpiringSoon && (
+                                    <svg
+                                      width="10"
+                                      height="10"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      className="text-rose-500 shrink-0"
+                                    >
+                                      <circle cx="12" cy="12" r="10"></circle>
+                                      <polyline points="12 6 12 12 16 14"></polyline>
+                                    </svg>
+                                  )}
                                 </button>
                               );
-                            })}
+                              });
+                            })()}
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground/60 italic">
