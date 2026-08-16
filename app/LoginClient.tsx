@@ -3,9 +3,20 @@
 
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import type { TurnstileInstance } from "@marsidev/react-turnstile";
+
+// ✅ Code-split o widget do Cloudflare pra fora do bundle principal — ele só
+// é montado depois que o link mágico é confirmado válido (ver `whatsapp` mais
+// abaixo), então não faz sentido baixar o JS dele já no carregamento inicial
+// da página, muito menos num link morto (onde a tela nem chega a mostrar o
+// formulário).
+const Turnstile = dynamic(
+  () => import("@marsidev/react-turnstile").then((m) => m.Turnstile),
+  { ssr: false },
+);
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -269,6 +280,10 @@ export default function LoginClient() {
 
   return (
     <div className="min-h-[100dvh] relative overflow-hidden flex items-center sm:items-center justify-center px-3 sm:px-6 pt-6 pb-6 sm:py-10 bg-background">
+      {/* ✅ DNS/TLS do Cloudflare já resolvido antes do Turnstile ser
+          montado de verdade (quando o link é confirmado válido) — o Next
+          hoista <link> renderizado em qualquer lugar da árvore pro <head>. */}
+      <link rel="preconnect" href="https://challenges.cloudflare.com" />
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-[#0b2a4a] via-[#0f141a] to-[#0e6b5c] opacity-90 dark:opacity-100" />
         <div className="absolute -top-[10%] -right-[10%] h-[40%] w-[40%] rounded-full bg-emerald-500/20 blur-3xl" />
@@ -366,15 +381,28 @@ export default function LoginClient() {
                 </p>
               </div>
 
-              {/* === VALIDADOR HUMANO CLOUDFLARE === */}
-              <div className="flex justify-center pt-2">
-                <Turnstile
-                  ref={turnstileRef}
-                  siteKey="0x4AAAAAACgrYURZlknhmi-J"
-                  onSuccess={(token) => setTurnstileToken(token)}
-                  onError={() => setTurnstileToken(null)}
-                  onExpire={() => setTurnstileToken(null)}
-                />
+              {/* === VALIDADOR HUMANO CLOUDFLARE ===
+                  ✅ Só monta depois que o link mágico foi confirmado válido
+                  (whatsapp resolvido) — antes disso não faz sentido gastar a
+                  chamada ao script do Cloudflare, já que a validação do token
+                  pode ainda terminar em link morto (nesse caso a branch
+                  linkDead nem chega a renderizar este formulário). Evita
+                  competir por rede/CPU com a chamada que resolve o token,
+                  logo no momento mais importante da página. */}
+              <div className="flex justify-center pt-2 min-h-[65px] items-center">
+                {whatsapp ? (
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey="0x4AAAAAACgrYURZlknhmi-J"
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    onError={() => setTurnstileToken(null)}
+                    onExpire={() => setTurnstileToken(null)}
+                  />
+                ) : (
+                  <div className="text-[11px] text-foreground/50">
+                    {loadingResolve ? "Validando link..." : ""}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
