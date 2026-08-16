@@ -412,7 +412,7 @@ export default function GatewayModal({
                     onChange={(e) => setPriority(Number(e.target.value))}
                   >
                     <option value={1}>1 — Principal</option>
-                    <option value={2}>2 — Fallback</option>
+                    <option value={2}>2 — Secundário</option>
                   </Select>
                 </div>
 

@@ -1420,10 +1420,16 @@ export default function ClientDetailsPage() {
                         const expirationDatePart = app.expiration
                           ? String(app.expiration).split("T")[0]
                           : "";
+                        // ✅ Precisa do mesmo offset -03:00 fixo usado no texto
+                        // "Vence: ..." abaixo — sem isso, num navegador/SO com
+                        // fuso diferente de São Paulo, o cálculo de "vencendo"
+                        // interpretava a data no fuso local (deslocando
+                        // algumas horas), podendo divergir do texto exibido
+                        // bem na borda dos 30 dias.
                         const isExpiringSoon =
                           expirationDatePart &&
                           (new Date(
-                            `${expirationDatePart}T12:00:00`,
+                            `${expirationDatePart}T12:00:00-03:00`,
                           ).getTime() -
                             Date.now()) /
                             86400000 <
