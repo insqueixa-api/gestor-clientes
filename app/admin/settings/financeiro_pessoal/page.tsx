@@ -37,6 +37,7 @@ import {
   ModalDatePicker,
   ModalDayPicker,
   Modal,
+  distribuirCentavos,
 } from "./shared";
 
 // ✅ Carregamento sob demanda (14/08/2026) — cada um só baixa quando o
@@ -2304,9 +2305,18 @@ function ModalTransacao({
             : tipoRecorrencia === "RECORRENTE"
               ? 60
               : 1;
+        // ✅ Divide o valor total em centavos entre as N parcelas sem perder
+        // nem inventar centavo por arredondamento (a sobra vai pra última
+        // parcela) — antes era ponto flutuante puro (Number(valor)/n), que
+        // podia deixar a soma das parcelas 1-2 centavos diferente do total
+        // digitado pelo usuário.
+        const valoresParcelaCents =
+          tipoRecorrencia === "PARCELADA"
+            ? distribuirCentavos(Math.round(Number(valor) * 100), totalMesesOuParcelas)
+            : null;
         const valorInserir =
           tipoRecorrencia === "PARCELADA"
-            ? Number(valor) / totalMesesOuParcelas
+            ? valoresParcelaCents![0] / 100
             : Number(valor);
 
         const baseDate = new Date(`${vencimento}T12:00:00`);
@@ -2389,7 +2399,10 @@ function ModalTransacao({
               tenant_id: tenantId,
               tipo,
               descricao,
-              valor: valorInserir,
+              valor:
+                tipoRecorrencia === "PARCELADA"
+                  ? valoresParcelaCents![i - 1] / 100
+                  : valorInserir,
               data_vencimento: dataVenc.toISOString().split("T")[0],
               status: "PENDENTE",
               data_pagamento: null,

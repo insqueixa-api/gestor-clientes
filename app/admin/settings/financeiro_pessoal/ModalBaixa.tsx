@@ -5,7 +5,13 @@
 // o admin abre.
 import { useState, useEffect, useMemo } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { Modal, IconCalendar, ModalDayPicker, type Transacao } from "./shared";
+import {
+  Modal,
+  IconCalendar,
+  ModalDayPicker,
+  distribuirCentavos,
+  type Transacao,
+} from "./shared";
 
 type ParcelaPendente = {
   id: string;
@@ -14,16 +20,6 @@ type ParcelaPendente = {
   valor: number;
   data_vencimento: string;
 };
-
-// ✅ Distribui centavos igualmente entre N parcelas sem perder/inventar
-// centavo por arredondamento — a sobra da divisão vai pra última parcela da
-// lista (14/08/2026, feature "Antecipar Parcelas").
-function distribuirCentavos(totalCents: number, n: number): number[] {
-  if (n <= 0) return [];
-  const base = Math.floor(totalCents / n);
-  const resto = totalCents - base * n;
-  return Array.from({ length: n }, (_, i) => base + (i === n - 1 ? resto : 0));
-}
 
 function formatDataCurta(input: string): string {
   let d = new Date(input);
@@ -154,12 +150,26 @@ export default function ModalBaixa({
 
       // Se valor mudou E escopo = TODAS, atualiza futuras também
       if (valorAlterado && escopo === "TODAS" && transacao.recorrencia_id) {
-        await supabaseBrowser
+        const { error: errFuturas } = await supabaseBrowser
           .from("fin_transacoes")
           .update({ valor: novoValor })
           .eq("recorrencia_id", transacao.recorrencia_id)
           .eq("status", "PENDENTE")
           .gt("data_vencimento", transacao.data_vencimento);
+
+        if (errFuturas) {
+          // A transação atual já foi salva (linha acima) — não desfaz isso,
+          // só avisa que as futuras não puderam ser sincronizadas, senão o
+          // toast de sucesso mentiria sobre parcelas futuras que continuam
+          // com o valor antigo.
+          addToast(
+            "error",
+            "Lançamento salvo, mas parcelas futuras não foram atualizadas",
+            errFuturas.message,
+          );
+          onSuccess();
+          return;
+        }
       }
 
       addToast(
@@ -311,31 +321,93 @@ export default function ModalBaixa({
               conta_id: contaAntecipar || null,
               data_pagamento: novaDataPagamento,
             })
-            .eq("id", p.id),
-        ),
-      );
-      const erro = results.find((r) => r.error)?.error;
-      if (erro) throw erro;
-
-      // Best-effort — resolve a notificação de vencimento de cada parcela paga
-      await Promise.allSettled(
-        selecionadas.map((p) =>
-          supabaseBrowser.rpc("resolve_notification", {
-            p_tenant_id: tenantId,
-            p_type: "fin_vencido",
-            p_source_id: p.id,
-          }),
+            // ✅ Guard: só confirma se a parcela ainda estiver PENDENTE.
+            // Sem isso, uma parcela já paga por outro caminho enquanto o
+            // modal estava aberto (outra aba, outro admin) era sobrescrita
+            // silenciosamente com o valor/data da antecipação — o update
+            // "ganhava" mesmo sem checar o estado atual da linha.
+            .eq("id", p.id)
+            .eq("status", "PENDENTE")
+            .select("id"),
         ),
       );
 
-      const isQuitacao = quantidade === pendentes.length;
-      addToast(
-        "success",
-        isQuitacao ? "Parcelamento quitado" : "Parcelas antecipadas",
-        `${selecionadas.length} parcela${selecionadas.length > 1 ? "s" : ""} confirmada${selecionadas.length > 1 ? "s" : ""} com sucesso.`,
+      // Cada resultado é correlacionado por índice com `selecionadas` — sem
+      // isso, uma falha em apenas uma das N parcelas (rede, RLS, constraint)
+      // ficava indistinguível de sucesso total: o toast dizia "confirmadas
+      // com sucesso" mesmo com o banco em estado parcial, sem dizer qual
+      // parcela faltou.
+      const confirmadas: ParcelaPendente[] = [];
+      const jaNaoPendentes: ParcelaPendente[] = [];
+      const comErro: { p: ParcelaPendente; msg: string }[] = [];
+      results.forEach((r, i) => {
+        const p = selecionadas[i];
+        if (r.error) comErro.push({ p, msg: r.error.message });
+        else if (!r.data || r.data.length === 0) jaNaoPendentes.push(p);
+        else confirmadas.push(p);
+      });
+
+      // Best-effort — resolve a notificação de vencimento só das que
+      // realmente foram confirmadas agora.
+      if (confirmadas.length > 0) {
+        await Promise.allSettled(
+          confirmadas.map((p) =>
+            supabaseBrowser.rpc("resolve_notification", {
+              p_tenant_id: tenantId,
+              p_type: "fin_vencido",
+              p_source_id: p.id,
+            }),
+          ),
+        );
+      }
+
+      // Reflete no estado local exatamente o que restou pendente de verdade
+      // (tira as confirmadas e as que já não estavam mais pendentes) — o
+      // que sobrar pode ser tentado de novo com segurança, já que o guard
+      // acima faz o reenvio ser idempotente.
+      const pendentesRestantes = pendentes.filter(
+        (row) =>
+          !confirmadas.some((c) => c.id === row.id) &&
+          !jaNaoPendentes.some((j) => j.id === row.id),
       );
-      onSuccess();
-      onClose();
+      setPendentes(pendentesRestantes);
+      setQuantidade((q) =>
+        Math.min(Math.max(q, 1), pendentesRestantes.length || 1),
+      );
+      setValorAntecTocado(false);
+
+      if (comErro.length === 0 && jaNaoPendentes.length === 0) {
+        addToast(
+          "success",
+          pendentesRestantes.length === 0
+            ? "Parcelamento quitado"
+            : "Parcelas antecipadas",
+          `${confirmadas.length} parcela${confirmadas.length > 1 ? "s" : ""} confirmada${confirmadas.length > 1 ? "s" : ""} com sucesso.`,
+        );
+        onSuccess();
+        onClose();
+      } else {
+        // Falha parcial (ou parcela que mudou de status por fora enquanto o
+        // modal estava aberto) — avisa exatamente o que aconteceu com cada
+        // grupo, atualiza a tabela de fundo, mas mantém o modal aberto (já
+        // com a lista de pendentes corrigida) pra o admin decidir se tenta
+        // de novo só o que faltou.
+        onSuccess();
+        const partes: string[] = [];
+        if (confirmadas.length > 0)
+          partes.push(
+            `${confirmadas.length} confirmada${confirmadas.length > 1 ? "s" : ""}`,
+          );
+        if (jaNaoPendentes.length > 0)
+          partes.push(
+            `${jaNaoPendentes.length} já não estava${jaNaoPendentes.length > 1 ? "m" : ""} mais pendente${jaNaoPendentes.length > 1 ? "s" : ""}`,
+          );
+        if (comErro.length > 0)
+          partes.push(
+            `${comErro.length} ${comErro.length > 1 ? "falharam" : "falhou"}: ${comErro[0].msg}`,
+          );
+        addToast("error", "Antecipação parcial", partes.join(" · "));
+      }
     } catch (e: any) {
       addToast("error", "Erro ao antecipar", e.message);
     } finally {
@@ -440,14 +512,20 @@ export default function ModalBaixa({
                   <div className="flex bg-transparent rounded-lg border border-border p-1 h-10">
                     <button
                       type="button"
-                      onClick={() => setDirecao("PROXIMAS")}
+                      onClick={() => {
+                        setDirecao("PROXIMAS");
+                        setValorAntecTocado(false);
+                      }}
                       className={`flex-1 rounded-md text-xs font-medium transition-colors ${direcao === "PROXIMAS" ? "bg-amber-500/10 text-amber-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       📅 Próximas (mais antigas)
                     </button>
                     <button
                       type="button"
-                      onClick={() => setDirecao("ULTIMAS")}
+                      onClick={() => {
+                        setDirecao("ULTIMAS");
+                        setValorAntecTocado(false);
+                      }}
                       className={`flex-1 rounded-md text-xs font-medium transition-colors ${direcao === "ULTIMAS" ? "bg-sky-500/10 text-sky-500 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                     >
                       ⏪ Últimas (mais recentes)

@@ -422,3 +422,16 @@ export function Modal({
     </SharedModal>
   );
 }
+
+// ✅ Distribui centavos igualmente entre N parcelas sem perder/inventar
+// centavo por arredondamento — a sobra da divisão vai pra última parcela da
+// lista. Usado tanto pra criar um lançamento parcelado (ModalTransacao)
+// quanto pra antecipar parcelas existentes (ModalBaixa) — antes o primeiro
+// caso dividia o valor em ponto flutuante puro (Number(valor)/n), o que
+// podia deixar a soma das parcelas 1-2 centavos diferente do total digitado.
+export function distribuirCentavos(totalCents: number, n: number): number[] {
+  if (n <= 0) return [];
+  const base = Math.floor(totalCents / n);
+  const resto = totalCents - base * n;
+  return Array.from({ length: n }, (_, i) => base + (i === n - 1 ? resto : 0));
+}
