@@ -27,8 +27,18 @@ export default function VmMaintenanceModal({
     if (!ok) return;
     setRestartingService(true);
     try {
-      await fetch("/api/whatsapp/restart-service", { method: "POST" });
-      addToast("success", "Serviço reiniciado");
+      const res = await fetch("/api/whatsapp/restart-service", {
+        method: "POST",
+      });
+      // ✅ Antes não checava res.ok — mostrava "Serviço reiniciado" mesmo se
+      // a API respondesse erro (VM fora do ar, 401, 500), fazendo o admin
+      // achar que já tinha resolvido e não tentar as outras opções.
+      if (res.ok) {
+        addToast("success", "Serviço reiniciado");
+      } else {
+        const json = await res.json().catch(() => ({}));
+        addToast("error", "Erro ao reiniciar serviço", json?.error);
+      }
     } catch (e: any) {
       addToast("error", "Erro", e?.message);
     } finally {

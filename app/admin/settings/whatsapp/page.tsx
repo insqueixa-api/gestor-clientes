@@ -199,13 +199,18 @@ function WhatsAppSessionCard({
     return () => clearInterval(t);
   }, [isDormant, connected]);
 
+  // ✅ Retorna se salvou de verdade (antes não tinha catch nenhum e, se
+  // res.ok fosse falso, a função simplesmente não fazia nada — sem toast de
+  // erro nenhum, sucesso ou falha. Chamadores que aplicam mudança otimista
+  // na tela (toggle, mensagem) usam o retorno pra desfazer se a VM não
+  // confirmar.
   async function saveConfig(
     overrides: Partial<{
       rejectCalls: boolean;
       rejectMessage: string;
       allowedNumbers: string[];
     }> = {},
-  ) {
+  ): Promise<boolean> {
     setSavingConfig(true);
     try {
       const payload: {
@@ -233,12 +238,27 @@ function WhatsAppSessionCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (res.ok) {
-        addToast("success", "Configuração salva");
-        if (payload.allowedNumbers !== undefined) {
-          setSavedAllowedNumbers(payload.allowedNumbers);
-        }
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        addToast(
+          "error",
+          "Falha ao salvar configuração",
+          json?.error || `A VM respondeu com erro ${res.status}.`,
+        );
+        return false;
       }
+      addToast("success", "Configuração salva");
+      if (payload.allowedNumbers !== undefined) {
+        setSavedAllowedNumbers(payload.allowedNumbers);
+      }
+      return true;
+    } catch (e: any) {
+      addToast(
+        "error",
+        "Falha ao salvar configuração",
+        e?.message || "Verifique a conexão e tente novamente.",
+      );
+      return false;
     } finally {
       setSavingConfig(false);
     }
@@ -246,7 +266,12 @@ function WhatsAppSessionCard({
   async function handleToggleRejectCalls() {
     const next = !rejectCalls;
     setRejectCalls(next);
-    await saveConfig({ rejectCalls: next });
+    const ok = await saveConfig({ rejectCalls: next });
+    // Sem isso, se a VM recusar/estiver fora do ar, o toggle ficava preso
+    // no valor novo na tela enquanto a VM continuava com o valor antigo —
+    // divergência silenciosa numa função de segurança (rejeição de
+    // chamadas), sem qualquer sinal pro admin.
+    if (!ok) setRejectCalls(!next);
   }
 
   // ✅ Backup/Import manual da lista de números permitidos (pedido do
@@ -313,9 +338,34 @@ function WhatsAppSessionCard({
     setEditingMessage(true);
   }
   async function confirmEditMessage() {
-    setRejectMessage(draftMessage);
+    const anterior = rejectMessage;
+    const novaMsg = draftMessage;
+    setRejectMessage(novaMsg);
     setEditingMessage(false);
-    await saveConfig({ rejectMessage: draftMessage });
+    const ok = await saveConfig({ rejectMessage: novaMsg });
+    if (!ok) {
+      // Desfaz a mudança otimista e reabre o editor com o texto que o admin
+      // tinha digitado, pra ele poder tentar salvar de novo sem perder nada.
+      setRejectMessage(anterior);
+      setDraftMessage(novaMsg);
+      setEditingMessage(true);
+    }
+  }
+  // ✅ Bloqueia salvar a lista antes do 1º fetchConfig() bem-sucedido — sem
+  // isso, se fetchConfig() tivesse falhado em silêncio, o payload saía sem a
+  // chave allowedNumbers (guard de saveConfig) mas o toast de sucesso da
+  // config normal (rejectCalls/rejectMessage) aparecia igual, enganando o
+  // admin a achar que a lista foi salva quando nada da lista foi enviado.
+  async function handleSaveList() {
+    if (!configLoaded) {
+      addToast(
+        "error",
+        "Configuração ainda não carregada",
+        "Clique em Atualizar e espere sincronizar antes de salvar a lista — assim não arrisca sobrescrever os números já salvos na VM.",
+      );
+      return;
+    }
+    await saveConfig();
   }
   async function validateRow(id: string, raw: string) {
     const digits = onlyDigits(raw);
@@ -573,6 +623,27 @@ function WhatsAppSessionCard({
                                   placeholder="Número com DDI"
                                   className="flex-1 h-7 px-1 text-xs font-mono bg-transparent outline-none"
                                 />
+                                {/* ✅ A validação (existe/não existe no WhatsApp) já rodava
+                                    no onBlur, mas o resultado nunca aparecia na tela — o
+                                    admin conseguia salvar um número inválido sem qualquer
+                                    aviso. */}
+                                {row.loading ? (
+                                  <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin text-muted-foreground" />
+                                ) : row.exists === false && row.raw.trim() ? (
+                                  <span
+                                    className="text-rose-500 text-xs shrink-0"
+                                    title="Número não encontrado no WhatsApp"
+                                  >
+                                    ✗
+                                  </span>
+                                ) : row.exists === true ? (
+                                  <span
+                                    className="text-emerald-500 text-xs shrink-0"
+                                    title="Número válido no WhatsApp"
+                                  >
+                                    ✓
+                                  </span>
+                                ) : null}
                                 <button
                                   onClick={() =>
                                     setAllowedList((p) =>
@@ -589,7 +660,7 @@ function WhatsAppSessionCard({
                         )}
                         {isListDirty && (
                           <button
-                            onClick={() => void saveConfig()}
+                            onClick={() => void handleSaveList()}
                             disabled={savingConfig}
                             className="w-full mt-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold shadow-sm"
                           >
