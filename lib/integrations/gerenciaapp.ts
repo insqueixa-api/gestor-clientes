@@ -2,7 +2,7 @@
 //
 // GERENCIAAPP cobre a família de painéis white-label que rodam o mesmo
 // backend (IBO Revenda, Zone X, VU Revenda, Facilita, Uni Revenda, GPC
-// Roku/Android/LG/Pro, IBONew) — ranking_app_id diz ao painel qual marca da
+// Roku/Android/LG/Pro, IBONew, Gerencia Max) — ranking_app_id diz ao painel qual marca da
 // família está sendo usada; sem bater o valor certo, o painel mistura
 // configuração de uma marca com outra.
 //
@@ -30,10 +30,11 @@ function getRankingAppId(appName?: string): number {
     if (name === "FACILITA" || name === "FACILITA APP") return 13;
     if (name === "UNI REVENDA") return 15;
     if (name === "GPC ROKU") return 17;
-    if (name === "GPC ANDROID" || name === "GPC PRO") return 18;
-    if (name === "GPC LG") return 99;
+    if (name === "GPC ANDROID" || name === "GPC PRO" || name === "GPC PRO ANDROID") return 18;
+    if (name === "GPC LG") return 99; // TODO(Marcio): incluir código do ranking aqui pro GPC LG — 99 é placeholder/chute, nunca confirmado via curl real (diferente do GPC Pro=18 e IBONew=22). Trocar pelo valor certo assim que tiver o curl de criação.
     if (name === "IBO REVENDA") return 10;
     if (name === "IBONEW" || name === "IBO NEW") return 22;
+    if (name === "GERENCIA MAX") return 21;
 
     throw new Error(`App "${appName}" ainda não tem ranking_app_id mapeado no GerenciaApp — avise o desenvolvedor antes de configurar (evita configurar o app errado no parceiro).`);
 }
