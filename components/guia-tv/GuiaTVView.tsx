@@ -338,6 +338,34 @@ function formatHora(iso: string) {
     timeZone: "America/Sao_Paulo",
   });
 }
+// ✅ Listas que misturam programação de hoje e de amanhã (busca por
+// programa entre canais, grade de um canal específico) mostravam só a hora
+// (ex: "14:00"), sem dizer o dia — pra um programa como Fórmula 1, que pode
+// ter sessões em dias diferentes, ficava ambíguo qual horário era de hoje e
+// qual era de amanhã. "Hoje"/"Amanhã" quando for o caso, senão data curta.
+function formatDiaHora(iso: string): string {
+  const data = new Date(iso);
+  const hora = formatHora(iso);
+  const hojeStr = new Date().toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+  });
+  const dataStr = data.toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+  });
+  const amanhaBRT = new Date();
+  amanhaBRT.setDate(amanhaBRT.getDate() + 1);
+  const amanhaStr = amanhaBRT.toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+  });
+  if (dataStr === hojeStr) return `Hoje ${hora}`;
+  if (dataStr === amanhaStr) return `Amanhã ${hora}`;
+  const dataCurta = data.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
+  return `${dataCurta} ${hora}`;
+}
 function iniciais(nome: string) {
   return nome
     .split(" ")
@@ -854,7 +882,7 @@ function ModalDetalheCanal({
                         </span>
                       )}
                       <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                        {formatHora(p.start)} – {formatHora(p.stop)}
+                        {formatDiaHora(p.start)} – {formatHora(p.stop)}
                       </span>
                       <span className="text-[11px] sm:text-xs text-muted-foreground/60 ml-auto font-medium shrink-0">
                         {p.duracao_min} min
@@ -2289,8 +2317,8 @@ function ResultadoBuscaEPG({
                     {item.canal.categoria}
                   </div>{" "}
                 </div>{" "}
-                <span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 min-w-28 text-right ml-auto">
-                  {formatHora(item.prog.start)} – {formatHora(item.prog.stop)}
+                <span className="text-sm font-mono text-muted-foreground/90 font-medium shrink-0 min-w-36 text-right ml-auto">
+                  {formatDiaHora(item.prog.start)} – {formatHora(item.prog.stop)}
                 </span>
                 <span className="text-xs text-muted-foreground/60 shrink-0 ml-4 hidden md:block">
                   {item.prog.duracao_min} min
