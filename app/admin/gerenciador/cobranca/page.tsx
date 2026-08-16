@@ -156,6 +156,7 @@ function parseHHMMToMinutes(hhmmss?: string | null): number | null {
 // ============================================================================
 function GlobalQueueMonitor({
   addToast,
+  windowConfigVersion,
 }: {
   addToast: (
     type: "success" | "error",
@@ -163,6 +164,7 @@ function GlobalQueueMonitor({
     msg?: string,
     durationMs?: number,
   ) => void;
+  windowConfigVersion?: number;
 }) {
   const tenantId = useTenantId();
   const [loading, setLoading] = useState(false);
@@ -272,7 +274,22 @@ function GlobalQueueMonitor({
         const todaySP = isoDateInSaoPaulo(new Date());
 
         if (cfg && doneForDateSP === todaySP) {
-          // já sabemos que hoje acabou — só reavalia o relógio, sem bater no banco
+          // ✅ "Concluído" não significa "nunca mais vai ter nada hoje" — Envio
+          // Manual (handleManualRun), Reenviar (LogsModal) e o retry do Plano B
+          // do WhatsApp (lib/client-portal/fulfillment.ts) podem inserir jobs
+          // novos a qualquer hora, fora da janela de agendamento automático.
+          // Antes, uma vez marcado como concluído, o poll parava de consultar
+          // o banco pelo resto do dia — esses jobs ficavam invisíveis na barra
+          // de progresso e nos botões Pausar/Cancelar até um F5. Continua
+          // consultando, só que numa cadência mais lenta (2min); se aparecer
+          // algo, sai do modo "concluído" e volta pro poll rápido.
+          const rows = await fetchQueue();
+          if (cancelled) return;
+          if (rows.length > 0) {
+            doneForDateSP = null;
+            timeoutId = setTimeout(tick, POLL_ACTIVE_MS);
+            return;
+          }
           timeoutId = setTimeout(tick, LOCAL_CHECK_MS);
           return;
         }
@@ -307,7 +324,10 @@ function GlobalQueueMonitor({
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [tenantId]);
+    // ✅ windowConfigVersion muda quando o admin salva a janela/dias em
+    // CampaignWindowCard — reinicia o efeito pra buscar a config nova na
+    // hora, em vez de continuar rodando com os limites antigos até um F5.
+  }, [tenantId, windowConfigVersion]);
 
   // 2. Ação: PAUSAR TUDO
   const handleGlobalPause = async () => {
@@ -572,8 +592,10 @@ function GlobalQueueMonitor({
 // docs/sql/billing_enqueue_scheduled_campaign_window.sql.
 function CampaignWindowCard({
   addToast,
+  onSaved,
 }: {
   addToast: (type: "success" | "error", title: string, msg?: string) => void;
+  onSaved?: () => void;
 }) {
   const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
@@ -715,6 +737,7 @@ function CampaignWindowCard({
 
       if (error) throw error;
       addToast("success", "Salvo", "Configuração de disparo atualizada.");
+      onSaved?.();
     } catch (e: any) {
       addToast("error", "Erro ao salvar", e.message);
     } finally {
@@ -961,6 +984,11 @@ export default function BillingPage() {
   const [collapsedSections, setCollapsedSections] = useState<
     Record<string, boolean>
   >({});
+  // ✅ Bump depois de salvar a janela/dias em CampaignWindowCard — sem isso,
+  // o GlobalQueueMonitor buscava a config da janela só 1x no mount e
+  // continuava usando os limites antigos até um F5, mesmo com a nova janela
+  // já salva no banco.
+  const [windowConfigVersion, setWindowConfigVersion] = useState(0);
   const { confirm } = useConfirm();
 
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
@@ -1583,7 +1611,10 @@ export default function BillingPage() {
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
       {/* Monitor da fila (com padding padrão e SEM z alto) */}
       <div className="px-3 sm:px-0 md:px-4">
-        <GlobalQueueMonitor addToast={addToast} />
+        <GlobalQueueMonitor
+          addToast={addToast}
+          windowConfigVersion={windowConfigVersion}
+        />
       </div>
       {/* Topo (padrão admin) */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
@@ -1606,7 +1637,10 @@ export default function BillingPage() {
         </div>
       </div>
       {/* Início do disparo compartilhado (janela única entre as regras) */}
-      <CampaignWindowCard addToast={addToast} />
+      <CampaignWindowCard
+        addToast={addToast}
+        onSaved={() => setWindowConfigVersion((v) => v + 1)}
+      />
       {/* LISTA AGRUPADA POR TIPO */}
       {loading ? (
         <div className="text-center py-10 text-muted-foreground animate-pulse">
