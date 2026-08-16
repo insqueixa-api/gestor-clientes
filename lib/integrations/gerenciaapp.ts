@@ -2,17 +2,23 @@
 //
 // GERENCIAAPP cobre a família de painéis white-label que rodam o mesmo
 // backend (IBO Revenda, Zone X, VU Revenda, Facilita, Uni Revenda, GPC
-// Roku/Android/LG/Computador) — ranking_app_id diz ao painel qual marca da
+// Roku/Android/LG/Pro, IBONew) — ranking_app_id diz ao painel qual marca da
 // família está sendo usada; sem bater o valor certo, o painel mistura
 // configuração de uma marca com outra.
 //
-// 🔴 CRÍTICO (achado em produção, 31/07/2026): "GPC Computador" não estava
-// nesta lista e o fallback antigo devolvia 10 (IBO REVENDA) em silêncio pra
-// QUALQUER nome não mapeado — resultado: um cliente configurado como "GPC
-// Computador" foi criado de verdade no painel do parceiro como IBO Revenda
-// (app errado, sem nenhum erro/aviso). Daqui pra frente, nome sem mapeamento
-// TRAVA a configuração (erro claro pro admin) em vez de adivinhar um valor
-// — errado é preferível travar a arriscar configurar o app errado de novo.
+// Nota: "GPC Computador" (app_id def69af9...) é uma família de mesmo nome
+// só na aparência — a instalação/ativação dela é 100% manual (integration_type
+// null de propósito), diferente do app "IBONew" (app_id ffaa16fc...), que É
+// dessa integração (ranking 22, confirmado via curl em 15/08/2026). Não
+// confundir os dois ao mexer nesse mapeamento.
+//
+// 🔴 CRÍTICO (achado em produção, 31/07/2026): nome de app sem entrada nesta
+// lista fazia o fallback antigo devolver 10 (IBO REVENDA) em silêncio pra
+// QUALQUER nome não mapeado — resultado: um cliente configurado como app X
+// foi criado de verdade no painel do parceiro como IBO Revenda (app errado,
+// sem nenhum erro/aviso). Daqui pra frente, nome sem mapeamento TRAVA a
+// configuração (erro claro pro admin) em vez de adivinhar um valor — errado
+// é preferível travar a arriscar configurar o app errado de novo.
 function getRankingAppId(appName?: string): number {
     const name = String(appName || "").trim().toUpperCase();
     if (!name) {
@@ -24,12 +30,11 @@ function getRankingAppId(appName?: string): number {
     if (name === "FACILITA" || name === "FACILITA APP") return 13;
     if (name === "UNI REVENDA") return 15;
     if (name === "GPC ROKU") return 17;
-    if (name === "GPC ANDROID") return 18;
+    if (name === "GPC ANDROID" || name === "GPC PRO") return 18;
     if (name === "GPC LG") return 99;
     if (name === "IBO REVENDA") return 10;
+    if (name === "IBONEW" || name === "IBO NEW") return 22;
 
-    // ⚠️ "GPC Computador" ainda não tem ranking_app_id confirmado — em vez de
-    // arriscar configurar como outro app (o bug que aconteceu), trava aqui.
     throw new Error(`App "${appName}" ainda não tem ranking_app_id mapeado no GerenciaApp — avise o desenvolvedor antes de configurar (evita configurar o app errado no parceiro).`);
 }
 
