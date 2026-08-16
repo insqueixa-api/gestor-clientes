@@ -5928,36 +5928,35 @@ export default function NovoCliente({
                                 </span>
                               )}
                             </span>
-                            {/* ✅ NOVO: Tag Vencendo/Vencido */}
+                            {/* ✅ Reloginho vermelho — pedido do Márcio: só o
+                                ícone, estático (sem animate-pulse nem texto),
+                                junto ao nome do app. O detalhe (vencido/em
+                                quantos dias) continua acessível via title. */}
                             {isExpiringSoon && diffDays !== null && (
                               <span
+                                className="shrink-0 inline-flex ml-1"
                                 title={
                                   diffDays < 0
                                     ? "Vencido no Painel"
-                                    : `Vence em ${diffDays} dias`
+                                    : diffDays === 0
+                                      ? "Vence Hoje"
+                                      : `Vence em ${diffDays} dias`
                                 }
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-500/20 border border-rose-500/20 text-rose-400 animate-pulse shadow-sm ml-1"
                               >
                                 <svg
-                                  width="10"
-                                  height="10"
+                                  width="11"
+                                  height="11"
                                   viewBox="0 0 24 24"
                                   fill="none"
                                   stroke="currentColor"
                                   strokeWidth="2.5"
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
+                                  className="text-rose-500"
                                 >
                                   <circle cx="12" cy="12" r="10"></circle>
                                   <polyline points="12 6 12 12 16 14"></polyline>
                                 </svg>
-                                <span className="text-[9px] font-medium uppercase tracking-wider hidden sm:inline">
-                                  {diffDays < 0
-                                    ? "Vencido"
-                                    : diffDays === 0
-                                      ? "Vence Hoje"
-                                      : "Vencendo"}
-                                </span>
                               </span>
                             )}
                             {/* Trial sem vencimento salvo (ex: DUPLECAST, 15 dias

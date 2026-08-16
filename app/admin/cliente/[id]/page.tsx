@@ -1466,6 +1466,33 @@ export default function ClientDetailsPage() {
                                 <span className="text-[11px]">📱</span>
                               )}
                               {app.name}
+                              {/* ✅ Reloginho vermelho ao lado do nome — pedido do
+                                  Márcio: a data de vencimento fica alinhada à
+                                  direita, longe do nome, então dava pra escanear
+                                  a lista de nomes sem perceber qual app estava
+                                  vencendo. Estático (sem animate-pulse), só o
+                                  ícone. */}
+                              {isExpiringSoon && (
+                                <span
+                                  className="shrink-0 inline-flex"
+                                  title="Vencendo em até 30 dias"
+                                >
+                                  <svg
+                                    width="11"
+                                    height="11"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="text-rose-500"
+                                  >
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                  </svg>
+                                </span>
+                              )}
                             </span>
                             <span
                               className={`text-xs text-right ${app.expiration ? (isExpiringSoon ? "text-rose-500 font-medium" : "text-emerald-500 font-medium") : "text-muted-foreground/60 italic"}`}
