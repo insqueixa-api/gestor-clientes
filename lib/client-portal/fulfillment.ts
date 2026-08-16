@@ -824,14 +824,43 @@ credits_used: months * qtyScreens,
     else if (provider === "ELITE") syncPath = "/api/integrations/elite/sync";
 
     if (syncPath) {
-      await fetch(`${origin}${syncPath}`, {
+      const syncRes = await fetch(`${origin}${syncPath}`, {
         method: "POST",
         headers,
-        body: JSON.stringify({ 
-          tenant_id: tenantId, 
-          integration_id: integrationId 
+        body: JSON.stringify({
+          tenant_id: tenantId,
+          integration_id: integrationId
         }),
       });
+
+      // ✅ FALTAVA: o sync acima só atualiza
+      // server_integrations.credits_last_known — servers.credits_available
+      // (o que o card de saldo e o alerta de saldo baixo realmente leem)
+      // nunca era tocado nas renovações automáticas via Portal do Cliente.
+      // Mesmo passo que novo_servidor.tsx/recarga_servidor.tsx já fazem
+      // manualmente. Update direto (não a RPC update_server_credits_manual —
+      // ela exige auth.uid() contra tenant_members, que não existe neste
+      // contexto server-side/service-role) — supabaseAdmin já ignora RLS.
+      // Best-effort: não bloqueia a renovação, que já está concluída aqui.
+      if (syncRes.ok) {
+        const { data: afterSync } = await supabaseAdmin
+          .from("server_integrations")
+          .select("credits_last_known")
+          .eq("id", integrationId)
+          .eq("tenant_id", tenantId)
+          .single();
+
+        if (afterSync?.credits_last_known != null) {
+          const { error: adjErr } = await supabaseAdmin
+            .from("servers")
+            .update({ credits_available: Number(afterSync.credits_last_known) })
+            .eq("id", client.server_id)
+            .eq("tenant_id", tenantId);
+          if (adjErr) {
+            safeServerLog("fulfillment: failed to push credits_available", adjErr.message);
+          }
+        }
+      }
     }
 
   } catch (e) {

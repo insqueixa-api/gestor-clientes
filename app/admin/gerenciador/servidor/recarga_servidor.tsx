@@ -354,6 +354,38 @@ export default function RecargaServidorModal({
           }
         }
 
+        // ✅ FALTAVA: sem isso, o sync só atualizava
+        // server_integrations.credits_last_known — servers.credits_available
+        // (o que o card de saldo e o alerta de saldo baixo realmente leem)
+        // nunca era tocado por essa tela, só pela tela de Editar Servidor.
+        // Mesmo passo que novo_servidor.tsx já faz: lê o saldo real
+        // sincronizado e empurra pro saldo oficial via RPC.
+        const { data: after, error: afterErr } = await supabase
+          .from("server_integrations")
+          .select("credits_last_known")
+          .eq("id", server.panel_integration)
+          .eq("tenant_id", tenantId)
+          .single();
+
+        if (afterErr)
+          throw new Error(
+            `Compra registrada, mas falhou ao ler saldo sincronizado: ${afterErr.message}`,
+          );
+
+        const creditsFromIntegration = Number(after?.credits_last_known ?? 0);
+        const { error: adjErr } = await supabase.rpc(
+          "update_server_credits_manual",
+          {
+            p_server_id: server.id,
+            p_new_credits: creditsFromIntegration,
+          },
+        );
+
+        if (adjErr)
+          throw new Error(
+            `Compra registrada e saldo sincronizado do painel, mas falhou ao aplicar no servidor: ${adjErr.message}`,
+          );
+
         // ❌ REMOVIDO: alert("✅ Compra registrada e saldo sincronizado!");
         await resolveIfCreditsOk();
         onSuccess();

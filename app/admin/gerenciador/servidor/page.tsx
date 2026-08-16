@@ -538,8 +538,9 @@ export default function AdminServersPage() {
       cancelText: "Voltar",
       details: [
         "Ação irreversível",
+        "Bloqueado se ainda houver cliente ativo (não arquivado) vinculado — arquive-os antes",
+        "Apaga também os clientes já arquivados vinculados a este servidor, com todo o histórico deles (renovações, eventos, cupons etc.)",
         "Remove compras/vendas/uso de crédito do servidor",
-        "Remove quaisquer registros ainda ligados a ele",
       ],
     });
     if (!ok) return;
@@ -554,21 +555,39 @@ export default function AdminServersPage() {
         return;
       }
 
-      const { error } = await supabaseBrowser.rpc("delete_archived_server", {
+      // ✅ Trocado de delete_archived_server pra delete_server_hard: a
+      // primeira nunca conseguia de verdade excluir um servidor com
+      // QUALQUER cliente vinculado (mesmo arquivado) — clients.server_id é
+      // NOT NULL e tem FK RESTRICT pra servers, então o
+      // "UPDATE clients SET server_id = NULL" dela sempre falhava com erro
+      // de banco (silenciosamente escondido pelo catch genérico do
+      // frontend). delete_server_hard já bloqueia corretamente se houver
+      // cliente ATIVO vinculado (com mensagem clara), e apaga de vez os
+      // clientes já arquivados (com cascade correto nas tabelas que não
+      // têm ON DELETE automático) — é a função que sempre deveria ter sido
+      // ligada a este botão.
+      const { error } = await supabaseBrowser.rpc("delete_server_hard", {
         p_tenant_id: tenantId,
         p_server_id: server.id,
+        p_created_by: userId,
       });
 
       if (error) throw error;
 
       addToast("success", "Excluído", "Servidor removido definitivamente.");
       fetchServers();
-    } catch {
-      // ✅ BLINDADO: Não vaza o objeto de erro inteiro no navegador do cliente
+    } catch (err: any) {
+      // ✅ Antes engolia a mensagem real do erro (sempre "Não foi possível
+      // remover o servidor.", genérico) — com isso, o aviso de
+      // delete_archived_server sobre clientes ativos ainda vinculados
+      // (RAISE EXCEPTION com a contagem) nunca chegava ao admin. Mostra a
+      // mensagem real quando ela existe (RPC sempre lança texto seguro,
+      // sem vazar detalhe interno de banco), com fallback genérico só se
+      // não vier nenhuma.
       addToast(
         "error",
         "Erro ao excluir",
-        "Não foi possível remover o servidor.",
+        err?.message || "Não foi possível remover o servidor.",
       );
     }
   }

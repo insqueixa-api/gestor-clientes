@@ -1379,21 +1379,52 @@ export default function RecargaCliente({
 
                     if (e.detail?.ok && e.detail?.saldo != null) {
                       // ✅ Usa a rota correta (save_sync) igual ao fluxo da página de listagem
-                      await fetch("/api/integrations/elite/sync", {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          ...(token
-                            ? { Authorization: `Bearer ${token}` }
-                            : {}),
-                        },
-                        body: JSON.stringify({
-                          integration_id: srv.panel_integration,
-                          action: "save_sync",
-                          saldo: e.detail.saldo,
-                          loggedUser: e.detail.loggedUser,
-                        }),
-                      }).catch(() => {});
+                      try {
+                        const saveRes = await fetch(
+                          "/api/integrations/elite/sync",
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              ...(token
+                                ? { Authorization: `Bearer ${token}` }
+                                : {}),
+                            },
+                            body: JSON.stringify({
+                              integration_id: srv.panel_integration,
+                              action: "save_sync",
+                              saldo: e.detail.saldo,
+                              loggedUser: e.detail.loggedUser,
+                            }),
+                          },
+                        );
+                        // ✅ FALTAVA: save_sync só atualiza
+                        // server_integrations.credits_last_known —
+                        // servers.credits_available (o que o card de saldo e
+                        // o alerta de saldo baixo leem) nunca era tocado pela
+                        // renovação automática via Elite. Mesmo passo que
+                        // novo_servidor.tsx/recarga_servidor.tsx já fazem.
+                        if (saveRes.ok) {
+                          const { data: afterSync } = await supabaseBrowser
+                            .from("server_integrations")
+                            .select("credits_last_known")
+                            .eq("id", srv.panel_integration)
+                            .eq("tenant_id", tid)
+                            .single();
+
+                          if (afterSync?.credits_last_known != null) {
+                            await supabaseBrowser.rpc(
+                              "update_server_credits_manual",
+                              {
+                                p_server_id: clientData.server_id,
+                                p_new_credits: Number(
+                                  afterSync.credits_last_known,
+                                ),
+                              },
+                            );
+                          }
+                        }
+                      } catch {}
                     }
 
                     resolveSync();
@@ -1489,7 +1520,7 @@ export default function RecargaCliente({
                 syncUrl = "/api/integrations/natv/sync";
 
               if (syncUrl) {
-                await fetch(syncUrl, {
+                const syncRes = await fetch(syncUrl, {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
@@ -1500,6 +1531,33 @@ export default function RecargaCliente({
                     tenant_id: tid,
                   }),
                 });
+
+                // ✅ FALTAVA: o sync acima só atualiza
+                // server_integrations.credits_last_known — servers.credits_available
+                // (o que o card de saldo e o alerta de saldo baixo leem) nunca
+                // era tocado pela renovação automática. Mesmo passo que
+                // novo_servidor.tsx/recarga_servidor.tsx já fazem. Best-effort
+                // — não bloqueia a renovação, que já está concluída aqui.
+                if (syncRes.ok) {
+                  try {
+                    const { data: afterSync } = await supabaseBrowser
+                      .from("server_integrations")
+                      .select("credits_last_known")
+                      .eq("id", srv.panel_integration)
+                      .eq("tenant_id", tid)
+                      .single();
+
+                    if (afterSync?.credits_last_known != null) {
+                      await supabaseBrowser.rpc(
+                        "update_server_credits_manual",
+                        {
+                          p_server_id: clientData.server_id,
+                          p_new_credits: Number(afterSync.credits_last_known),
+                        },
+                      );
+                    }
+                  } catch {}
+                }
               }
             }
             // ✅ Buscar nome do servidor
