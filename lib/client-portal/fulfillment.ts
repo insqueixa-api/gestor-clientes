@@ -212,18 +212,39 @@ export async function markAppRenewalPaid(
   // ainda não tinha sido marcado) garante que só a primeira chamada de
   // verdade manda o sino + o email — as demais só encontram 0 linhas
   // afetadas e saem sem notificar de novo.
-  const { data: updatedRows } = await supabaseAdmin
-    .from("client_portal_payments")
-    .update({
-      fulfillment_status: "manual_pending",
-      fulfillment_error: null,
-    })
-    .eq("tenant_id", tenantId)
-    .eq("id", paymentRowId)
-    .or("fulfillment_status.is.null,fulfillment_status.eq.pending")
-    .select("id");
+  //
+  // ⚠️ INCIDENTE 15/08/2026: isso ERA um .update(...).or("fulfillment_status
+  // .is.null,fulfillment_status.eq.pending") via supabase-js — o PostgREST
+  // devolve erro ("column ... does not exist") pra essa combinação
+  // específica de UPDATE + .or() nessa coluna (confirmado ao vivo: SELECT
+  // com o mesmo .or() funciona, UPDATE sem .or() funciona, só a combinação
+  // quebra — e o mesmo UPDATE via SQL puro funciona perfeito, então é bug/
+  // limitação do PostgREST, não do Postgres). O código só olhava `data`, não
+  // `error` — a falha do PostgREST fazia `data` vir null, e o guard tratava
+  // isso EXATAMENTE igual a "já processado" — silencioso, sem log, sem
+  // Sentry, indistinguível de comportamento normal. Um pagamento real
+  // (Adenilson, DupleCast, R$30) ficou "processando" pra sempre até o
+  // Márcio notar o badge "Travada" na Auditoria. Trocado pra uma função SQL
+  // (mark_app_renewal_manual_pending, docs/sql/
+  // fix_mark_app_renewal_postgrest_or_bug.sql) que faz o mesmo UPDATE
+  // condicional via SQL puro dentro do Postgres — sem passar pelo filtro
+  // .or() do PostgREST — e agora captura qualquer erro real no Sentry em
+  // vez de engolir.
+  const { data: wasUpdated, error: updateErr } = await supabaseAdmin.rpc(
+    "mark_app_renewal_manual_pending",
+    { p_payment_id: paymentRowId, p_tenant_id: tenantId },
+  );
 
-  if (!updatedRows || updatedRows.length === 0) {
+  if (updateErr) {
+    safeServerLog("markAppRenewalPaid: update failed", updateErr.message);
+    Sentry.captureException(
+      new Error(`markAppRenewalPaid: falha ao marcar manual_pending — ${updateErr.message}`),
+      { tags: { kind: "fulfillment_error", payment_type: "app_renewal" }, extra: { paymentRowId, tenantId } },
+    );
+    return;
+  }
+
+  if (!wasUpdated) {
     return; // já tinha sido processado por outra chamada — não notifica de novo
   }
 
