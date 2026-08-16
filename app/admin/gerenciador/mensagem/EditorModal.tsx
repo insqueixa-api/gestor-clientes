@@ -229,25 +229,21 @@ export default function EditorModal({
     })();
   }, [templateToEdit?.id]);
 
-  async function handleAddVariant() {
-    if (!templateToEdit?.id) return;
-    const tid = tenantId;
-    if (!tid) return;
-    const { data, error } = await supabaseBrowser
-      .from("message_template_variants")
-      .insert({
-        tenant_id: tid,
-        template_id: templateToEdit.id,
-        content: content || "",
-      })
-      .select("id, content")
-      .single();
-    if (error) {
-      onError(error.message);
-      return;
-    }
-    setVariants((prev) => [...prev, data]);
-    setOriginalVariants((prev) => ({ ...prev, [data.id]: data.content }));
+  // ✅ Antes inseria direto no banco com "content: content || ''" — como o
+  // texto principal quase nunca está vazio, o botão "+ Adicionar variação em
+  // branco" na prática clonava a mensagem principal em vez de abrir um campo
+  // vazio. Corrigir só o "|| content" pra "" tem um efeito colateral sério:
+  // a fila (billing_enqueue_scheduled_variants.sql) sorteia entre TODAS as
+  // linhas de message_template_variants sem filtrar content vazio — uma
+  // variação em branco inserida direto no banco e abandonada (modal fechado
+  // sem preencher) podia ser sorteada e mandar uma mensagem VAZIA de verdade
+  // pra um cliente. Por isso agora é só um rascunho local (id "draft:...",
+  // nunca vai pro banco) até o admin realmente digitar algo e salvar — ver
+  // handleSaveVariant/handleDeleteVariant/handleSave (bulk) mais abaixo, que
+  // tratam esse prefixo.
+  function handleAddVariant() {
+    const draftId = `draft:${Math.random().toString(36).slice(2)}`;
+    setVariants((prev) => [...prev, { id: draftId, content: "" }]);
   }
 
   // ✅ Gera uma variação com IA (Gemini) a partir do texto principal —
@@ -308,19 +304,53 @@ export default function EditorModal({
       return;
     }
     setSavingVariantId(id);
-    const { error } = await supabaseBrowser
-      .from("message_template_variants")
-      .update({ content: text })
-      .eq("id", id);
-    setSavingVariantId(null);
-    if (error) {
-      onError(error.message);
-      return;
+    try {
+      // Rascunho local (criado por "+ Adicionar variação em branco") ainda
+      // não existe no banco — primeiro "Salvar" precisa ser um INSERT, não
+      // um UPDATE num id que não existe.
+      if (id.startsWith("draft:") && templateToEdit?.id && tenantId) {
+        const { data, error } = await supabaseBrowser
+          .from("message_template_variants")
+          .insert({
+            tenant_id: tenantId,
+            template_id: templateToEdit.id,
+            content: text,
+          })
+          .select("id, content")
+          .single();
+        if (error) {
+          onError(error.message);
+          return;
+        }
+        setVariants((prev) => prev.map((v) => (v.id === id ? data : v)));
+        setOriginalVariants((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          next[data.id] = data.content;
+          return next;
+        });
+        return;
+      }
+      const { error } = await supabaseBrowser
+        .from("message_template_variants")
+        .update({ content: text })
+        .eq("id", id);
+      if (error) {
+        onError(error.message);
+        return;
+      }
+      setOriginalVariants((prev) => ({ ...prev, [id]: text }));
+    } finally {
+      setSavingVariantId(null);
     }
-    setOriginalVariants((prev) => ({ ...prev, [id]: text }));
   }
 
   async function handleDeleteVariant(id: string) {
+    // Rascunho local nunca foi pro banco — só tira da tela, sem confirmação.
+    if (id.startsWith("draft:")) {
+      setVariants((prev) => prev.filter((v) => v.id !== id));
+      return;
+    }
     const ok = await confirmVariant({
       title: "Excluir variação?",
       subtitle: "Essa variação deixa de ser sorteada nos envios automáticos.",
@@ -370,6 +400,15 @@ export default function EditorModal({
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext("2d");
+          // ✅ JPEG não tem canal alfa — sem preencher um fundo antes do
+          // drawImage, o navegador achatava áreas transparentes de um PNG/WebP
+          // de origem em PRETO na hora de exportar, silenciosamente (sem erro
+          // nenhum). Fundo branco é o que a maioria dos logos/imagens de
+          // template espera.
+          if (ctx) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, width, height);
+          }
           ctx?.drawImage(img, 0, 0, width, height);
 
           canvas.toBlob(
@@ -501,23 +540,79 @@ export default function EditorModal({
       }
 
       // ✅ Salva junto TODAS as variações (não só a que teve "Salvar
-      // variação" clicado individualmente) — cada uma já tem id real (a
-      // variação só entra em `variants` depois de já ter sido inserida no
-      // banco, seja carregada, seja criada via "+ Adicionar"/"Gerar com IA").
+      // variação" clicado individualmente). "+ Adicionar variação em branco"
+      // agora cria só um rascunho local (id "draft:...", nunca inserido no
+      // banco até ter conteúdo real — ver handleAddVariant) — aqui, rascunho
+      // vira INSERT, variação que já existe no banco continua UPDATE. A
+      // validação lá em cima (emptyIdx) já garante que nenhum rascunho vazio
+      // chega até aqui.
+      //
+      // ✅ Try/catch próprio: nome/conteúdo/categoria/imagem do modelo JÁ
+      // FORAM salvos acima nesse ponto. Antes, uma falha aqui subia pro catch
+      // de fora, que mostrava só "Erro ao salvar" (sem dizer que o modelo em
+      // si tinha sido salvo) e nunca chamava onSuccess() — a lista em
+      // page.tsx ficava mostrando dados antigos mesmo com o banco já
+      // atualizado, e uma nova tentativa de salvar arriscava reenviar tudo
+      // de novo sem o admin saber o que já tinha ido. Agora avisa
+      // especificamente sobre as variações e mantém o modal aberto (com os
+      // botões "Salvar variação" de cada uma) pro admin corrigir só o que
+      // faltou, em vez de fechar como se tivesse dado tudo certo.
       if (variants.length > 0) {
-        const results = await Promise.all(
-          variants.map((v) =>
-            supabaseBrowser
+        try {
+          const existing = variants.filter((v) => !v.id.startsWith("draft:"));
+          const drafts = variants.filter((v) => v.id.startsWith("draft:"));
+
+          const updateResults = await Promise.all(
+            existing.map((v) =>
+              supabaseBrowser
+                .from("message_template_variants")
+                .update({ content: v.content })
+                .eq("id", v.id),
+            ),
+          );
+          const failedUpdate = updateResults.find((r) => r.error);
+          if (failedUpdate?.error) throw failedUpdate.error;
+
+          let insertedDrafts: { id: string; content: string }[] = [];
+          if (drafts.length > 0 && templateToEdit?.id) {
+            const { data, error } = await supabaseBrowser
               .from("message_template_variants")
-              .update({ content: v.content })
-              .eq("id", v.id),
-          ),
-        );
-        const failed = results.find((r) => r.error);
-        if (failed?.error) throw failed.error;
-        setOriginalVariants(
-          Object.fromEntries(variants.map((v) => [v.id, v.content])),
-        );
+              .insert(
+                drafts.map((v) => ({
+                  tenant_id: tid,
+                  template_id: templateToEdit.id,
+                  content: v.content,
+                })),
+              )
+              .select("id, content");
+            if (error) throw error;
+            insertedDrafts = data ?? [];
+          }
+
+          // Troca os ids "draft:..." pelos ids reais recém-criados, senão um
+          // segundo save (ou excluir a variação) tentaria operar num id que
+          // não existe no banco.
+          if (insertedDrafts.length > 0) {
+            let i = 0;
+            setVariants((prev) =>
+              prev.map((v) =>
+                v.id.startsWith("draft:") ? insertedDrafts[i++] : v,
+              ),
+            );
+          }
+
+          setOriginalVariants(
+            Object.fromEntries([
+              ...existing.map((v) => [v.id, v.content]),
+              ...insertedDrafts.map((v) => [v.id, v.content]),
+            ]),
+          );
+        } catch (variantError: any) {
+          onError(
+            `O modelo foi salvo, mas houve falha ao salvar as variações: ${variantError.message || "erro desconhecido"}. Tente salvar cada variação individualmente pelo botão "Salvar variação".`,
+          );
+          return;
+        }
       }
 
       onSuccess();

@@ -2,8 +2,9 @@
 // app/admin/gerenciador/mensagem/PreviewModal.tsx
 // Extraído de page.tsx (15/08/2026) — modal de visualizar mensagem, carrega
 // via next/dynamic só quando abre.
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { MessageTemplate } from "./shared";
 
 export default function PreviewModal({
@@ -17,6 +18,25 @@ export default function PreviewModal({
 }) {
   // ✅ NOVO: Estado para dar o feedback visual de "Copiado"
   const [copied, setCopied] = useState(false);
+
+  // ✅ O envio automático sorteia entre este texto e as variações cadastradas
+  // (evita padrão repetitivo). O botão que abre este modal é rotulado "Ver",
+  // sugerindo "isto é o que será enviado" — sem esse aviso, o admin não tinha
+  // como saber, só olhando aqui, que o texto real enviado pode ser diferente.
+  const [variantCount, setVariantCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    supabaseBrowser
+      .from("message_template_variants")
+      .select("id", { count: "exact", head: true })
+      .eq("template_id", template.id)
+      .then(({ count }) => {
+        if (!cancelled) setVariantCount(count ?? 0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [template.id]);
 
   if (typeof document === "undefined") return null;
 
@@ -52,6 +72,15 @@ export default function PreviewModal({
             )}
             <div>{template.content}</div>
           </div>
+          {variantCount > 0 && (
+            <p className="text-[10px] text-muted-foreground/70 mt-2 px-0.5">
+              ℹ️ Este modelo tem {variantCount} variação
+              {variantCount > 1 ? "ões" : ""} de texto cadastrada
+              {variantCount > 1 ? "s" : ""} — o envio automático sorteia entre
+              este texto e as variações, então a mensagem enviada pode ser
+              diferente da mostrada aqui.
+            </p>
+          )}
         </div>
 
         {/* Rodapé e Botões (AGORA COM O BOTÃO DE COPIAR) */}
