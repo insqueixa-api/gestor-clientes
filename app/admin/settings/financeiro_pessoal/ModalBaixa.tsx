@@ -41,6 +41,7 @@ export default function ModalBaixa({
   addToast,
   onClose,
   onSuccess,
+  onDataChanged,
 }: {
   tenantId: string;
   transacao: Transacao;
@@ -48,6 +49,10 @@ export default function ModalBaixa({
   addToast: any;
   onClose: () => void;
   onSuccess: () => void;
+  // Atualiza a tabela de fundo sem fechar o modal — usado quando uma
+  // antecipação parcial já mudou dados reais no banco mas o admin ainda
+  // precisa decidir o que fazer com o que sobrou.
+  onDataChanged?: () => void;
 }) {
   const isBaixando = transacao.status !== "PAGO";
   const isReceita = transacao.tipo === "RECEITA";
@@ -391,8 +396,10 @@ export default function ModalBaixa({
         // modal estava aberto) — avisa exatamente o que aconteceu com cada
         // grupo, atualiza a tabela de fundo, mas mantém o modal aberto (já
         // com a lista de pendentes corrigida) pra o admin decidir se tenta
-        // de novo só o que faltou.
-        onSuccess();
+        // de novo só o que faltou. Usa onDataChanged (não onSuccess) —
+        // onSuccess é interpretado pelo pai como "fechar o modal", o que
+        // contradiria a mensagem acima.
+        onDataChanged?.();
         const partes: string[] = [];
         if (confirmadas.length > 0)
           partes.push(

@@ -1593,6 +1593,12 @@ function FinanceiroPageContent() {
             setBaixaModal({ open: false, transacao: null });
             carregarDados(tenantId, currentDate);
           }}
+          // ✅ Antecipação parcial (algumas parcelas confirmadas, outras não)
+          // mantém o modal aberto pro admin tentar de novo só o que faltou —
+          // sem isso, chamar onSuccess() nesse caso fechava o modal (o único
+          // callback disponível já é interpretado como "fechar" aqui em
+          // cima), contradizendo a própria mensagem mostrada ao admin.
+          onDataChanged={() => carregarDados(tenantId, currentDate)}
         />
       )}
 
