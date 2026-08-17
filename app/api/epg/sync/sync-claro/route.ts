@@ -199,14 +199,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 5. Deleta programas encerrados há mais de 3h ──────────────────────
-    const corte = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-    const { error: deleteErr } = await supabaseAdmin
-      .from("epg_programas")
-      .delete()
-      .lt("fim", corte);
-
-    if (deleteErr) console.error(`[EPG-CLARO] Erro ao deletar passados:`, deleteErr.message);
+    
 
 // ── 6. Atualiza logos dos canais via API Claro (RJ + SP) ──────────────
     // Ignora logos genéricas da Claro (fallback "claro.svg") para não sobrescrever
@@ -310,6 +303,20 @@ programas: (programasDb || []).map(p => ({
       ContentType: "application/json",
       CacheControl: "no-cache, no-store, must-revalidate",
     }));
+
+    // ── 8. Limpeza Total do Banco (Após envio ao R2) ──────────────────────
+    // O Supabase exige um filtro para deletar múltiplos registros via API.
+    // Como os IDs dos canais são sempre positivos, neq -1 apaga a tabela toda de forma segura.
+    const { error: cleanErr } = await supabaseAdmin
+      .from("epg_programas")
+      .delete()
+      .neq("id_canal", -1);
+
+    if (cleanErr) {
+      console.error(`[EPG-CLARO] Erro ao limpar banco após gerar R2:`, cleanErr.message);
+    } else {
+      console.log(`[EPG-CLARO] Banco epg_programas limpo com sucesso após envio ao R2.`);
+    }
 
     const duracao = Math.round((Date.now() - inicio) / 1000);
     console.log(`[EPG-CLARO] Concluído em ${duracao}s — ${programasParaUpsert.length} programas`);
