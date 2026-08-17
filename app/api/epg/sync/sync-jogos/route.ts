@@ -417,6 +417,19 @@ export async function GET(request: Request) {
     await uploadToR2('epg/jogos_dia.json', JSON.stringify(r2Payload))
     console.log(`[sync-jogos] JSON subido para R2: epg/jogos_dia.json`)
 
+    // ── 8. Limpeza Total do Banco (Após envio ao R2) ────────────────────────
+    // O banco é usado apenas como ponte temporária para upsert/merge de dados.
+    const { error: cleanErr } = await supabaseAdmin
+      .from('jogos_dia')
+      .delete()
+      .neq('game_id', -1); // Filtro exigido pelo Supabase para limpar toda a tabela
+
+    if (cleanErr) {
+      console.error('[sync-jogos] Erro ao limpar banco após gerar R2:', cleanErr.message);
+    } else {
+      console.log('[sync-jogos] Banco jogos_dia limpo com sucesso após envio ao R2.');
+    }
+
     return NextResponse.json({
       ok: true,
       date: hoje,
