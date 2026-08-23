@@ -226,6 +226,7 @@ export default function ProfileSettingsPage() {
   const [generatingWorkout, setGeneratingWorkout] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
   const [activeWorkoutDay, setActiveWorkoutDay] = useState(0);
+  const [showRegenerateForm, setShowRegenerateForm] = useState(false);
 
   // Estados e Refs para Importações/Exportações
   const importFileRef = useRef<HTMLInputElement | null>(null);
@@ -321,6 +322,8 @@ export default function ProfileSettingsPage() {
           }
           if (profile.workout_plan) {
             setWorkoutPlan(profile.workout_plan);
+            if (profile.workout_plan.level) setWorkoutLevel(profile.workout_plan.level);
+            if (profile.workout_plan.frequency_days) setWorkoutFrequency(profile.workout_plan.frequency_days);
           }
           if (Array.isArray(profile.workout_checkins)) {
             setWorkoutCheckins(profile.workout_checkins);
@@ -432,6 +435,20 @@ async function handleSave() {
   }
 
   // --- LÓGICA DE CALISTENIA (TREINO EM CASA) ---
+
+  // Upsert com 1 retry — no celular, uma sessão que acabou de "acordar" (aba
+  // em background) às vezes falha a primeira chamada ao Supabase por um
+  // token ainda não renovado; uma segunda tentativa logo em seguida resolve
+  // sem precisar o usuário tentar de novo manualmente.
+  async function upsertProfileWithRetry(fields: Record<string, any>) {
+    const payload = { id: userId, ...fields, updated_at: new Date().toISOString() };
+    const first = await supabaseBrowser.from("profiles").upsert(payload);
+    if (!first.error) return;
+    await new Promise((r) => setTimeout(r, 700));
+    const second = await supabaseBrowser.from("profiles").upsert(payload);
+    if (second.error) throw second.error;
+  }
+
   async function handleGenerateWorkout() {
     if (!userId) return;
     setGeneratingWorkout(true);
@@ -450,13 +467,11 @@ async function handleSave() {
         throw new Error(json?.error || "Falha ao gerar treino.");
       }
 
-      const { error } = await supabaseBrowser
-        .from("profiles")
-        .upsert({ id: userId, workout_plan: json.plan, updated_at: new Date().toISOString() });
-      if (error) throw error;
+      await upsertProfileWithRetry({ workout_plan: json.plan });
 
       setWorkoutPlan(json.plan);
       setActiveWorkoutDay(0);
+      setShowRegenerateForm(false);
       addToast("success", "Treino gerado!", `${json.plan.days.length} dias de treino montados pra você.`);
     } catch (e: any) {
       addToast("error", "Erro ao gerar treino", e.message);
@@ -473,10 +488,7 @@ async function handleSave() {
     setCheckingIn(true);
     const next = [...workoutCheckins, today].sort();
     try {
-      const { error } = await supabaseBrowser
-        .from("profiles")
-        .upsert({ id: userId, workout_checkins: next, updated_at: new Date().toISOString() });
-      if (error) throw error;
+      await upsertProfileWithRetry({ workout_checkins: next });
       setWorkoutCheckins(next);
       addToast("success", "Treino registrado!", "Bora manter o hábito 🔥");
     } catch (e: any) {
@@ -1988,14 +2000,64 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
               {workoutPlan && (
                 <button
                   type="button"
-                  onClick={handleGenerateWorkout}
+                  onClick={() => setShowRegenerateForm((v) => !v)}
                   disabled={generatingWorkout}
                   className="h-8 px-3 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted font-bold text-[11px] transition-all flex items-center gap-1.5"
                 >
-                  {generatingWorkout ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🔄"} Gerar novo
+                  🔄 Gerar novo
                 </button>
               )}
             </div>
+
+            {workoutPlan && showRegenerateForm && (
+              <div className="space-y-3 bg-muted/40 rounded-xl p-3 sm:p-4">
+                <div className="grid grid-cols-2 gap-3 max-w-sm">
+                  <div>
+                    <Label>Nível</Label>
+                    <select
+                      value={workoutLevel}
+                      onChange={(e) => setWorkoutLevel(e.target.value as WorkoutDifficulty)}
+                      className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-sm text-foreground outline-none focus:border-emerald-500/50"
+                    >
+                      <option value="iniciante">Iniciante</option>
+                      <option value="intermediário">Intermediário</option>
+                      <option value="avançado">Avançado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Dias por semana</Label>
+                    <select
+                      value={workoutFrequency}
+                      onChange={(e) => setWorkoutFrequency(Number(e.target.value))}
+                      className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-sm text-foreground outline-none focus:border-emerald-500/50"
+                    >
+                      {[2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>{n}x</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleGenerateWorkout}
+                    disabled={generatingWorkout}
+                    className="h-9 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-sm flex items-center gap-2"
+                  >
+                    {generatingWorkout ? <Loader2 className="w-4 h-4 animate-spin" /> : "🔥"}
+                    {generatingWorkout ? "Gerando treino..." : "Gerar Treino com IA"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowRegenerateForm(false)}
+                    disabled={generatingWorkout}
+                    className="h-9 px-3 text-muted-foreground hover:text-foreground text-xs font-medium"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
 
             {!workoutPlan ? (
               <div className="space-y-4">
@@ -2126,7 +2188,7 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                               <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
                                 {meta.instructions}
                               </p>
-                              <p className="text-[10px] text-emerald-500 font-medium mt-1.5">
+                              <p className="text-sm text-emerald-500 font-bold mt-1.5">
                                 {ex.sets}x{ex.reps}
                               </p>
                             </div>
