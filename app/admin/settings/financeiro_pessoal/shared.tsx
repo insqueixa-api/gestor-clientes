@@ -31,6 +31,7 @@ export type Transacao = {
   recorrencia_id?: string;
   observacoes?: string;
   data_pagamento?: string | null;
+  emprestimo_id?: string | null;
 };
 
 // --- ICONES ---

@@ -57,6 +57,9 @@ const ModalNovaCategoria = dynamic(() => import("./ModalNovaCategoria"), {
 const ModalGerenciarItens = dynamic(() => import("./ModalGerenciarItens"), {
   ssr: false,
 });
+const ModalEmprestimos = dynamic(() => import("./ModalEmprestimos"), {
+  ssr: false,
+});
 
 function ActionBtn({
   tone,
@@ -139,9 +142,20 @@ function FinanceiroPageContent() {
   const [modalData, setModalData] = useState<{
     open: boolean;
     transacao: Transacao | null;
+    // Preenchidos só quando o ModalTransacao é aberto de dentro do
+    // ModalEmprestimos ("+ Emprestei" / "+ Recebi pagamento") — em uso
+    // normal ("+ Adicionar Lançamento") ficam undefined.
+    emprestimoId?: string;
+    emprestimoNome?: string;
+    emprestimoTipo?: "DESPESA" | "RECEITA";
   }>({ open: false, transacao: null });
   const [pendentesMap, setPendentesMap] = useState<Record<string, number>>({}); // ✅ NOVO: Conta parcelas pendentes
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
+  const [showEmprestimos, setShowEmprestimos] = useState(false);
+  // Incrementado quando um lançamento de empréstimo é salvo, pra
+  // ModalEmprestimos (que fica aberto por baixo, empilhado) recarregar o
+  // saldo/histórico sem precisar fechar e reabrir.
+  const [emprestimosRefreshNonce, setEmprestimosRefreshNonce] = useState(0);
   const [showAntecipadas, setShowAntecipadas] = useState(false); // ✅ NOVO: Controle de recolher/expandir antecipadas
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -398,10 +412,32 @@ function FinanceiroPageContent() {
       } else if (resContas.data) {
         setContasDB(resContas.data);
       }
+      let categoriasCarregadas = resCat.data || [];
       if (resCat.error) {
         addToast("error", "Erro ao carregar categorias", resCat.error.message);
       } else if (resCat.data) {
-        setCategoriasDB(resCat.data);
+        // ✅ Categoria fixa "Empréstimos" (feature de Empréstimos) — criada na
+        // primeira vez que falta, por nome exato (não substring como o match
+        // de IPTV) pra não depender de convenção nenhuma no ModalTransacao.
+        const catEmprestimos = resCat.data.find(
+          (c) => c.nome === "Empréstimos",
+        );
+        if (!catEmprestimos) {
+          const { data: novaCat, error: errNovaCat } = await supabaseBrowser
+            .from("fin_categorias")
+            .insert({
+              tenant_id: tid,
+              nome: "Empréstimos",
+              icone: "🤝",
+              tipo: "AMBOS",
+            })
+            .select("*")
+            .single();
+          if (!errNovaCat && novaCat) {
+            categoriasCarregadas = [...resCat.data, novaCat];
+          }
+        }
+        setCategoriasDB(categoriasCarregadas);
       }
 
       // Sincroniza Entradas do Dashboard automaticamente
@@ -409,7 +445,7 @@ function FinanceiroPageContent() {
         tid,
         dateObj,
         resContas.data || [],
-        resCat.data || [],
+        categoriasCarregadas,
       );
 
       if (isStale()) return;
@@ -476,6 +512,7 @@ function FinanceiroPageContent() {
         frequencia: t.frequencia,
         observacoes: t.observacoes,
         data_pagamento: t.data_pagamento,
+        emprestimo_id: t.emprestimo_id,
       }));
 
       if (isStale()) return;
@@ -978,12 +1015,20 @@ function FinanceiroPageContent() {
           <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
             Lançamentos
           </div>
-          <button
-            onClick={() => setModalData({ open: true, transacao: null })}
-            className="hidden md:flex h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 items-center gap-2 transition-all"
-          >
-            <IconPlus /> Adicionar Lançamento
-          </button>
+          <div className="hidden md:flex items-center gap-2">
+            <button
+              onClick={() => setShowEmprestimos(true)}
+              className="h-10 px-4 rounded-lg border border-border text-foreground/80 hover:bg-muted font-bold text-sm items-center gap-2 transition-all flex"
+            >
+              🤝 Empréstimos
+            </button>
+            <button
+              onClick={() => setModalData({ open: true, transacao: null })}
+              className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 items-center gap-2 transition-all flex"
+            >
+              <IconPlus /> Adicionar Lançamento
+            </button>
+          </div>
         </div>
 
         <div className="md:hidden flex flex-col gap-2">
@@ -1004,6 +1049,14 @@ function FinanceiroPageContent() {
                 </button>
               )}
             </div>
+
+            <button
+              onClick={() => setShowEmprestimos(true)}
+              className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border border-border text-foreground/80"
+              title="Empréstimos"
+            >
+              🤝
+            </button>
 
             <button
               onClick={() => setModalData({ open: true, transacao: null })}
@@ -1654,10 +1707,32 @@ function FinanceiroPageContent() {
           categoriasDB={categoriasDB}
           addToast={addToast}
           pageDate={currentDate}
+          emprestimoId={modalData.emprestimoId}
+          emprestimoNome={modalData.emprestimoNome}
+          emprestimoTipo={modalData.emprestimoTipo}
           onSuccess={() => {
+            const eraLancamentoDeEmprestimo = !!modalData.emprestimoId;
             setModalData({ open: false, transacao: null });
             carregarDados(tenantId, currentDate);
+            // ModalEmprestimos fica aberto por baixo (empilhado) — sem isso,
+            // o saldo/histórico dele ficaria desatualizado até fechar e
+            // reabrir manualmente.
+            if (eraLancamentoDeEmprestimo) {
+              setEmprestimosRefreshNonce((n) => n + 1);
+            }
           }}
+        />
+      )}
+
+      {showEmprestimos && tenantId && (
+        <ModalEmprestimos
+          tenantId={tenantId}
+          addToast={addToast}
+          onClose={() => setShowEmprestimos(false)}
+          refreshNonce={emprestimosRefreshNonce}
+          onNovoLancamento={(params) =>
+            setModalData({ open: true, transacao: null, ...params })
+          }
         />
       )}
 
@@ -1766,6 +1841,9 @@ function ModalTransacao({
   contasDB,
   categoriasDB,
   pageDate,
+  emprestimoId,
+  emprestimoNome,
+  emprestimoTipo,
 }: {
   tenantId: string;
   onClose: () => void;
@@ -1775,13 +1853,26 @@ function ModalTransacao({
   contasDB: any[];
   categoriasDB: any[];
   pageDate?: Date;
+  // Preenchidos quando o modal abre a partir do ModalEmprestimos ("+
+  // Emprestei" / "+ Recebi pagamento") — usados só pra pré-preencher os
+  // campos abaixo, o resto do fluxo de salvar é o mesmo de um lançamento
+  // normal.
+  emprestimoId?: string;
+  emprestimoNome?: string;
+  emprestimoTipo?: "DESPESA" | "RECEITA";
 }) {
   const isEdit = !!transacaoEdit;
+  const isEmprestimo = !isEdit && !!emprestimoId;
 
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(
-    transacaoEdit?.tipo || "DESPESA",
+    transacaoEdit?.tipo || emprestimoTipo || "DESPESA",
   );
-  const [descricao, setDescricao] = useState(transacaoEdit?.descricao || "");
+  const [descricao, setDescricao] = useState(
+    transacaoEdit?.descricao ||
+      (isEmprestimo
+        ? `${emprestimoTipo === "RECEITA" ? "Pagamento recebido" : "Empréstimo"} - ${emprestimoNome}`
+        : ""),
+  );
   const [valor, setValor] = useState(
     transacaoEdit?.valor !== undefined ? String(transacaoEdit.valor) : "0",
   );
@@ -1855,7 +1946,7 @@ function ModalTransacao({
     });
   };
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(
-    transacaoEdit?.status || "PENDENTE",
+    transacaoEdit?.status || (isEmprestimo ? "PAGO" : "PENDENTE"),
   );
   const [obs, setObs] = useState(transacaoEdit?.observacoes || "");
 
@@ -1883,7 +1974,10 @@ function ModalTransacao({
     transacaoEdit?.conta_id || (contas.length > 0 ? contas[0].id : ""),
   );
   const [categoriaSelecionada, setCategoriaSelecionada] = useState(
-    transacaoEdit?.categoria_id || "",
+    transacaoEdit?.categoria_id ||
+      (isEmprestimo
+        ? categorias.find((c) => c.nome === "Empréstimos")?.id || ""
+        : ""),
   );
 
   const [salvando, setSalvando] = useState(false);
@@ -2287,6 +2381,7 @@ function ModalTransacao({
                 recorrencia_id: transacaoEdit.recorrencia_id,
                 parcela_atual: null,
                 parcela_total: null,
+                emprestimo_id: transacaoEdit.emprestimo_id ?? null,
               });
             }
 
@@ -2365,6 +2460,7 @@ function ModalTransacao({
             parcela_atual: tipoRecorrencia === "PARCELADA" ? 1 : null,
             parcela_total:
               tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null,
+            emprestimo_id: emprestimoId ?? null,
           })
           .select("id")
           .single();
@@ -2421,6 +2517,7 @@ function ModalTransacao({
               parcela_atual: tipoRecorrencia === "PARCELADA" ? i : null,
               parcela_total:
                 tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null,
+              emprestimo_id: emprestimoId ?? null,
             });
           }
 
@@ -2451,7 +2548,15 @@ function ModalTransacao({
   return (
     <>
       <Modal
-        title={isEdit ? "Editar Lançamento" : "Adicionar Lançamento"}
+        title={
+          isEdit
+            ? "Editar Lançamento"
+            : isEmprestimo
+              ? emprestimoTipo === "RECEITA"
+                ? `Recebi pagamento — ${emprestimoNome}`
+                : `Emprestei — ${emprestimoNome}`
+              : "Adicionar Lançamento"
+        }
         onClose={onClose}
         maxWidth="max-w-3xl"
       >

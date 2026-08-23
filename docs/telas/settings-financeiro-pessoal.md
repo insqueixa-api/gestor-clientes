@@ -8,10 +8,13 @@ Controle financeiro **pessoal** do dono (não é a contabilidade dos clientes IP
 
 A cada carregamento do mês, sincroniza automaticamente 2 lançamentos "espelho" do Dashboard IPTV direto em `fin_transacoes`: **"IPTV - Rendimentos"** e **"IPTV - Recarga de Servidores"**.
 
+Também tem uma feature de **Empréstimos informais** (dinheiro emprestado sem data/valor de devolução combinado, pago aos poucos): botão "🤝 Empréstimos" ao lado de "+ Adicionar Lançamento" abre o `ModalEmprestimos`, que lista pessoas (`fin_emprestimos`) com o saldo devedor calculado ao vivo a partir de `fin_transacoes.emprestimo_id` (soma de DESPESA pagas menos RECEITA pagas daquela pessoa). "+ Emprestei"/"+ Recebi pagamento" abrem o `ModalTransacao` de sempre, só que pré-preenchido (tipo, descrição, categoria "Empréstimos", status já `PAGO` com data de hoje — sem vencimento futuro, por isso nunca aparece como "vencido"). A categoria "Empréstimos" (🤝, tipo AMBOS) é criada automaticamente por essa tela na primeira vez que falta.
+
 ## De onde vêm os dados
 
-- **`fin_transacoes`** — CRUD completo, com joins em `fin_contas_bancarias`/`fin_categorias`.
+- **`fin_transacoes`** — CRUD completo, com joins em `fin_contas_bancarias`/`fin_categorias`. Tem coluna opcional `emprestimo_id` (fk `fin_emprestimos`) pra marcar lançamentos de empréstimo.
 - **`fin_contas_bancarias`**, **`fin_categorias`** — CRUD completo.
+- **`fin_emprestimos`** — CRUD completo (pessoa + saldo calculado em memória, não fica em coluna). Schema em `docs/sql/loans.sql`.
 - **`vw_dashboard_finance_cards`**, **`server_credit_purchases`** — só leitura, para a sincronização automática dos 2 lançamentos de IPTV.
 - RPC `get_saldo_conta(p_conta_id)` — chamada **em loop, uma vez por conta**.
 - RPC `resolve_notification` — resolve notificação de vencimento ao pagar/editar/excluir um lançamento.
@@ -23,7 +26,7 @@ Nenhuma — toda a persistência é direto via `supabaseBrowser`.
 
 ## Modais
 
-`ModalTransacao`, `ModalBaixa` (confirmar/reverter pagamento), `ModalAjusteSaldo`, `ModalNovaConta`, `ModalNovaCategoria`, `ModalGerenciarItens`, seletores de data reutilizados, e um modal de exclusão de lançamento recorrente ("só esta" vs. "esta e futuras").
+`ModalTransacao`, `ModalBaixa` (confirmar/reverter pagamento), `ModalAjusteSaldo`, `ModalNovaConta`, `ModalNovaCategoria`, `ModalGerenciarItens`, `ModalEmprestimos` (lista de pessoas + histórico + saldo devedor), seletores de data reutilizados, e um modal de exclusão de lançamento recorrente ("só esta" vs. "esta e futuras").
 
 ## Achados que ficam para confirmação/observação (não alterados)
 
