@@ -19,6 +19,12 @@ import ToastNotifications, {
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import {
+  MUSCLE_GROUP_LABELS,
+  getExerciseById,
+  exerciseVideoSearchUrl,
+  type Difficulty as WorkoutDifficulty,
+} from "@/lib/workout/exercises";
 
 // ============================================================================
 // HELPERS & CONSTANTES
@@ -160,6 +166,19 @@ type HealthRecord = {
   imc: number; // calculado com profileHeight
 };
 
+type WorkoutPlanExercise = { exercise_id: string; sets: number; reps: string };
+type WorkoutPlanDay = { label: string; exercises: WorkoutPlanExercise[] };
+type WorkoutPlan = {
+  generated_at: string;
+  level: WorkoutDifficulty;
+  frequency_days: number;
+  days: WorkoutPlanDay[];
+};
+
+function todayIso() {
+  return new Date().toISOString().split("T")[0];
+}
+
 // ============================================================================
 // PÁGINA PRINCIPAL
 // ============================================================================
@@ -198,6 +217,15 @@ export default function ProfileSettingsPage() {
     date: new Date().toISOString().split("T")[0],
     weight: "",
   });
+
+  // Calistenia — treino em casa
+  const [workoutPlan, setWorkoutPlan] = useState<WorkoutPlan | null>(null);
+  const [workoutCheckins, setWorkoutCheckins] = useState<string[]>([]);
+  const [workoutLevel, setWorkoutLevel] = useState<WorkoutDifficulty>("iniciante");
+  const [workoutFrequency, setWorkoutFrequency] = useState(3);
+  const [generatingWorkout, setGeneratingWorkout] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [activeWorkoutDay, setActiveWorkoutDay] = useState(0);
 
   // Estados e Refs para Importações/Exportações
   const importFileRef = useRef<HTMLInputElement | null>(null);
@@ -290,6 +318,12 @@ export default function ProfileSettingsPage() {
 
           if (profile.health_history) {
             setHealthHistory(profile.health_history);
+          }
+          if (profile.workout_plan) {
+            setWorkoutPlan(profile.workout_plan);
+          }
+          if (Array.isArray(profile.workout_checkins)) {
+            setWorkoutCheckins(profile.workout_checkins);
           }
 
           if (profile.phone) {
@@ -396,6 +430,91 @@ async function handleSave() {
       setSaving(false);
     }
   }
+
+  // --- LÓGICA DE CALISTENIA (TREINO EM CASA) ---
+  async function handleGenerateWorkout() {
+    if (!userId) return;
+    setGeneratingWorkout(true);
+    try {
+      const { data: sessionData } = await supabaseBrowser.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sessão inválida.");
+
+      const res = await fetch("/api/workout/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ level: workoutLevel, frequency_days: workoutFrequency }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Falha ao gerar treino.");
+      }
+
+      const { error } = await supabaseBrowser
+        .from("profiles")
+        .upsert({ id: userId, workout_plan: json.plan, updated_at: new Date().toISOString() });
+      if (error) throw error;
+
+      setWorkoutPlan(json.plan);
+      setActiveWorkoutDay(0);
+      addToast("success", "Treino gerado!", `${json.plan.days.length} dias de treino montados pra você.`);
+    } catch (e: any) {
+      addToast("error", "Erro ao gerar treino", e.message);
+    } finally {
+      setGeneratingWorkout(false);
+    }
+  }
+
+  async function handleCheckinToday() {
+    if (!userId) return;
+    const today = todayIso();
+    if (workoutCheckins.includes(today)) return;
+
+    setCheckingIn(true);
+    const next = [...workoutCheckins, today].sort();
+    try {
+      const { error } = await supabaseBrowser
+        .from("profiles")
+        .upsert({ id: userId, workout_checkins: next, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      setWorkoutCheckins(next);
+      addToast("success", "Treino registrado!", "Bora manter o hábito 🔥");
+    } catch (e: any) {
+      addToast("error", "Erro ao registrar", e.message);
+    } finally {
+      setCheckingIn(false);
+    }
+  }
+
+  const workoutStreak = useMemo(() => {
+    const set = new Set(workoutCheckins);
+    let streak = 0;
+    const d = new Date();
+    if (!set.has(todayIso())) d.setDate(d.getDate() - 1);
+    while (set.has(d.toISOString().split("T")[0])) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }, [workoutCheckins]);
+
+  const checkinsThisMonth = useMemo(() => {
+    const prefix = todayIso().slice(0, 7);
+    return workoutCheckins.filter((d) => d.startsWith(prefix)).length;
+  }, [workoutCheckins]);
+
+  const last28Days = useMemo(() => {
+    const set = new Set(workoutCheckins);
+    const days: { iso: string; checked: boolean }[] = [];
+    const base = new Date();
+    for (let i = 27; i >= 0; i--) {
+      const dt = new Date(base);
+      dt.setDate(base.getDate() - i);
+      const iso = dt.toISOString().split("T")[0];
+      days.push({ iso, checked: set.has(iso) });
+    }
+    return days;
+  }, [workoutCheckins]);
 
   // --- LÓGICA DE SAÚDE ---
   async function handleAddHealthEntry() {
@@ -1859,6 +1978,175 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
               })()}
           </div>
 </div>
+
+          {/* CARD 3: CALISTENIA — TREINO EM CASA */}
+          <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+                🤸 Calistenia — Treino em Casa
+              </h3>
+              {workoutPlan && (
+                <button
+                  type="button"
+                  onClick={handleGenerateWorkout}
+                  disabled={generatingWorkout}
+                  className="h-8 px-3 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted font-bold text-[11px] transition-all flex items-center gap-1.5"
+                >
+                  {generatingWorkout ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🔄"} Gerar novo
+                </button>
+              )}
+            </div>
+
+            {!workoutPlan ? (
+              <div className="space-y-4">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Sem academia, sem problema. Gere um plano de treino de calistenia (peso do corpo, 100% em casa) com a IA — escolha o nível e quantos dias por semana. O treino fica salvo pra você — a IA só é chamada de novo se você pedir.
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:gap-4 max-w-sm">
+                  <div>
+                    <Label>Nível</Label>
+                    <select
+                      value={workoutLevel}
+                      onChange={(e) => setWorkoutLevel(e.target.value as WorkoutDifficulty)}
+                      className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-sm text-foreground outline-none focus:border-emerald-500/50"
+                    >
+                      <option value="iniciante">Iniciante</option>
+                      <option value="intermediário">Intermediário</option>
+                      <option value="avançado">Avançado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label>Dias por semana</Label>
+                    <select
+                      value={workoutFrequency}
+                      onChange={(e) => setWorkoutFrequency(Number(e.target.value))}
+                      className="w-full h-11 px-3 bg-transparent border border-border rounded-xl text-sm text-foreground outline-none focus:border-emerald-500/50"
+                    >
+                      {[2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>{n}x</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGenerateWorkout}
+                  disabled={generatingWorkout}
+                  className="h-10 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-all shadow-sm flex items-center gap-2"
+                >
+                  {generatingWorkout ? <Loader2 className="w-4 h-4 animate-spin" /> : "🔥"}
+                  {generatingWorkout ? "Gerando treino..." : "Gerar Treino com IA"}
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Streak / check-in do dia */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between bg-muted/40 rounded-xl p-3 sm:p-4">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <div className="text-2xl font-bold text-foreground leading-none">{workoutStreak}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">dias seguidos</div>
+                    </div>
+                    <div className="w-px h-8 bg-border" />
+                    <div>
+                      <div className="text-2xl font-bold text-foreground leading-none">{checkinsThisMonth}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">esse mês</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCheckinToday}
+                    disabled={checkingIn || workoutCheckins.includes(todayIso())}
+                    className={`h-10 px-5 rounded-xl font-bold text-xs transition-all shadow-sm flex items-center justify-center gap-2 ${
+                      workoutCheckins.includes(todayIso())
+                        ? "bg-emerald-500/15 text-emerald-500 cursor-default"
+                        : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                    }`}
+                  >
+                    {checkingIn ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : workoutCheckins.includes(todayIso()) ? (
+                      "✅"
+                    ) : (
+                      "💪"
+                    )}
+                    {workoutCheckins.includes(todayIso()) ? "Treino de hoje registrado" : "Marquei treino hoje"}
+                  </button>
+                </div>
+
+                {/* Calendário dos últimos 28 dias */}
+                <div className="flex gap-1 flex-wrap">
+                  {last28Days.map((d) => (
+                    <div
+                      key={d.iso}
+                      title={d.iso}
+                      className={`w-4 h-4 sm:w-5 sm:h-5 rounded-sm ${d.checked ? "bg-emerald-500" : "bg-muted"}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Dias do treino */}
+                <div className="flex gap-2 flex-wrap border-b border-border pb-3">
+                  {workoutPlan.days.map((day, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setActiveWorkoutDay(i)}
+                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                        activeWorkoutDay === i
+                          ? "bg-emerald-600 text-white"
+                          : "bg-muted text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {day.label.split("—")[0].trim() || `Treino ${i + 1}`}
+                    </button>
+                  ))}
+                </div>
+
+                {workoutPlan.days[activeWorkoutDay] && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-foreground/90">
+                      {workoutPlan.days[activeWorkoutDay].label}
+                    </p>
+                    <div className="space-y-2">
+                      {workoutPlan.days[activeWorkoutDay].exercises.map((ex, i) => {
+                        const meta = getExerciseById(ex.exercise_id);
+                        if (!meta) return null;
+                        const group = MUSCLE_GROUP_LABELS[meta.muscleGroup];
+                        return (
+                          <div
+                            key={i}
+                            className="border border-border rounded-xl p-3 flex items-start justify-between gap-3"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                                <span>{group.emoji}</span>
+                                <span className="truncate">{meta.name}</span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                                {meta.instructions}
+                              </p>
+                              <p className="text-[10px] text-emerald-500 font-medium mt-1.5">
+                                {ex.sets}x{ex.reps}
+                              </p>
+                            </div>
+                            <a
+                              href={exerciseVideoSearchUrl(meta.name)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 h-8 px-3 rounded-lg border border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/50 text-[10px] font-bold flex items-center gap-1 transition-colors"
+                            >
+                              🎥 Como fazer
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
       </div>
 
       {/* inputs ocultos para import */}
