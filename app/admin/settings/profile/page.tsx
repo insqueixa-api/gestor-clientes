@@ -391,11 +391,21 @@ export default function ProfileSettingsPage() {
         setUserId(user.id);
         setEmail(user.email || "");
 
-        const memberRes = await supabaseBrowser
-          .from("tenant_members")
-          .select("tenants(id, name)")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        // ✅ Nenhuma das duas depende da outra (só do user.id) — rodar em
+        // paralelo em vez de uma atrás da outra.
+        const [memberRes, profileRes] = await Promise.all([
+          supabaseBrowser
+            .from("tenant_members")
+            .select("tenants(id, name)")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+          supabaseBrowser
+            .from("profiles")
+            .select("*")
+            .eq("id", user.id)
+            .maybeSingle(),
+        ]);
+
         const member = memberRes.data;
         if (member && member.tenants) {
           const currentT = Array.isArray(member.tenants)
@@ -404,11 +414,7 @@ export default function ProfileSettingsPage() {
           if (currentT) setTenantId(currentT.id || null);
         }
 
-        const { data: profile } = await supabaseBrowser
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .maybeSingle();
+        const profile = profileRes.data;
         if (profile) {
           setName(profile.display_name || "");
           setWhatsappUsername(profile.whatsapp_username || "");
