@@ -77,7 +77,7 @@ export default function CondominioFilterDropdown({
                 <img
                   src={c.logo_url}
                   alt={c.nome}
-                  className="w-6 h-6 rounded object-cover shrink-0"
+                  className="h-6 w-auto max-w-[80px] object-contain shrink-0"
                 />
               ) : (
                 <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />

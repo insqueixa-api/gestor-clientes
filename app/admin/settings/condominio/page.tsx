@@ -251,7 +251,7 @@ export default function CondominioPage() {
             <img
               src={selectedCondominio.logo_url}
               alt={selectedCondominio.nome}
-              className="w-7 h-7 rounded-lg object-cover border border-border shrink-0"
+              className="h-9 w-auto max-w-[200px] object-contain shrink-0"
             />
           ) : (
             <span>🏢</span>

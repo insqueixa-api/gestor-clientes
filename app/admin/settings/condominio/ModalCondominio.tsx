@@ -236,7 +236,7 @@ export default function ModalCondominio({
               <img
                 src={logoUrl}
                 alt="Logo"
-                className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
+                className="h-12 w-auto max-w-[200px] rounded-lg object-contain border border-border shrink-0"
               />
             ) : (
               <div className="w-12 h-12 rounded-lg bg-transparent border border-border flex items-center justify-center shrink-0 text-2xl">
