@@ -50,62 +50,51 @@ export default function EdicoesPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   }
 
-  async function fetchCondominios() {
+  // ✅ Mesma otimização da página de Ações: uma chamada só ao RPC
+  // get_condominio_edicoes_bundle (docs/sql/condominio_edicoes_bundle_rpc.sql)
+  // em vez de condominios → só depois, já sabendo qual ficou selecionado,
+  // edições. Sem SECURITY DEFINER: roda sob a RLS do usuário logado.
+  async function fetchBundle(hintId?: string | null) {
     if (!tenantId) return;
-    const { data, error } = await supabaseBrowser
-      .from("condominios")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .order("nome");
-    if (error) {
-      addToast("error", "Erro ao carregar condomínios", error.message);
-      return;
-    }
-    const rows = data || [];
-    setCondominios(rows);
-    setSelectedCondominioId((current) => {
-      if (current && rows.some((c) => c.id === current)) return current;
-      const salvo =
-        typeof window !== "undefined" ? localStorage.getItem(LOCALSTORAGE_KEY) : null;
-      if (salvo && rows.some((c) => c.id === salvo)) return salvo;
-      return rows[0]?.id ?? null;
-    });
-  }
-
-  useEffect(() => {
-    fetchCondominios();
-  }, [tenantId]);
-
-  async function fetchEdicoes() {
-    if (!tenantId || !selectedCondominioId) {
-      setEdicoes([]);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     try {
-      const { data, error } = await supabaseBrowser
-        .from("condominio_edicoes")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("condominio_id", selectedCondominioId)
-        .order("created_at", { ascending: false });
+      const hint =
+        hintId !== undefined
+          ? hintId
+          : selectedCondominioId ||
+            (typeof window !== "undefined"
+              ? localStorage.getItem(LOCALSTORAGE_KEY)
+              : null);
+      const { data, error } = await supabaseBrowser.rpc(
+        "get_condominio_edicoes_bundle",
+        { p_condominio_id_hint: hint },
+      );
       if (error) throw error;
-      setEdicoes(data || []);
+      const bundle = data as {
+        condominios: CondominioRow[];
+        condominio_id: string | null;
+        edicoes: EdicaoRow[];
+      };
+      setCondominios(bundle.condominios || []);
+      setEdicoes(bundle.edicoes || []);
+      setSelectedCondominioId(bundle.condominio_id);
+      if (bundle.condominio_id && typeof window !== "undefined") {
+        localStorage.setItem(LOCALSTORAGE_KEY, bundle.condominio_id);
+      }
     } catch (e: any) {
-      addToast("error", "Erro ao carregar edições", e.message);
+      addToast("error", "Erro ao carregar", e.message);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    fetchEdicoes();
-  }, [tenantId, selectedCondominioId]);
+    fetchBundle();
+  }, [tenantId]);
 
   function handleSelectCondominio(id: string) {
-    setSelectedCondominioId(id);
     if (typeof window !== "undefined") localStorage.setItem(LOCALSTORAGE_KEY, id);
+    fetchBundle(id);
   }
 
   const condominioSelecionado = condominios.find((c) => c.id === selectedCondominioId);
@@ -218,7 +207,7 @@ export default function EdicoesPage() {
         .eq("id", edicao.id);
       if (error) throw error;
       addToast("success", "Edição publicada", edicao.titulo);
-      fetchEdicoes();
+      fetchBundle(selectedCondominioId);
     } catch (e: any) {
       addToast("error", "Erro ao publicar", e.message);
     } finally {
@@ -244,7 +233,7 @@ export default function EdicoesPage() {
         .eq("id", edicao.id);
       if (error) throw error;
       addToast("success", "Edição excluída", edicao.titulo);
-      fetchEdicoes();
+      fetchBundle(selectedCondominioId);
     } catch (e: any) {
       addToast("error", "Erro ao excluir", e.message);
     }
