@@ -8,6 +8,7 @@ import {
   TrendingUp,
   TrendingDown,
   ArrowRight,
+  ChevronDown,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1049,7 +1050,7 @@ async function handleSave() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
                 <Label>Nome Completo</Label>
                 <Input
@@ -1070,7 +1071,7 @@ async function handleSave() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 items-start">
               <div>
                 <Label>País</Label>
 <div className="h-11 px-3 bg-transparent border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
@@ -1202,9 +1203,25 @@ async function handleSave() {
           {/* CARD 2 DINÂMICO: SAÚDE OU PLANILHAS */}
           <div className="bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 animate-in fade-in duration-300">
             <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-3">
 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
-                Saúde &amp; Avaliações
-              </h3>
+                  Saúde &amp; Avaliações
+                </h3>
+                {sortedHistory.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowAllHealthRecords(!showAllHealthRecords)
+                    }
+                    className="flex items-center gap-1 text-[10px] font-medium text-emerald-500 hover:text-emerald-400 transition-colors"
+                  >
+                    {showAllHealthRecords ? "Ocultar" : "Ver mais"}
+                    <ChevronDown
+                      className={`w-3 h-3 transition-transform duration-200 ${showAllHealthRecords ? "rotate-180" : ""}`}
+                    />
+                  </button>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -1397,30 +1414,6 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                       });
                     })()}
                   </div>
-
-                  {/* Botão de Expandir/Contrair */}
-                  {(sortedHistory.length > 2 || sortedHistory.length > 1) && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setShowAllHealthRecords(!showAllHealthRecords)
-                      }
-                      className="w-full py-2.5 mt-2 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors bg-transparent rounded-xl border border-border"
-                    >
-                      {showAllHealthRecords ? (
-                        "↑ Ocultar avaliações anteriores"
-                      ) : (
-                        <>
-                          <span className="xl:hidden">
-                            ↓ Ver mais avaliações ({sortedHistory.length - 1})
-                          </span>
-                          <span className="hidden xl:inline">
-                            ↓ Ver mais avaliações ({sortedHistory.length - 2})
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  )}
                 </div>
               )}
             </div>
