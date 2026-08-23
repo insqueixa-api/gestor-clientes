@@ -1980,6 +1980,27 @@ function ModalTransacao({
         : ""),
   );
 
+  // ── Vínculo com Empréstimos ─────────────────────────────────────────────
+  // Carregado à parte (não vem de contasDB/categoriasDB) porque é opcional e
+  // raramente usado — evita 1 query a mais em TODO carregamento de mês da
+  // página só pra alimentar um campo que a maioria dos lançamentos nunca usa.
+  const [emprestimosDB, setEmprestimosDB] = useState<any[]>([]);
+  const [emprestimoSelecionado, setEmprestimoSelecionado] = useState(
+    transacaoEdit?.emprestimo_id || emprestimoId || "",
+  );
+
+  useEffect(() => {
+    supabaseBrowser
+      .from("fin_emprestimos")
+      .select("id, nome, quitado")
+      .eq("tenant_id", tenantId)
+      .order("nome")
+      .then(({ data, error }) => {
+        if (!error && data) setEmprestimosDB(data);
+      });
+  }, [tenantId]);
+  // ────────────────────────────────────────────────────────────────────────
+
   const [salvando, setSalvando] = useState(false);
 
   // ── Autocomplete ────────────────────────────────────────────────────────
@@ -2201,6 +2222,7 @@ function ModalTransacao({
                 status === "PAGO"
                   ? new Date(`${dataPagamento}T12:00:00`).toISOString()
                   : null,
+              emprestimo_id: emprestimoSelecionado || null,
             })
             .eq("id", transacaoEdit.id);
           if (error) throw error;
@@ -2235,6 +2257,7 @@ function ModalTransacao({
                 status === "PAGO"
                   ? new Date(`${dataPagamento}T12:00:00`).toISOString()
                   : null,
+              emprestimo_id: emprestimoSelecionado || null,
             })
             .eq("id", transacaoEdit.id);
           if (errCurrent) throw errCurrent;
@@ -2287,6 +2310,7 @@ function ModalTransacao({
                 observacoes: obs,
                 frequencia:
                   tipoRecorrencia === "RECORRENTE" ? frequencia : null,
+                emprestimo_id: emprestimoSelecionado || null,
               })
               .in("id", idsPendentes);
             if (errUpdate) throw errUpdate;
@@ -2381,7 +2405,7 @@ function ModalTransacao({
                 recorrencia_id: transacaoEdit.recorrencia_id,
                 parcela_atual: null,
                 parcela_total: null,
-                emprestimo_id: transacaoEdit.emprestimo_id ?? null,
+                emprestimo_id: emprestimoSelecionado || null,
               });
             }
 
@@ -2460,7 +2484,7 @@ function ModalTransacao({
             parcela_atual: tipoRecorrencia === "PARCELADA" ? 1 : null,
             parcela_total:
               tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null,
-            emprestimo_id: emprestimoId ?? null,
+            emprestimo_id: emprestimoSelecionado || null,
           })
           .select("id")
           .single();
@@ -2517,7 +2541,7 @@ function ModalTransacao({
               parcela_atual: tipoRecorrencia === "PARCELADA" ? i : null,
               parcela_total:
                 tipoRecorrencia === "PARCELADA" ? totalMesesOuParcelas : null,
-              emprestimo_id: emprestimoId ?? null,
+              emprestimo_id: emprestimoSelecionado || null,
             });
           }
 
@@ -2796,6 +2820,27 @@ function ModalTransacao({
               </select>
             </div>
           </div>
+
+          {(emprestimosDB.length > 0 || isEmprestimo) && (
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
+                🤝 Vincular a um Empréstimo (opcional)
+              </label>
+              <select
+                value={emprestimoSelecionado}
+                onChange={(e) => setEmprestimoSelecionado(e.target.value)}
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium"
+              >
+                <option value="">— Nenhum —</option>
+                {emprestimosDB.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                    {p.quitado ? " (quitado)" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {(status === "PAGO" || (isEdit && rTipoInicial !== "UNICA")) && (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
