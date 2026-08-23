@@ -1071,11 +1071,12 @@ async function handleSave() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 sm:gap-4 items-start">
+            <div className="grid grid-cols-[64px_1fr_1fr] sm:grid-cols-3 gap-2 sm:gap-4 items-start">
               <div>
                 <Label>País</Label>
-<div className="h-11 px-3 bg-transparent border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
-                  {phonePrettyPrefix || "—"}
+<div className="h-11 px-2 sm:px-3 bg-transparent border border-border rounded-xl flex items-center text-xs font-medium text-foreground/90 truncate">
+                  <span className="sm:hidden">{(phonePrettyPrefix.match(/\+\d+/) || [])[0] || "—"}</span>
+                  <span className="hidden sm:inline">{phonePrettyPrefix || "—"}</span>
                 </div>
               </div>
               <div>
