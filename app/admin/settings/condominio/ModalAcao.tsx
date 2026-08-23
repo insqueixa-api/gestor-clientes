@@ -11,7 +11,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
-import type { AcaoRow, StatusAcao } from "./page";
+import type { AcaoRow, StatusAcao } from "./shared";
 
 // Mesmas 11 categorias fixas do protótipo local (Vidamerica/lib/types.ts) —
 // texto livre no banco, essa lista é só pra dar as opções prontas na UI.

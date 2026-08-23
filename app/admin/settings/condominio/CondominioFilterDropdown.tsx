@@ -5,7 +5,7 @@
 // (lápis por linha) e adicionar um novo (última linha do dropdown).
 import { useEffect, useRef, useState } from "react";
 import { Building2, ChevronDown, Pencil, Plus } from "lucide-react";
-import type { CondominioRow } from "./page";
+import type { CondominioRow } from "./shared";
 
 export default function CondominioFilterDropdown({
   condominios,

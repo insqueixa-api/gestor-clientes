@@ -2,94 +2,28 @@
 // app/admin/settings/condominio/page.tsx
 // Página de Ações (notícias) por condomínio — busca + filtro de status +
 // seletor de condomínio (com adicionar/editar embutidos, lembra o último
-// usado) + grid de Ações do condomínio selecionado. Edições/PDF ficam pra
-// uma fase futura.
+// usado) + grid de Ações do condomínio selecionado. Montar Edições/gerar
+// PDF fica em ./edicoes (link no topo).
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Pencil, Archive, ArchiveRestore, Images } from "lucide-react";
+import { Pencil, Archive, ArchiveRestore, Images, Newspaper } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import CondominioFilterDropdown from "./CondominioFilterDropdown";
+import {
+  LOCALSTORAGE_KEY,
+  STATUS_COR,
+  type CondominioRow,
+  type StatusAcao,
+  type AcaoRow,
+} from "./shared";
 
 const ModalCondominio = dynamic(() => import("./ModalCondominio"), {
   ssr: false,
 });
 const ModalAcao = dynamic(() => import("./ModalAcao"), { ssr: false });
-
-const LOCALSTORAGE_KEY = "condominio_ultimo_id";
-
-export type CondominioRow = {
-  id: string;
-  tenant_id: string;
-  nome: string;
-  logo_url: string | null;
-  endereco: string | null;
-  contato: string | null;
-  gestao: string | null;
-  slogan1: string | null;
-  slogan2: string | null;
-  cor_primaria: string | null;
-  cor_secundaria: string | null;
-  created_at: string;
-};
-
-export type StatusAcao =
-  | "futuro"
-  | "planejado"
-  | "em_andamento"
-  | "pausado"
-  | "concluido";
-
-export type AcaoRow = {
-  id: string;
-  tenant_id: string;
-  condominio_id: string;
-  titulo: string;
-  categoria: string;
-  texto: string | null;
-  status: StatusAcao;
-  fotos: { url: string; legenda: string }[];
-  arquivada: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
-const STATUS_COR: Record<
-  StatusAcao,
-  { bg: string; text: string; border: string; label: string }
-> = {
-  futuro: {
-    bg: "bg-slate-500/10",
-    text: "text-slate-500",
-    border: "border-slate-500/30",
-    label: "Futuro",
-  },
-  planejado: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-500",
-    border: "border-amber-500/30",
-    label: "Planejado",
-  },
-  em_andamento: {
-    bg: "bg-sky-500/10",
-    text: "text-sky-500",
-    border: "border-sky-500/30",
-    label: "Em andamento",
-  },
-  pausado: {
-    bg: "bg-rose-500/10",
-    text: "text-rose-500",
-    border: "border-rose-500/30",
-    label: "Pausado",
-  },
-  concluido: {
-    bg: "bg-emerald-500/10",
-    text: "text-emerald-500",
-    border: "border-emerald-500/30",
-    label: "Concluído",
-  },
-};
 
 const STATUS_FILTROS: { valor: StatusAcao | "Todos"; label: string }[] = [
   { valor: "Todos", label: "Todos" },
@@ -246,16 +180,24 @@ export default function CondominioPage() {
         <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
           🏢 Condomínio
         </h1>
-        <button
-          onClick={() => {
-            setEditingAcao(null);
-            setIsModalAcaoOpen(true);
-          }}
-          disabled={!selectedCondominioId}
-          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50"
-        >
-          <span>+</span> Nova Ação
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/settings/condominio/edicoes"
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg border border-border text-foreground/80 hover:bg-muted font-medium text-xs md:text-sm flex items-center gap-2 transition-all"
+          >
+            <Newspaper className="w-4 h-4" /> Edições
+          </Link>
+          <button
+            onClick={() => {
+              setEditingAcao(null);
+              setIsModalAcaoOpen(true);
+            }}
+            disabled={!selectedCondominioId}
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all disabled:opacity-50"
+          >
+            <span>+</span> Nova Ação
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

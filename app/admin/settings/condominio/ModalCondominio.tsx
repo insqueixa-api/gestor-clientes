@@ -9,7 +9,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
-import type { CondominioRow } from "./page";
+import type { CondominioRow } from "./shared";
 
 type Props = {
   condominio?: CondominioRow | null;
