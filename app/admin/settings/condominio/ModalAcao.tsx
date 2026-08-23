@@ -4,7 +4,7 @@
 // Migra o formulário de Ação do protótipo local (Vidamerica/components/
 // AcaoForm.tsx): título, categoria, status, texto (com revisão por IA),
 // fotos múltiplas com legenda.
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { useTenantId } from "@/lib/tenant-context";
@@ -13,8 +13,12 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import type { AcaoRow, StatusAcao } from "./shared";
 
-// Mesmas 11 categorias fixas do protótipo local (Vidamerica/lib/types.ts) —
-// texto livre no banco, essa lista é só pra dar as opções prontas na UI.
+// Mesmas 10 categorias fixas do protótipo local (Vidamerica/lib/types.ts) —
+// texto livre no banco (não é uma tabela à parte, ver docs/sql/
+// condominio_acoes.sql), então categoria nova = digitar em "+ Nova
+// categoria..." uma vez; da próxima vez ela já aparece na lista (buscada
+// direto das Ações já cadastradas do tenant, sem precisar cadastrar em
+// lugar nenhum antes).
 const CATEGORIAS_FIXAS = [
   { valor: "portaria", label: "Portaria" },
   { valor: "obras", label: "Obras" },
@@ -26,7 +30,6 @@ const CATEGORIAS_FIXAS = [
   { valor: "lazer", label: "Lazer" },
   { valor: "colaboradores", label: "Colaboradores" },
   { valor: "comunicado", label: "Comunicado" },
-  { valor: "outro", label: "Outro" },
 ];
 
 const STATUS_OPCOES: { valor: StatusAcao; label: string }[] = [
@@ -109,6 +112,7 @@ export default function ModalAcao({
   const [titulo, setTitulo] = useState("");
   const [categoria, setCategoria] = useState("outro");
   const [categoriaOutra, setCategoriaOutra] = useState("");
+  const [categoriasExtras, setCategoriasExtras] = useState<string[]>([]);
   const [status, setStatus] = useState<StatusAcao>("planejado");
   const [texto, setTexto] = useState("");
   const [fotos, setFotos] = useState<Foto[]>([]);
@@ -120,14 +124,51 @@ export default function ModalAcao({
   useEffect(() => {
     if (acao) {
       setTitulo(acao.titulo);
-      const conhecida = CATEGORIAS_FIXAS.some((c) => c.valor === acao.categoria);
-      setCategoria(conhecida ? acao.categoria : "outro");
-      setCategoriaOutra(conhecida ? "" : acao.categoria);
+      setCategoria(acao.categoria || "outro");
       setStatus(acao.status);
       setTexto(acao.texto || "");
       setFotos(Array.isArray(acao.fotos) ? acao.fotos : []);
     }
   }, [acao]);
+
+  // ✅ Categorias "extras" (fora das 10 fixas) já usadas pelo tenant em
+  // qualquer condomínio — assim, digitar uma categoria nova uma vez já
+  // deixa ela disponível pra reusar depois, sem precisar de uma tabela de
+  // categorias/tela de gerenciamento à parte.
+  useEffect(() => {
+    if (!tenantId) return;
+    supabaseBrowser
+      .from("condominio_acoes")
+      .select("categoria")
+      .eq("tenant_id", tenantId)
+      .then(({ data }) => {
+        if (!data) return;
+        const fixas = new Set(CATEGORIAS_FIXAS.map((c) => c.valor));
+        const extras = Array.from(
+          new Set(
+            data
+              .map((r) => r.categoria)
+              .filter((c): c is string => !!c && !fixas.has(c)),
+          ),
+        ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+        setCategoriasExtras(extras);
+      });
+  }, [tenantId]);
+
+  // Garante que o valor atual (inclusive um vindo de edição, ainda não
+  // presente na lista buscada) sempre tenha uma <option> correspondente.
+  const opcoesCategoria = useMemo(() => {
+    const todas = new Set([
+      ...CATEGORIAS_FIXAS.map((c) => c.valor),
+      ...categoriasExtras,
+    ]);
+    if (categoria && categoria !== "outro") todas.add(categoria);
+    return Array.from(todas).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [categoriasExtras, categoria]);
+
+  function labelCategoria(valor: string) {
+    return CATEGORIAS_FIXAS.find((c) => c.valor === valor)?.label || valor;
+  }
 
   async function handleFotoUpload(file: File) {
     if (!file.type.startsWith("image/")) {
@@ -276,18 +317,20 @@ export default function ModalAcao({
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
             >
-              {CATEGORIAS_FIXAS.map((c) => (
-                <option key={c.valor} value={c.valor}>
-                  {c.label}
+              {opcoesCategoria.map((valor) => (
+                <option key={valor} value={valor}>
+                  {labelCategoria(valor)}
                 </option>
               ))}
+              <option value="outro">+ Nova categoria...</option>
             </Select>
             {categoria === "outro" && (
               <Input
                 className="mt-2"
+                autoFocus
                 value={categoriaOutra}
                 onChange={(e) => setCategoriaOutra(e.target.value)}
-                placeholder="Nome da categoria"
+                placeholder="Nome da categoria (ex: Comodidades)"
               />
             )}
           </div>

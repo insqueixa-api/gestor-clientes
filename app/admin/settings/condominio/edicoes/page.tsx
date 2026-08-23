@@ -26,6 +26,7 @@ type EdicaoRow = {
   status: "rascunho" | "publicado";
   introducao: string | null;
   itens: any[];
+  pdf_url: string | null;
   published_at: string | null;
   created_at: string;
 };
@@ -109,40 +110,59 @@ export default function EdicoesPage() {
 
   const condominioSelecionado = condominios.find((c) => c.id === selectedCondominioId);
 
+  async function gerarPdfBlob(edicao: EdicaoRow): Promise<Blob> {
+    if (!condominioSelecionado) throw new Error("Condomínio não encontrado.");
+    const { data: sessionData } = await supabaseBrowser.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const res = await fetch("/api/admin/condominio/gerar-pdf", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        condominio: condominioSelecionado,
+        edicao: {
+          tipo: edicao.tipo,
+          data_referencia: edicao.data_referencia,
+          versao: edicao.versao,
+          introducao: edicao.introducao,
+        },
+        itens: edicao.itens,
+      }),
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json?.error || "Falha ao gerar PDF.");
+    }
+    return res.blob();
+  }
+
+  function baixarBlob(blob: Blob, nomeArquivo: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nomeArquivo;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ✅ Edição já publicada com pdf_url salvo: baixa o arquivo já pronto do
+  // R2 direto, sem chamar a VM/Puppeteer de novo — só rascunho (conteúdo
+  // ainda pode mudar) gera na hora.
   async function handleBaixarPdf(edicao: EdicaoRow) {
     if (!condominioSelecionado) return;
+    if (edicao.pdf_url) {
+      window.open(edicao.pdf_url, "_blank");
+      return;
+    }
     setBaixandoId(edicao.id);
     try {
-      const { data: sessionData } = await supabaseBrowser.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const res = await fetch("/api/admin/condominio/gerar-pdf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          condominio: condominioSelecionado,
-          edicao: {
-            tipo: edicao.tipo,
-            data_referencia: edicao.data_referencia,
-            versao: edicao.versao,
-            introducao: edicao.introducao,
-          },
-          itens: edicao.itens,
-        }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json?.error || "Falha ao gerar PDF.");
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${condominioSelecionado.nome} - Informativo - v${String(edicao.versao).padStart(3, "0")}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const blob = await gerarPdfBlob(edicao);
+      baixarBlob(
+        blob,
+        `${condominioSelecionado.nome} - Informativo - v${String(edicao.versao).padStart(3, "0")}.pdf`,
+      );
     } catch (e: any) {
       addToast("error", "Erro ao gerar PDF", e.message);
     } finally {
@@ -151,25 +171,54 @@ export default function EdicoesPage() {
   }
 
   async function handlePublicar(edicao: EdicaoRow) {
+    if (!condominioSelecionado) return;
     const ok = await confirm({
       title: "Publicar edição?",
-      subtitle: `"${edicao.titulo}" — depois de publicada, o conteúdo fica congelado (não dá mais pra editar os itens).`,
+      subtitle: `"${edicao.titulo}" — depois de publicada, o conteúdo fica congelado (não dá mais pra editar os itens) e o PDF fica salvo pra download rápido.`,
       tone: "emerald",
       confirmText: "Publicar",
       cancelText: "Voltar",
     });
     if (!ok) return;
 
+    setBaixandoId(edicao.id);
     try {
+      // Gera o PDF final e sobe pro R2 — só a partir daqui um PDF vira
+      // "permanente" (pré-visualização continua descartável).
+      const blob = await gerarPdfBlob(edicao);
+      const nomeArquivo = `${condominioSelecionado.nome} - Informativo - v${String(edicao.versao).padStart(3, "0")}.pdf`;
+
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: nomeArquivo,
+          contentType: "application/pdf",
+          folder: "condominio-pdfs",
+        }),
+      });
+      const { presignedUrl, publicUrl } = await presignRes.json();
+      await fetch(presignedUrl, {
+        method: "PUT",
+        body: blob,
+        headers: { "Content-Type": "application/pdf" },
+      });
+
       const { error } = await supabaseBrowser
         .from("condominio_edicoes")
-        .update({ status: "publicado", published_at: new Date().toISOString() })
+        .update({
+          status: "publicado",
+          published_at: new Date().toISOString(),
+          pdf_url: publicUrl,
+        })
         .eq("id", edicao.id);
       if (error) throw error;
       addToast("success", "Edição publicada", edicao.titulo);
       fetchEdicoes();
     } catch (e: any) {
       addToast("error", "Erro ao publicar", e.message);
+    } finally {
+      setBaixandoId(null);
     }
   }
 
@@ -285,7 +334,7 @@ export default function EdicoesPage() {
                 )}
                 <button
                   type="button"
-                  title="Baixar PDF"
+                  title={edicao.pdf_url ? "Abrir PDF" : "Gerar e baixar PDF"}
                   onClick={() => handleBaixarPdf(edicao)}
                   disabled={baixandoId === edicao.id}
                   className="w-8 h-8 rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 flex items-center justify-center transition-colors disabled:opacity-50"
@@ -295,9 +344,14 @@ export default function EdicoesPage() {
                 {edicao.status === "rascunho" && (
                   <button
                     type="button"
-                    title="Publicar"
+                    title={
+                      baixandoId === edicao.id
+                        ? "Gerando e salvando o PDF..."
+                        : "Publicar"
+                    }
                     onClick={() => handlePublicar(edicao)}
-                    className="w-8 h-8 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 flex items-center justify-center transition-colors"
+                    disabled={baixandoId === edicao.id}
+                    className="w-8 h-8 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 flex items-center justify-center transition-colors disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                   </button>
