@@ -7,7 +7,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Pencil, Archive, ArchiveRestore, Images, Newspaper } from "lucide-react";
+import {
+  Pencil,
+  Archive,
+  ArchiveRestore,
+  Images,
+  Newspaper,
+  ChevronDown,
+} from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
@@ -15,6 +22,7 @@ import CondominioFilterDropdown from "./CondominioFilterDropdown";
 import {
   LOCALSTORAGE_KEY,
   STATUS_COR,
+  STATUS_ORDEM,
   type CondominioRow,
   type StatusAcao,
   type AcaoRow,
@@ -57,6 +65,15 @@ export default function CondominioPage() {
 
   const [isModalAcaoOpen, setIsModalAcaoOpen] = useState(false);
   const [editingAcao, setEditingAcao] = useState<AcaoRow | null>(null);
+
+  // ✅ Seleção em lote (mexer em várias ações de uma vez, ex: arquivar N) e
+  // grupos colapsados (por status) — a página sempre abre com tudo
+  // expandido (Set vazio = nada colapsado).
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
+  const [gruposColapsados, setGruposColapsados] = useState<Set<StatusAcao>>(
+    new Set(),
+  );
+  const [arquivandoLote, setArquivandoLote] = useState(false);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   function addToast(type: "success" | "error", title: string, message?: string) {
@@ -130,6 +147,7 @@ export default function CondominioPage() {
 
   useEffect(() => {
     fetchAcoes();
+    setSelecionadas(new Set());
   }, [tenantId, selectedCondominioId, showArchived]);
 
   function handleSelectCondominio(id: string) {
@@ -157,6 +175,50 @@ export default function CondominioPage() {
     }
   }
 
+  function toggleSelecionada(id: string) {
+    setSelecionadas((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(id)) novo.delete(id);
+      else novo.add(id);
+      return novo;
+    });
+  }
+
+  function toggleGrupoColapsado(status: StatusAcao) {
+    setGruposColapsados((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(status)) novo.delete(status);
+      else novo.add(status);
+      return novo;
+    });
+  }
+
+  async function handleArquivarSelecionadas() {
+    if (selecionadas.size === 0) return;
+    const ids = Array.from(selecionadas);
+    const novoValor = !showArchived; // vendo ativas → arquiva; vendo arquivadas → restaura
+    setArquivandoLote(true);
+    try {
+      const { error } = await supabaseBrowser
+        .from("condominio_acoes")
+        .update({ arquivada: novoValor })
+        .in("id", ids);
+      if (error) throw error;
+      addToast(
+        "success",
+        novoValor
+          ? `${ids.length} ação(ões) arquivada(s)`
+          : `${ids.length} ação(ões) restaurada(s)`,
+      );
+      setSelecionadas(new Set());
+      fetchAcoes();
+    } catch (e: any) {
+      addToast("error", "Erro ao atualizar em lote", e.message);
+    } finally {
+      setArquivandoLote(false);
+    }
+  }
+
   const selectedCondominio = condominios.find(
     (c) => c.id === selectedCondominioId,
   );
@@ -174,11 +236,29 @@ export default function CondominioPage() {
     return true;
   });
 
+  // ✅ Agrupada por status (concluído primeiro, igual ordem usada no PDF/
+  // Edições) em vez de uma lista só misturada.
+  const gruposAcoes = STATUS_ORDEM.map((status) => ({
+    status,
+    itens: acoesFiltradas.filter((a) => a.status === status),
+  })).filter((g) => g.itens.length > 0);
+
   return (
     <div className="space-y-6 pt-0 pb-6 px-3 sm:px-6 min-h-screen bg-background transition-colors">
       <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
-          🏢 Condomínio
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight flex items-center gap-2 min-w-0">
+          {selectedCondominio?.logo_url ? (
+            <img
+              src={selectedCondominio.logo_url}
+              alt={selectedCondominio.nome}
+              className="w-7 h-7 rounded-lg object-cover border border-border shrink-0"
+            />
+          ) : (
+            <span>🏢</span>
+          )}
+          <span className="truncate">
+            {selectedCondominio?.nome || "Condomínio"}
+          </span>
         </h1>
         <div className="flex items-center gap-2">
           <Link
@@ -248,6 +328,33 @@ export default function CondominioPage() {
         </button>
       </div>
 
+      {selecionadas.size > 0 && (
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+          <span className="text-sm font-medium text-foreground/90">
+            {selecionadas.size} selecionada{selecionadas.size > 1 ? "s" : ""}
+          </span>
+          <button
+            type="button"
+            onClick={handleArquivarSelecionadas}
+            disabled={arquivandoLote}
+            className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors disabled:opacity-50"
+          >
+            {arquivandoLote
+              ? "Processando..."
+              : showArchived
+                ? "Restaurar selecionadas"
+                : "Arquivar selecionadas"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelecionadas(new Set())}
+            className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancelar seleção
+          </button>
+        </div>
+      )}
+
       {!loadingCondominios && condominios.length === 0 && (
         <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
           Nenhum condomínio cadastrado ainda — use o filtro acima para
@@ -269,93 +376,131 @@ export default function CondominioPage() {
         </div>
       )}
 
-      {selectedCondominioId && !loadingAcoes && acoesFiltradas.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
-          {acoesFiltradas.map((item) => {
-            const cor = STATUS_COR[item.status];
-            const capa = item.fotos?.[0];
-            return (
-              <div
-                key={item.id}
-                className={`rounded-xl overflow-hidden shadow-sm border bg-card transition-all ${
-                  item.arquivada
-                    ? "border-amber-500/30 opacity-75"
-                    : "border-border hover:border-emerald-500/30"
-                }`}
-              >
-                {capa && (
-                  <img
-                    src={capa.url}
-                    alt={item.titulo}
-                    className="w-full h-36 object-cover"
+      {selectedCondominioId &&
+        !loadingAcoes &&
+        gruposAcoes.map((grupo) => {
+          const cor = STATUS_COR[grupo.status];
+          const colapsado = gruposColapsados.has(grupo.status);
+          return (
+            <div key={grupo.status} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
+                  >
+                    {cor.label}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {grupo.itens.length}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggleGrupoColapsado(grupo.status)}
+                  className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {colapsado ? "Mostrar mais" : "Ocultar"}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 transition-transform duration-200 ${colapsado ? "-rotate-90" : ""}`}
                   />
-                )}
-                <div className="p-4 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <h2
-                      className="text-sm font-medium text-foreground/90 tracking-tight line-clamp-2"
-                      title={item.titulo}
-                    >
-                      {item.titulo}
-                    </h2>
-                    <div className="flex gap-1 shrink-0">
-                      <button
-                        type="button"
-                        title="Editar"
-                        onClick={() => {
-                          setEditingAcao(item);
-                          setIsModalAcaoOpen(true);
-                        }}
-                        className="w-7 h-7 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 flex items-center justify-center transition-colors"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        title={item.arquivada ? "Restaurar" : "Arquivar"}
-                        onClick={() => handleToggleArquivar(item)}
-                        className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors ${
-                          item.arquivada
-                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                            : "border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20"
+                </button>
+              </div>
+
+              {!colapsado && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
+                  {grupo.itens.map((item) => {
+                    const capa = item.fotos?.[0];
+                    const marcada = selecionadas.has(item.id);
+                    return (
+                      <div
+                        key={item.id}
+                        className={`rounded-xl overflow-hidden shadow-sm border bg-card transition-all ${
+                          marcada
+                            ? "border-emerald-500/50 ring-1 ring-emerald-500/30"
+                            : item.arquivada
+                              ? "border-amber-500/30 opacity-75"
+                              : "border-border hover:border-emerald-500/30"
                         }`}
                       >
-                        {item.arquivada ? (
-                          <ArchiveRestore className="w-3.5 h-3.5" />
-                        ) : (
-                          <Archive className="w-3.5 h-3.5" />
+                        {capa && (
+                          <img
+                            src={capa.url}
+                            alt={item.titulo}
+                            className="w-full h-36 object-cover"
+                          />
                         )}
-                      </button>
-                    </div>
-                  </div>
+                        <div className="p-4 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <label className="flex items-start gap-2 min-w-0 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={marcada}
+                                onChange={() => toggleSelecionada(item.id)}
+                                className="mt-0.5 shrink-0"
+                              />
+                              <h2
+                                className="text-sm font-medium text-foreground/90 tracking-tight line-clamp-2"
+                                title={item.titulo}
+                              >
+                                {item.titulo}
+                              </h2>
+                            </label>
+                            <div className="flex gap-1 shrink-0">
+                              <button
+                                type="button"
+                                title="Editar"
+                                onClick={() => {
+                                  setEditingAcao(item);
+                                  setIsModalAcaoOpen(true);
+                                }}
+                                className="w-7 h-7 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 flex items-center justify-center transition-colors"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                title={item.arquivada ? "Restaurar" : "Arquivar"}
+                                onClick={() => handleToggleArquivar(item)}
+                                className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors ${
+                                  item.arquivada
+                                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                                    : "border-rose-500/20 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20"
+                                }`}
+                              >
+                                {item.arquivada ? (
+                                  <ArchiveRestore className="w-3.5 h-3.5" />
+                                ) : (
+                                  <Archive className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
-                    >
-                      {cor.label}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground capitalize">
-                      {item.categoria}
-                    </span>
-                    {item.fotos?.length > 1 && (
-                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <Images className="w-3 h-3" /> {item.fotos.length}
-                      </span>
-                    )}
-                  </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] text-muted-foreground capitalize">
+                              {item.categoria}
+                            </span>
+                            {item.fotos?.length > 1 && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Images className="w-3 h-3" /> {item.fotos.length}
+                              </span>
+                            )}
+                          </div>
 
-                  {item.texto && (
-                    <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
-                      {item.texto}
-                    </p>
-                  )}
+                          {item.texto && (
+                            <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+                              {item.texto}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              )}
+            </div>
+          );
+        })}
 
       {isModalCondominioOpen && (
         <ModalCondominio

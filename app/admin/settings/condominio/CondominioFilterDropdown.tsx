@@ -41,15 +41,7 @@ export default function CondominioFilterDropdown({
         onClick={() => setOpen((v) => !v)}
         className="h-10 px-3 flex items-center gap-2 bg-transparent border border-border rounded-lg text-sm text-foreground/90 hover:border-emerald-500/50 transition-colors min-w-[200px]"
       >
-        {selected?.logo_url ? (
-          <img
-            src={selected.logo_url}
-            alt={selected.nome}
-            className="w-5 h-5 rounded object-cover shrink-0"
-          />
-        ) : (
-          <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
-        )}
+        <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
         <span className="flex-1 text-left truncate">
           {selected?.nome || "Selecionar condomínio"}
         </span>
