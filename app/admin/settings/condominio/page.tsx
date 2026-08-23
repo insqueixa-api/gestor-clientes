@@ -51,7 +51,9 @@ export default function CondominioPage() {
     null,
   );
 
-  const [acoes, setAcoes] = useState<AcaoRow[]>([]);
+  // ✅ Traz TODAS as ações (arquivadas e não) do condomínio numa tacada só —
+  // "Ver arquivadas" filtra em memória, sem nova ida ao banco.
+  const [acoesTodas, setAcoesTodas] = useState<AcaoRow[]>([]);
   const [loadingAcoes, setLoadingAcoes] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusAcao | "Todos">(
@@ -85,76 +87,64 @@ export default function CondominioPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
 
-  async function fetchCondominios() {
+  // ✅ Otimização (pedido do Márcio: "sem um get após o outro"): antes eram
+  // duas idas sequenciais ao banco (condomínios → só depois, já sabendo qual
+  // ficou selecionado, as ações) + uma 3ª ida toda vez que "Ver arquivadas"
+  // era clicado. Agora é uma chamada só ao RPC get_condominio_page_bundle
+  // (docs/sql/condominio_page_bundle_rpc.sql), que já resolve qual
+  // condomínio fica selecionado internamente (hint do localStorage) e traz
+  // as ações arquivadas e não-arquivadas juntas — "Ver arquivadas" vira
+  // filtro em memória, zero rede. Sem SECURITY DEFINER: continua rodando sob
+  // a RLS do usuário logado.
+  async function fetchBundle(hintId?: string | null) {
     if (!tenantId) return;
     setLoadingCondominios(true);
-    try {
-      const { data, error } = await supabaseBrowser
-        .from("condominios")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .order("nome");
-      if (error) throw error;
-      const rows = data || [];
-      setCondominios(rows);
-
-      // ✅ pré-seleciona o último condomínio usado (localStorage) — só na
-      // primeira carga, sem sobrescrever uma seleção manual já feita nesta
-      // sessão.
-      setSelectedCondominioId((current) => {
-        if (current && rows.some((c) => c.id === current)) return current;
-        const salvo =
-          typeof window !== "undefined"
-            ? localStorage.getItem(LOCALSTORAGE_KEY)
-            : null;
-        if (salvo && rows.some((c) => c.id === salvo)) return salvo;
-        return rows[0]?.id ?? null;
-      });
-    } catch (e: any) {
-      addToast("error", "Erro ao carregar condomínios", e.message);
-    } finally {
-      setLoadingCondominios(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchCondominios();
-  }, [tenantId]);
-
-  async function fetchAcoes() {
-    if (!tenantId || !selectedCondominioId) {
-      setAcoes([]);
-      setLoadingAcoes(false);
-      return;
-    }
     setLoadingAcoes(true);
     try {
-      const { data, error } = await supabaseBrowser
-        .from("condominio_acoes")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("condominio_id", selectedCondominioId)
-        .eq("arquivada", showArchived)
-        .order("created_at", { ascending: false });
+      const hint =
+        hintId !== undefined
+          ? hintId
+          : selectedCondominioId ||
+            (typeof window !== "undefined"
+              ? localStorage.getItem(LOCALSTORAGE_KEY)
+              : null);
+      const { data, error } = await supabaseBrowser.rpc(
+        "get_condominio_page_bundle",
+        { p_condominio_id_hint: hint },
+      );
       if (error) throw error;
-      setAcoes(data || []);
+      const bundle = data as {
+        condominios: CondominioRow[];
+        condominio_id: string | null;
+        acoes: AcaoRow[];
+      };
+      setCondominios(bundle.condominios || []);
+      setAcoesTodas(bundle.acoes || []);
+      setSelectedCondominioId(bundle.condominio_id);
+      if (bundle.condominio_id && typeof window !== "undefined") {
+        localStorage.setItem(LOCALSTORAGE_KEY, bundle.condominio_id);
+      }
     } catch (e: any) {
-      addToast("error", "Erro ao carregar ações", e.message);
+      addToast("error", "Erro ao carregar", e.message);
     } finally {
+      setLoadingCondominios(false);
       setLoadingAcoes(false);
     }
   }
 
   useEffect(() => {
-    fetchAcoes();
+    fetchBundle();
+  }, [tenantId]);
+
+  useEffect(() => {
     setSelecionadas(new Set());
-  }, [tenantId, selectedCondominioId, showArchived]);
+  }, [selectedCondominioId, showArchived]);
 
   function handleSelectCondominio(id: string) {
-    setSelectedCondominioId(id);
     if (typeof window !== "undefined") {
       localStorage.setItem(LOCALSTORAGE_KEY, id);
     }
+    fetchBundle(id);
   }
 
   async function handleToggleArquivar(item: AcaoRow) {
@@ -169,7 +159,7 @@ export default function CondominioPage() {
         item.arquivada ? "Ação restaurada" : "Ação arquivada",
         item.titulo,
       );
-      fetchAcoes();
+      fetchBundle(selectedCondominioId);
     } catch (e: any) {
       addToast("error", "Erro", e.message);
     }
@@ -211,7 +201,7 @@ export default function CondominioPage() {
           : `${ids.length} ação(ões) restaurada(s)`,
       );
       setSelecionadas(new Set());
-      fetchAcoes();
+      fetchBundle(selectedCondominioId);
     } catch (e: any) {
       addToast("error", "Erro ao atualizar em lote", e.message);
     } finally {
@@ -223,7 +213,17 @@ export default function CondominioPage() {
     (c) => c.id === selectedCondominioId,
   );
 
-  const acoesFiltradas = acoes.filter((a) => {
+  const tituloPaginaModo = selectedCondominio?.titulo_pagina || "logo_nome";
+  const condominioTemLogo = !!selectedCondominio?.logo_url;
+  const tituloPaginaEfetivo =
+    tituloPaginaModo === "logo" && !condominioTemLogo ? "nome" : tituloPaginaModo;
+  const exibirLogo = tituloPaginaEfetivo !== "nome" && condominioTemLogo;
+  const exibirIconePlaceholder =
+    tituloPaginaEfetivo === "logo_nome" && !condominioTemLogo;
+  const exibirNomeCondominio = tituloPaginaEfetivo !== "logo";
+
+  const acoesFiltradas = acoesTodas.filter((a) => {
+    if (a.arquivada !== showArchived) return false;
     if (statusFilter !== "Todos" && a.status !== statusFilter) return false;
     if (search.trim()) {
       const q = search.trim().toLowerCase();
@@ -247,18 +247,19 @@ export default function CondominioPage() {
     <div className="space-y-6 pt-0 pb-6 px-3 sm:px-6 min-h-screen bg-background transition-colors">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight flex items-center gap-2 min-w-0">
-          {selectedCondominio?.logo_url ? (
+          {exibirLogo && (
             <img
-              src={selectedCondominio.logo_url}
-              alt={selectedCondominio.nome}
+              src={selectedCondominio!.logo_url!}
+              alt={selectedCondominio!.nome}
               className="h-9 w-auto max-w-[200px] object-contain shrink-0"
             />
-          ) : (
-            <span>🏢</span>
           )}
-          <span className="truncate">
-            {selectedCondominio?.nome || "Condomínio"}
-          </span>
+          {exibirIconePlaceholder && <span>🏢</span>}
+          {exibirNomeCondominio && (
+            <span className="truncate">
+              {selectedCondominio?.nome || "Condomínio"}
+            </span>
+          )}
         </h1>
         <div className="flex items-center gap-2">
           <Link
@@ -538,7 +539,7 @@ export default function CondominioPage() {
               editingCondominio ? "Condomínio atualizado" : "Condomínio criado",
               editingCondominio?.nome,
             );
-            fetchCondominios();
+            fetchBundle(selectedCondominioId);
           }}
           onError={(msg) => addToast("error", "Erro ao salvar", msg)}
         />
@@ -557,7 +558,7 @@ export default function CondominioPage() {
               editingAcao ? "Ação atualizada" : "Ação criada",
               editingAcao?.titulo,
             );
-            fetchAcoes();
+            fetchBundle(selectedCondominioId);
           }}
           onError={(msg) => addToast("error", "Erro ao salvar", msg)}
         />

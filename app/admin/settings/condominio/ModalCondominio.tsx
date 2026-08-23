@@ -9,7 +9,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
-import type { CondominioRow } from "./shared";
+import type { CondominioRow, TituloPaginaCondominio } from "./shared";
 
 type Props = {
   condominio?: CondominioRow | null;
@@ -99,6 +99,8 @@ export default function ModalCondominio({
   const [slogan2, setSlogan2] = useState("");
   const [corPrimaria, setCorPrimaria] = useState("");
   const [corSecundaria, setCorSecundaria] = useState("");
+  const [tituloPagina, setTituloPagina] =
+    useState<TituloPaginaCondominio>("logo_nome");
 
   useEffect(() => {
     if (condominio) {
@@ -111,6 +113,7 @@ export default function ModalCondominio({
       setSlogan2(condominio.slogan2 || "");
       setCorPrimaria(condominio.cor_primaria || "");
       setCorSecundaria(condominio.cor_secundaria || "");
+      setTituloPagina(condominio.titulo_pagina || "logo_nome");
     }
   }, [condominio]);
 
@@ -171,6 +174,7 @@ export default function ModalCondominio({
         slogan2: slogan2.trim() || null,
         cor_primaria: corPrimaria.trim() || null,
         cor_secundaria: corSecundaria.trim() || null,
+        titulo_pagina: tituloPagina,
       };
 
       if (isEditing && condominio) {
@@ -280,6 +284,25 @@ export default function ModalCondominio({
               </button>
             )}
           </div>
+        </div>
+
+        <div>
+          <Label>Título da página</Label>
+          <select
+            value={tituloPagina}
+            onChange={(e) =>
+              setTituloPagina(e.target.value as TituloPaginaCondominio)
+            }
+            className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
+          >
+            <option value="logo_nome">Logo + Condomínio</option>
+            <option value="logo">Somente Logo</option>
+            <option value="nome">Somente Condomínio</option>
+          </select>
+          <p className="text-[10px] text-muted-foreground mt-1.5">
+            Como o cabeçalho da página de Ações mostra este condomínio. Se a
+            logo já tiver o nome escrito nela, use "Somente Logo".
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

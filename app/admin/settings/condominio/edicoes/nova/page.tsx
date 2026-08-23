@@ -134,6 +134,11 @@ export default function NovaEdicaoPage() {
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  // ✅ Coluna esquerda (escolher ações) agrupada por status, igual à página
+  // de Ações — abre sempre tudo expandido.
+  const [pickerColapsados, setPickerColapsados] = useState<Set<StatusAcao>>(
+    new Set(),
+  );
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   function addToast(type: "success" | "error", title: string, message?: string) {
@@ -259,6 +264,26 @@ export default function NovaEdicaoPage() {
         (g) => STATUS_ORDEM.indexOf(g.status) > posDesejada,
       );
       return [...antesDoNovo, novoGrupo, ...depoisDoNovo];
+    });
+  }
+
+  function togglePickerColapsado(status: StatusAcao) {
+    setPickerColapsados((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(status)) novo.delete(status);
+      else novo.add(status);
+      return novo;
+    });
+  }
+
+  function toggleSelecionarTodasVisiveis() {
+    const todasMarcadas =
+      acoesFiltradas.length > 0 &&
+      acoesFiltradas.every((a) => selectedIds.has(a.id));
+    acoesFiltradas.forEach((a) => {
+      const marcada = selectedIds.has(a.id);
+      if (todasMarcadas && marcada) toggleAcao(a);
+      if (!todasMarcadas && !marcada) toggleAcao(a);
     });
   }
 
@@ -450,6 +475,12 @@ export default function NovaEdicaoPage() {
       : true,
   );
 
+  // ✅ Mesmo agrupamento por status usado na página de Ações.
+  const gruposDisponiveis = STATUS_ORDEM.map((status) => ({
+    status,
+    itens: acoesFiltradas.filter((a) => a.status === status),
+  })).filter((g) => g.itens.length > 0);
+
   if (!condominioId) {
     return (
       <div className="p-12 text-center text-muted-foreground">
@@ -484,40 +515,82 @@ export default function NovaEdicaoPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Coluna esquerda: escolher ações */}
           <div className="space-y-2">
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar ações..."
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-            />
-            <div className="space-y-1.5 max-h-[60vh] overflow-y-auto overscroll-contain custom-scrollbar pr-1">
-              {acoesFiltradas.map((a) => {
-                const cor = STATUS_COR[a.status];
-                const marcada = selectedIds.has(a.id);
+            <div className="flex items-center gap-2">
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar ações..."
+                className="flex-1 h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+              />
+              {acoesFiltradas.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleSelecionarTodasVisiveis}
+                  className="h-10 px-3 rounded-lg border border-border bg-transparent text-xs font-medium text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap shrink-0"
+                >
+                  {acoesFiltradas.every((a) => selectedIds.has(a.id))
+                    ? "Desmarcar todas"
+                    : "Selecionar todas"}
+                </button>
+              )}
+            </div>
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto overscroll-contain custom-scrollbar pr-1">
+              {gruposDisponiveis.map((grupo) => {
+                const cor = STATUS_COR[grupo.status];
+                const colapsado = pickerColapsados.has(grupo.status);
                 return (
-                  <label
-                    key={a.id}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
-                      marcada
-                        ? "border-emerald-500/40 bg-emerald-500/5"
-                        : "border-border hover:bg-muted"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={marcada}
-                      onChange={() => toggleAcao(a)}
-                      className="shrink-0"
-                    />
-                    <span className="flex-1 text-sm text-foreground/90 truncate">
-                      {a.titulo}
-                    </span>
-                    <span
-                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full border shrink-0 ${cor.bg} ${cor.text} ${cor.border}`}
-                    >
-                      {cor.label}
-                    </span>
-                  </label>
+                  <div key={grupo.status} className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
+                        >
+                          {cor.label}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {grupo.itens.length}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => togglePickerColapsado(grupo.status)}
+                        className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        {colapsado ? "Mostrar mais" : "Ocultar"}
+                        <ChevronDown
+                          className={`w-3 h-3 transition-transform duration-200 ${colapsado ? "-rotate-90" : ""}`}
+                        />
+                      </button>
+                    </div>
+
+                    {!colapsado && (
+                      <div className="space-y-1.5">
+                        {grupo.itens.map((a) => {
+                          const marcada = selectedIds.has(a.id);
+                          return (
+                            <label
+                              key={a.id}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                                marcada
+                                  ? "border-emerald-500/40 bg-emerald-500/5"
+                                  : "border-border hover:bg-muted"
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={marcada}
+                                onChange={() => toggleAcao(a)}
+                                className="shrink-0"
+                              />
+                              <span className="flex-1 text-sm text-foreground/90 truncate">
+                                {a.titulo}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
               {acoesFiltradas.length === 0 && (

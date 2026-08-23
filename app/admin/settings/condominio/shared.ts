@@ -6,6 +6,8 @@
 // const`/`export type` a mais quebra o typecheck do Next.
 export const LOCALSTORAGE_KEY = "condominio_ultimo_id";
 
+export type TituloPaginaCondominio = "logo_nome" | "logo" | "nome";
+
 export type CondominioRow = {
   id: string;
   tenant_id: string;
@@ -18,6 +20,7 @@ export type CondominioRow = {
   slogan2: string | null;
   cor_primaria: string | null;
   cor_secundaria: string | null;
+  titulo_pagina: TituloPaginaCondominio;
   created_at: string;
 };
 
