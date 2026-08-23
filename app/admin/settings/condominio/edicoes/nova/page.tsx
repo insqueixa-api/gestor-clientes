@@ -114,6 +114,9 @@ export default function NovaEdicaoPage() {
   const searchParams = useSearchParams();
   const condominioId = searchParams.get("condominio");
   const edicaoIdParam = searchParams.get("edicao");
+  // ✅ Ponte vinda da tela de Ações ("Criar Edição com essas", depois de
+  // marcar várias no checkbox) — lista de ids separados por vírgula.
+  const acoesPreSelecionadasParam = searchParams.get("acoes");
 
   const [condominio, setCondominio] = useState<CondominioRow | null>(null);
   const [acoesDisponiveis, setAcoesDisponiveis] = useState<AcaoRow[]>([]);
@@ -194,6 +197,23 @@ export default function NovaEdicaoPage() {
             }
             setGrupos(gruposReconstruidos);
           }
+        } else if (acoesPreSelecionadasParam) {
+          const idsPreSelecionados = new Set(
+            acoesPreSelecionadasParam.split(",").filter(Boolean),
+          );
+          const acoesEncontradas = (resAcoes.data || []).filter((a) =>
+            idsPreSelecionados.has(a.id),
+          );
+          const gruposIniciais: Grupo[] = [];
+          for (const status of STATUS_ORDEM) {
+            const itensDoStatus = acoesEncontradas
+              .filter((a) => a.status === status)
+              .map(toItemSelecionado);
+            if (itensDoStatus.length > 0) {
+              gruposIniciais.push({ status, itens: itensDoStatus });
+            }
+          }
+          setGrupos(gruposIniciais);
         }
       } catch (e: any) {
         addToast("error", "Erro ao carregar", e.message);

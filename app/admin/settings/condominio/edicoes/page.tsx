@@ -138,6 +138,13 @@ export default function EdicoesPage() {
     return res.blob();
   }
 
+  // Mesmo formato de nome do protótipo local (Vidamerica): "{condomínio} -
+  // Informativo {Semanal|Mensal} - v{003}.pdf".
+  function nomeArquivoPdf(nomeCondominio: string, tipo: "semanal" | "mensal", versao: number) {
+    const tipoLabel = tipo === "mensal" ? "Mensal" : "Semanal";
+    return `${nomeCondominio} - Informativo ${tipoLabel} - v${String(versao).padStart(3, "0")}.pdf`;
+  }
+
   function baixarBlob(blob: Blob, nomeArquivo: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -161,7 +168,7 @@ export default function EdicoesPage() {
       const blob = await gerarPdfBlob(edicao);
       baixarBlob(
         blob,
-        `${condominioSelecionado.nome} - Informativo - v${String(edicao.versao).padStart(3, "0")}.pdf`,
+        nomeArquivoPdf(condominioSelecionado.nome, edicao.tipo, edicao.versao),
       );
     } catch (e: any) {
       addToast("error", "Erro ao gerar PDF", e.message);
@@ -186,7 +193,11 @@ export default function EdicoesPage() {
       // Gera o PDF final e sobe pro R2 — só a partir daqui um PDF vira
       // "permanente" (pré-visualização continua descartável).
       const blob = await gerarPdfBlob(edicao);
-      const nomeArquivo = `${condominioSelecionado.nome} - Informativo - v${String(edicao.versao).padStart(3, "0")}.pdf`;
+      const nomeArquivo = nomeArquivoPdf(
+        condominioSelecionado.nome,
+        edicao.tipo,
+        edicao.versao,
+      );
 
       const presignRes = await fetch("/api/upload/presign", {
         method: "POST",

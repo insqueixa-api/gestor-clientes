@@ -326,13 +326,38 @@ export default function CondominioPage() {
         >
           {showArchived ? "🗄 Vendo arquivadas" : "🗄 Ver arquivadas"}
         </button>
+
+        {acoesFiltradas.length > 0 && (
+          <button
+            onClick={() =>
+              setSelecionadas(
+                selecionadas.size === acoesFiltradas.length
+                  ? new Set()
+                  : new Set(acoesFiltradas.map((a) => a.id)),
+              )
+            }
+            className="h-10 px-3 rounded-lg border border-border bg-transparent text-xs font-medium text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
+          >
+            {selecionadas.size === acoesFiltradas.length
+              ? "Desmarcar todas"
+              : "Selecionar todas"}
+          </button>
+        )}
       </div>
 
       {selecionadas.size > 0 && (
-        <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+        <div className="flex items-center gap-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 flex-wrap">
           <span className="text-sm font-medium text-foreground/90">
             {selecionadas.size} selecionada{selecionadas.size > 1 ? "s" : ""}
           </span>
+          {!showArchived && (
+            <Link
+              href={`/admin/settings/condominio/edicoes/nova?condominio=${selectedCondominioId}&acoes=${Array.from(selecionadas).join(",")}`}
+              className="h-8 px-3 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-xs font-bold hover:bg-sky-500/20 transition-colors flex items-center gap-1.5"
+            >
+              <Newspaper className="w-3.5 h-3.5" /> Criar Edição com essas
+            </Link>
+          )}
           <button
             type="button"
             onClick={handleArquivarSelecionadas}
