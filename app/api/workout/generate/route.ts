@@ -105,31 +105,58 @@ export async function POST(req: Request) {
 
   const validIds = new Set(EXERCISES.map((e) => e.id));
 
-  try {
-    let plan: Plan | null = null;
-    for (let attempt = 1; attempt <= 2; attempt++) {
+  // gemini-flash-latest devolve 503 "high demand" com alguma frequência —
+  // não é erro do prompt, é sobrecarga momentânea do lado do Google. Sem
+  // esse retry, uma geração em 3 falhava direto com um 500 confuso pro
+  // usuário mesmo o prompt estando correto (visto em teste manual).
+  const isRetryableError = (msg: string) => /\b(503|429|UNAVAILABLE|overloaded|fetch failed)\b/i.test(msg);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  let plan: Plan | null = null;
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
       const raw = await requestPlan(geminiKey, level, frequencyDays, attempt);
       plan = validatePlan(raw, validIds);
       if (plan) break;
+      lastError = null; // JSON inválido — tenta de novo com reforço no prompt, não é erro fatal
+    } catch (e: any) {
+      lastError = e;
+      if (attempt < 3 && isRetryableError(String(e?.message || ""))) {
+        await sleep(900 * attempt);
+        continue;
+      }
+      break;
     }
-
-    if (!plan) {
-      return NextResponse.json(
-        { error: "A IA não conseguiu montar um treino válido. Tente de novo." },
-        { status: 422 },
-      );
-    }
-
-    return NextResponse.json({
-      ok: true,
-      plan: {
-        generated_at: new Date().toISOString(),
-        level,
-        frequency_days: frequencyDays,
-        days: plan.days,
-      },
-    });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Falha ao gerar treino." }, { status: 500 });
   }
+
+  if (lastError) {
+    const retryable = isRetryableError(String(lastError?.message || ""));
+    return NextResponse.json(
+      {
+        error: retryable
+          ? "O Gemini está sobrecarregado no momento. Tente gerar de novo em alguns segundos."
+          : lastError?.message || "Falha ao gerar treino.",
+      },
+      { status: retryable ? 503 : 500 },
+    );
+  }
+
+  if (!plan) {
+    return NextResponse.json(
+      { error: "A IA não conseguiu montar um treino válido. Tente de novo." },
+      { status: 422 },
+    );
+  }
+
+  return NextResponse.json({
+    ok: true,
+    plan: {
+      generated_at: new Date().toISOString(),
+      level,
+      frequency_days: frequencyDays,
+      days: plan.days,
+    },
+  });
 }
