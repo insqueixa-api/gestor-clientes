@@ -1920,6 +1920,22 @@ function ModalTransacao({
     if (raw.length >= 3) return raw.slice(0, 2) + "/" + raw.slice(2);
     return raw;
   };
+  // ✅ A posição do cursor não pode ser copiada 1:1 do texto sem máscara pro
+  // texto com "/" — a barra desloca tudo que vem depois dela. Sem isso, o
+  // cursor ficava preso antes do último dígito digitado (em vez de depois),
+  // e o próximo caractere digitado entrava fora de ordem (ex: tentar digitar
+  // "12" resultava em "21").
+  const posAposNDigitos = (display: string, n: number) => {
+    if (n <= 0) return 0;
+    let contados = 0;
+    for (let i = 0; i < display.length; i++) {
+      if (/\d/.test(display[i])) {
+        contados++;
+        if (contados === n) return i + 1;
+      }
+    }
+    return display.length;
+  };
 
   const [rawDigits, setRawDigits] = useState(isoToRaw(getDefaultDate()));
   const [vencimento, setVencimento] = useState(getDefaultDate());
@@ -1927,7 +1943,10 @@ function ModalTransacao({
 
   const handleVencimentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target;
-    const cursorPos = input.selectionStart;
+    const cursorPos = input.selectionStart ?? input.value.length;
+    const digitsAntesDoCursor = input.value
+      .slice(0, cursorPos)
+      .replace(/\D/g, "").length;
 
     const raw = input.value.replace(/\D/g, "").slice(0, 8);
     setRawDigits(raw);
@@ -1938,11 +1957,11 @@ function ModalTransacao({
       setVencimento(`${y}-${m}-${d}`);
     }
 
-    // Restaura o cursor para a posição exata onde estava a digitação
+    // Restaura o cursor depois do mesmo dígito que ele estava antes,
+    // recalculado no texto já com a máscara aplicada.
+    const novaPos = posAposNDigitos(rawToDisplay(raw), digitsAntesDoCursor);
     requestAnimationFrame(() => {
-      if (cursorPos !== null && input) {
-        input.setSelectionRange(cursorPos, cursorPos);
-      }
+      if (input) input.setSelectionRange(novaPos, novaPos);
     });
   };
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(
@@ -2109,7 +2128,11 @@ function ModalTransacao({
   const pagamentoDisplay = rawToDisplay(rawDigitsPagamento);
   const handlePagamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target;
-    const cursorPos = input.selectionStart;
+    const cursorPos = input.selectionStart ?? input.value.length;
+    const digitsAntesDoCursor = input.value
+      .slice(0, cursorPos)
+      .replace(/\D/g, "").length;
+
     const raw = input.value.replace(/\D/g, "").slice(0, 8);
     setRawDigitsPagamento(raw);
     if (raw.length === 8) {
@@ -2118,9 +2141,9 @@ function ModalTransacao({
         y = raw.slice(4);
       setDataPagamento(`${y}-${m}-${d}`);
     }
+    const novaPos = posAposNDigitos(rawToDisplay(raw), digitsAntesDoCursor);
     requestAnimationFrame(() => {
-      if (cursorPos !== null && input)
-        input.setSelectionRange(cursorPos, cursorPos);
+      if (input) input.setSelectionRange(novaPos, novaPos);
     });
   };
   // ────────────────────────────────────────────────────────────────────────

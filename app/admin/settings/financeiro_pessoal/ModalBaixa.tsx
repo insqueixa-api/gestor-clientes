@@ -86,6 +86,22 @@ export default function ModalBaixa({
     if (raw.length >= 3) return raw.slice(0, 2) + "/" + raw.slice(2);
     return raw;
   };
+  // ✅ A posição do cursor não pode ser copiada 1:1 do texto sem máscara pro
+  // texto com "/" — a barra desloca tudo que vem depois dela. Sem isso, o
+  // cursor ficava preso antes do último dígito digitado (em vez de depois),
+  // e o próximo caractere digitado entrava fora de ordem (ex: tentar digitar
+  // "12" resultava em "21").
+  const posAposNDigitos = (display: string, n: number) => {
+    if (n <= 0) return 0;
+    let contados = 0;
+    for (let i = 0; i < display.length; i++) {
+      if (/\d/.test(display[i])) {
+        contados++;
+        if (contados === n) return i + 1;
+      }
+    }
+    return display.length;
+  };
 
   const initDateIso = (() => {
     if (!isBaixando && transacao.data_pagamento) {
@@ -105,7 +121,11 @@ export default function ModalBaixa({
 
   const handleDigitsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target;
-    const cursorPos = input.selectionStart;
+    const cursorPos = input.selectionStart ?? input.value.length;
+    const digitsAntesDoCursor = input.value
+      .slice(0, cursorPos)
+      .replace(/\D/g, "").length;
+
     const raw = input.value.replace(/\D/g, "").slice(0, 8);
     setRawDigits(raw);
     if (raw.length === 8) {
@@ -114,9 +134,9 @@ export default function ModalBaixa({
         y = raw.slice(4);
       setDataPagamento(`${y}-${m}-${d}`);
     }
+    const novaPos = posAposNDigitos(rawToDisplay(raw), digitsAntesDoCursor);
     requestAnimationFrame(() => {
-      if (cursorPos !== null && input)
-        input.setSelectionRange(cursorPos, cursorPos);
+      if (input) input.setSelectionRange(novaPos, novaPos);
     });
   };
 
@@ -288,7 +308,11 @@ export default function ModalBaixa({
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const input = e.target;
-    const cursorPos = input.selectionStart;
+    const cursorPos = input.selectionStart ?? input.value.length;
+    const digitsAntesDoCursor = input.value
+      .slice(0, cursorPos)
+      .replace(/\D/g, "").length;
+
     const raw = input.value.replace(/\D/g, "").slice(0, 8);
     setRawDigitsAntecipar(raw);
     if (raw.length === 8) {
@@ -297,9 +321,9 @@ export default function ModalBaixa({
         y = raw.slice(4);
       setDataAntecipar(`${y}-${m}-${d}`);
     }
+    const novaPos = posAposNDigitos(rawToDisplay(raw), digitsAntesDoCursor);
     requestAnimationFrame(() => {
-      if (cursorPos !== null && input)
-        input.setSelectionRange(cursorPos, cursorPos);
+      if (input) input.setSelectionRange(novaPos, novaPos);
     });
   };
 
