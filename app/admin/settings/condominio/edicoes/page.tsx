@@ -6,13 +6,13 @@
 // drag-and-drop, revisão por IA etc.).
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Download, CheckCircle2, Trash2 } from "lucide-react";
+import { Download, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import CondominioFilterDropdown from "../CondominioFilterDropdown";
-import { LOCALSTORAGE_KEY, type CondominioRow } from "../shared";
+import { LOCALSTORAGE_KEY, nomeArquivoPdf, type CondominioRow } from "../shared";
 
 type EdicaoRow = {
   id: string;
@@ -136,13 +136,6 @@ export default function EdicoesPage() {
       throw new Error(json?.error || "Falha ao gerar PDF.");
     }
     return res.blob();
-  }
-
-  // Mesmo formato de nome do protótipo local (Vidamerica): "{condomínio} -
-  // Informativo {Semanal|Mensal} - v{003}.pdf".
-  function nomeArquivoPdf(nomeCondominio: string, tipo: "semanal" | "mensal", versao: number) {
-    const tipoLabel = tipo === "mensal" ? "Mensal" : "Semanal";
-    return `${nomeCondominio} - Informativo ${tipoLabel} - v${String(versao).padStart(3, "0")}.pdf`;
   }
 
   function baixarBlob(blob: Blob, nomeArquivo: string) {
@@ -345,12 +338,22 @@ export default function EdicoesPage() {
                 )}
                 <button
                   type="button"
-                  title={edicao.pdf_url ? "Abrir PDF" : "Gerar e baixar PDF"}
+                  title={
+                    baixandoId === edicao.id
+                      ? "Gerando PDF..."
+                      : edicao.pdf_url
+                        ? "Abrir PDF"
+                        : "Gerar e baixar PDF"
+                  }
                   onClick={() => handleBaixarPdf(edicao)}
                   disabled={baixandoId === edicao.id}
                   className="w-8 h-8 rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 flex items-center justify-center transition-colors disabled:opacity-50"
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  {baixandoId === edicao.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Download className="w-3.5 h-3.5" />
+                  )}
                 </button>
                 {edicao.status === "rascunho" && (
                   <button
@@ -364,7 +367,11 @@ export default function EdicoesPage() {
                     disabled={baixandoId === edicao.id}
                     className="w-8 h-8 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 flex items-center justify-center transition-colors disabled:opacity-50"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {baixandoId === edicao.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    )}
                   </button>
                 )}
                 <button

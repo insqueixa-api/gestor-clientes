@@ -11,6 +11,11 @@ import { requireAdminTenant } from "@/lib/api/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// ✅ Sem isso, o Vercel mata a function no limite padrão do plano (bem
+// menor que os 60s que já damos pro AbortController abaixo) antes da VM
+// terminar o Puppeteer — mesmo padrão usado nas outras rotas que fazem
+// proxy pra VM (ex: app/api/integrations/apps/*).
+export const maxDuration = 65;
 
 export async function POST(req: Request) {
   const auth = await requireAdminTenant(req);
@@ -67,7 +72,9 @@ export async function POST(req: Request) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="informativo.pdf"`,
+        "Content-Disposition":
+          vmRes.headers.get("content-disposition") ||
+          `attachment; filename="informativo.pdf"`,
       },
     });
   } catch (e: any) {

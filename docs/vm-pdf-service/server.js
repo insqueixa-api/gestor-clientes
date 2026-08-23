@@ -5,7 +5,15 @@
 // (poucos segundos por request) e fecha em seguida — não fica residente.
 const http = require("http");
 const puppeteer = require("puppeteer");
-const { montarHtml } = require("./template");
+const { montarHtml, nomeArquivoPdf } = require("./template");
+
+function contentDispositionPdf(nomeArquivo) {
+  const ascii = nomeArquivo
+    .normalize("NFKD")
+    .replace(/\p{Mark}/gu, "")
+    .replace(/[^\x20-\x7E]/g, "_");
+  return `attachment; filename="${ascii}.pdf"; filename*=UTF-8''${encodeURIComponent(nomeArquivo)}.pdf`;
+}
 
 const PORT = process.env.PORT || 3000;
 const TOKEN = process.env.PDF_VM_TOKEN || "";
@@ -80,9 +88,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     const pdf = await gerarPdf(payload);
+    const nomeArquivo = nomeArquivoPdf(
+      payload.condominio.nome,
+      payload.edicao?.tipo,
+      payload.edicao?.versao,
+    );
     res.writeHead(200, {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="informativo.pdf"`,
+      "Content-Disposition": contentDispositionPdf(nomeArquivo),
       "Content-Length": pdf.length,
     });
     res.end(pdf);

@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { GripVertical, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -754,9 +754,15 @@ export default function NovaEdicaoPage() {
                   type="button"
                   onClick={handlePreVisualizar}
                   disabled={gerandoPdf || itensFinais.length === 0}
-                  className="flex-1 h-10 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-sm font-medium hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                  className="flex-1 h-10 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-sm font-medium hover:bg-sky-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {gerandoPdf ? "Gerando..." : "👁 Pré-visualizar PDF"}
+                  {gerandoPdf ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
+                    </>
+                  ) : (
+                    "👁 Pré-visualizar PDF"
+                  )}
                 </button>
                 <button
                   type="button"

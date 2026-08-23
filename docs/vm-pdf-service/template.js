@@ -57,10 +57,22 @@ function formatarDataExtenso(dataISO) {
   return `${dia} de ${meses[(mes || 1) - 1]} de ${ano}`;
 }
 
+// Mesmo formato de nome usado no front (nomeArquivoPdf em shared.ts) —
+// repetido aqui pra virar o <title> do HTML, porque é dele que o Puppeteer
+// tira o metadado /Title do PDF gerado. Sem isso, quando o usuário abre o
+// PDF direto num blob: URL (pré-visualização) e tenta "Salvar como", o
+// navegador não tem Content-Disposition pra ler (blob: descarta headers) e
+// sugere um nome aleatório em vez do nome certo.
+function nomeArquivoPdf(nomeCondominio, tipo, versao) {
+  const tipoLabel = tipo === "mensal" ? "Mensal" : "Semanal";
+  return `${nomeCondominio} - Informativo ${tipoLabel} - v${String(versao || 1).padStart(3, "0")}`;
+}
+
 function montarHtml({ condominio, edicao, itens }) {
   const corPrimaria = condominio.cor_primaria || "#1e3a8a";
   const corSecundaria = condominio.cor_secundaria || "#facc15";
   const tipoLabel = edicao.tipo === "mensal" ? "Mensal" : "Semanal";
+  const nomeArquivo = nomeArquivoPdf(condominio.nome, edicao.tipo, edicao.versao);
   const grupos = agruparPorStatus(itens);
 
   const cardsHtml = (itensGrupo) =>
@@ -101,6 +113,7 @@ function montarHtml({ condominio, edicao, itens }) {
 <html>
 <head>
 <meta charset="utf-8">
+<title>${esc(nomeArquivo)}</title>
 <style>
   * { box-sizing: border-box; }
   body { margin:0; font-family: Arial, Helvetica, sans-serif; color:#1f2937; background:#fff; }
@@ -152,4 +165,4 @@ function montarHtml({ condominio, edicao, itens }) {
 </html>`;
 }
 
-module.exports = { montarHtml };
+module.exports = { montarHtml, nomeArquivoPdf };

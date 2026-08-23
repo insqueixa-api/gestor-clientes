@@ -45,6 +45,20 @@ export type AcaoRow = {
   updated_at: string;
 };
 
+// Mesmo formato de nome do protótipo local (Vidamerica): "{condomínio} -
+// Informativo {Semanal|Mensal} - v{003}.pdf". Espelhado também em
+// docs/vm-pdf-service/template.js (o <title> do HTML vira o /Title do PDF
+// — é dali que o navegador sugere o nome ao salvar uma pré-visualização
+// aberta via blob:, que não carrega Content-Disposition).
+export function nomeArquivoPdf(
+  nomeCondominio: string,
+  tipo: "semanal" | "mensal",
+  versao: number,
+): string {
+  const tipoLabel = tipo === "mensal" ? "Mensal" : "Semanal";
+  return `${nomeCondominio} - Informativo ${tipoLabel} - v${String(versao).padStart(3, "0")}.pdf`;
+}
+
 export const STATUS_ORDEM: StatusAcao[] = [
   "concluido",
   "em_andamento",
