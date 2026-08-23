@@ -4,6 +4,8 @@ Gera o PDF do informativo de condomínio via Puppeteer — roda numa VM (não em
 
 **Esses arquivos aqui são só referência/documentação** — não são buildados por este projeto Next.js. O deploy de verdade é manual, direto na VM.
 
+⚠️ **`package.json` deste serviço fica salvo aqui como `vm-package.json`** (não `package.json`) — de propósito: um `package.json` de verdade dentro do repo fez a Vercel escanear o monorepo e mandar um e-mail "new project available to import" (`vm-pdf-service`, achado em 23/08/2026), como se essa pasta fosse um segundo projeto deployável. Nunca é — é só documentação de algo que roda numa VM, fora da Vercel. Renomear tira o gatilho do scanner sem perder o arquivo. Ao copiar pra VM (abaixo), renomeia de volta pra `package.json`.
+
 ## Onde roda
 
 - VM: `unigestor-whatsapp` (nome antigo, reaproveitada — rodava o WhatsApp antes, migrado pro Hetzner) — Google Cloud, zona `us-central1-f`, IP `34.69.145.29`, `e2-micro` (1GB RAM, 2 vCPU).
@@ -28,8 +30,10 @@ Chamado pelo Next.js via `app/api/admin/condominio/gerar-pdf/route.ts` (env vars
 ## Como fazer deploy de uma atualização
 
 ```bash
-# 1. Editar server.js/template.js aqui no repo, depois copiar pra VM:
-scp -i ~/.ssh/gcp_key docs/vm-pdf-service/*.js docs/vm-pdf-service/Dockerfile docs/vm-pdf-service/package.json marcio@34.69.145.29:~/pdf-service/
+# 1. Editar server.js/template.js aqui no repo, depois copiar pra VM
+#    (repare no rename de vm-package.json pra package.json — ver aviso acima):
+scp -i ~/.ssh/gcp_key docs/vm-pdf-service/*.js docs/vm-pdf-service/Dockerfile marcio@34.69.145.29:~/pdf-service/
+scp -i ~/.ssh/gcp_key docs/vm-pdf-service/vm-package.json marcio@34.69.145.29:~/pdf-service/package.json
 
 # 2. Rebuildar e trocar o container:
 ssh -i ~/.ssh/gcp_key marcio@34.69.145.29 "cd ~/pdf-service && sudo docker build -t unigestor-pdf-service . && sudo docker stop unigestor-pdf && sudo docker rm unigestor-pdf && sudo docker run -d --name unigestor-pdf --restart=always -p 3000:3000 -e PDF_VM_TOKEN='<mesmo token da Vercel>' unigestor-pdf-service"
