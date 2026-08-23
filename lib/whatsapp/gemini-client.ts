@@ -11,24 +11,68 @@
 const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-export async function callGemini(apiKey: string, payload: any, timeoutMs = 55_000): Promise<any> {
+class GeminiHttpError extends Error {
+  status: number;
+  bodyText: string;
+  constructor(status: number, bodyText: string) {
+    super(`Gemini ${status}: ${bodyText.slice(0, 300)}`);
+    this.status = status;
+    this.bodyText = bodyText;
+  }
+}
+
+async function requestGemini(apiKey: string, payload: any, timeoutMs: number): Promise<any> {
   const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  let res: Response;
   try {
-    res = await fetch(url, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => "");
+      throw new GeminiHttpError(res.status, bodyText);
+    }
+    return res.json();
   } finally {
     clearTimeout(timeout);
   }
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    throw new Error(`Gemini ${res.status}: ${err.slice(0, 300)}`);
+}
+
+// 429 = cota do nível gratuito estourada, 503 = "high demand" (sobrecarga
+// momentânea do lado do Google) — os dois são transitórios/de capacidade,
+// não erro de prompt/payload, então valem fallback pra chave paga. Outros
+// status (400 payload inválido, 403 chave errada) não valem — trocar de
+// chave não resolve.
+function isRetryableGeminiError(err: unknown): boolean {
+  if (!(err instanceof GeminiHttpError)) return false;
+  if (err.status === 429 || err.status === 503) return true;
+  return /RESOURCE_EXHAUSTED|UNAVAILABLE/i.test(err.bodyText);
+}
+
+export async function callGemini(apiKey: string, payload: any, timeoutMs = 55_000): Promise<any> {
+  try {
+    return await requestGemini(apiKey, payload, timeoutMs);
+  } catch (err) {
+    // ✅ GEMINI_API_KEY é o nível gratuito (sem faturamento, ver comentário
+    // em .env.local) — tem cota baixa e volta e meia devolve 429/503 sob
+    // demanda alta. GEMINI_API_KEY_PAID (mesmo modelo, projeto com
+    // faturamento habilitado) é usada automaticamente como fallback só
+    // quando o erro é desse tipo, em QUALQUER chamada ao Gemini no projeto
+    // — pedido do Márcio (23/08/2026) depois de bater um 503 gerando treino.
+    const paidKey = String(process.env.GEMINI_API_KEY_PAID || "").trim();
+    if (!paidKey || paidKey === apiKey || !isRetryableGeminiError(err)) {
+      throw err;
+    }
+    try {
+      return await requestGemini(paidKey, payload, timeoutMs);
+    } catch (err2: any) {
+      const status = err2 instanceof GeminiHttpError ? err2.status : "?";
+      const bodyText = err2 instanceof GeminiHttpError ? err2.bodyText : String(err2?.message || err2);
+      throw new Error(`Gemini ${status} (fallback pago também falhou): ${String(bodyText).slice(0, 300)}`);
+    }
   }
-  return res.json();
 }
