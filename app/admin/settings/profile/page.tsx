@@ -168,15 +168,111 @@ type HealthRecord = {
 
 type WorkoutPlanExercise = { exercise_id: string; sets: number; reps: string };
 type WorkoutPlanDay = { label: string; exercises: WorkoutPlanExercise[] };
+type WorkoutPlanStyle = { days: WorkoutPlanDay[] };
 type WorkoutPlan = {
   generated_at: string;
   level: WorkoutDifficulty;
   frequency_days: number;
-  days: WorkoutPlanDay[];
+  tradicional: WorkoutPlanStyle;
+  militar: WorkoutPlanStyle;
 };
 
 function todayIso() {
   return new Date().toISOString().split("T")[0];
+}
+
+function WorkoutStyleSection({
+  title,
+  subtitle,
+  days,
+  activeDay,
+  onActiveDayChange,
+  expanded,
+  onToggleExpanded,
+}: {
+  title: string;
+  subtitle: string;
+  days: WorkoutPlanDay[];
+  activeDay: number;
+  onActiveDayChange: (i: number) => void;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+}) {
+  return (
+    <div className="border border-border rounded-xl overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggleExpanded}
+        className="w-full flex items-center justify-between px-3 py-2.5 bg-muted/40 hover:bg-muted/60 transition-colors"
+      >
+        <div className="text-left">
+          <p className="text-xs font-bold text-foreground">{title}</p>
+          <p className="text-[10px] text-muted-foreground">{subtitle}</p>
+        </div>
+        <ChevronDown
+          className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+        />
+      </button>
+      {expanded && (
+        <div className="p-3 space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            {days.map((day, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onActiveDayChange(i)}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                  activeDay === i
+                    ? "bg-emerald-600 text-white"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {day.label.split("—")[0].trim() || `Treino ${i + 1}`}
+              </button>
+            ))}
+          </div>
+
+          {days[activeDay] && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-foreground/90">{days[activeDay].label}</p>
+              <div className="space-y-2">
+                {days[activeDay].exercises.map((ex, i) => {
+                  const meta = getExerciseById(ex.exercise_id);
+                  if (!meta) return null;
+                  const group = MUSCLE_GROUP_LABELS[meta.muscleGroup];
+                  return (
+                    <div
+                      key={i}
+                      className="border border-border rounded-xl p-3 flex items-start justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground flex-wrap">
+                          <span>{group.emoji}</span>
+                          <span className="truncate">{meta.name}</span>
+                          <span className="text-emerald-500 font-bold text-sm">— {ex.sets}x{ex.reps}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
+                          {meta.instructions}
+                        </p>
+                      </div>
+                      <a
+                        href={exerciseVideoSearchUrl(meta.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 h-8 px-3 rounded-lg border border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/50 text-[10px] font-bold flex items-center gap-1 transition-colors"
+                      >
+                        🎥 Como fazer
+                      </a>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ============================================================================
@@ -225,7 +321,10 @@ export default function ProfileSettingsPage() {
   const [workoutFrequency, setWorkoutFrequency] = useState(3);
   const [generatingWorkout, setGeneratingWorkout] = useState(false);
   const [checkingIn, setCheckingIn] = useState(false);
-  const [activeWorkoutDay, setActiveWorkoutDay] = useState(0);
+  const [activeDayTradicional, setActiveDayTradicional] = useState(0);
+  const [activeDayMilitar, setActiveDayMilitar] = useState(0);
+  const [expandTradicional, setExpandTradicional] = useState(true);
+  const [expandMilitar, setExpandMilitar] = useState(false);
   const [showRegenerateForm, setShowRegenerateForm] = useState(false);
 
   // Estados e Refs para Importações/Exportações
@@ -320,7 +419,11 @@ export default function ProfileSettingsPage() {
           if (profile.health_history) {
             setHealthHistory(profile.health_history);
           }
-          if (profile.workout_plan) {
+          // ✅ formato antigo (antes dos 2 estilos, 23/08/2026) tinha
+          // profile.workout_plan.days direto — se detectar esse formato,
+          // ignora e deixa a tela pedir pra gerar de novo, em vez de tentar
+          // renderizar workoutPlan.tradicional/militar inexistentes.
+          if (profile.workout_plan?.tradicional && profile.workout_plan?.militar) {
             setWorkoutPlan(profile.workout_plan);
             if (profile.workout_plan.level) setWorkoutLevel(profile.workout_plan.level);
             if (profile.workout_plan.frequency_days) setWorkoutFrequency(profile.workout_plan.frequency_days);
@@ -470,9 +573,14 @@ async function handleSave() {
       await upsertProfileWithRetry({ workout_plan: json.plan });
 
       setWorkoutPlan(json.plan);
-      setActiveWorkoutDay(0);
+      setActiveDayTradicional(0);
+      setActiveDayMilitar(0);
       setShowRegenerateForm(false);
-      addToast("success", "Treino gerado!", `${json.plan.days.length} dias de treino montados pra você.`);
+      addToast(
+        "success",
+        "Treino gerado!",
+        `${json.plan.tradicional.days.length} dias tradicional + ${json.plan.militar.days.length} dias militar.`,
+      );
     } catch (e: any) {
       addToast("error", "Erro ao gerar treino", e.message);
     } finally {
@@ -2147,63 +2255,27 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
                   ))}
                 </div>
 
-                {/* Dias do treino */}
-                <div className="flex gap-2 flex-wrap border-b border-border pb-3">
-                  {workoutPlan.days.map((day, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setActiveWorkoutDay(i)}
-                      className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
-                        activeWorkoutDay === i
-                          ? "bg-emerald-600 text-white"
-                          : "bg-muted text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {day.label.split("—")[0].trim() || `Treino ${i + 1}`}
-                    </button>
-                  ))}
+                {/* Os dois estilos, cada um colapsável */}
+                <div className="space-y-3">
+                  <WorkoutStyleSection
+                    title="🏋️ Calistenia Tradicional"
+                    subtitle={`Dividido por grupo muscular · ${workoutPlan.tradicional.days.length} dias`}
+                    days={workoutPlan.tradicional.days}
+                    activeDay={activeDayTradicional}
+                    onActiveDayChange={setActiveDayTradicional}
+                    expanded={expandTradicional}
+                    onToggleExpanded={() => setExpandTradicional((v) => !v)}
+                  />
+                  <WorkoutStyleSection
+                    title="🎖️ Calistenia Militar"
+                    subtitle={`Corpo inteiro, alto volume · ${workoutPlan.militar.days.length} dias`}
+                    days={workoutPlan.militar.days}
+                    activeDay={activeDayMilitar}
+                    onActiveDayChange={setActiveDayMilitar}
+                    expanded={expandMilitar}
+                    onToggleExpanded={() => setExpandMilitar((v) => !v)}
+                  />
                 </div>
-
-                {workoutPlan.days[activeWorkoutDay] && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-foreground/90">
-                      {workoutPlan.days[activeWorkoutDay].label}
-                    </p>
-                    <div className="space-y-2">
-                      {workoutPlan.days[activeWorkoutDay].exercises.map((ex, i) => {
-                        const meta = getExerciseById(ex.exercise_id);
-                        if (!meta) return null;
-                        const group = MUSCLE_GROUP_LABELS[meta.muscleGroup];
-                        return (
-                          <div
-                            key={i}
-                            className="border border-border rounded-xl p-3 flex items-start justify-between gap-3"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground flex-wrap">
-                                <span>{group.emoji}</span>
-                                <span className="truncate">{meta.name}</span>
-                                <span className="text-emerald-500 font-bold text-sm">— {ex.sets}x{ex.reps}</span>
-                              </div>
-                              <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                                {meta.instructions}
-                              </p>
-                            </div>
-                            <a
-                              href={exerciseVideoSearchUrl(meta.name)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 h-8 px-3 rounded-lg border border-border text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/50 text-[10px] font-bold flex items-center gap-1 transition-colors"
-                            >
-                              🎥 Como fazer
-                            </a>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>

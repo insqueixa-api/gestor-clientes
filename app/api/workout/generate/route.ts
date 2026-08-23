@@ -5,6 +5,13 @@
 // automaticamente — e o resultado é salvo por quem chamou em
 // profiles.workout_plan (docs/sql/workout_habit.sql), então a IA só roda
 // uma vez por geração, não a cada visita à página.
+//
+// Gera DOIS estilos por geração, com o mesmo nível/dias por semana
+// (pedido do Márcio, 23/08/2026): "tradicional" (dividido por grupo
+// muscular, como já era) e "militar" (corpo inteiro todo dia, mais
+// volume, inspirado em treinamento físico militar/calistenia
+// prisional). As duas chamadas rodam em paralelo, cada uma com sua
+// própria lógica de retry/fallback (já embutida em callGemini).
 import { NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { callGemini } from "@/lib/whatsapp/gemini-client";
@@ -14,6 +21,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const LEVELS: Difficulty[] = ["iniciante", "intermediário", "avançado"];
+const STYLES = ["tradicional", "militar"] as const;
+type WorkoutStyle = (typeof STYLES)[number];
 
 function cleanJsonText(raw: string): string {
   let t = String(raw || "").trim();
@@ -43,7 +52,20 @@ function validatePlan(raw: any, validIds: Set<string>): Plan | null {
   return { days };
 }
 
-async function requestPlan(apiKey: string, level: Difficulty, frequencyDays: number, attempt: number): Promise<any> {
+function styleInstructions(style: WorkoutStyle, level: Difficulty): string {
+  if (style === "militar") {
+    return `ESTILO: calistenia militar (inspirado em treinamento físico militar e programas de calistenia prisional, tipo "Convict Conditioning") — cada dia trabalha o CORPO INTEIRO (nunca separe por grupo muscular tipo "dia de peito"), com volume alto: 4 a 6 exercícios por dia cobrindo empurrar, puxar, pernas e core no MESMO dia, séries mais numerosas (sets 3 a 6) e repetições altas ou "até a falha" quando fizer sentido pro nível "${level}". Foco em resistência, disciplina e repetição — não em habilidades avançadas tipo parada de mão ou flag.`;
+  }
+  return `ESTILO: calistenia tradicional — alterne grupos musculares entre os dias (ex: empurrar/puxar/pernas, ou peito+tríceps / costas+bíceps / pernas+core), como uma divisão de treino de academia comum, adequado ao nível "${level}".`;
+}
+
+async function requestPlan(
+  apiKey: string,
+  level: Difficulty,
+  frequencyDays: number,
+  style: WorkoutStyle,
+  attempt: number,
+): Promise<any> {
   const catalog = EXERCISES.map((e) => `- id:"${e.id}" | ${e.name} | grupo:${e.muscleGroup} | nível:${e.difficulty}`).join("\n");
 
   const reinforcement =
@@ -53,12 +75,14 @@ async function requestPlan(apiKey: string, level: Difficulty, frequencyDays: num
 
   const prompt = `Você é um personal trainer especialista em calistenia (treino com peso do corpo, 100% em casa, sem academia e sem equipamentos além de uma barra fixa opcional e um banco/cadeira firme).
 
-Monte um plano de treino em casa de ${frequencyDays} dias por semana, nível "${level}", alternando grupos musculares (ex: empurrar/puxar/pernas ou full body), usando SOMENTE exercícios da lista abaixo — nunca invente um exercício fora dela.
+Monte um plano de treino em casa de ${frequencyDays} dias por semana, nível "${level}", usando SOMENTE exercícios da lista abaixo — nunca invente um exercício fora dela.
+
+${styleInstructions(style, level)}
 
 Lista de exercícios disponíveis (use o id exato):
 ${catalog}
 
-Para cada dia escolha de 4 a 6 exercícios adequados ao nível "${level}", definindo séries (sets, 2 a 5) e repetições (reps, texto curto tipo "8-12" ou "30s" pra exercícios isométricos como prancha/cadeira na parede).
+Para cada dia escolha de 4 a 6 exercícios adequados ao nível "${level}" e ao estilo pedido, definindo séries (sets, 2 a 6) e repetições (reps, texto curto tipo "8-12", "até a falha" ou "30s" pra exercícios isométricos como prancha/cadeira na parede).
 
 Responda APENAS com um JSON válido, sem markdown, sem comentários, no formato exato:
 {"days":[{"label":"Treino A — Empurrar (Peito/Ombro/Tríceps)","exercises":[{"exercise_id":"flexao-braco","sets":3,"reps":"8-12"}]}]}${reinforcement}`;
@@ -80,6 +104,60 @@ Responda APENAS com um JSON válido, sem markdown, sem comentários, no formato 
   } catch {
     return null;
   }
+}
+
+type StyleResult = { ok: true; plan: Plan } | { ok: false; error: string; status: number };
+
+async function generateStylePlan(
+  geminiKey: string,
+  level: Difficulty,
+  frequencyDays: number,
+  style: WorkoutStyle,
+  validIds: Set<string>,
+): Promise<StyleResult> {
+  // gemini-flash-latest devolve 503 "high demand" com alguma frequência —
+  // não é erro do prompt, é sobrecarga momentânea do lado do Google (e
+  // callGemini já tenta a chave paga sozinho nesse caso). Esse retry aqui
+  // é a camada de cima: tenta a sequência inteira de novo se mesmo assim
+  // falhar, ou se o JSON vier inválido.
+  const isRetryableError = (msg: string) => /\b(503|429|UNAVAILABLE|overloaded|fetch failed)\b/i.test(msg);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  let plan: Plan | null = null;
+  let lastError: any = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const raw = await requestPlan(geminiKey, level, frequencyDays, style, attempt);
+      plan = validatePlan(raw, validIds);
+      if (plan) break;
+      lastError = null; // JSON inválido — tenta de novo com reforço no prompt, não é erro fatal
+    } catch (e: any) {
+      lastError = e;
+      if (attempt < 3 && isRetryableError(String(e?.message || ""))) {
+        await sleep(900 * attempt);
+        continue;
+      }
+      break;
+    }
+  }
+
+  if (lastError) {
+    const retryable = isRetryableError(String(lastError?.message || ""));
+    return {
+      ok: false,
+      error: retryable
+        ? "O Gemini está sobrecarregado no momento. Tente gerar de novo em alguns segundos."
+        : lastError?.message || "Falha ao gerar treino.",
+      status: retryable ? 503 : 500,
+    };
+  }
+
+  if (!plan) {
+    return { ok: false, error: "A IA não conseguiu montar um treino válido. Tente de novo.", status: 422 };
+  }
+
+  return { ok: true, plan };
 }
 
 export async function POST(req: Request) {
@@ -105,49 +183,13 @@ export async function POST(req: Request) {
 
   const validIds = new Set(EXERCISES.map((e) => e.id));
 
-  // gemini-flash-latest devolve 503 "high demand" com alguma frequência —
-  // não é erro do prompt, é sobrecarga momentânea do lado do Google. Sem
-  // esse retry, uma geração em 3 falhava direto com um 500 confuso pro
-  // usuário mesmo o prompt estando correto (visto em teste manual).
-  const isRetryableError = (msg: string) => /\b(503|429|UNAVAILABLE|overloaded|fetch failed)\b/i.test(msg);
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const [tradicional, militar] = await Promise.all(
+    STYLES.map((style) => generateStylePlan(geminiKey, level, frequencyDays, style, validIds)),
+  );
 
-  let plan: Plan | null = null;
-  let lastError: any = null;
-
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      const raw = await requestPlan(geminiKey, level, frequencyDays, attempt);
-      plan = validatePlan(raw, validIds);
-      if (plan) break;
-      lastError = null; // JSON inválido — tenta de novo com reforço no prompt, não é erro fatal
-    } catch (e: any) {
-      lastError = e;
-      if (attempt < 3 && isRetryableError(String(e?.message || ""))) {
-        await sleep(900 * attempt);
-        continue;
-      }
-      break;
-    }
-  }
-
-  if (lastError) {
-    const retryable = isRetryableError(String(lastError?.message || ""));
-    return NextResponse.json(
-      {
-        error: retryable
-          ? "O Gemini está sobrecarregado no momento. Tente gerar de novo em alguns segundos."
-          : lastError?.message || "Falha ao gerar treino.",
-      },
-      { status: retryable ? 503 : 500 },
-    );
-  }
-
-  if (!plan) {
-    return NextResponse.json(
-      { error: "A IA não conseguiu montar um treino válido. Tente de novo." },
-      { status: 422 },
-    );
+  const failed = [tradicional, militar].find((r) => !r.ok) as { ok: false; error: string; status: number } | undefined;
+  if (failed) {
+    return NextResponse.json({ error: failed.error }, { status: failed.status });
   }
 
   return NextResponse.json({
@@ -156,7 +198,8 @@ export async function POST(req: Request) {
       generated_at: new Date().toISOString(),
       level,
       frequency_days: frequencyDays,
-      days: plan.days,
+      tradicional: { days: (tradicional as { ok: true; plan: Plan }).plan.days },
+      militar: { days: (militar as { ok: true; plan: Plan }).plan.days },
     },
   });
 }
