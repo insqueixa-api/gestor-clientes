@@ -1123,12 +1123,22 @@ function DropdownPortal({
   return (
     <div
       ref={panelRef}
-      className="fixed z-[9999] animate-in fade-in zoom-in-95 duration-200"
-      style={{ top, right }}
+      // ✅ Sem isso, um painel com mais itens que cabem na tela (ex: o menu
+      // mobile, que junta navegação + Gerenciador + Conta num único
+      // dropdown) simplesmente estourava pra baixo da viewport — como o
+      // painel é fixed, rolar a página não adianta (ele não acompanha o
+      // scroll), então os itens do fim ficavam inacessíveis.
+      // maxHeight + overflow-y-auto TÊM que estar no mesmo elemento: uma
+      // 1ª tentativa botou o maxHeight num wrapper e "max-h-full +
+      // overflow-y-auto" num filho — não funciona, porque max-height (ao
+      // contrário de height) não dá altura DEFINIDA pro wrapper, então a
+      // porcentagem "100%" do filho não resolve pra nada e ele cresce livre
+      // (confirmado com teste isolado antes de fechar esse fix).
+      // dvh (não vh) acompanha a barra de endereço do navegador no mobile.
+      className="fixed z-[9999] w-64 rounded-xl border border-border bg-card shadow-2xl overflow-y-auto overscroll-contain custom-scrollbar p-1.5 transition-colors animate-in fade-in zoom-in-95 duration-200"
+      style={{ top, right, maxHeight: `calc(100dvh - ${top}px - 16px)` }}
     >
-      <div className="w-64 rounded-xl border border-border bg-card shadow-2xl overflow-hidden p-1.5 transition-colors">
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
