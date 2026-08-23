@@ -38,6 +38,8 @@ import {
   RotateCcw,
   X,
   Tag,
+  Building2,
+  ChevronDown,
 } from "lucide-react";
 
 const PAGE_NAMES: Record<string, string> = {
@@ -57,6 +59,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/admin/settings/profile": "Perfil",
   "/admin/settings/whatsapp": "WhatsApp",
   "/admin/settings/financeiro_pessoal": "Controle Financeiro",
+  "/admin/settings/condominio": "Condomínio",
   "/admin/settings/cupons": "Cupons",
   "/admin/settings/api-server": "API de Integrações",
 };
@@ -220,6 +223,11 @@ export default function AdminShell({
     top: number;
     right: number;
   } | null>(null);
+  // ✅ Só colapsa/expande o CONTEÚDO de cada seção do menu mobile — o menu
+  // continua abrindo todo aberto por padrão (pedido do Márcio), essas
+  // setinhas são só pra quem quer recolher uma seção fora do caminho.
+  const [mobileGerenciadorOpen, setMobileGerenciadorOpen] = useState(true);
+  const [mobileContaOpen, setMobileContaOpen] = useState(true);
 
   const pathname = usePathname();
 
@@ -691,6 +699,25 @@ export default function AdminShell({
               }
               onClick={() => setOpenMenu(null)}
             />
+            <Divider />
+            <MenuLink
+              href="/admin/settings/cupons"
+              label={
+                <span className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-amber-400" /> Cupons
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
+            <MenuLink
+              href="/admin/settings/api-server"
+              label={
+                <span className="flex items-center gap-2">
+                  <Code className="w-4 h-4 text-sky-400" /> API de Integrações
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
           </DropdownPortal>,
           document.body,
         )}
@@ -748,135 +775,161 @@ export default function AdminShell({
             />
             <Divider />
 
-            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-              Gerenciador
-            </div>
-            <MenuLink
-              href="/admin/gerenciador/guia-tv"
-              label={
-                <span className="flex items-center gap-2">
-                  <Tv className="w-4 h-4 text-rose-400" /> Guia TV
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
+            <MobileSectionHeader
+              label="Gerenciador"
+              open={mobileGerenciadorOpen}
+              onToggle={() => setMobileGerenciadorOpen((v) => !v)}
             />
-            <MenuLink
-              href="/admin/gerenciador/servidor"
-              label={
-                <span className="flex items-center gap-2">
-                  <Server className="w-4 h-4 text-sky-400" /> Servidores
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/gerenciador/plano"
-              label={
-                <span className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-emerald-400" /> Planos
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/gerenciador/mensagem"
-              label={
-                <span className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-green-400" /> Mensagens
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/gerenciador/cobranca"
-              label={
-                <span className="flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-amber-400" /> Automação de
-                  Cobrança
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/gerenciador/pagamento"
-              label={
-                <span className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-violet-400" /> Formas de
-                  pagamento
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/gerenciador/aplicativo"
-              label={
-                <span className="flex items-center gap-2">
-                  <Smartphone className="w-4 h-4 text-pink-400" /> Aplicativos
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
+            {mobileGerenciadorOpen && (
+              <>
+                <MenuLink
+                  href="/admin/gerenciador/guia-tv"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Tv className="w-4 h-4 text-rose-400" /> Guia TV
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/gerenciador/servidor"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Server className="w-4 h-4 text-sky-400" /> Servidores
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/gerenciador/plano"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-emerald-400" /> Planos
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/gerenciador/mensagem"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-green-400" />{" "}
+                      Mensagens
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/gerenciador/cobranca"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Receipt className="w-4 h-4 text-amber-400" /> Automação
+                      de Cobrança
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/gerenciador/pagamento"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <CreditCard className="w-4 h-4 text-violet-400" /> Formas
+                      de pagamento
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/gerenciador/aplicativo"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-pink-400" />{" "}
+                      Aplicativos
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/settings/cupons"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-amber-400" /> Cupons
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/settings/api-server"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Code className="w-4 h-4 text-sky-400" /> API de
+                      Integrações
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+              </>
+            )}
             <Divider />
 
-            <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-              Conta
-            </div>
-            <MenuLink
-              href="/admin/settings/profile"
-              label={
-                <span className="flex items-center gap-2">
-                  <User className="w-4 h-4 text-pink-400" /> Perfil
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
+            <MobileSectionHeader
+              label="Conta"
+              open={mobileContaOpen}
+              onToggle={() => setMobileContaOpen((v) => !v)}
             />
-            <MenuLink
-              href="/admin/settings/whatsapp"
-              label={
-                <span className="flex items-center gap-2">
-                  <WhatsAppIcon className="w-4 h-4 text-emerald-400" /> WhatsApp
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/agenda"
-              label={
-                <span className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-indigo-400" /> Agenda
-                  Telefônica
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/settings/financeiro_pessoal"
-              label={
-                <span className="flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-emerald-400" /> Controle
-                  Financeiro
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/settings/cupons"
-              label={
-                <span className="flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-amber-400" /> Cupons
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
-              href="/admin/settings/api-server"
-              label={
-                <span className="flex items-center gap-2">
-                  <Code className="w-4 h-4 text-sky-400" /> API de Integrações
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
+            {mobileContaOpen && (
+              <>
+                <MenuLink
+                  href="/admin/settings/profile"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-pink-400" /> Perfil
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/settings/whatsapp"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <WhatsAppIcon className="w-4 h-4 text-emerald-400" />{" "}
+                      WhatsApp
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/agenda"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-indigo-400" /> Agenda
+                      Telefônica
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/settings/financeiro_pessoal"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-emerald-400" /> Controle
+                      Financeiro
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/settings/condominio"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-slate-400" />{" "}
+                      Condomínio
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+              </>
+            )}
             <Divider />
             <LogoutLink onLogout={() => setOpenMenu(null)} />
           </DropdownPortal>,
@@ -932,20 +985,10 @@ export default function AdminShell({
               onClick={() => setOpenMenu(null)}
             />
             <MenuLink
-              href="/admin/settings/cupons"
+              href="/admin/settings/condominio"
               label={
                 <span className="flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-amber-400" /> Cupons
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-
-            <MenuLink
-              href="/admin/settings/api-server"
-              label={
-                <span className="flex items-center gap-2">
-                  <Code className="w-4 h-4 text-sky-400" /> API de Integrações
+                  <Building2 className="w-4 h-4 text-slate-400" /> Condomínio
                 </span>
               }
               onClick={() => setOpenMenu(null)}
@@ -1223,6 +1266,33 @@ function MenuLink({
 
 function Divider() {
   return <div className="my-1.5 h-px bg-border mx-2" />;
+}
+
+// ✅ Cabeçalho de seção do menu mobile (Gerenciador/Conta) com setinha pra
+// recolher só o conteúdo daquela seção — o menu continua abrindo todo
+// expandido por padrão, isso é só um atalho pra quem quer recolher uma
+// seção que não usa naquele momento.
+function MobileSectionHeader({
+  label,
+  open,
+  onToggle,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="w-full flex items-center justify-between px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {label}
+      <ChevronDown
+        className={`w-3.5 h-3.5 transition-transform duration-200 ${open ? "" : "-rotate-90"}`}
+      />
+    </button>
+  );
 }
 
 function WhatsAppIcon({ className }: { className?: string }) {
