@@ -26,6 +26,7 @@ type LancamentoHistorico = {
   valor: number;
   data_pagamento: string | null;
   descricao: string;
+  observacoes: string | null;
 };
 
 const fmtBRL = (v: number) =>
@@ -113,7 +114,7 @@ export default function ModalEmprestimos({
     try {
       const { data, error } = await supabaseBrowser
         .from("fin_transacoes")
-        .select("id, tipo, valor, data_pagamento, descricao")
+        .select("id, tipo, valor, data_pagamento, descricao, observacoes")
         .eq("tenant_id", tenantId)
         .eq("emprestimo_id", emprestimoId)
         .order("data_pagamento", { ascending: false });
@@ -296,6 +297,11 @@ export default function ModalEmprestimos({
                             )
                           : "—"}
                       </div>
+                      {h.observacoes && (
+                        <div className="text-[11px] text-muted-foreground/80 italic truncate mt-0.5">
+                          {h.observacoes}
+                        </div>
+                      )}
                     </div>
                     <span
                       className={`text-sm font-medium shrink-0 ml-3 ${h.tipo === "DESPESA" ? "text-rose-500" : "text-emerald-500"}`}
