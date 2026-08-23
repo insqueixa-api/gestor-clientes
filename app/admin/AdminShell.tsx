@@ -652,6 +652,26 @@ export default function AdminShell({
               onClick={() => setOpenMenu(null)}
             />
             <MenuLink
+              href="/admin/gerenciador/mensagem"
+              label={
+                <span className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-green-400" /> Mensagens
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
+            <MenuLink
+              href="/admin/gerenciador/cobranca"
+              label={
+                <span className="flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-amber-400" /> Automação de
+                  Cobrança
+                </span>
+              }
+              onClick={() => setOpenMenu(null)}
+            />
+            <Divider />
+            <MenuLink
               href="/admin/gerenciador/plano"
               label={
                 <span className="flex items-center gap-2">
@@ -661,21 +681,10 @@ export default function AdminShell({
               onClick={() => setOpenMenu(null)}
             />
             <MenuLink
-              href="/admin/gerenciador/mensagem"
+              href="/admin/settings/cupons"
               label={
                 <span className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-green-400" /> Mensagens
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <Divider />
-            <MenuLink
-              href="/admin/gerenciador/cobranca"
-              label={
-                <span className="flex items-center gap-2">
-                  <Receipt className="w-4 h-4 text-amber-400" /> Automação de
-                  Cobrança
+                  <Tag className="w-4 h-4 text-amber-400" /> Cupons
                 </span>
               }
               onClick={() => setOpenMenu(null)}
@@ -690,21 +699,12 @@ export default function AdminShell({
               }
               onClick={() => setOpenMenu(null)}
             />
+            <Divider />
             <MenuLink
               href="/admin/gerenciador/aplicativo"
               label={
                 <span className="flex items-center gap-2">
                   <Smartphone className="w-4 h-4 text-pink-400" /> Aplicativos
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <Divider />
-            <MenuLink
-              href="/admin/settings/cupons"
-              label={
-                <span className="flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-amber-400" /> Cupons
                 </span>
               }
               onClick={() => setOpenMenu(null)}
@@ -801,15 +801,6 @@ export default function AdminShell({
                   onClick={() => setOpenMenu(null)}
                 />
                 <MenuLink
-                  href="/admin/gerenciador/plano"
-                  label={
-                    <span className="flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-emerald-400" /> Planos
-                    </span>
-                  }
-                  onClick={() => setOpenMenu(null)}
-                />
-                <MenuLink
                   href="/admin/gerenciador/mensagem"
                   label={
                     <span className="flex items-center gap-2">
@@ -829,6 +820,25 @@ export default function AdminShell({
                   }
                   onClick={() => setOpenMenu(null)}
                 />
+                <Divider />
+                <MenuLink
+                  href="/admin/gerenciador/plano"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-emerald-400" /> Planos
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
+                <MenuLink
+                  href="/admin/settings/cupons"
+                  label={
+                    <span className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-amber-400" /> Cupons
+                    </span>
+                  }
+                  onClick={() => setOpenMenu(null)}
+                />
                 <MenuLink
                   href="/admin/gerenciador/pagamento"
                   label={
@@ -839,21 +849,13 @@ export default function AdminShell({
                   }
                   onClick={() => setOpenMenu(null)}
                 />
+                <Divider />
                 <MenuLink
                   href="/admin/gerenciador/aplicativo"
                   label={
                     <span className="flex items-center gap-2">
                       <Smartphone className="w-4 h-4 text-pink-400" />{" "}
                       Aplicativos
-                    </span>
-                  }
-                  onClick={() => setOpenMenu(null)}
-                />
-                <MenuLink
-                  href="/admin/settings/cupons"
-                  label={
-                    <span className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-amber-400" /> Cupons
                     </span>
                   }
                   onClick={() => setOpenMenu(null)}
