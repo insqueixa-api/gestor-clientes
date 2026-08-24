@@ -6,6 +6,7 @@ import { getIntegrationHandler } from "@/lib/integrations";
 import { CHECK_VALIDITY_HANDLERS, buildM3uUrlFromDns, buildM3uUrlSecondary, natvMirrorBaseUrl } from "@/lib/apps/panel";
 import { buildPortalVariableFields } from "@/lib/apps/portal-variable-rules";
 import { renderTemplate, pickRandomDns } from "@/lib/whatsapp/template-vars";
+import { convertAmount } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 
@@ -155,44 +156,60 @@ export async function POST(req: NextRequest) {
     const hasAnyInstructions = (rows || []).some(
       (r: any) => r.apps?.portal_setup_instructions || (Array.isArray(r.apps?.portal_variable_fields) && r.apps.portal_variable_fields.length > 0),
     );
+    // ✅ Renovação antecipada embutida no pagamento do plano (achado
+    // 24/08/2026) — precisa saber a moeda da conta pra converter
+    // license_price (sempre cadastrado em BRL) e mostrar o mesmo valor que
+    // vai ser cobrado, tanto aqui (botão avulso) quanto no alerta novo da
+    // tela de pagamento. Só busca o cliente se algum app realmente tem
+    // license_price configurado — mesma lógica de "só busca se precisa" já
+    // usada pra hasAnyInstructions logo abaixo, e reaproveita a MESMA
+    // consulta a `clients` quando os dois motivos coincidem.
+    const hasAnyPaidLicense = (rows || []).some(
+      (r: any) => r.apps?.cost_type === "paid" && Number(r.apps?.license_price) > 0,
+    );
     let instructionVars: Record<string, string> | null = null;
-    if (hasAnyInstructions) {
+    let clientCurrency = "BRL";
+    if (hasAnyInstructions || hasAnyPaidLicense) {
       const { data: client } = await supabaseAdmin
         .from("clients")
-        .select("server_username, server_password, server_id, m3u_url")
+        .select("server_username, server_password, server_id, m3u_url, price_currency")
         .eq("id", client_id)
         .maybeSingle();
-      const { data: server } = client?.server_id
-        ? await supabaseAdmin.from("servers").select("name, dns").eq("id", client.server_id).maybeSingle()
-        : { data: null };
-      const dns = pickRandomDns(Array.isArray(server?.dns) ? server.dns : []);
-      const username = client?.server_username || "";
-      const password = client?.server_password || "";
-      const m3uUrl =
-        String(client?.m3u_url || "").trim() ||
-        (dns ? buildM3uUrlFromDns([dns], username, password) : "");
+      clientCurrency = String(client?.price_currency || "BRL").trim() || "BRL";
 
-      // ✅ "Rota 2" (31/07/2026, pedido do Márcio) — mesmo mirror que o
-      // Reconfigurar > Secundária já usa (buildM3uUrlSecondary): só existe
-      // de verdade pro NaTV (sem "s" do https + prefixo "r2."), então pra
-      // qualquer outro servidor isso fica vazio de propósito (o badge some
-      // sozinho — buildVariableFields já filtra campo sem valor). Reaproveita
-      // a MESMA dns já sorteada acima (não sorteia outra), pra "DNS Rota 2" e
-      // "Link M3U Rota 2" sempre baterem com o mesmo host.
-      const isNaTv = String(server?.name || "").trim().toUpperCase() === "NATV";
-      const dnsR2 = isNaTv && dns ? natvMirrorBaseUrl(dns) : "";
-      const m3uUrlR2 = isNaTv && dns ? buildM3uUrlSecondary([dns], username, password, server?.name) : "";
-      const dnsForPortal = dnsR2 && Math.random() < 0.5 ? dnsR2 : dns;
+      if (hasAnyInstructions) {
+        const { data: server } = client?.server_id
+          ? await supabaseAdmin.from("servers").select("name, dns").eq("id", client.server_id).maybeSingle()
+          : { data: null };
+        const dns = pickRandomDns(Array.isArray(server?.dns) ? server.dns : []);
+        const username = client?.server_username || "";
+        const password = client?.server_password || "";
+        const m3uUrl =
+          String(client?.m3u_url || "").trim() ||
+          (dns ? buildM3uUrlFromDns([dns], username, password) : "");
 
-      instructionVars = {
-        name: String(server?.name || "").trim(),
-        usuario_app: username,
-        senha_app: password,
-        dns_servidor: dnsForPortal,
-        m3u_url: m3uUrl,
-        dns_servidor_r2: dnsR2,
-        m3u_url_r2: m3uUrlR2,
-      };
+        // ✅ "Rota 2" (31/07/2026, pedido do Márcio) — mesmo mirror que o
+        // Reconfigurar > Secundária já usa (buildM3uUrlSecondary): só existe
+        // de verdade pro NaTV (sem "s" do https + prefixo "r2."), então pra
+        // qualquer outro servidor isso fica vazio de propósito (o badge some
+        // sozinho — buildVariableFields já filtra campo sem valor). Reaproveita
+        // a MESMA dns já sorteada acima (não sorteia outra), pra "DNS Rota 2" e
+        // "Link M3U Rota 2" sempre baterem com o mesmo host.
+        const isNaTv = String(server?.name || "").trim().toUpperCase() === "NATV";
+        const dnsR2 = isNaTv && dns ? natvMirrorBaseUrl(dns) : "";
+        const m3uUrlR2 = isNaTv && dns ? buildM3uUrlSecondary([dns], username, password, server?.name) : "";
+        const dnsForPortal = dnsR2 && Math.random() < 0.5 ? dnsR2 : dns;
+
+        instructionVars = {
+          name: String(server?.name || "").trim(),
+          usuario_app: username,
+          senha_app: password,
+          dns_servidor: dnsForPortal,
+          m3u_url: m3uUrl,
+          dns_servidor_r2: dnsR2,
+          m3u_url_r2: m3uUrlR2,
+        };
+      }
     }
 
     // ✅ Badges copiáveis (31/07/2026, pedido do Márcio) — DESACOPLADO do
@@ -203,7 +220,7 @@ export async function POST(req: NextRequest) {
     // apps.portal_variable_fields é uma lista explícita, escolhida pelo
     // admin (Gerenciador > Aplicativo), independente do que o texto livre
     // menciona ou não.
-    const apps = (rows || []).map((row: any) => {
+    const apps = await Promise.all((rows || []).map(async (row: any) => {
       const vals = row.field_values || {};
       const config = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
       const integrationType = row.apps?.integration_type || null;
@@ -241,6 +258,24 @@ export async function POST(req: NextRequest) {
       // do suporte pra ativar a licença manualmente.
       const requiresAdminSetup = !hasIntegration && row.apps?.cost_type === "paid";
 
+      // ✅ license_price é sempre cadastrado em BRL — license_price_display
+      // é o mesmo valor convertido pra moeda da conta (clientCurrency),
+      // arredondado pra cima (convertAmount já faz isso, ver lib/fx.ts).
+      // Pra contas BRL, é o mesmo número, sem conversão nenhuma. Usado tanto
+      // pelo botão "Pagar licença" avulso quanto pelo alerta de renovação
+      // embutida (RenewClient.tsx) — os dois têm que sempre mostrar o mesmo
+      // valor que de fato vai ser cobrado.
+      const licensePriceBRL =
+        row.apps?.cost_type === "paid" && Number(row.apps?.license_price) > 0
+          ? Number(row.apps.license_price)
+          : null;
+      const licensePriceDisplay =
+        licensePriceBRL == null
+          ? null
+          : clientCurrency === "BRL"
+            ? licensePriceBRL
+            : await convertAmount(supabaseAdmin, ctx.tenant_id, licensePriceBRL, "BRL", clientCurrency);
+
       return {
         id: row.id,
         app_id: row.app_id,
@@ -268,10 +303,9 @@ export async function POST(req: NextRequest) {
           row.apps?.portal_variable_fields,
           { codigo: row.apps?.access_code || "", ...(instructionVars || {}) },
         ),
-        license_price:
-          row.apps?.cost_type === "paid" && Number(row.apps?.license_price) > 0
-            ? Number(row.apps.license_price)
-            : null,
+        license_price: licensePriceBRL,
+        license_price_display: licensePriceDisplay,
+        license_price_display_currency: licensePriceBRL == null ? null : clientCurrency,
         license_period: row.apps?.license_period || null,
         is_active: row.apps?.is_active !== false,
         discontinued_replacement_name: row.apps?.discontinued_replacement_name || null,
@@ -284,7 +318,7 @@ export async function POST(req: NextRequest) {
         // Pedido do Márcio, 28/07/2026.
         is_gerenciaapp_family: integrationType === "GERENCIAAPP",
       };
-    });
+    }));
 
     return NextResponse.json(
       { ok: true, data: apps },

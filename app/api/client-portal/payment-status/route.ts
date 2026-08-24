@@ -62,7 +62,7 @@ async function fetchPayment(supabaseAdmin: any, tenantId: string, paymentId: str
     .from("client_portal_payments")
     .select(
       // ✅ CORREÇÃO: Adicionado fulfillment_started_at
-      "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,plan_price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error,fulfillment_started_at,settled_alert_ids,coupon_id,coupon_discount_amount,payment_type"
+      "id,tenant_id,client_id,mp_payment_id,status,period,plan_label,price_amount,plan_price_amount,price_currency,new_vencimento,fulfillment_status,fulfillment_error,fulfillment_started_at,settled_alert_ids,coupon_id,coupon_discount_amount,payment_type,bundled_app_renewals,gateway_type,payment_method"
     )
     .eq("tenant_id", tenantId)
     .eq("mp_payment_id", String(paymentId))

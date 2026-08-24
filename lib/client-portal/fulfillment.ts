@@ -427,6 +427,80 @@ export async function runFulfillment(params: FulfillmentParams) {
     }
   }
 
+  // ============================================================
+  // Renovação de app embutida no pagamento combinado (achado 24/08/2026,
+  // bundled_app_renewals — congelado em create-payment, NUNCA recalculado
+  // aqui). Mesmo raciocínio do bloco de pendência/cupom acima: o dinheiro já
+  // foi cobrado numa ÚNICA transação (mp/stripe) aprovada, então a
+  // contabilização em 2 linhas precisa acontecer independente do resto do
+  // fulfillment (renovação no painel IPTV) ter sucesso, cair pra manual, ou
+  // lançar exceção mais abaixo.
+  //
+  // Idempotência: upsert com onConflict "parent_payment_id,client_app_id"
+  // (ver docs/sql/client_portal_payments_bundled_app_renewal.sql) em vez de
+  // insert simples — se runFulfillment for chamado de novo pro MESMO
+  // payment.id (ex: botão "Reprocessar" da Auditoria depois de o servidor
+  // IPTV ter falhado), a linha filha já existente é reaproveitada em vez de
+  // duplicada. markAppRenewalPaid já é idempotente por conta própria (RPC
+  // condicional), então chamar de novo pra uma filha já processada é seguro.
+  // ============================================================
+  const bundledAppRenewals: Array<{
+    client_app_id: string;
+    app_name: string;
+    price_amount: number;
+    price_currency: string;
+  }> = Array.isArray((payment as any).bundled_app_renewals) ? (payment as any).bundled_app_renewals : [];
+
+  for (const item of bundledAppRenewals) {
+    const clientAppId = String(item?.client_app_id || "").trim();
+    const priceAmount = Number(item?.price_amount);
+    if (!clientAppId || !Number.isFinite(priceAmount) || priceAmount <= 0) {
+      prodLog("fulfillment.bundled_app_renewal_skipped_invalid_item", {
+        payment_id: String(payment.id).slice(-6),
+        item,
+      });
+      continue;
+    }
+
+    const { data: childRow, error: childErr } = await supabaseAdmin
+      .from("client_portal_payments")
+      .upsert(
+        {
+          tenant_id: tenantId,
+          client_id: payment.client_id,
+          gateway_type: (payment as any).gateway_type || "mercadopago",
+          payment_method: (payment as any).payment_method || "online",
+          mp_payment_id: null,
+          price_amount: priceAmount,
+          price_currency: String(item.price_currency || "BRL"),
+          status: "approved",
+          payment_type: "app_renewal",
+          client_app_id: clientAppId,
+          app_name_snapshot: String(item.app_name || "Aplicativo"),
+          parent_payment_id: payment.id,
+        },
+        { onConflict: "parent_payment_id,client_app_id" },
+      )
+      .select("id")
+      .single();
+
+    if (childErr || !childRow) {
+      prodLog("fulfillment.bundled_app_renewal_insert_failed", {
+        payment_id: String(payment.id).slice(-6),
+        client_app_id: clientAppId.slice(-6),
+        message: childErr?.message,
+      });
+      Sentry.captureMessage("fulfillment: bundled app renewal child insert failed", {
+        level: "warning",
+        tags: { kind: "client_portal_error", where: "bundled_app_renewal_insert" },
+        extra: { payment_id: payment.id, client_app_id: clientAppId, message: childErr?.message },
+      });
+      continue; // não trava o fulfillment do plano por causa disso
+    }
+
+    await markAppRenewalPaid(supabaseAdmin, tenantId, childRow.id, origin);
+  }
+
   const login = String((client as any).server_username || "").trim();
   if (!client.server_id || !login) {
     throw new Error("Cliente sem server_id/server_username para renovação.");

@@ -7,13 +7,25 @@
 // validados — só marca payment_type='app_renewal' pra eles NUNCA rodarem
 // o fulfillment de assinatura (nunca mexe em clients.vencimento).
 //
-// Preço vem de apps.license_price (BRL sempre — mesmo padrão de cupons e
-// preços do bot, sem conversão de moeda). Nunca confia em preço vindo do
-// front — sempre lê de novo do catálogo aqui.
+// Preço vem de apps.license_price (sempre cadastrado em BRL). Nunca confia
+// em preço vindo do front — sempre lê de novo do catálogo aqui.
+//
+// ✅ Moeda da conta (achado 24/08/2026, pedido do Márcio): clientes fora do
+// Brasil pagam na moeda deles (USD/EUR), não em BRL. license_price é
+// convertido via convertAmount() (lib/fx.ts — já arredonda pra cima em
+// qualquer conversão cruzada) e o gateway é escolhido pela moeda de destino
+// (mesmo padrão de payment_gateways.currency+priority já usado em
+// create-payment/route.ts) — pra BRL continua caindo no Mercado Pago
+// exatamente como sempre foi; pra USD/EUR cai no Stripe. A criação do
+// PaymentIntent do Stripe é implementação própria desta rota (não
+// compartilhada com create-payment de propósito — mesmo estilo de
+// "duplicado sob controle" que os webhooks já usam, pra não arriscar mexer
+// na rota principal que já está em produção).
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
+import { convertAmount } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 
@@ -72,15 +84,19 @@ export async function POST(req: NextRequest) {
 
     const { data: client } = await supabaseAdmin
       .from("clients")
-      .select("display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username")
+      .select("display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, price_currency")
       .eq("id", client_id)
       .single();
     const isSecondary = client?.secondary_whatsapp_username === ctx.whatsapp_username;
     const displayName = isSecondary ? (client?.secondary_display_name || "Cliente") : (client?.display_name || "Cliente");
 
-    // Licenças de app são sempre cobradas em BRL (mesmo padrão de cupons —
-    // sem conversão de câmbio numa área onde o valor já é "estimado").
-    const currency = "BRL";
+    const currency = String(client?.price_currency || "BRL").trim() || "BRL";
+    // ✅ Pra BRL é o mesmo número, sem conversão (mantém centavos exatos,
+    // igual sempre foi). Pra USD/EUR, convertAmount já arredonda pra cima.
+    const chargeAmount =
+      currency === "BRL"
+        ? licensePrice
+        : await convertAmount(supabaseAdmin, ctx.tenant_id, licensePrice, "BRL", currency);
 
     const { data: gateways, error: gwErr } = await supabaseAdmin
       .from("payment_gateways")
@@ -88,7 +104,6 @@ export async function POST(req: NextRequest) {
       .eq("tenant_id", ctx.tenant_id)
       .eq("is_active", true)
       .eq("is_online", true)
-      .eq("type", "mercadopago")
       .contains("currency", [currency])
       .order("priority", { ascending: true })
       .limit(1);
@@ -98,6 +113,89 @@ export async function POST(req: NextRequest) {
     }
 
     const gateway = gateways[0];
+
+    // ======================
+    // STRIPE (cliente USD/EUR)
+    // ======================
+    if (gateway.type === "stripe") {
+      const secretKey = String(gateway?.config?.secret_key || "").trim();
+      const publishableKey = String(gateway?.config?.publishable_key || "").trim();
+      if (!secretKey || !publishableKey) return jsonError("Erro interno", 500);
+
+      const stripeParams = new URLSearchParams();
+      stripeParams.append("amount", String(Math.round(chargeAmount * 100)));
+      stripeParams.append("currency", currency.toLowerCase());
+      stripeParams.append("payment_method_types[]", "card");
+      stripeParams.append("description", `Renovação de licença — ${appName}`);
+      stripeParams.append("metadata[client_id]", client_id);
+      stripeParams.append("metadata[tenant_id]", String(ctx.tenant_id));
+      stripeParams.append("metadata[client_app_id]", client_app_id);
+      stripeParams.append("metadata[payment_type]", "app_renewal");
+      stripeParams.append("metadata[gateway_id]", String(gateway.id));
+
+      const stripeRes = await fetch("https://api.stripe.com/v1/payment_intents", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${secretKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: stripeParams,
+      });
+      const stripeData = await stripeRes.json().catch(() => ({} as any));
+
+      if (!stripeRes.ok || !stripeData?.id || !stripeData?.client_secret) {
+        console.error("[apps/renew-payment] stripe error", stripeRes.status, stripeData?.error?.message);
+        return jsonError("Falha ao criar pagamento no gateway", 502);
+      }
+
+      const { data: inserted, error: insErr } = await supabaseAdmin
+        .from("client_portal_payments")
+        .upsert(
+          {
+            tenant_id: ctx.tenant_id,
+            client_id,
+            gateway_type: gateway.type,
+            payment_method: "online",
+            mp_payment_id: String(stripeData.id),
+            price_amount: chargeAmount,
+            price_currency: currency,
+            status: "pending",
+            payment_type: "app_renewal",
+            client_app_id,
+            app_name_snapshot: appName,
+          },
+          { onConflict: "tenant_id,gateway_type,mp_payment_id" },
+        )
+        .select("id, mp_payment_id")
+        .single();
+
+      if (insErr || !inserted) {
+        console.error("[apps/renew-payment] upsert error", insErr?.message);
+        return jsonError("Erro interno", 500);
+      }
+
+      return NextResponse.json(
+        {
+          ok: true,
+          payment_method: "stripe",
+          gateway_name: gateway.name,
+          payment_id: String(stripeData.id),
+          internal_payment_id: inserted.id,
+          client_secret: stripeData.client_secret,
+          publishable_key: publishableKey,
+          price_amount: chargeAmount,
+          currency,
+          beneficiary_name: String(gateway?.config?.beneficiary_name || "").trim() || null,
+          institution: String(gateway?.config?.institution || "").trim() || "Stripe",
+        },
+        { status: 200, headers: NO_STORE_HEADERS },
+      );
+    }
+
+    if (gateway.type !== "mercadopago") {
+      return jsonError("Nenhum método de pagamento disponível pra licença de app no momento.", 503);
+    }
+
     const mpToken = String(gateway?.config?.access_token || "").trim();
     if (!mpToken) return jsonError("Erro interno", 500);
 
@@ -163,7 +261,7 @@ export async function POST(req: NextRequest) {
     if (!appUrl) return jsonError("Erro interno", 500);
     const webhookUrl = `${appUrl}/api/webhooks/mercadopago`;
 
-    const stableAmount = licensePrice.toFixed(2);
+    const stableAmount = chargeAmount.toFixed(2);
     const bucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
     const idempotencyKey = `apprenew-${ctx.tenant_id}-${client_app_id}-${stableAmount}-${bucket10m}`;
     const internalPaymentId = randomUUID();
@@ -176,7 +274,7 @@ export async function POST(req: NextRequest) {
         "X-Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
-        transaction_amount: licensePrice,
+        transaction_amount: chargeAmount,
         description: `Renovação de licença — ${appName}`,
         payment_method_id: "pix",
         statement_descriptor: "UNIGESTOR",
@@ -195,7 +293,7 @@ export async function POST(req: NextRequest) {
               title: `Licença — ${appName}`,
               description: `Renovação de licença do aplicativo ${appName}, cliente ${displayName}`,
               quantity: 1,
-              unit_price: licensePrice,
+              unit_price: chargeAmount,
             },
           ],
         },
@@ -227,7 +325,7 @@ export async function POST(req: NextRequest) {
           gateway_type: gateway.type,
           payment_method: "online",
           mp_payment_id: String(mpData.id),
-          price_amount: licensePrice,
+          price_amount: chargeAmount,
           price_currency: currency,
           status: "pending",
           payment_type: "app_renewal",
@@ -249,7 +347,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         payment_id: String(mpData.id),
         internal_payment_id: inserted.id,
-        price_amount: licensePrice,
+        price_amount: chargeAmount,
         currency,
         pix_qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
         pix_qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,

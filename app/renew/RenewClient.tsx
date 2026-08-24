@@ -348,6 +348,11 @@ export default function RenewClient() {
     portal_setup_instructions: string | null;
     variable_fields: { id: string; label: string; value: string }[];
     license_price: number | null;
+    // ✅ license_price já convertido pra moeda da conta (arredondado pra
+    // cima) — mesmo valor pra sempre exibir, tanto no botão "Pagar licença"
+    // quanto no alerta de renovação embutida no pagamento do plano.
+    license_price_display: number | null;
+    license_price_display_currency: string | null;
     license_period: "annual" | "lifetime" | null;
     is_active: boolean;
     discontinued_replacement_name: string | null;
@@ -369,6 +374,10 @@ export default function RenewClient() {
   const [installedAppsError, setInstalledAppsError] = useState<string | null>(
     null,
   );
+  // ✅ Evita refetch quando o cliente já visitou "apps" (ou "payment") nesta
+  // sessão pra esta mesma conta — guarda o id da conta da última carga OK.
+  const [installedAppsLoadedForAccount, setInstalledAppsLoadedForAccount] =
+    useState<string | null>(null);
 
   // Edição inline de um card de app instalado
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
@@ -386,6 +395,13 @@ export default function RenewClient() {
     pix_qr_code?: string;
     pix_qr_code_base64?: string;
     price_amount: number;
+    // ✅ Moeda real da cobrança (achado 24/08/2026) — antes sempre "BRL"
+    // hardcoded na exibição; agora vem do backend (BRL pra MP, USD/EUR
+    // possível pra Stripe).
+    currency: string;
+    payment_method: "mercadopago" | "stripe";
+    client_secret?: string;
+    publishable_key?: string;
   };
   const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
   const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(
@@ -396,6 +412,25 @@ export default function RenewClient() {
   const [renewPollInterval, setRenewPollInterval] = useState<ReturnType<
     typeof setInterval
   > | null>(null);
+
+  // ✅ Cartão Stripe da licença avulsa de app (achado 24/08/2026) — modal
+  // próprio, elements próprios, NÃO compartilha estado com o cartão do
+  // pagamento de assinatura (paymentData/paymentModal) de propósito: evita
+  // qualquer risco de mexer no fluxo de assinatura que já está em produção.
+  const renewStripeRef = useRef<any>(null);
+  const renewCardNumberRef = useRef<any>(null);
+  const renewCardExpiryRef = useRef<any>(null);
+  const renewCardCvcRef = useRef<any>(null);
+  const [renewCardNumberMountEl, setRenewCardNumberMountEl] =
+    useState<HTMLDivElement | null>(null);
+  const [renewCardExpiryMountEl, setRenewCardExpiryMountEl] =
+    useState<HTMLDivElement | null>(null);
+  const [renewCardCvcMountEl, setRenewCardCvcMountEl] =
+    useState<HTMLDivElement | null>(null);
+  const [renewStripeSubmitting, setRenewStripeSubmitting] = useState(false);
+  const [renewStripeError, setRenewStripeError] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     return () => {
@@ -463,14 +498,22 @@ export default function RenewClient() {
       if (!result?.ok)
         throw new Error(result?.error || "Falha ao gerar pagamento.");
       setRenewPaymentDone(false);
+      setRenewStripeError(null);
+      const isStripe = result.payment_method === "stripe";
       setRenewPayment({
         clientAppId,
         payment_id: result.payment_id,
         pix_qr_code: result.pix_qr_code,
         pix_qr_code_base64: result.pix_qr_code_base64,
         price_amount: result.price_amount,
+        currency: result.currency || "BRL",
+        payment_method: isStripe ? "stripe" : "mercadopago",
+        client_secret: result.client_secret,
+        publishable_key: result.publishable_key,
       });
-      startPollingAppPayment(result.payment_id);
+      // ✅ Stripe: só inicia o polling depois que o cartão for confirmado
+      // (handleConfirmRenewStripePayment) — igual ao fluxo de assinatura.
+      if (!isStripe) startPollingAppPayment(result.payment_id);
     } catch (err: any) {
       await alertError(
         "Não foi possível gerar o pagamento agora. Tente novamente em instantes.",
@@ -485,6 +528,7 @@ export default function RenewClient() {
     setRenewPollInterval(null);
     setRenewPayment(null);
     setRenewPaymentDone(false);
+    setRenewStripeError(null);
   }
 
   function tryClosePortalWindow(fallbackAction: () => void) {
@@ -616,6 +660,51 @@ export default function RenewClient() {
   const [confirmedBasePrice, setConfirmedBasePrice] = useState<number | null>(
     null,
   );
+
+  // ✅ Renovação antecipada de app embutida no pagamento do plano (achado
+  // 24/08/2026) — ids de client_apps marcados no alerta de "vencendo em 30
+  // dias". confirmedAppRenewals é o snapshot do que foi de fato enviado no
+  // clique de pagar (mesmo padrão de confirmedBasePrice), pro resumo dentro
+  // do PaymentModal não mudar se o cliente mexer nos checkboxes com o modal
+  // já aberto.
+  const [selectedAppRenewalIds, setSelectedAppRenewalIds] = useState<
+    string[]
+  >([]);
+  const [confirmedAppRenewals, setConfirmedAppRenewals] = useState<
+    { app_name: string; price_amount: number }[]
+  >([]);
+
+  // ✅ Apps elegíveis pro alerta "vencendo em 30 dias" no Bloco 1 — mesma
+  // fórmula de vencimento usada na aba Apps (ver expirationDiffDays mais
+  // abaixo). Fica de fora: parceria/GerenciaApp (renovam grátis por lá, sem
+  // cobrança), descontinuado, sem preço cadastrado e quem já tem renovação
+  // manual pendente (evita cobrar de novo por algo que o suporte já está
+  // processando).
+  const expiringAppsForAlert = useMemo(() => {
+    return installedApps.filter((app) => {
+      if (app.is_partnership || app.is_gerenciaapp_family) return false;
+      if (!app.is_active) return false;
+      if (app.has_pending_manual_renewal) return false;
+      if (app.license_price == null || app.license_price <= 0) return false;
+      const datePart = app.expiration ? String(app.expiration).split("T")[0] : "";
+      if (!datePart) return false;
+      const diffDays =
+        (new Date(`${datePart}T12:00:00`).getTime() - Date.now()) / 86400000;
+      return diffDays < 30;
+    });
+  }, [installedApps]);
+
+  function toggleAppRenewalSelection(appId: string) {
+    setSelectedAppRenewalIds((prev) =>
+      prev.includes(appId) ? prev.filter((id) => id !== appId) : [...prev, appId],
+    );
+  }
+
+  const selectedAppRenewalTotal = useMemo(() => {
+    return expiringAppsForAlert
+      .filter((app) => selectedAppRenewalIds.includes(app.id))
+      .reduce((sum, app) => sum + Number(app.license_price_display ?? 0), 0);
+  }, [expiringAppsForAlert, selectedAppRenewalIds]);
 
   // ✅ Cupom de desconto — só existe pra contas em BRL. Nunca manda o
   // valor do desconto pro servidor, só o código; quem recalcula é o
@@ -806,6 +895,7 @@ export default function RenewClient() {
         throw new Error("Não foi possível carregar seus aplicativos");
       const data: InstalledApp[] = result.data || [];
       setInstalledApps(data);
+      setInstalledAppsLoadedForAccount(selectedAccountId);
       return data;
     } catch (err: any) {
       setInstalledAppsError(
@@ -830,6 +920,18 @@ export default function RenewClient() {
     refreshInstalledApps();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSection, selectedAccountId, session]);
+
+  // ✅ Renovação antecipada de app embutida no pagamento do plano (achado
+  // 24/08/2026) — a tela de pagamento (Bloco 1) precisa saber os apps do
+  // cliente pra mostrar o alerta de "vencendo em 30 dias", mas antes só
+  // buscava isso ao visitar a aba "apps". Não refaz o fetch se a conta já
+  // foi carregada nesta sessão (ex: cliente já tinha visitado "apps" antes).
+  useEffect(() => {
+    if (activeSection !== "payment") return;
+    if (!selectedAccountId) return;
+    if (installedAppsLoadedForAccount === selectedAccountId) return;
+    refreshInstalledApps();
+  }, [activeSection, selectedAccountId, session, installedAppsLoadedForAccount]);
 
   async function loadAppCatalog() {
     if (!selectedAccountId || !session) return;
@@ -1527,6 +1629,10 @@ export default function RenewClient() {
           if (phaseRaw === "done" || phaseRaw === "manual_pending") {
             if ((window as any).__cp_done_scheduled) return;
             (window as any).__cp_done_scheduled = true;
+            // ✅ Evita que um app já renovado (embutido neste pagamento)
+            // fique marcado pra uma PRÓXIMA cobrança, caso a assinatura em
+            // si caia pra manual (sem reload automático da página).
+            setSelectedAppRenewalIds([]);
 
             const isManual = phaseRaw === "manual_pending";
             if (isManual && selectedAccountId)
@@ -1581,6 +1687,7 @@ export default function RenewClient() {
           if (fulfillment === "done" || fulfillment === "manual_pending") {
             if ((window as any).__cp_done_scheduled) return;
             (window as any).__cp_done_scheduled = true;
+            setSelectedAppRenewalIds([]);
 
             const isManual = fulfillment === "manual_pending";
             if (isManual && selectedAccountId)
@@ -1741,6 +1848,99 @@ export default function RenewClient() {
     cardCvcMountEl,
   ]);
 
+  // ✅ Montar 3 card elements do modal de licença avulsa de app (Stripe,
+  // clientes USD/EUR) — cópia isolada do efeito acima, propositalmente sem
+  // compartilhar estado com o cartão de assinatura (ver comentário na
+  // declaração de renewStripeRef).
+  useEffect(() => {
+    if (!renewPayment || renewPayment.payment_method !== "stripe") return;
+    if (
+      !stripeReady ||
+      !renewCardNumberMountEl ||
+      !renewCardExpiryMountEl ||
+      !renewCardCvcMountEl
+    )
+      return;
+    if (!(window as any).Stripe) return;
+
+    const stripe = (window as any).Stripe(renewPayment.publishable_key);
+    renewStripeRef.current = stripe;
+    const elements = stripe.elements({ disableLink: true });
+
+    const style = {
+      base: {
+        fontSize: "16px",
+        color: "#1e293b",
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        "::placeholder": { color: "#94a3b8" },
+      },
+    };
+
+    const cardNumber = elements.create("cardNumber", { style, showIcon: true });
+    const cardExpiry = elements.create("cardExpiry", { style });
+    const cardCvc = elements.create("cardCvc", { style });
+
+    cardNumber.mount(renewCardNumberMountEl);
+    cardExpiry.mount(renewCardExpiryMountEl);
+    cardCvc.mount(renewCardCvcMountEl);
+
+    renewCardNumberRef.current = cardNumber;
+    renewCardExpiryRef.current = cardExpiry;
+    renewCardCvcRef.current = cardCvc;
+
+    cardExpiry.on("change", (e: any) => {
+      if (e.complete) cardCvc.focus();
+    });
+
+    return () => {
+      try {
+        cardNumber.unmount();
+      } catch {}
+      try {
+        cardExpiry.unmount();
+      } catch {}
+      try {
+        cardCvc.unmount();
+      } catch {}
+    };
+  }, [
+    renewPayment,
+    stripeReady,
+    renewCardNumberMountEl,
+    renewCardExpiryMountEl,
+    renewCardCvcMountEl,
+  ]);
+
+  async function handleConfirmRenewStripePayment() {
+    if (!renewStripeRef.current || !renewCardNumberRef.current || !renewPayment)
+      return;
+    setRenewStripeSubmitting(true);
+    setRenewStripeError(null);
+    try {
+      const result = await renewStripeRef.current.confirmCardPayment(
+        renewPayment.client_secret,
+        { payment_method: { card: renewCardNumberRef.current } },
+      );
+
+      if (result.error) {
+        setRenewStripeError(
+          "Não foi possível processar o cartão. Confira os dados e tente novamente.",
+        );
+        return;
+      }
+
+      if (result.paymentIntent?.status === "succeeded") {
+        startPollingAppPayment(renewPayment.payment_id);
+      }
+    } catch {
+      setRenewStripeError(
+        "Não foi possível processar o pagamento. Tente novamente.",
+      );
+    } finally {
+      setRenewStripeSubmitting(false);
+    }
+  }
+
   // Montar PaymentRequestButton (Apple Pay / Google Pay)
   useEffect(() => {
     if (
@@ -1842,6 +2042,25 @@ export default function RenewClient() {
     const resolvedPriceForSummary = overridePrice ?? pendingRenew?.price;
     setConfirmedPeriod(resolvedPeriod);
     setConfirmedBasePrice(resolvedPriceForSummary?.price_amount ?? null);
+    // ✅ Congela a seleção de renovação de app no momento da confirmação —
+    // o resumo do PaymentModal usa esse snapshot, não a seleção ao vivo
+    // (que pode mudar se o cliente reabrir o alerta com o modal aberto).
+    // Transferência manual NUNCA embute a renovação de app (create-payment
+    // não calcula bundled_app_renewals nesse caminho — ver comentário lá:
+    // só gateway online vira uma linha filha auditável). Mandar o resumo
+    // como se fosse cobrado, mesmo sem cobrar, enganaria o cliente.
+    const appsToRenew =
+      choice === "manual"
+        ? []
+        : expiringAppsForAlert.filter((app) =>
+            selectedAppRenewalIds.includes(app.id),
+          );
+    setConfirmedAppRenewals(
+      appsToRenew.map((app) => ({
+        app_name: app.name,
+        price_amount: Number(app.license_price_display ?? 0),
+      })),
+    );
 
     try {
       setIsProcessingPayment(true);
@@ -1860,6 +2079,7 @@ export default function RenewClient() {
           screens: selectedAccount.screens,
           force_manual: choice === "manual",
           coupon_code: appliedCoupon?.code || null,
+          client_app_ids: appsToRenew.map((app) => app.id),
           // ✅ Device ID do Mercado Pago (gerado pelo security.js carregado
           // no useEffect acima) — melhora a "Qualidade da Integração" e a
           // taxa de aprovação no MP. Undefined/vazio se o script ainda não
@@ -2035,8 +2255,14 @@ export default function RenewClient() {
     // aparece quando dá pra saber o preço do plano nesse ponto do fluxo.
     const summaryBase = activeRenewPrice?.price_amount ?? null;
     const summaryCouponDiscount = appliedCoupon?.discountAmount || 0;
+    const selectedAppsForModal = expiringAppsForAlert.filter((app) =>
+      selectedAppRenewalIds.includes(app.id),
+    );
     const summaryGrandTotal =
-      (summaryBase || 0) - summaryCouponDiscount + pendingCharges.total;
+      (summaryBase || 0) -
+      summaryCouponDiscount +
+      pendingCharges.total +
+      selectedAppRenewalTotal;
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -2101,6 +2327,25 @@ export default function RenewClient() {
                 {formatMoney(pendingCharges.total, pendingCharges.currency)}
               </span>
             </div>
+
+            {selectedAppsForModal.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-border">
+                {selectedAppsForModal.map((app) => (
+                  <div
+                    key={app.id}
+                    className="flex justify-between text-foreground/80 text-sm"
+                  >
+                    <span>Renovação — {app.name}</span>
+                    <span>
+                      {formatMoney(
+                        app.license_price_display ?? 0,
+                        app.license_price_display_currency || "BRL",
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {summaryBase != null && selectedAccount && (
               <div className="flex justify-between items-center">
@@ -2195,10 +2440,15 @@ export default function RenewClient() {
       ? PERIOD_LABELS[confirmedPeriod] || confirmedPeriod
       : null;
     const summaryCouponDiscount = appliedCoupon?.discountAmount || 0;
+    const summaryAppRenewalsTotal = confirmedAppRenewals.reduce(
+      (sum, it) => sum + Number(it.price_amount || 0),
+      0,
+    );
     const summaryTotal =
       (confirmedBasePrice || 0) -
       summaryCouponDiscount +
-      (pendingCharges?.total || 0);
+      (pendingCharges?.total || 0) +
+      summaryAppRenewalsTotal;
     const showSummary =
       !isApproved &&
       !isRejected &&
@@ -2225,6 +2475,12 @@ export default function RenewClient() {
             <span>{formatMoney(pendingCharges.total, summaryCurrency)}</span>
           </div>
         )}
+        {confirmedAppRenewals.map((it, idx) => (
+          <div key={idx} className="flex justify-between text-foreground/80">
+            <span>Renovação — {it.app_name}</span>
+            <span>{formatMoney(it.price_amount, summaryCurrency)}</span>
+          </div>
+        ))}
         <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
           <span>Total a Pagar</span>
           <span>{formatMoney(summaryTotal, summaryCurrency)}</span>
@@ -4494,7 +4750,7 @@ export default function RenewClient() {
                                     )}
                                     {renewPaymentBusyId === app.id
                                       ? "Gerando pagamento..."
-                                      : `Pagar licença ${app.license_period === "annual" ? "Anual" : app.license_period === "lifetime" ? "Vitalícia" : ""}: ${formatMoney(app.license_price, "BRL")}`}
+                                      : `Pagar licença ${app.license_period === "annual" ? "Anual" : app.license_period === "lifetime" ? "Vitalícia" : ""}: ${formatMoney(app.license_price_display ?? app.license_price, app.license_price_display_currency || "BRL")}`}
                                   </button>
                                 )}
                           </div>
@@ -4634,9 +4890,15 @@ export default function RenewClient() {
                             >
                               ✕
                             </button>
-                            <h2 className="text-lg font-bold">Pague com PIX</h2>
+                            <h2 className="text-lg font-bold">
+                              {renewPayment.payment_method === "stripe"
+                                ? "Pague com cartão"
+                                : "Pague com PIX"}
+                            </h2>
                             <p className="text-xs text-white/80">
-                              Mercado Pago
+                              {renewPayment.payment_method === "stripe"
+                                ? "Stripe"
+                                : "Mercado Pago"}
                             </p>
                           </div>
 
@@ -4648,11 +4910,73 @@ export default function RenewClient() {
                             <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
                               <span>Total a Pagar</span>
                               <span>
-                                {formatMoney(renewPayment.price_amount, "BRL")}
+                                {formatMoney(
+                                  renewPayment.price_amount,
+                                  renewPayment.currency,
+                                )}
                               </span>
                             </div>
                           </div>
 
+                          {renewPayment.payment_method === "stripe" ? (
+                            <div className="px-5 pt-4 pb-3 space-y-3">
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
+                                  Número do cartão
+                                </label>
+                                <div
+                                  ref={setRenewCardNumberMountEl}
+                                  className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
+                                />
+                              </div>
+                              <div className="flex gap-3">
+                                <div className="flex-1 space-y-2">
+                                  <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
+                                    Validade
+                                  </label>
+                                  <div
+                                    ref={setRenewCardExpiryMountEl}
+                                    className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
+                                  />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
+                                    CVC
+                                  </label>
+                                  <div
+                                    ref={setRenewCardCvcMountEl}
+                                    className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
+                                  />
+                                </div>
+                              </div>
+
+                              {renewStripeError && (
+                                <p className="text-xs text-rose-500">
+                                  {renewStripeError}
+                                </p>
+                              )}
+
+                              <button
+                                onClick={handleConfirmRenewStripePayment}
+                                disabled={renewStripeSubmitting}
+                                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                {renewStripeSubmitting && (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                )}
+                                {renewStripeSubmitting
+                                  ? "Processando..."
+                                  : `Pagar ${formatMoney(renewPayment.price_amount, renewPayment.currency)}`}
+                              </button>
+
+                              <button
+                                onClick={closeRenewPaymentModal}
+                                className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
                           <div className="px-5 pt-4 pb-3 space-y-3">
                             {renewPayment.pix_qr_code_base64 && (
                               <div className="bg-card p-2 sm:p-4 rounded-xl border-2 border-border">
@@ -4731,12 +5055,16 @@ export default function RenewClient() {
                               Cancelar
                             </button>
                           </div>
+                          )}
 
                           <div className="px-5 pb-4 pt-2">
                             <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
                               <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                               Conexão segura (SSL) — pagamento processado direto
-                              pelo Mercado Pago
+                              pelo{" "}
+                              {renewPayment.payment_method === "stripe"
+                                ? "Stripe"
+                                : "Mercado Pago"}
                             </div>
                           </div>
                         </>
@@ -5333,6 +5661,126 @@ export default function RenewClient() {
             )}
           </div>
         </div>
+
+        {/* ✅ Renovação antecipada de app embutida no pagamento (achado
+              24/08/2026) — mesmo padrão de "Pendência" acima, só que
+              opt-in por app via checkbox. license_price_display já vem
+              convertido pra moeda da conta (arredondado pra cima) desde
+              apps/list, então funciona pra qualquer moeda, não só BRL. */}
+        {expiringAppsForAlert.length > 0 && (
+          <div className="bg-card rounded-xl shadow-sm border border-amber-500/30 overflow-hidden">
+            <div className="bg-amber-500/10 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-amber-500/20">
+              <h2 className="text-sm font-bold text-amber-600 flex items-center gap-2">
+                ⚠️ Aplicativo(s) vencendo em breve
+              </h2>
+            </div>
+            <div className="p-3 sm:p-4 space-y-3">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Você tem aplicativo(s) pago(s) vencendo nos próximos 30 dias.
+                Você pode trocar para um aplicativo parceiro sem custo (basta
+                ir em{" "}
+                <button
+                  type="button"
+                  onClick={() => setActiveSection("apps")}
+                  className="text-emerald-600 underline underline-offset-2 hover:text-emerald-500 font-medium"
+                >
+                  Aplicativos
+                </button>
+                ) ou incluir a renovação junto com este pagamento.
+              </p>
+              <div className="space-y-2">
+                {expiringAppsForAlert.map((app) => {
+                  const datePart = app.expiration
+                    ? String(app.expiration).split("T")[0]
+                    : "";
+                  const diffDays = datePart
+                    ? (new Date(`${datePart}T12:00:00`).getTime() -
+                        Date.now()) /
+                      86400000
+                    : null;
+                  const isExpiredApp = diffDays !== null && diffDays < 0;
+                  const otherFieldsApp = app.fields.filter(
+                    (f) => f.type !== "obs",
+                  );
+                  const isSelected = selectedAppRenewalIds.includes(app.id);
+                  return (
+                    <div
+                      key={app.id}
+                      className={`rounded-xl border p-3 ${
+                        isSelected
+                          ? "border-emerald-500 bg-emerald-500/5"
+                          : "border-border bg-muted/30"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {app.icon_url ? (
+                          <img
+                            src={app.icon_url}
+                            alt={app.name}
+                            className="w-9 h-9 rounded-lg object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center shrink-0 text-muted-foreground text-xs font-bold">
+                            {app.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <span className="font-bold text-foreground text-sm">
+                              {app.name}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase shrink-0 ${
+                                isExpiredApp
+                                  ? "bg-rose-500/15 text-rose-500"
+                                  : "bg-amber-500/15 text-amber-500"
+                              }`}
+                            >
+                              {isExpiredApp ? "Vencido" : "Vencendo"}
+                              {datePart &&
+                                ` — ${new Date(`${datePart}T12:00:00`).toLocaleDateString("pt-BR")}`}
+                            </span>
+                          </div>
+                          {otherFieldsApp.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              {otherFieldsApp.map((f) => (
+                                <span
+                                  key={f.id}
+                                  className="px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded"
+                                >
+                                  <span className="font-bold text-foreground/80">
+                                    {f.label}
+                                  </span>
+                                  : {f.value || "—"}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <label className="flex items-center gap-2 mt-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleAppRenewalSelection(app.id)}
+                              className="w-4 h-4 rounded accent-emerald-600"
+                            />
+                            <span className="text-xs font-medium text-foreground">
+                              Incluir renovação (+
+                              {formatMoney(
+                                app.license_price_display ?? 0,
+                                app.license_price_display_currency || "BRL",
+                              )}
+                              )
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Cupom de desconto — só pra contas em BRL */}
         {selectedAccount.price_currency === "BRL" && (

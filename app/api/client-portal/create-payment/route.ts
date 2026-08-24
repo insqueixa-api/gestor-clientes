@@ -5,6 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { randomUUID } from "crypto";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
+import { getAppRenewalCharges } from "@/lib/client-portal/app-renewal-charges";
 import {
   validateCouponForCharge,
   couponRejectReason,
@@ -84,6 +85,15 @@ const client_id = normalizeStr(body?.client_id);
 const period = normalizeStr(body?.period);
 const force_manual = body?.force_manual === true;
 const coupon_code_raw = normalizeStr(body?.coupon_code);
+// ✅ Renovação antecipada de app embutida no pagamento combinado (achado
+// 24/08/2026) — ids de client_apps que o cliente marcou no alerta de
+// "vencendo em 30 dias". Filtra qualquer coisa que não pareça UUID aqui
+// mesmo; getAppRenewalCharges ainda valida posse (.eq("client_id", ...))
+// e elegibilidade (pago, ativo) de novo no servidor.
+const client_app_ids_raw = Array.isArray(body?.client_app_ids) ? body.client_app_ids : [];
+const client_app_ids = client_app_ids_raw
+  .map((v: unknown) => String(v ?? "").trim())
+  .filter((v: string) => isUuid(v));
 // ✅ Device ID gerado pelo security.js do MP no front (RenewClient.tsx) —
 // opcional, melhora a "Qualidade da Integração" e a taxa de aprovação.
 const mp_device_id = normalizeStr(body?.mp_device_id);
@@ -369,9 +379,10 @@ if (coupon_code_raw) {
   }
 }
 
-    // ✅ Pendências financeiras e gateway ativo são independentes entre si
-    // (nenhum usa o resultado do outro) — rodavam em sequência, agora juntos.
-    const [pendingCharges, gatewaysResult] = await Promise.all([
+    // ✅ Pendências financeiras, gateway ativo e renovação de app embutida
+    // são independentes entre si (nenhum usa o resultado do outro) — rodam
+    // juntos em vez de sequenciais.
+    const [pendingCharges, gatewaysResult, appRenewalCharges] = await Promise.all([
       getPendingCharges(supabaseAdmin, sess.tenant_id, client_id, currency),
       supabaseAdmin
         .from("payment_gateways")
@@ -381,6 +392,9 @@ if (coupon_code_raw) {
         .eq("is_online", true)
         .contains("currency", [currency])
         .order("priority", { ascending: true }),
+      client_app_ids.length
+        ? getAppRenewalCharges(supabaseAdmin, sess.tenant_id, client_id, client_app_ids, currency)
+        : Promise.resolve({ items: [] as any[], total: 0 }),
     ]);
     if (pendingCharges.total > 0) {
       computedPrice = Number((computedPrice + pendingCharges.total).toFixed(2));
@@ -515,6 +529,16 @@ if (coupon_code_raw) {
       );
     }
 
+    // ✅ Renovação de app embutida (achado 24/08/2026) — só entra no valor
+    // cobrado de verdade nos gateways ONLINE abaixo; os caminhos manuais
+    // (fallback sem gateway, force_manual, todos os gateways falharam, mais
+    // acima e abaixo) continuam usando computedPrice como sempre — nunca
+    // cobra por algo que não vai virar uma linha auditável (só
+    // runFulfillment, disparado a partir de um pagamento online aprovado,
+    // cria a linha filha de app_renewal a partir de bundled_app_renewals).
+    const finalComputedPrice = Number((computedPrice + appRenewalCharges.total).toFixed(2));
+    const bundledAppRenewals = appRenewalCharges.items.length ? appRenewalCharges.items : null;
+
     // 4b) Tentar criar pagamento com cada gateway
     let lastError: any = null;
 
@@ -543,8 +567,10 @@ if (!mpToken) {
           }
           const webhookUrl = `${appUrl.replace(/\/+$/, "")}/api/webhooks/mercadopago`;
 
-          // ✅ idempotência com janela (evita duplicar clique, mas permite nova cobrança depois)
-          const stableAmount = Number(computedPrice).toFixed(2);
+          // ✅ idempotência com janela (evita duplicar clique, mas permite nova
+          // cobrança depois) — finalComputedPrice já inclui a renovação de app
+          // embutida, então mudar a seleção de apps troca a chave também.
+          const stableAmount = Number(finalComputedPrice).toFixed(2);
           const bucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
           const idempotencyKey = `${sess.tenant_id}-${client_id}-${period}-${currency}-${stableAmount}-${bucket10m}`;
 
@@ -566,7 +592,7 @@ if (!mpToken) {
               ...(mp_device_id ? { "X-meli-session-id": mp_device_id } : {}),
             },
             body: JSON.stringify({
-              transaction_amount: Number(computedPrice),
+              transaction_amount: Number(finalComputedPrice),
               description: `${displayName} - Plano ${planLabel}`,
               payment_method_id: "pix",
               // ✅ Itens "Descrição da fatura" e "Resposta binária" da
@@ -584,17 +610,20 @@ if (!mpToken) {
               external_reference: internalPaymentId,
               additional_info: {
                 // ✅ computedPrice já vem com o desconto do cupom subtraído
-                // (antes da pendência ser somada) — então "computedPrice -
-                // pendingCharges.total" aqui já dá planPriceOnly - desconto
-                // sozinho, sem precisar subtrair o cupom de novo.
-                items: pendingCharges.items.length
+                // (antes da pendência ser somada) — então "finalComputedPrice -
+                // pendingCharges.total - appRenewalCharges.total" aqui já dá
+                // planPriceOnly - desconto sozinho, sem precisar subtrair o
+                // cupom de novo.
+                items: pendingCharges.items.length || appRenewalCharges.items.length
                   ? [
                       {
                         id: String(client_id),
                         title: `Plano ${planLabel}`,
                         description: `Renovação de assinatura — Plano ${planLabel}, cliente ${displayName}`,
                         quantity: 1,
-                        unit_price: Number((computedPrice - pendingCharges.total).toFixed(2)),
+                        unit_price: Number(
+                          (finalComputedPrice - pendingCharges.total - appRenewalCharges.total).toFixed(2),
+                        ),
                       },
                       ...pendingCharges.items.map((it) => ({
                         id: it.id,
@@ -603,6 +632,13 @@ if (!mpToken) {
                         quantity: 1,
                         unit_price: it.convertedAmount,
                       })),
+                      ...appRenewalCharges.items.map((it) => ({
+                        id: it.client_app_id,
+                        title: `Licença — ${it.app_name}`,
+                        description: `Renovação antecipada de licença do aplicativo ${it.app_name}, cliente ${displayName}`,
+                        quantity: 1,
+                        unit_price: it.price_amount,
+                      })),
                     ]
                   : [
                       {
@@ -610,7 +646,7 @@ if (!mpToken) {
                         title: `Plano ${planLabel}`,
                         description: `Renovação de assinatura — Plano ${planLabel}, cliente ${displayName}`,
                         quantity: 1,
-                        unit_price: Number(computedPrice),
+                        unit_price: Number(finalComputedPrice),
                       },
                     ],
               },
@@ -618,7 +654,7 @@ if (!mpToken) {
                 client_id,
                 tenant_id: sess.tenant_id,
                 period,
-                price_amount: Number(computedPrice),
+                price_amount: Number(finalComputedPrice),
                 plan_label: planLabel,
                 gateway_id: gateway.id,
                 // ✅ NÃO enviar session_token pra fora (risco desnecessário)
@@ -646,7 +682,7 @@ if (!mpToken) {
       mp_payment_id: String(mpData.id),
       period,
       plan_label: planLabel,
-      price_amount: Number(computedPrice),
+      price_amount: Number(finalComputedPrice),
       plan_price_amount: Number(planPriceOnly),
       price_currency: currency,
       status: "pending",
@@ -654,6 +690,7 @@ if (!mpToken) {
       coupon_id: couponId,
       coupon_code: couponCodeApplied,
       coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
+      bundled_app_renewals: bundledAppRenewals,
     },
     { onConflict: "tenant_id,gateway_type,mp_payment_id" }
   )
@@ -704,7 +741,7 @@ if (insErr || !inserted) {
           }
 
           const stripeParams = new URLSearchParams();
-          stripeParams.append("amount", String(Math.round(Number(computedPrice) * 100)));
+          stripeParams.append("amount", String(Math.round(Number(finalComputedPrice) * 100)));
           stripeParams.append("currency", currency.toLowerCase());
           stripeParams.append("payment_method_types[]", "card");
           stripeParams.append("description", `${displayName} - Plano ${planLabel}`);
@@ -714,6 +751,13 @@ if (insErr || !inserted) {
           stripeParams.append("metadata[gateway_id]", String(gateway.id));
           if (pendingCharges.total > 0) {
             stripeParams.append("metadata[pending_charges_total]", String(pendingCharges.total));
+          }
+          if (appRenewalCharges.total > 0) {
+            stripeParams.append("metadata[bundled_app_renewal_total]", String(appRenewalCharges.total));
+            stripeParams.append(
+              "metadata[bundled_app_renewal_ids]",
+              appRenewalCharges.items.map((it) => it.client_app_id).join(","),
+            );
           }
 
           const stripeRes = await fetch("https://api.stripe.com/v1/payment_intents", {
@@ -739,7 +783,7 @@ if (insErr || !inserted) {
                   mp_payment_id: String(stripeData.id),
                   period,
                   plan_label: planLabel,
-                  price_amount: Number(computedPrice),
+                  price_amount: Number(finalComputedPrice),
                   plan_price_amount: Number(planPriceOnly),
                   price_currency: currency,
                   status: "pending",
@@ -747,6 +791,7 @@ if (insErr || !inserted) {
                   coupon_id: couponId,
                   coupon_code: couponCodeApplied,
                   coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
+                  bundled_app_renewals: bundledAppRenewals,
                 },
                 { onConflict: "tenant_id,gateway_type,mp_payment_id" }
               )
@@ -768,7 +813,7 @@ return NextResponse.json(
                 internal_payment_id: inserted.id,
                 client_secret: stripeData.client_secret,
                 publishable_key: publishableKey,
-                price_amount: Number(computedPrice),
+                price_amount: Number(finalComputedPrice),
                 currency,
                 beneficiary_name: String(gateway?.config?.beneficiary_name || "").trim() || null,
                 institution: String(gateway?.config?.institution || "").trim() || "Stripe",
