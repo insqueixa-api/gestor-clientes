@@ -310,16 +310,6 @@ export async function fetchClientWhatsApp(sb: any, tenantId: string, clientId: s
 
   if (!rowData) throw new Error("Cliente não encontrado nas views");
 
-  // ✅ Garante o PIN real (algumas views podem não trazer portal_pin)
-  if (!rowData.portal_pin) {
-    try {
-      const { data: pinData } = await sb.from("clients").select("portal_pin").eq("id", rowData.id).maybeSingle();
-      if (pinData?.portal_pin) rowData.portal_pin = pinData.portal_pin;
-    } catch {
-      // sem problema — buildClientTemplateVars cai no fallback automaticamente
-    }
-  }
-
   const phones: { number: string; username: string; is_secondary: boolean }[] = [];
 
   const phoneMain = firstNormalizedPhone(rowData.whatsapp_username, rowData.whatsapp_e164, rowData.phone_e164);
