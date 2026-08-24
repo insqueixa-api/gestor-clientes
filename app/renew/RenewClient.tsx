@@ -684,14 +684,27 @@ export default function RenewClient() {
       }
 
       try {
-        // 1. Validar sessão via API (seguro, server-side)
-        const res = await fetch("/api/client-portal/validate-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_token: session }),
-          cache: "no-store",
-        });
+        // ✅ As duas rotas validam o session_token de forma independente
+        // (cada uma consulta client_portal_sessions por conta própria) —
+        // get-accounts não depende de nada que validate-session devolve,
+        // então disparam juntas em vez de uma esperar a outra. Corta pela
+        // metade a latência inicial da tela mais importante do portal.
+        const [res, accRes] = await Promise.all([
+          fetch("/api/client-portal/validate-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_token: session }),
+            cache: "no-store",
+          }),
+          fetch("/api/client-portal/get-accounts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_token: session }),
+            cache: "no-store",
+          }),
+        ]);
 
+        // 1. Validar sessão
         const result = await res.json().catch(() => null);
 
         if (!result?.ok) {
@@ -707,14 +720,7 @@ export default function RenewClient() {
           admin_whatsapp: sess.admin_whatsapp,
         });
 
-        // 2. Buscar contas via API
-        const accRes = await fetch("/api/client-portal/get-accounts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_token: session }),
-          cache: "no-store",
-        });
-
+        // 2. Contas
         const accResult = await accRes.json().catch(() => null);
 
         if (!accResult?.ok)
