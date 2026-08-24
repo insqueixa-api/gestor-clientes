@@ -62,18 +62,25 @@ não auditado
   baixa prioridade: histórico/saldo por pessoa sem paginação — não
   urgente, baixo volume hoje
 
-## Pendente — módulo Cliente
+## Módulo Cliente (modais) — concluído (24/08/2026)
 
-- ⬜ `app/admin/cliente/novo_cliente.tsx` (modal criar/editar cliente)
-- ⬜ `app/admin/cliente/recarga_cliente.tsx` (modal recarga)
+- 🔎 `app/admin/cliente/novo_cliente.tsx` — já otimizado (5 queries em
+  Promise.all + WhatsApp fire-and-forget); achado cosmético de baixa
+  prioridade (2 selects separados na tabela `servers` em efeitos
+  diferentes) deixado como está, risco > ganho
+- 🔎 `app/admin/cliente/recarga_cliente.tsx` — já otimizado
 
-## Pendente — Revendedor
+## Revendedor — concluído (24/08/2026)
 
-- ⬜ `app/admin/revendedor/page.tsx`
-- ⬜ `app/admin/revendedor/[id]/page.tsx`
-- ⬜ `app/admin/revendedor/novo_revenda.tsx`
-- ⬜ `app/admin/revendedor/recarga_revenda.tsx`
-- ⬜ `app/admin/revendedor/[id]/vincular_servidor.tsx`
+- ✅ `app/admin/revendedor/page.tsx` — não trava mais `setRows`/loading
+  esperando só o badge de agendamento (fire-and-forget)
+- ✅ `app/admin/revendedor/[id]/page.tsx` — revenda + vínculos viraram
+  Promise.all (histórico continua depois, depende dos ids dos vínculos)
+- 🔎 `app/admin/revendedor/novo_revenda.tsx` — já otimizado
+- ✅ `app/admin/revendedor/recarga_revenda.tsx` — achado igual ao da
+  Cobrança: `await loadWhatsAppSessions()` (proxy pra VM) travava
+  servidores/templates à toa; virou fire-and-forget + Promise.all
+- 🔎 `app/admin/revendedor/[id]/vincular_servidor.tsx` — já otimizado
 
 ## Pendente — Gerenciador
 
@@ -86,52 +93,63 @@ não auditado
   ficava esperando a VM à toa. Corrigido: perfil do WhatsApp agora
   carrega em paralelo, fora do loading, via `loadWhatsAppSessionOptions`
   (helper já existente, reaproveitado em vez de reimplementado inline)
-- ⬜ `app/admin/gerenciador/cobranca/ImpactListModal.tsx`
-- ⬜ `app/admin/gerenciador/cobranca/AutomationWizard.tsx`
-- ⬜ `app/admin/gerenciador/cobranca/LogsModal.tsx`
-- ⬜ `app/admin/gerenciador/cobranca/shared.tsx`
-- ⬜ `app/admin/gerenciador/mensagem/page.tsx` + `shared.tsx`
-- ⬜ `app/admin/gerenciador/mensagem/EditorModal.tsx`
-- ⬜ `app/admin/gerenciador/mensagem/PreviewModal.tsx`
-- ⬜ `app/admin/gerenciador/pagamento/page.tsx` + `shared.tsx`
-- ⬜ `app/admin/gerenciador/pagamento/HelpModal.tsx`
-- ⬜ `app/admin/gerenciador/pagamento/GatewayModal.tsx`
-- ⬜ `app/admin/gerenciador/plano/page.tsx`
-- ⬜ `app/admin/gerenciador/plano/plano_modal.tsx`
-- ⬜ `app/admin/gerenciador/servidor/page.tsx`
-- ⬜ `app/admin/gerenciador/servidor/[id]/page.tsx`
-- ⬜ `app/admin/gerenciador/servidor/novo_servidor.tsx`
-- ⬜ `app/admin/gerenciador/servidor/recarga_servidor.tsx`
+- 🔎 `app/admin/gerenciador/cobranca/ImpactListModal.tsx` — já otimizado
+- 🔎 `app/admin/gerenciador/cobranca/AutomationWizard.tsx` — já otimizado
+  (recebe auxData via props, sem refetch)
+- ✅ `app/admin/gerenciador/cobranca/LogsModal.tsx` — clients + servers
+  eram sequenciais sem depender um do outro → Promise.all
+- 🔎 `app/admin/gerenciador/cobranca/shared.tsx` — só tipos, nada a auditar
+- 🔎 `app/admin/gerenciador/mensagem/page.tsx` + `shared.tsx` — já otimizado
+- 🔎 `app/admin/gerenciador/mensagem/EditorModal.tsx` — já otimizado
+- 🔎 `app/admin/gerenciador/mensagem/PreviewModal.tsx` — já otimizado
+- 🔎 `app/admin/gerenciador/pagamento/page.tsx` + `shared.tsx` — já otimizado
+- 🔎 `app/admin/gerenciador/pagamento/HelpModal.tsx` — sem fetch, estático
+- 🔎 `app/admin/gerenciador/pagamento/GatewayModal.tsx` — já otimizado
+- ⬜ `app/admin/gerenciador/plano/page.tsx` — **não auditado** (agente
+  bateu no limite de sessão do dia, 24/08/2026 — refazer)
+- ⬜ `app/admin/gerenciador/plano/plano_modal.tsx` — idem
+- ⬜ `app/admin/gerenciador/servidor/page.tsx` — idem
+- ⬜ `app/admin/gerenciador/servidor/[id]/page.tsx` — idem (candidato forte:
+  provavelmente fala com painel externo do provedor IPTV, mesma família
+  do achado da Cobrança/Revendedor)
+- ⬜ `app/admin/gerenciador/servidor/novo_servidor.tsx` — idem
+- ⬜ `app/admin/gerenciador/servidor/recarga_servidor.tsx` — idem
+- ⬜ `app/admin/gerenciador/aplicativo/page.tsx` — idem
 
-## Pendente — Settings
+## Settings — concluído (24/08/2026)
 
-- ⬜ `app/admin/settings/api-server/page.tsx`
-- ⬜ `app/admin/settings/api-server/app_integracao_modal.tsx`
-- ⬜ `app/admin/settings/api-server/nova_integracao_modal.tsx`
-- ⬜ `app/admin/settings/cupons/page.tsx`
-- ⬜ `app/admin/settings/cupons/client_picker.tsx`
-- ⬜ `app/admin/settings/cupons/cupom_modal.tsx`
-- ⬜ `app/admin/settings/whatsapp/page.tsx`
-- ⬜ `app/admin/settings/whatsapp/VmMaintenanceModal.tsx`
-- ⬜ `app/admin/settings/condominio/ModalCondominio.tsx` (sem fetch de
-  lista, baixo risco — conferir rápido só por completude)
-- ⬜ `app/admin/settings/condominio/ModalAcao.tsx`
-- ⬜ `app/admin/settings/condominio/CondominioFilterDropdown.tsx`
+- 🔎 `app/admin/settings/api-server/page.tsx` — já otimizado (Promise.all)
+- 🔎 `app/admin/settings/api-server/app_integracao_modal.tsx` — já otimizado
+- 🔎 `app/admin/settings/api-server/nova_integracao_modal.tsx` — já otimizado
+- 🔎 `app/admin/settings/cupons/page.tsx` — já otimizado (Promise.all)
+- 🔎 `app/admin/settings/cupons/client_picker.tsx` — já otimizado
+- 🔎 `app/admin/settings/cupons/cupom_modal.tsx` — já otimizado
+- ✅ `app/admin/settings/cupons/impact_preview.ts` — `coupon_redemptions`
+  não dependia dos outros 2 fetches, entrou no mesmo Promise.all
+- 🔎 `app/admin/settings/whatsapp/page.tsx` — já otimizado (não há mistura
+  banco+VM aqui: a página é só VM, e já usa Promise.all entre as chamadas)
+- 🔎 `app/admin/settings/whatsapp/VmMaintenanceModal.tsx` — já otimizado
+- 🔎 `app/admin/settings/condominio/ModalCondominio.tsx` — já otimizado
+- 🔎 `app/admin/settings/condominio/ModalAcao.tsx` — já otimizado
+- 🔎 `app/admin/settings/condominio/CondominioFilterDropdown.tsx` — 100%
+  presentational, sem fetch
 
-## Pendente — Agenda
+## Pendente — Agenda (não auditado, agente bateu no limite de sessão)
 
 - ⬜ `app/admin/agenda/page.tsx` + `shared.tsx`
 - ⬜ `app/admin/agenda/EditContatoModal.tsx`
-- ⬜ `app/admin/agenda/EnviarMensagemModal.tsx`
+- ⬜ `app/admin/agenda/EnviarMensagemModal.tsx` (candidato forte: manda
+  mensagem via WhatsApp, mesma família do achado da Cobrança)
 - ⬜ `app/admin/agenda/ExcluirContatoModal.tsx`
 
-## Pendente — Testes
+## Pendente — Testes (não auditado, agente bateu no limite de sessão)
 
 - ⬜ `app/admin/teste/page.tsx`
 
-## Pendente — Portal do cliente (público)
+## Pendente — Portal do cliente (não auditado, agente bateu no limite de sessão)
 
-- ⬜ `app/renew/page.tsx`
+- ⬜ `app/renew/page.tsx` (home do portal — prioridade alta, é a área
+  pública voltada pro cliente final)
 - ⬜ `app/renew/apps/[id]/page.tsx`
 - 🔎 `app/renew/guia-tv/page.tsx` — coberto na varredura do Guia TV, sem
   achados
