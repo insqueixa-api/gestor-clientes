@@ -294,13 +294,23 @@ export default function ResellerDetailPage() {
       const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
-      // 1) Revenda (view)
-      const resellerRes = await supabaseBrowser
-        .from("vw_resellers_list")
-        .select("*")
-        .eq("tenant_id", tid)
-        .eq("id", resellerId)
-        .maybeSingle();
+      // ✅ Revenda + vínculos não dependem um do outro (só de tid/resellerId,
+      // já conhecidos) — paralelo em vez de sequencial. Só o histórico
+      // (abaixo) continua depois, porque precisa dos ids vindos daqui.
+      const [resellerRes, serversRes] = await Promise.all([
+        supabaseBrowser
+          .from("vw_resellers_list")
+          .select("*")
+          .eq("tenant_id", tid)
+          .eq("id", resellerId)
+          .maybeSingle(),
+        supabaseBrowser
+          .from("vw_reseller_servers")
+          .select("*")
+          .eq("tenant_id", tid)
+          .eq("reseller_id", resellerId)
+          .order("created_at", { ascending: false }),
+      ]);
 
       if (resellerRes.error) throw resellerRes.error;
       if (!resellerRes.data) throw new Error("Revenda não encontrada");
@@ -318,14 +328,6 @@ export default function ResellerDetailPage() {
         is_archived: Boolean(vr.is_archived),
         created_at: vr.created_at,
       });
-
-      // 2) Vínculos (view)
-      const serversRes = await supabaseBrowser
-        .from("vw_reseller_servers")
-        .select("*")
-        .eq("tenant_id", tid)
-        .eq("reseller_id", resellerId)
-        .order("created_at", { ascending: false });
 
       if (serversRes.error) throw serversRes.error;
 

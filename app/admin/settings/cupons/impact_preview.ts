@@ -181,18 +181,29 @@ export async function computeCouponImpact(
 ): Promise<ImpactResult> {
   const { tenantId, discountType, discountValue, excludeCouponId, ...rules } = params;
 
-  const [{ data: clientsData }, { data: planTablesData }] = await Promise.all([
-    supabaseBrowser
-      .from("vw_clients_list_active")
-      .select(CLIENT_SELECT)
-      .eq("tenant_id", tenantId)
-      .eq("price_currency", "BRL"),
-    supabaseBrowser
-      .from("plan_tables")
-      .select("id, currency, is_system_default")
-      .eq("tenant_id", tenantId)
-      .eq("is_active", true),
-  ]);
+  // ✅ Nenhuma das 3 depende do resultado das outras (a 3ª só depende de
+  // excludeCouponId, já conhecido) — paralelo em vez de a 3ª esperar as
+  // outras duas terminarem.
+  const [{ data: clientsData }, { data: planTablesData }, redemptionsData] =
+    await Promise.all([
+      supabaseBrowser
+        .from("vw_clients_list_active")
+        .select(CLIENT_SELECT)
+        .eq("tenant_id", tenantId)
+        .eq("price_currency", "BRL"),
+      supabaseBrowser
+        .from("plan_tables")
+        .select("id, currency, is_system_default")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true),
+      excludeCouponId
+        ? supabaseBrowser
+            .from("coupon_redemptions")
+            .select("client_id")
+            .eq("coupon_id", excludeCouponId)
+            .then((r) => r.data)
+        : Promise.resolve(null),
+    ]);
 
   const allClients = (clientsData as ClientLite[]) || [];
   const planTables = (planTablesData as PlanTableLite[]) || [];
@@ -206,11 +217,9 @@ export async function computeCouponImpact(
   // pras contas-irmãs vinculadas ao mesmo whatsapp).
   let excludedClientIds: Set<string> | null = null;
   if (excludeCouponId) {
-    const { data: redemptions } = await supabaseBrowser
-      .from("coupon_redemptions")
-      .select("client_id")
-      .eq("coupon_id", excludeCouponId);
-    const redeemedIds = ((redemptions as { client_id: string }[]) || []).map((r) => r.client_id);
+    const redeemedIds = ((redemptionsData as { client_id: string }[]) || []).map(
+      (r) => r.client_id,
+    );
     excludedClientIds = new Set(redeemedIds);
   }
 

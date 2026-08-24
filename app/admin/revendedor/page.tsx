@@ -511,8 +511,10 @@ export default function RevendaPage() {
       };
     });
 
+    // ✅ Não trava a tabela esperando só o badge "🗓️ N agendada(s)" — essa
+    // busca atualiza scheduledMap por conta própria quando terminar.
     const ids = mapped.map((m) => m.id);
-    await loadScheduledForResellers(tid, ids);
+    loadScheduledForResellers(tid, ids);
 
     setRows(mapped);
     setLoading(false);

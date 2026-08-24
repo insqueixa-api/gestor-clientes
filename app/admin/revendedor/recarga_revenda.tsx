@@ -351,18 +351,27 @@ export default function QuickRechargeModal({
         setTenantId(tid);
 
         if (tid) {
-          await loadWhatsAppSessions(); // ✅ Carrega sessões para o Select
+          loadWhatsAppSessions(); // fire-and-forget — não bloqueia o resto (proxy pra VM, sem await)
         }
 
-        const { data, error } = await supabaseBrowser
-          .from("vw_reseller_servers")
-          .select("*")
-          .eq("tenant_id", tid)
-          .eq("reseller_id", resellerId)
-          .eq("reseller_is_archived", false)
-          .eq("server_is_archived", false)
-          .order("server_name", { ascending: true });
+        // ✅ Nenhuma depende da outra — paralelo em vez de sequencial.
+        const [serversRes, tmplRes] = await Promise.all([
+          supabaseBrowser
+            .from("vw_reseller_servers")
+            .select("*")
+            .eq("tenant_id", tid)
+            .eq("reseller_id", resellerId)
+            .eq("reseller_is_archived", false)
+            .eq("server_is_archived", false)
+            .order("server_name", { ascending: true }),
+          supabaseBrowser
+            .from("message_templates")
+            .select("id, name, content, category") // ✅ Buscando a categoria
+            .eq("tenant_id", tid)
+            .order("name", { ascending: true }),
+        ]);
 
+        const { data, error } = serversRes;
         if (error) throw new Error(error.message);
 
         const list = (data || []) as any[];
@@ -387,13 +396,8 @@ export default function QuickRechargeModal({
         if (!alive) return;
         setServers(mapped);
 
-        // ✅ BUSCAR TEMPLATES E PRÉ-SELECIONAR "RECARGA REVENDA"
-        const { data: tmplData } = await supabaseBrowser
-          .from("message_templates")
-          .select("id, name, content, category") // ✅ Buscando a categoria
-          .eq("tenant_id", tid)
-          .order("name", { ascending: true });
-
+        // ✅ PRÉ-SELECIONAR "RECARGA REVENDA" (templates já vieram acima)
+        const tmplData = tmplRes.data;
         if (tmplData && alive) {
           setTemplates(tmplData);
           const defaultTpl = tmplData.find((t) =>

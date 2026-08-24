@@ -79,22 +79,22 @@ export default function LogsModal({
       ] as string[];
 
       if (clientIds.length > 0) {
-        const { data: clientsData } = await supabaseBrowser
-          .from("clients")
-          .select("id, server_username, server_id")
-          .eq("tenant_id", tid)
-          .in("id", clientIds);
+        // ✅ Nenhuma depende da outra (servers nem usa clientIds) — paralelo
+        // em vez de uma esperar a outra terminar.
+        const [{ data: clientsData }, { data: serversData }] =
+          await Promise.all([
+            supabaseBrowser
+              .from("clients")
+              .select("id, server_username, server_id")
+              .eq("tenant_id", tid)
+              .in("id", clientIds),
+            supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
+          ]);
 
         const clientsMap: Record<string, any> = {};
         (clientsData || []).forEach((c: any) => {
           clientsMap[c.id] = c;
         });
-
-        // Mapa server_id -> name
-        const { data: serversData } = await supabaseBrowser
-          .from("servers")
-          .select("id, name")
-          .eq("tenant_id", tid);
 
         const serversMap: Record<string, string> = {};
         (serversData || []).forEach((s: any) => {
