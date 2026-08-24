@@ -17,7 +17,7 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
-import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
+import { loadWhatsAppSessionOptions } from "@/lib/admin/whatsapp-modal-data";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { type ClientLight, TYPES, BILLING_TZ, Label, Input } from "./shared";
 import {
@@ -1016,7 +1016,16 @@ export default function BillingPage() {
     plans: SelectOption[];
     apps: SelectOption[];
     sessions: SelectOption[]; // ✅
-  }>({ templates: [], servers: [], plans: [], apps: [], sessions: [] });
+  }>({
+    templates: [],
+    servers: [],
+    plans: [],
+    apps: [],
+    // ✅ Sessão default some antes do fetch de perfil do WhatsApp resolver
+    // (não bloqueia mais o loading — ver loadData) — mantém o seletor com
+    // pelo menos essa opção em vez de vazio nesse intervalo.
+    sessions: [{ id: "default", label: "Contato principal" }],
+  });
 
   const addToast = (
     type: "success" | "error",
@@ -1041,15 +1050,16 @@ export default function BillingPage() {
     }
 
     try {
-      const [
-        autoRes,
-        clientRes,
-        msgRes,
-        srvRes,
-        appRes,
-        waProfRes,
-        waProfRes2,
-      ] = await Promise.all([
+      // ✅ As 5 consultas ao banco (regras, clientes, templates, servidores,
+      // apps) são independentes entre si — Promise.all. O perfil do
+      // WhatsApp (sessões 1/2) fica de FORA dessa Promise.all de propósito
+      // (achado 24/08/2026): ele faz proxy pra VM com timeout de 12s (ver
+      // lib/whatsapp/wa-context.ts), e só é usado pro seletor de sessão
+      // dentro do modal de criar/editar regra — não pra exibir a lista de
+      // regras. Antes, a lista inteira ficava travada em "carregando" até
+      // a VM responder (ou estourar os 12s), mesmo com os dados de
+      // verdade já prontos há tempo.
+      const [autoRes, clientRes, msgRes, srvRes, appRes] = await Promise.all([
         // 1. Busca Automações (autoRes)
         supabaseBrowser
           .from("billing_automations")
@@ -1091,59 +1101,10 @@ export default function BillingPage() {
 
         // 5. Busca Apps (appRes)
         supabaseBrowser.from("apps").select("id, name").eq("tenant_id", tid),
-
-        // 6. Busca Perfil WhatsApp Sessão 1 (waProfRes)
-        fetch("/api/whatsapp/profile", { cache: "no-store" }).then(
-          async (r) => {
-            const j = await r.json().catch(() => ({}) as any);
-            return { ok: r.ok, json: j };
-          },
-        ),
-
-        // 7. Busca Perfil WhatsApp Sessão 2 (waProfRes2)
-        fetch("/api/whatsapp/profile2", { cache: "no-store" }).then(
-          async (r) => {
-            const j = await r.json().catch(() => ({}) as any);
-            return { ok: r.ok, json: j };
-          },
-        ),
       ]);
 
       const autoData = autoRes.data;
       const clientData = clientRes.data;
-
-      const sessions: SelectOption[] = (() => {
-        const result: SelectOption[] = [];
-
-        // ✅ Busca os nomes que o usuário personalizou no front-end
-        const name1 =
-          typeof window !== "undefined"
-            ? localStorage.getItem("wa_label_1") || "Contato principal"
-            : "Contato principal";
-        const name2 =
-          typeof window !== "undefined"
-            ? localStorage.getItem("wa_label_2") || "Contato Secundário"
-            : "Contato Secundário";
-
-        // Sessão 1: sempre exibe (é a principal)
-        result.push({
-          id: "default",
-          label: buildWhatsAppSessionLabel(
-            waProfRes?.ok ? waProfRes.json : null,
-            name1,
-          ),
-        });
-
-        // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
-        if (waProfRes2?.ok && waProfRes2.json?.connected) {
-          result.push({
-            id: "session2",
-            label: buildWhatsAppSessionLabel(waProfRes2.json, name2),
-          });
-        }
-
-        return result;
-      })();
 
       // Extrai planos únicos dos clientes carregados
       const uniquePlans = Array.from(
@@ -1152,7 +1113,8 @@ export default function BillingPage() {
         ),
       );
 
-      setAuxData({
+      setAuxData((prev) => ({
+        ...prev,
         templates:
           msgRes.data?.map((m: any) => ({
             id: m.id,
@@ -1164,8 +1126,7 @@ export default function BillingPage() {
         plans:
           uniquePlans.map((p) => ({ id: String(p), label: String(p) })) || [],
         apps: appRes.data?.map((a: any) => ({ id: a.id, label: a.name })) || [],
-        sessions, // ✅
-      });
+      }));
 
       // Casting seguro para incluir os novos campos opcionais se vierem do banco
       setAutomations((autoData as any[]) || []);
@@ -1175,6 +1136,16 @@ export default function BillingPage() {
     } finally {
       setLoading(false);
     }
+
+    // ✅ Sessões do WhatsApp — fora do try/finally acima de propósito: não
+    // deve segurar o loading nem falhar o carregamento da página se a VM
+    // estiver lenta/fora do ar (o modal simplesmente mostra só a sessão
+    // "default" até isso resolver).
+    loadWhatsAppSessionOptions()
+      .then((sessions) => {
+        setAuxData((prev) => ({ ...prev, sessions }));
+      })
+      .catch(() => {});
   }
 
   useEffect(() => {
