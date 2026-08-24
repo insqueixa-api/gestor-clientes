@@ -341,10 +341,16 @@ export async function POST(req: NextRequest) {
     const masterIdMap = new Map<string, string>();
 
     for (let i = 0; i < masterLista.length; i += BATCH) {
-      const loteNorm = masterLista.slice(i, i + BATCH).map(e => ({
-        ...e,
-        titulo_normalizado: limparTitulo(e.titulo_normalizado),
-      }));
+      // ✅ limparTitulo() é uma 2ª passada de limpeza mais agressiva que a do
+      // parser original (tira marcadores de qualidade como 4K/HD/BLURAY) —
+      // achado 24/08/2026: se o título original vindo do M3U for SÓ um desses
+      // marcadores (fonte malformada), pode sobrar string vazia depois da
+      // limpeza, o que violava o NOT NULL de catalog_master.titulo_normalizado
+      // e derrubava o lote inteiro. Filtra antes de seguir.
+      const loteNorm = masterLista
+        .slice(i, i + BATCH)
+        .map(e => ({ ...e, titulo_normalizado: limparTitulo(e.titulo_normalizado) }))
+        .filter(e => e.titulo_normalizado.length > 0);
 
       const batchMap = new Map<string, typeof loteNorm[number]>();
       for (const e of loteNorm) {
