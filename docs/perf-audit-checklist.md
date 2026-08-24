@@ -1,5 +1,10 @@
 # Auditoria de performance (data-fetching) — checklist
 
+**Status: pente-fino completo (24/08/2026)** — todo `app/admin/**` (páginas +
+modais) e o Portal do Cliente (`/renew`) foram auditados. Achados reais
+corrigidos e no ar; o que já estava bom ficou documentado como tal (🔎)
+pra não reauditar à toa numa próxima rodada.
+
 **Achado importante (24/08/2026)**: Speed Insights mostrou várias rotas
 "Poor" (>4s de LCP), incluindo `/admin` — que já usa o padrão-ouro (2 RPCs
 em paralelo). Isso expôs que o gargalo real não era mais contagem de
@@ -105,16 +110,25 @@ não auditado
 - 🔎 `app/admin/gerenciador/pagamento/page.tsx` + `shared.tsx` — já otimizado
 - 🔎 `app/admin/gerenciador/pagamento/HelpModal.tsx` — sem fetch, estático
 - 🔎 `app/admin/gerenciador/pagamento/GatewayModal.tsx` — já otimizado
-- ⬜ `app/admin/gerenciador/plano/page.tsx` — **não auditado** (agente
-  bateu no limite de sessão do dia, 24/08/2026 — refazer)
-- ⬜ `app/admin/gerenciador/plano/plano_modal.tsx` — idem
-- ⬜ `app/admin/gerenciador/servidor/page.tsx` — idem
-- ⬜ `app/admin/gerenciador/servidor/[id]/page.tsx` — idem (candidato forte:
-  provavelmente fala com painel externo do provedor IPTV, mesma família
-  do achado da Cobrança/Revendedor)
-- ⬜ `app/admin/gerenciador/servidor/novo_servidor.tsx` — idem
-- ⬜ `app/admin/gerenciador/servidor/recarga_servidor.tsx` — idem
-- ⬜ `app/admin/gerenciador/aplicativo/page.tsx` — idem
+- 🔎 `app/admin/gerenciador/plano/page.tsx` — já otimizado (query única
+  com nested select)
+- 🔎 `app/admin/gerenciador/plano/plano_modal.tsx` — já otimizado; achado
+  de baixa prioridade: loop sequencial de insert/update ao salvar tabela
+  de preços (N+1 de escrita, não de leitura — só no save, não trava carga)
+- 🔎 `app/admin/gerenciador/servidor/page.tsx` (lista) — já otimizado
+  (6 queries em Promise.all)
+- ✅ `app/admin/gerenciador/servidor/[id]/page.tsx` — 6 consultas
+  independentes (servidor, movimentações, renovações, stats clientes
+  ativos/arquivados, contagem de revendas) rodavam em sequência →
+  Promise.all
+- ✅ `app/admin/gerenciador/servidor/novo_servidor.tsx` — mesmo padrão
+  Cobrança/Revendedor: integrações (banco) esperava sessão WhatsApp (VM)
+  terminar → paralelo
+- 🔎 `app/admin/gerenciador/servidor/recarga_servidor.tsx` — segunda busca
+  (câmbio) só dispara de novo quando a moeda muda de verdade —
+  dependência real, não anti-padrão, deixado como está
+- 🔎 `app/admin/gerenciador/aplicativo/page.tsx` — já otimizado
+  (Promise.all)
 
 ## Settings — concluído (24/08/2026)
 
@@ -134,25 +148,40 @@ não auditado
 - 🔎 `app/admin/settings/condominio/CondominioFilterDropdown.tsx` — 100%
   presentational, sem fetch
 
-## Pendente — Agenda (não auditado, agente bateu no limite de sessão)
+## Agenda — concluído (24/08/2026)
 
-- ⬜ `app/admin/agenda/page.tsx` + `shared.tsx`
-- ⬜ `app/admin/agenda/EditContatoModal.tsx`
-- ⬜ `app/admin/agenda/EnviarMensagemModal.tsx` (candidato forte: manda
-  mensagem via WhatsApp, mesma família do achado da Cobrança)
-- ⬜ `app/admin/agenda/ExcluirContatoModal.tsx`
+- 🔎 `app/admin/agenda/page.tsx` + `shared.tsx` — já otimizado (loadData +
+  loadWhatsAppSessions disparam sem await, já rodam em paralelo de propósito)
+- 🔎 `app/admin/agenda/EditContatoModal.tsx` — já otimizado (sem useEffect
+  de carga, form inicializa síncrono a partir da prop)
+- 🔎 `app/admin/agenda/EnviarMensagemModal.tsx` — já otimizado (fetch só
+  sob ação do usuário, sessões vêm via props)
+- 🔎 `app/admin/agenda/ExcluirContatoModal.tsx` — já otimizado
 
-## Pendente — Testes (não auditado, agente bateu no limite de sessão)
+## Testes — concluído (24/08/2026)
 
-- ⬜ `app/admin/teste/page.tsx`
+- 🔎 `app/admin/teste/page.tsx` — já otimizado (RPC única paginada,
+  templates/sessões só carregam sob demanda ao abrir modal, stats
+  auxiliares em segundo plano sem travar a tabela)
 
-## Pendente — Portal do cliente (não auditado, agente bateu no limite de sessão)
+## Portal do cliente — concluído (24/08/2026)
 
-- ⬜ `app/renew/page.tsx` (home do portal — prioridade alta, é a área
-  pública voltada pro cliente final)
-- ⬜ `app/renew/apps/[id]/page.tsx`
+- ✅ `app/renew/RenewClient.tsx` — achado de alto impacto: `validate-session`
+  e `get-accounts` rodavam em sequência na tela mais importante do
+  portal, mas nenhuma depende da outra (cada rota valida o
+  session_token por conta própria) → Promise.all, corta a latência
+  inicial quase pela metade
+- 🔎 `app/renew/apps/[id]/AppDetailClient.tsx` — já otimizado (fetch único)
 - 🔎 `app/renew/guia-tv/page.tsx` — coberto na varredura do Guia TV, sem
   achados
+
+## Pendências residuais (baixa prioridade, não bloqueiam nada)
+
+- `impact_preview.ts` (cupons) já resolvido; nenhum outro achado de baixa
+  prioridade documentado acima foi corrigido de propósito (risco/esforço
+  não compensava o ganho): `novo_cliente.tsx` (2 selects redundantes em
+  `servers`), `plano_modal.tsx` (N+1 de escrita no save),
+  `recarga_servidor.tsx` (dependência real, não anti-padrão)
 
 ## Baixa prioridade (páginas simples, provável sem fetch relevante)
 
