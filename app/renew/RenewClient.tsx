@@ -5676,17 +5676,27 @@ export default function RenewClient() {
             </div>
             <div className="p-3 sm:p-4 space-y-3">
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Você tem aplicativo(s) pago(s) vencendo nos próximos 30 dias.
-                Você pode trocar para um aplicativo parceiro sem custo (basta
-                ir em{" "}
-                <button
-                  type="button"
-                  onClick={() => setActiveSection("apps")}
-                  className="text-emerald-600 underline underline-offset-2 hover:text-emerald-500 font-medium"
-                >
-                  Aplicativos
-                </button>
-                ) ou incluir a renovação junto com este pagamento.
+                Identificamos que{" "}
+                {expiringAppsForAlert.length > 1
+                  ? "os aplicativos abaixo estão"
+                  : "o aplicativo abaixo está"}{" "}
+                próximo do vencimento. Deseja já antecipar a renovação para
+                evitar a interrupção do serviço?
+                {supportPhone && (
+                  <>
+                    {" "}
+                    Se precisar de qualquer ajuda, chama o Márcio no{" "}
+                    <a
+                      href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=${encodeURIComponent("Olá, preciso de ajuda com a renovação de um aplicativo!")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-emerald-600 underline decoration-emerald-600/40 underline-offset-2 hover:text-emerald-500 font-medium"
+                    >
+                      Suporte
+                    </a>
+                    .
+                  </>
+                )}
               </p>
               <div className="space-y-2">
                 {expiringAppsForAlert.map((app) => {
@@ -5865,7 +5875,8 @@ export default function RenewClient() {
               ? Math.max(
                   0,
                   renewPrice.price_amount -
-                    (appliedCoupon?.discountAmount || 0),
+                    (appliedCoupon?.discountAmount || 0) +
+                    selectedAppRenewalTotal,
                 )
               : null;
 
