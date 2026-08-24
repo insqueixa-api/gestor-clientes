@@ -228,11 +228,11 @@ export default function ServerFormModal({
     let alive = true;
 
     async function loadAuxData() {
-      try {
-        setLoadingIntegrations(true);
-        if (!tenantId) return;
+      if (!tenantId) return;
+      setLoadingIntegrations(true);
 
-        // 1. Carrega as sessões
+      // 1. Sessões do WhatsApp (proxy pra VM — pode ser lento)
+      const loadSessions = async () => {
         try {
           const [res1, res2] = await Promise.all([
             fetch("/api/whatsapp/profile", { cache: "no-store" }).catch(
@@ -254,39 +254,46 @@ export default function ServerFormModal({
             typeof window !== "undefined"
               ? localStorage.getItem("wa_label_2") || "Contato Secundário"
               : "Contato Secundário";
-          if (alive) {
-            const options = [
-              { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
-            ]; // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
+          if (!alive) return;
+          const options = [
+            { id: "default", label: buildWhatsAppSessionLabel(prof1, name1) },
+          ]; // ✅ TRAVA: Só exibe a opção de envio pela sessão 2 se ela estiver conectada
 
-            if (prof2 && prof2.connected) {
-              options.push({
-                id: "session2",
-                label: buildWhatsAppSessionLabel(prof2, name2),
-              });
-            }
-
-            setSessionOptions(options);
+          if (prof2 && prof2.connected) {
+            options.push({
+              id: "session2",
+              label: buildWhatsAppSessionLabel(prof2, name2),
+            });
           }
+
+          setSessionOptions(options);
         } catch {}
+      };
 
-        // 2. Carrega as integrações
-        // ✅ PROTEGIDO: Impedir carregamento de integrações de outras empresas
-        const { data, error } = await supabaseBrowser
-          .from("vw_server_integrations")
-          .select("id,integration_name,provider,is_active")
-          .eq("tenant_id", tenantId)
-          .order("created_at", { ascending: false });
+      // 2. Integrações (banco — rápido)
+      // ✅ PROTEGIDO: Impedir carregamento de integrações de outras empresas
+      const loadIntegrations = async () => {
+        try {
+          const { data, error } = await supabaseBrowser
+            .from("vw_server_integrations")
+            .select("id,integration_name,provider,is_active")
+            .eq("tenant_id", tenantId)
+            .order("created_at", { ascending: false });
 
-        if (error) throw error;
-        if (!alive) return;
+          if (error) throw error;
+          if (!alive) return;
 
-        setIntegrationOptions((data as any) || []);
-      } catch {
-        if (alive) setIntegrationOptions([]);
-      } finally {
-        if (alive) setLoadingIntegrations(false);
-      }
+          setIntegrationOptions((data as any) || []);
+        } catch {
+          if (alive) setIntegrationOptions([]);
+        }
+      };
+
+      // ✅ Independentes entre si — paralelo em vez da integração (banco,
+      // rápida) esperar o WhatsApp (VM, pode ser lento) terminar primeiro.
+      await Promise.all([loadSessions(), loadIntegrations()]);
+
+      if (alive) setLoadingIntegrations(false);
     }
 
     loadAuxData();

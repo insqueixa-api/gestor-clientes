@@ -162,14 +162,84 @@ export default function ServerDetailsPage() {
       if (!tenantId) throw new Error("Tenant não encontrado");
       const supabase = supabaseBrowser;
 
-      // 1. Dados do Servidor
-      const { data: sData, error: sErr } = await supabase
-        .from("servers")
-        .select("*")
-        .eq("id", serverId)
-        .eq("tenant_id", tenantId)
-        .single();
+      const startOfMonth = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth(),
+        1,
+      ).toISOString();
+      const endOfMonth = new Date(
+        selectedDate.getFullYear(),
+        selectedDate.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999,
+      ).toISOString();
 
+      // ✅ Nenhuma dessas 6 depende do resultado das outras (só de serverId/
+      // tenantId/período, já conhecidos) — paralelo em vez de sequencial.
+      // Só a integração do servidor (depende do servidor) e os nomes dos
+      // clientes (dependem das renovações) continuam como awaits à parte,
+      // logo abaixo, porque essas sim têm dependência real.
+      const [serverRes, movRes, renewalsRes, activeRes, archivedRes, resellersRes] =
+        await Promise.all([
+          // 1. Dados do Servidor
+          supabase
+            .from("servers")
+            .select("*")
+            .eq("id", serverId)
+            .eq("tenant_id", tenantId)
+            .single(),
+          // 2. Movimentações
+          supabase
+            .from("vw_server_movements")
+            .select(
+              `
+                id,
+                happened_at,
+                kind,
+                qty_credits:credits_qty,
+                total_brl:total_amount_brl,
+                unit_price,
+                label:notes
+              `,
+            )
+            .eq("server_id", serverId)
+            .gte("happened_at", startOfMonth)
+            .lte("happened_at", endOfMonth)
+            .order("happened_at", { ascending: false }),
+          // 2b. Renovações de clientes deste servidor no mês (Sem JOIN problemático)
+          supabase
+            .from("client_renewals")
+            .select(
+              "id, client_id, created_at, months, screens, unit_price, total_amount, currency, credits_used, notes",
+            )
+            .eq("tenant_id", tenantId)
+            .eq("server_id", serverId)
+            .gte("created_at", startOfMonth)
+            .lte("created_at", endOfMonth)
+            .eq("status", "PAID"),
+          // 3. Stats Clientes
+          supabase
+            .from("vw_clients_list_active")
+            .select("*", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("server_id", serverId),
+          supabase
+            .from("vw_clients_list_archived")
+            .select("*", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("server_id", serverId),
+          // 4. Stats Revendas
+          supabase
+            .from("reseller_servers")
+            .select("*", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("server_id", serverId),
+        ]);
+
+      const { data: sData, error: sErr } = serverRes;
       if (sErr) throw sErr;
 
       const serverObj = { ...sData } as any;
@@ -191,58 +261,14 @@ export default function ServerDetailsPage() {
 
       setServer(serverObj as ServerRow);
 
-      // 2. Movimentações
-      const startOfMonth = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        1,
-      ).toISOString();
-      const endOfMonth = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
-      ).toISOString();
-
-      const { data: movData, error: movErr } = await supabase
-        .from("vw_server_movements")
-        .select(
-          `
-            id, 
-            happened_at, 
-            kind, 
-            qty_credits:credits_qty,       
-            total_brl:total_amount_brl,    
-            unit_price, 
-            label:notes
-          `,
-        )
-        .eq("server_id", serverId)
-        .gte("happened_at", startOfMonth)
-        .lte("happened_at", endOfMonth)
-        .order("happened_at", { ascending: false });
-
+      const { data: movData, error: movErr } = movRes;
       if (!movErr && movData) {
         setMovements(movData as any[]);
       } else {
         setMovements([]);
       }
 
-      // 2b. Renovações de clientes deste servidor no mês (Sem JOIN problemático)
-      const { data: renewalsData, error: renErr } = await supabase
-        .from("client_renewals")
-        .select(
-          "id, client_id, created_at, months, screens, unit_price, total_amount, currency, credits_used, notes",
-        )
-        .eq("tenant_id", tenantId)
-        .eq("server_id", serverId)
-        .gte("created_at", startOfMonth)
-        .lte("created_at", endOfMonth)
-        .eq("status", "PAID");
-
+      const { data: renewalsData } = renewalsRes;
       setClientRenewals(renewalsData || []);
 
       // Busca o nome dos clientes em uma requisição separada e blindada
@@ -324,19 +350,8 @@ export default function ServerDetailsPage() {
         setMovements([]);
       }
 
-      // 3. Stats Clientes
-      const { count: activeClients } = await supabase
-        .from("vw_clients_list_active")
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", tenantId) // ✅ PROTEGIDO
-        .eq("server_id", serverId);
-
-      const { count: archivedClients } = await supabase
-        .from("vw_clients_list_archived")
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", tenantId) // ✅ PROTEGIDO
-        .eq("server_id", serverId);
-
+      const { count: activeClients } = activeRes;
+      const { count: archivedClients } = archivedRes;
       const totalClients = (activeClients || 0) + (archivedClients || 0);
 
       setClientStats({
@@ -345,12 +360,7 @@ export default function ServerDetailsPage() {
         inactive: totalClients - (activeClients || 0),
       });
 
-      // 4. Stats Revendas
-      const { count: totalResellers } = await supabase
-        .from("reseller_servers")
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", tenantId) // ✅ PROTEGIDO
-        .eq("server_id", serverId);
+      const { count: totalResellers } = resellersRes;
       setResellerCount(totalResellers || 0);
     } catch {
       addToast(
