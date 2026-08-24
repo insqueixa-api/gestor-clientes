@@ -689,7 +689,15 @@ if (!mpToken) {
       mp_payment_id: String(mpData.id),
       period,
       plan_label: planLabel,
-      price_amount: Number(finalComputedPrice),
+      // ✅ Linha "mãe" guarda só a PARTE DELA (plano + pendência - cupom),
+      // não o total combinado com a renovação de app embutida (achado
+      // 24/08/2026, testado pelo Márcio: a Auditoria somava os dois valores
+      // na mesma linha, dando a impressão de estar cobrando em dobro). O
+      // valor REAL cobrado no gateway continua sendo finalComputedPrice —
+      // só não é isso que fica gravado/exibido nesta linha; a diferença
+      // aparece na linha "filha" (payment_type=app_renewal) criada por
+      // runFulfillment a partir de bundled_app_renewals logo abaixo.
+      price_amount: Number(computedPrice),
       plan_price_amount: Number(planPriceOnly),
       price_currency: currency,
       status: "pending",
@@ -790,7 +798,9 @@ if (insErr || !inserted) {
                   mp_payment_id: String(stripeData.id),
                   period,
                   plan_label: planLabel,
-                  price_amount: Number(finalComputedPrice),
+                  // ✅ Só a parte do plano — ver comentário no bloco
+                  // mercadopago acima (mesmo raciocínio, mesmo bug).
+                  price_amount: Number(computedPrice),
                   plan_price_amount: Number(planPriceOnly),
                   price_currency: currency,
                   status: "pending",
