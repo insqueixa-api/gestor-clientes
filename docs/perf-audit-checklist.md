@@ -1,5 +1,16 @@
 # Auditoria de performance (data-fetching) — checklist
 
+**Achado importante (24/08/2026)**: Speed Insights mostrou várias rotas
+"Poor" (>4s de LCP), incluindo `/admin` — que já usa o padrão-ouro (2 RPCs
+em paralelo). Isso expôs que o gargalo real não era mais contagem de
+queries: o Supabase roda em `sa-east-1` (São Paulo) e a Vercel, sem region
+fixada, rodava tudo no padrão `iad1` (Virgínia, EUA) — toda consulta
+pagava ida e volta EUA↔Brasil. Corrigido via `vercel.json`
+(`regions: ["gru1"]`). Vale reavaliar as métricas do Speed Insights DEPOIS
+desse deploy propagar antes de assumir que sobrou algo pra otimizar em
+contagem de queries — pode ser que boa parte do "Poor" já resolva só com
+isso.
+
 Pente-fino em todo o sistema atrás do mesmo anti-padrão: fetch em onda
 sequencial (um `useEffect`/`await` esperando o outro terminar sem
 precisar) em vez de paralelo (`Promise.all`) ou, quando envolve resolver
