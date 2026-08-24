@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
+import { convertAmount } from "@/lib/fx";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     // technology, que dependia do client, virou filtro em JS logo abaixo em
     // vez de condição no .eq() — troca 2 round-trips sequenciais por 1).
     const [{ data: client }, { data: apps, error: appsErr }] = await Promise.all([
-      supabaseAdmin.from("clients").select("technology, server_id").eq("id", client_id).single(),
+      supabaseAdmin.from("clients").select("technology, server_id, price_currency").eq("id", client_id).single(),
       // ✅ Descontinuado (is_active=false) continua na lista de propósito
       // (pedido do Marcio, 25/07/2026) — sumir faria quem já usa não achar o
       // app pra saber que precisa trocar. O aviso aparece só ao tentar
@@ -65,26 +66,44 @@ export async function POST(req: NextRequest) {
     // ✅ Preço da licença exposto aqui de propósito (achado: cliente só
     // descobria que o app era pago DEPOIS de já ter adicionado e
     // configurado — o catálogo nunca mandava cost_type/license_price).
-    const available = (apps || [])
-      .filter((a: any) => !client?.technology || a.technology === client.technology)
-      // ✅ App "parceria" só aparece pro cliente do SERVIDOR parceiro certo
-      // (pedido do Marcio, 26/07/2026) — o custo já vem embutido no plano
-      // DAQUELE servidor específico; oferecer pra cliente de outro servidor
-      // mostraria um app "grátis" que na prática ele não tem direito a usar.
-      .filter((a: any) => a.cost_type !== "partnership" || (a.partner_server_id && a.partner_server_id === client?.server_id))
-      .map(({ integration_type, partner_server_id, cost_type, license_price, license_period, ...rest }: any) => {
-        // ✅ Mesmo cálculo do has_integration em list/route.ts — sinaliza no
-        // picker (ícone ⚡, pedido do Márcio 26/07/2026) quais apps ativam
-        // sozinhos vs. precisam de configuração manual pelo suporte.
-        const handler = integration_type ? getIntegrationHandler(integration_type) : null;
-        return {
-          ...rest,
-          cost_type: cost_type || null,
-          license_price: cost_type === "paid" && Number(license_price) > 0 ? Number(license_price) : null,
-          license_period: cost_type === "paid" ? license_period || null : null,
-          has_integration: !!handler && (handler as any).useApi,
-        };
-      });
+    // ✅ Preço convertido pra moeda da conta (achado 24/08/2026, pedido do
+    // Márcio): cliente USD/EUR nunca paga em BRL — mostrar o preço do
+    // catálogo em BRL pra ele é sempre errado, mesmo cálculo já usado em
+    // list/route.ts pros apps já instalados. license_price continua BRL
+    // (preço real do catálogo); license_price_display é o convertido.
+    const clientCurrency = String(client?.price_currency || "BRL").trim() || "BRL";
+
+    const available = await Promise.all(
+      (apps || [])
+        .filter((a: any) => !client?.technology || a.technology === client.technology)
+        // ✅ App "parceria" só aparece pro cliente do SERVIDOR parceiro certo
+        // (pedido do Marcio, 26/07/2026) — o custo já vem embutido no plano
+        // DAQUELE servidor específico; oferecer pra cliente de outro servidor
+        // mostraria um app "grátis" que na prática ele não tem direito a usar.
+        .filter((a: any) => a.cost_type !== "partnership" || (a.partner_server_id && a.partner_server_id === client?.server_id))
+        .map(async ({ integration_type, partner_server_id, cost_type, license_price, license_period, ...rest }: any) => {
+          // ✅ Mesmo cálculo do has_integration em list/route.ts — sinaliza no
+          // picker (ícone ⚡, pedido do Márcio 26/07/2026) quais apps ativam
+          // sozinhos vs. precisam de configuração manual pelo suporte.
+          const handler = integration_type ? getIntegrationHandler(integration_type) : null;
+          const licensePriceBRL = cost_type === "paid" && Number(license_price) > 0 ? Number(license_price) : null;
+          const licensePriceDisplay =
+            licensePriceBRL == null
+              ? null
+              : clientCurrency === "BRL"
+                ? licensePriceBRL
+                : await convertAmount(supabaseAdmin, ctx.tenant_id, licensePriceBRL, "BRL", clientCurrency);
+          return {
+            ...rest,
+            cost_type: cost_type || null,
+            license_price: licensePriceBRL,
+            license_price_display: licensePriceDisplay,
+            license_price_display_currency: licensePriceBRL == null ? null : clientCurrency,
+            license_period: cost_type === "paid" ? license_period || null : null,
+            has_integration: !!handler && (handler as any).useApi,
+          };
+        }),
+    );
 
     return NextResponse.json({ ok: true, data: available }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {

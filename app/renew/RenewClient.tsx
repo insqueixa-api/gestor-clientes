@@ -583,6 +583,8 @@ export default function RenewClient() {
       cost_type?: "free" | "paid" | "partnership" | null;
       has_integration?: boolean;
       license_price?: number | null;
+      license_price_display?: number | null;
+      license_price_display_currency?: string | null;
       license_period?: "annual" | "lifetime" | null;
       is_active?: boolean;
       discontinued_replacement_name?: string | null;

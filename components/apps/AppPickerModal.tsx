@@ -13,6 +13,12 @@ export type AppPickerCatalogItem = {
   cost_type?: "free" | "paid" | "partnership" | null;
   partner_server_id?: string | null;
   license_price?: number | null;
+  // ✅ Preço já convertido pra moeda da conta (portal do cliente, achado
+  // 24/08/2026) — mesmo valor exibido em RenewClient.tsx pros apps já
+  // instalados. Admin nunca preenche isso (segue mostrando license_price
+  // em BRL, referência de custo interno).
+  license_price_display?: number | null;
+  license_price_display_currency?: string | null;
   license_period?: "annual" | "lifetime" | null;
   is_active?: boolean;
   discontinued_replacement_name?: string | null;
@@ -297,7 +303,10 @@ export default function AppPickerModal({
                         ) : (
                           app.license_price != null && (
                             <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold">
-                              {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(app.license_price)}
+                              {new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: app.license_price_display_currency || "BRL",
+                              }).format(app.license_price_display ?? app.license_price)}
                               {app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " vitalícia" : ""}
                             </span>
                           )
