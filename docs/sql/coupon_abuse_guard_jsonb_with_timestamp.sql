@@ -22,8 +22,17 @@
 -- linhas antigas simplesmente começam do zero sob a regra nova, sem
 -- precisar de nenhum backfill de data.
 
+-- ✅ Precisa dropar o default ANTES de trocar o tipo — o Postgres tenta
+-- validar que o default atual ('{}'::text[]) é convertível pro tipo novo
+-- antes mesmo de olhar o USING, e '{}'::text[] -> jsonb não converte
+-- sozinho (erro 42804). Dropar, converter, recriar.
 ALTER TABLE coupon_abuse_guard
-  ALTER COLUMN codes_tried TYPE jsonb USING to_jsonb(codes_tried),
+  ALTER COLUMN codes_tried DROP DEFAULT;
+
+ALTER TABLE coupon_abuse_guard
+  ALTER COLUMN codes_tried TYPE jsonb USING to_jsonb(codes_tried);
+
+ALTER TABLE coupon_abuse_guard
   ALTER COLUMN codes_tried SET DEFAULT '[]'::jsonb;
 
 COMMENT ON COLUMN coupon_abuse_guard.codes_tried IS 'Array jsonb de {code, at} — só tentativas de código que FALHARAM (nunca as válidas), só as caídas dentro da janela rolante de 24h contam pro limite. Ver lib/client-portal/coupons.ts::pruneRecentAttempts/recordFailedCouponAttempt.';
