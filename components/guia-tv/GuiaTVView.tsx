@@ -1315,20 +1315,25 @@ function ModalDetalhe({
 
                                 setDeletando(true);
                                 setShowDeleteMenu(false);
-                                for (const d of detalhe.disponibilidade) {
-                                  await fetch("/api/catalogo/titulo", {
-                                    method: "DELETE",
-                                    headers: {
-                                      "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                      id: detalhe.id,
-                                      servidor: d.servidor,
-                                    }),
-                                  })
-                                    .then((r) => r.json())
-                                    .catch(() => null);
-                                }
+                                // ✅ Um servidor não depende do outro —
+                                // dispara os deletes em paralelo em vez de
+                                // esperar um terminar pra começar o próximo.
+                                await Promise.all(
+                                  detalhe.disponibilidade.map((d) =>
+                                    fetch("/api/catalogo/titulo", {
+                                      method: "DELETE",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                      },
+                                      body: JSON.stringify({
+                                        id: detalhe.id,
+                                        servidor: d.servidor,
+                                      }),
+                                    })
+                                      .then((r) => r.json())
+                                      .catch(() => null),
+                                  ),
+                                );
                                 setDeleteOk(true);
                                 setDeletando(false);
                                 setTimeout(() => onClose(), 1500);

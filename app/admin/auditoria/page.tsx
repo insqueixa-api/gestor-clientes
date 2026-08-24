@@ -510,45 +510,13 @@ function AuditoriaPageContent() {
         const { data: paymentsData, error } = await query;
         if (error) throw error;
 
-        // 2. Extrai clientes e busca dados completos (incluindo telas e ID do servidor)
+        // 2. Extrai clientes/pendências referenciados pelos pagamentos —
+        // nenhuma das 3 buscas abaixo depende do resultado das outras (só
+        // de paymentsData/tid, já disponíveis), então rodam em paralelo em
+        // vez de uma atrás da outra.
         const clientIds = [
           ...new Set((paymentsData || []).map((p: any) => p.client_id)),
         ].filter(Boolean);
-        const clientsMap: Record<string, any> = {};
-
-        if (clientIds.length > 0) {
-          const { data: clientsData } = await supabaseBrowser
-            .from("clients")
-            .select(
-              "id, display_name, server_username, server_id, screens, technology",
-            ) // ✅ Adicionado technology
-            .in("id", clientIds)
-            .eq("tenant_id", tid);
-
-          if (clientsData) {
-            clientsData.forEach((c: any) => {
-              clientsMap[c.id] = c;
-            });
-          }
-        }
-
-        // 3. Puxa a lista de servidores para mapear o ID para o Nome real
-        const { data: serversData } = await supabaseBrowser
-          .from("servers")
-          .select("id, name")
-          .eq("tenant_id", tid);
-
-        const serversMap: Record<string, string> = {};
-        if (serversData) {
-          serversData.forEach((s: any) => {
-            serversMap[s.id] = s.name;
-          });
-        }
-
-        // 3.5 Pendências quitadas por esses pagamentos — pra montar o resumo
-        // "Cupom X / Pendência Y" abaixo do valor total (pedido do Marcio,
-        // pra auditar a diferença entre o total e o que foi desconto/
-        // pendência sem abrir cada pagamento).
         const allAlertIds = [
           ...new Set(
             (paymentsData || []).flatMap(
@@ -556,21 +524,49 @@ function AuditoriaPageContent() {
             ),
           ),
         ];
-        const alertsMap: Record<string, { label: string; amount: number }> = {};
-        if (allAlertIds.length > 0) {
-          const { data: alertsData } = await supabaseBrowser
-            .from("client_alerts")
-            .select("id, message, amount, client_apps(apps(name))")
-            .in("id", allAlertIds);
 
-          (alertsData || []).forEach((a: any) => {
-            const appName = a.client_apps?.apps?.name || null;
-            alertsMap[a.id] = {
-              label: appName || pendencyLabelFromMessage(a.message),
-              amount: Number(a.amount || 0),
-            };
-          });
-        }
+        const [clientsRes, serversRes, alertsRes] = await Promise.all([
+          clientIds.length > 0
+            ? supabaseBrowser
+                .from("clients")
+                .select(
+                  "id, display_name, server_username, server_id, screens, technology",
+                ) // ✅ Adicionado technology
+                .in("id", clientIds)
+                .eq("tenant_id", tid)
+            : Promise.resolve({ data: null as any[] | null }),
+          // 3. Puxa a lista de servidores para mapear o ID para o Nome real
+          supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
+          // 3.5 Pendências quitadas por esses pagamentos — pra montar o
+          // resumo "Cupom X / Pendência Y" abaixo do valor total (pedido do
+          // Marcio, pra auditar a diferença entre o total e o que foi
+          // desconto/pendência sem abrir cada pagamento).
+          allAlertIds.length > 0
+            ? supabaseBrowser
+                .from("client_alerts")
+                .select("id, message, amount, client_apps(apps(name))")
+                .in("id", allAlertIds)
+            : Promise.resolve({ data: null as any[] | null }),
+        ]);
+
+        const clientsMap: Record<string, any> = {};
+        (clientsRes.data || []).forEach((c: any) => {
+          clientsMap[c.id] = c;
+        });
+
+        const serversMap: Record<string, string> = {};
+        (serversRes.data || []).forEach((s: any) => {
+          serversMap[s.id] = s.name;
+        });
+
+        const alertsMap: Record<string, { label: string; amount: number }> = {};
+        (alertsRes.data || []).forEach((a: any) => {
+          const appName = a.client_apps?.apps?.name || null;
+          alertsMap[a.id] = {
+            label: appName || pendencyLabelFromMessage(a.message),
+            amount: Number(a.amount || 0),
+          };
+        });
 
         // 4. Junta tudo na linha da tabela
         const mapped: LogRow[] = (paymentsData || []).map((r: any) => {

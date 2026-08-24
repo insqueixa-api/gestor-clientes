@@ -576,38 +576,37 @@ export default function ClientDetailsPage() {
         return;
       }
 
-      // ✅ 0) Prepara dicionário de Apps direto da tabela (Acesso Total e Direto)
-      const localAppsById: Record<string, any> = {};
-      const { data: rawAppsData } = await supabaseBrowser
-        .from("apps")
-        .select("*")
-        .eq("is_active", true);
+      // ✅ Otimização (achado na auditoria de 24/08/2026): eram 7 idas
+      // sequenciais ao banco, a maioria sem depender uma da outra — vira
+      // uma chamada só ao RPC get_client_detail_bundle (docs/sql/
+      // client_detail_bundle_rpc.sql). Sem SECURITY DEFINER: roda sob a
+      // RLS do usuário logado, mesmo escopo de segurança de antes.
+      const { data: bundleData, error: bundleError } = await supabaseBrowser.rpc(
+        "get_client_detail_bundle",
+        { p_client_id: clientIdSafe },
+      );
+      if (bundleError) throw bundleError;
 
-      if (rawAppsData) {
-        for (const a of rawAppsData) {
-          if (a?.id) localAppsById[String(a.id)] = a;
-        }
-      }
+      const bundle = bundleData as {
+        row: VwClientRow | null;
+        client_row: {
+          plan_table_id: string | null;
+          notes: string | null;
+          price_currency: string | null;
+          m3u_url: string | null;
+          created_at: string | null;
+          secondary_display_name: string | null;
+          secondary_phone_e164: string | null;
+          secondary_whatsapp_username: string | null;
+          name_prefix: string | null;
+        } | null;
+        plan_table_name: string | null;
+        apps_catalog: any[];
+        client_apps: any[];
+        events: any[];
+      };
 
-      // 1) tenta na view ACTIVE
-      const r1 = await supabaseBrowser
-        .from("vw_clients_list_active")
-        .select("*")
-        .eq("tenant_id", tid)
-        .eq("id", clientIdSafe)
-        .maybeSingle();
-
-      // 2) se não achou, tenta na view ARCHIVED
-      const r2 = r1.data
-        ? { data: null as any, error: null as any }
-        : await supabaseBrowser
-            .from("vw_clients_list_archived")
-            .select("*")
-            .eq("tenant_id", tid)
-            .eq("id", clientIdSafe)
-            .maybeSingle();
-
-      const row = ((r1.data || r2.data) as VwClientRow | null) ?? null;
+      const row = bundle.row;
 
       if (!row) {
         setClient(null);
@@ -615,72 +614,36 @@ export default function ClientDetailsPage() {
         setLoading(false);
         return;
       }
+
+      // ✅ Prepara dicionário de Apps (catálogo já veio no bundle)
+      const localAppsById: Record<string, any> = {};
+      for (const a of bundle.apps_catalog || []) {
+        if (a?.id) localAppsById[String(a.id)] = a;
+      }
+
       // ✅ Fonte da verdade: clients
-      let dbPlanTableId: string | null = null;
-      let dbNotes: string | null = null;
-      let dbPriceCurrency: string | null = null;
+      const c = bundle.client_row;
+      const dbPlanTableId: string | null = c?.plan_table_id ?? null;
+      const dbNotes: string | null =
+        typeof c?.notes === "string" ? c.notes : null;
+      const dbPriceCurrency: string | null =
+        typeof c?.price_currency === "string" ? c.price_currency : null;
+      const dbM3uUrl: string | null =
+        typeof c?.m3u_url === "string" ? c.m3u_url : null;
+      const dbCreatedAt: string | null = c?.created_at ?? null;
+      const dbSecName: string | null = c?.secondary_display_name ?? null;
+      const dbSecPhone: string | null = c?.secondary_phone_e164 ?? null;
+      const dbSecUsername: string | null =
+        c?.secondary_whatsapp_username ?? null;
+      const dbNamePrefix: string | null = c?.name_prefix ?? null;
 
       // ✅ Nome final da tabela (plan_tables > view)
-      let finalTableName: string | null = null;
-
-      // ✅ M3U
-      let dbM3uUrl: string | null = null;
-
-      // ✅ Data de Cadastro
-      let dbCreatedAt: string | null = null;
-
-      // ✅ Contatos Secundários
-      let dbSecName: string | null = null;
-      let dbSecPhone: string | null = null;
-      let dbSecUsername: string | null = null;
-      let dbNamePrefix: string | null = null; // ✅ NOVA VARIÁVEL PARA O PREFIXO
-
-      try {
-        // 1) pega ID da tabela e notes direto da tabela clients
-        const c = await supabaseBrowser
-          .from("clients")
-          // ✅ INCLUÍDO O name_prefix NA BUSCA
-          .select(
-            "plan_table_id, notes, price_currency, m3u_url, created_at, secondary_display_name, secondary_phone_e164, secondary_whatsapp_username, name_prefix",
-          )
-          .eq("tenant_id", tid)
-          .eq("id", clientIdSafe)
-          .maybeSingle();
-
-        if (!c.error && c.data) {
-          dbCreatedAt = (c.data as any).created_at ?? null;
-          dbPlanTableId = (c.data as any).plan_table_id ?? null;
-
-          const n = (c.data as any).notes;
-          dbNotes = typeof n === "string" ? n : null;
-
-          const pc = (c.data as any).price_currency;
-          dbPriceCurrency = typeof pc === "string" ? pc : null;
-
-          const m3u = (c.data as any).m3u_url;
-          dbM3uUrl = typeof m3u === "string" ? m3u : null;
-
-          dbSecName = (c.data as any).secondary_display_name ?? null;
-          dbSecPhone = (c.data as any).secondary_phone_e164 ?? null;
-          dbSecUsername = (c.data as any).secondary_whatsapp_username ?? null;
-          dbNamePrefix = (c.data as any).name_prefix ?? null; // ✅ PEGA O PREFIXO DO BANCO
-        }
-
-        // 2) tenta nome vindo da view (fallback)
-        const viewNameRaw = String((row as any).plan_table_name ?? "").trim();
-        if (viewNameRaw && viewNameRaw !== "—") finalTableName = viewNameRaw;
-
-        // 3) se tem ID da tabela, o nome oficial vem de plan_tables (prioridade)
-        if (dbPlanTableId) {
-          const t = await supabaseBrowser
-            .from("plan_tables")
-            .select("name")
-            .eq("id", dbPlanTableId)
-            .maybeSingle();
-
-          if (!t.error && t.data?.name) finalTableName = String(t.data.name);
-        }
-      } catch {}
+      const viewNameRaw = String((row as any).plan_table_name ?? "").trim();
+      let finalTableName: string | null =
+        viewNameRaw && viewNameRaw !== "—" ? viewNameRaw : null;
+      if (dbPlanTableId && bundle.plan_table_name) {
+        finalTableName = String(bundle.plan_table_name);
+      }
 
       const mapped: ClientDetail = {
         id: String(row.id),
@@ -733,11 +696,8 @@ export default function ClientDetailsPage() {
         created_at: dbCreatedAt ?? (row as any).created_at ?? null, // ✅ ADICIONADO AQUI
       };
 
-      // ✅ BUSCA REAL: Vencimento dos Apps (Bypass RLS cruzando com o dicionário local)
-      const { data: appsData } = await supabaseBrowser
-        .from("client_apps")
-        .select("id, app_id, field_values") // ❌ Removido o join com 'apps'
-        .eq("client_id", mapped.id);
+      // ✅ Vencimento dos Apps — client_apps já veio no bundle
+      const appsData = bundle.client_apps;
 
       if (appsData) {
         (mapped as any).apps_details = appsData.map((item: any) => {
@@ -783,21 +743,8 @@ export default function ClientDetailsPage() {
 
       setClient(mapped);
 
-      // ✅ Timeline real: client_events
-      const ev = await supabaseBrowser
-        .from("client_events")
-        .select("id, created_at, event_type, message, meta")
-        .eq("tenant_id", tid)
-        .eq("client_id", mapped.id) // ou String(clientId)
-        .order("created_at", { ascending: false })
-        .limit(200);
-
-      if (ev.error) {
-        addToast("error", "Falha ao carregar timeline", ev.error.message);
-        setTimeline([]);
-      } else {
-        setTimeline((ev.data || []) as any);
-      }
+      // ✅ Timeline — client_events já veio no bundle
+      setTimeline((bundle.events || []) as any);
 
       setLoading(false);
     } catch (e: unknown) {
@@ -831,9 +778,13 @@ export default function ClientDetailsPage() {
     }
   }
 
+  // ✅ clientIdSafe já vem da URL, não precisa esperar loadData() terminar
+  // pra saber o id — rodava depois de client.id ser setado (mesmo valor,
+  // só que tarde) em vez de em paralelo com o carregamento da ficha.
   useEffect(() => {
-    if (client?.id) loadEligibleCoupons(client.id);
-  }, [client?.id]);
+    if (clientIdSafe) loadEligibleCoupons(clientIdSafe);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientIdSafe]);
 
   async function handleArchiveToggle() {
     if (!client) return;

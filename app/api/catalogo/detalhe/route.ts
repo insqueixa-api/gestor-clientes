@@ -21,27 +21,31 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 1. Dados do título
-    const { data: titulo, error: tErr } = await supabaseAdmin
-      .from("catalog_master")
-      .select(`
-        id, titulo_normalizado, titulo_exibicao, tipo,
-        cover_url, poster_tmdb_url,
-        ano, sinopse, avaliacao, generos,
-        total_temporadas, total_episodios,
-        tmdb_id, tmdb_confirmado
-      `)
-      .eq("id", id)
-      .single();
+    // 1. Dados do título + 2. Disponibilidade — nenhuma depende da outra
+    // (as duas só precisam do id, já conhecido), então rodam em paralelo em
+    // vez de uma esperar a outra terminar.
+    const [tituloRes, disponibilidadeRes] = await Promise.all([
+      supabaseAdmin
+        .from("catalog_master")
+        .select(`
+          id, titulo_normalizado, titulo_exibicao, tipo,
+          cover_url, poster_tmdb_url,
+          ano, sinopse, avaliacao, generos,
+          total_temporadas, total_episodios,
+          tmdb_id, tmdb_confirmado
+        `)
+        .eq("id", id)
+        .single(),
+      supabaseAdmin
+        .from("catalog_availability")
+        .select("servidor, categoria_origem, adicionado_em")
+        .eq("master_id", id)
+        .order("servidor"),
+    ]);
 
+    const { data: titulo, error: tErr } = tituloRes;
     if (tErr || !titulo) throw new Error("Título não encontrado");
-
-    // 2. Disponibilidade (todos os servidores e categorias)
-    const { data: disponibilidade } = await supabaseAdmin
-      .from("catalog_availability")
-      .select("servidor, categoria_origem, adicionado_em")
-      .eq("master_id", id)
-      .order("servidor");
+    const disponibilidade = disponibilidadeRes.data;
 
     // 3. Se for série: temporadas agrupadas
     let temporadas: { temporada: number; total_episodios: number; servidores: string[] }[] = [];
