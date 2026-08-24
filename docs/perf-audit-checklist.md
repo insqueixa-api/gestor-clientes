@@ -33,15 +33,23 @@ não auditado
 - 🔎 `app/admin/page.tsx` (Dashboard) — já era o padrão-ouro (2 RPCs em
   paralelo), nada a fazer
 
-## Financeiro Pessoal — auditoria em andamento
+## Financeiro Pessoal — concluído (24/08/2026)
 
-- ⬜ `app/admin/settings/financeiro_pessoal/page.tsx`
-- ⬜ `ModalAjusteSaldo.tsx`
-- ⬜ `ModalNovaConta.tsx`
-- ⬜ `ModalNovaCategoria.tsx`
-- ⬜ `ModalGerenciarItens.tsx`
-- ⬜ `ModalBaixa.tsx`
-- ⬜ `ModalEmprestimos.tsx`
+- ✅ `app/admin/settings/financeiro_pessoal/page.tsx` — N+1 de
+  `get_saldo_conta` por conta virou RPC bundle
+  (`get_fin_saldos_contas`, roda em paralelo com `sincronizarRendimentos`
+  já que os lançamentos sincronizados têm `conta_id: null`, então não
+  colidem); loop sequencial de `resolve_notification` virou
+  `Promise.allSettled`
+- 🔎 `ModalAjusteSaldo.tsx` — já otimizado (recebe dados via props)
+- 🔎 `ModalNovaConta.tsx` — já otimizado (só um insert)
+- 🔎 `ModalNovaCategoria.tsx` — já otimizado (só um insert)
+- 🔎 `ModalGerenciarItens.tsx` — já otimizado (recebe dados via props)
+- 🔎 `ModalBaixa.tsx` — já otimizado (recebe dados via props, já usa
+  Promise.allSettled)
+- 🔎 `ModalEmprestimos.tsx` — já otimizado (Promise.all); achado menor de
+  baixa prioridade: histórico/saldo por pessoa sem paginação — não
+  urgente, baixo volume hoje
 
 ## Pendente — módulo Cliente
 

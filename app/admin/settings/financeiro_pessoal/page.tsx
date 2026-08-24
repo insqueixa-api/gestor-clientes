@@ -440,36 +440,37 @@ function FinanceiroPageContent() {
         setCategoriasDB(categoriasCarregadas);
       }
 
-      // Sincroniza Entradas do Dashboard automaticamente
-      await sincronizarRendimentos(
-        tid,
-        dateObj,
-        resContas.data || [],
-        categoriasCarregadas,
-      );
+      // ✅ Sincroniza Entradas do Dashboard automaticamente + calcula saldo
+      // de todas as contas numa chamada só (get_fin_saldos_contas — ver
+      // docs/sql/fin_saldos_contas_bundle_rpc.sql). As duas rodam em
+      // paralelo: o sync escreve em fin_transacoes sempre com
+      // conta_id=null (linha ~347), então nunca afeta o saldo calculado
+      // por conta — não é uma dependência real, diferente da busca de
+      // transações do mês logo abaixo (essa sim precisa esperar o sync
+      // terminar, porque exibe os lançamentos sincronizados).
+      const [, saldosRes] = await Promise.all([
+        sincronizarRendimentos(
+          tid,
+          dateObj,
+          resContas.data || [],
+          categoriasCarregadas,
+        ),
+        supabaseBrowser.rpc("get_fin_saldos_contas"),
+      ]);
 
       if (isStale()) return;
 
-      const saldos: Record<string, number> = {};
-      let falhasSaldo = 0;
-      for (const c of resContas.data || []) {
-        const { data: saldo, error: errSaldo } = await supabaseBrowser.rpc(
-          "get_saldo_conta",
-          { p_conta_id: c.id },
-        );
-        if (errSaldo) {
-          falhasSaldo++;
-          continue; // não seta 0 pra não fingir que a conta está zerada
-        }
-        saldos[c.id] = Number(saldo || 0);
-      }
-      if (isStale()) return;
-      if (falhasSaldo > 0) {
+      if (saldosRes.error) {
         addToast(
           "error",
           "Saldo desatualizado",
-          `Não consegui calcular o saldo de ${falhasSaldo} conta(s) — os valores mostrados podem estar incompletos.`,
+          "Não consegui calcular o saldo das contas — os valores mostrados podem estar incompletos.",
         );
+      }
+      const saldosMap = (saldosRes.data as Record<string, number> | null) || {};
+      const saldos: Record<string, number> = {};
+      for (const c of resContas.data || []) {
+        saldos[c.id] = Number(saldosMap[c.id] ?? 0);
       }
       setSaldosContas(saldos);
 
@@ -594,16 +595,18 @@ function FinanceiroPageContent() {
           .eq("recorrencia_id", t.recorrencia_id)
           .gte("data_vencimento", t.data_vencimento);
 
-        // ✅ NOVO: resolve a notificação de cada uma (se existir)
-        for (const row of paraExcluir || []) {
-          try {
-            await supabaseBrowser.rpc("resolve_notification", {
+        // ✅ Resolve a notificação de cada uma (se existir) — em paralelo,
+        // não uma atrás da outra (best-effort, mesmo padrão já usado em
+        // ModalBaixa.tsx pra chamadas em lote como esta).
+        await Promise.allSettled(
+          (paraExcluir || []).map((row) =>
+            supabaseBrowser.rpc("resolve_notification", {
               p_tenant_id: tenantId,
               p_type: "fin_vencido",
               p_source_id: row.id,
-            });
-          } catch {}
-        }
+            }),
+          ),
+        );
       } else {
         await supabaseBrowser.from("fin_transacoes").delete().eq("id", t.id);
 
