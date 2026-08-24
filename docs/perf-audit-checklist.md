@@ -78,10 +78,18 @@ não auditado
 ## Pendente — Gerenciador
 
 - ⬜ `app/admin/gerenciador/aplicativo/page.tsx`
-- ⬜ `app/admin/gerenciador/cobranca/page.tsx` + `shared.tsx`
+- ✅ `app/admin/gerenciador/cobranca/page.tsx` — achado real (24/08/2026,
+  reportado pelo Márcio): os 2 fetches de perfil do WhatsApp
+  (sessão 1/2, proxy pra VM com timeout de 12s) entravam no mesmo
+  `Promise.all` que travava `setLoading(false)`, mesmo só sendo usados
+  pelo seletor de sessão do modal — a lista de regras (já pronta rápido)
+  ficava esperando a VM à toa. Corrigido: perfil do WhatsApp agora
+  carrega em paralelo, fora do loading, via `loadWhatsAppSessionOptions`
+  (helper já existente, reaproveitado em vez de reimplementado inline)
 - ⬜ `app/admin/gerenciador/cobranca/ImpactListModal.tsx`
 - ⬜ `app/admin/gerenciador/cobranca/AutomationWizard.tsx`
 - ⬜ `app/admin/gerenciador/cobranca/LogsModal.tsx`
+- ⬜ `app/admin/gerenciador/cobranca/shared.tsx`
 - ⬜ `app/admin/gerenciador/mensagem/page.tsx` + `shared.tsx`
 - ⬜ `app/admin/gerenciador/mensagem/EditorModal.tsx`
 - ⬜ `app/admin/gerenciador/mensagem/PreviewModal.tsx`
