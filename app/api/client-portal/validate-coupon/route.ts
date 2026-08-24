@@ -5,7 +5,8 @@ import * as Sentry from "@sentry/nextjs";
 import {
   validateCouponForCharge,
   couponRejectReason,
-  checkCouponAbuseGuard,
+  isCouponAbuseBlocked,
+  recordFailedCouponAttempt,
   COUPON_ABUSE_BLOCKED_MESSAGE,
 } from "@/lib/client-portal/coupons";
 import { touchPortalSession } from "@/lib/client-portal/session";
@@ -112,16 +113,17 @@ export async function POST(req: NextRequest) {
 
     if (clientErr || !client) return jsonError("Cliente não encontrado", 404);
 
-    // ✅ Rate limit anti-abuso: 5 códigos diferentes tentados pela MESMA
-    // CONTA (client_id, não a identidade/whatsapp) bloqueia por um tempo —
-    // nem chega a validar o código de verdade (mesmo que seja válido,
-    // ainda bloqueia; achado em auditoria de segurança, decisão do
-    // Marcio). Só depois de confirmar que o client_id é mesmo dessa sessão
-    // (senão qualquer sessão válida poderia "gastar" o limite de bloqueio
-    // de uma conta alheia passando o client_id de outra pessoa). Ver
-    // checkCouponAbuseGuard.
-    const abuseGuard = await checkCouponAbuseGuard(supabaseAdmin, sess.tenant_id, client_id, code);
-    if (abuseGuard.blocked) {
+    // ✅ Rate limit anti-abuso: 5 códigos diferentes ERRADOS pela MESMA
+    // CONTA (client_id, não a identidade/whatsapp) numa janela de 24h
+    // bloqueia por 30 min (achado em auditoria de segurança, ajustado
+    // 24/08/2026 — ver comentário em isCouponAbuseBlocked/
+    // recordFailedCouponAttempt). Só depois de confirmar que o client_id é
+    // mesmo dessa sessão (senão qualquer sessão válida poderia "gastar" o
+    // limite de bloqueio de uma conta alheia passando o client_id de outra
+    // pessoa). Isto é só a checagem (leitura) — o registro de tentativa
+    // falha acontece só depois de validar de verdade, mais abaixo.
+    const preBlock = await isCouponAbuseBlocked(supabaseAdmin, sess.tenant_id, client_id);
+    if (preBlock.blocked) {
       return NextResponse.json({ ok: false, reason: COUPON_ABUSE_BLOCKED_MESSAGE }, { status: 200, headers: NO_STORE_HEADERS });
     }
 
@@ -220,6 +222,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.ok) {
+      // ✅ Só registra pro limite de abuso DEPOIS de confirmar que o código
+      // realmente falhou — código que funciona nunca conta (achado
+      // 24/08/2026: antes contava até tentativa válida, "gastando" o
+      // limite de erro à toa).
+      const abuseResult = await recordFailedCouponAttempt(supabaseAdmin, sess.tenant_id, client_id, code);
+      if (abuseResult.blocked) {
+        return NextResponse.json({ ok: false, reason: COUPON_ABUSE_BLOCKED_MESSAGE }, { status: 200, headers: NO_STORE_HEADERS });
+      }
       return NextResponse.json({ ok: false, reason: couponRejectReason(result) }, { status: 200, headers: NO_STORE_HEADERS });
     }
 

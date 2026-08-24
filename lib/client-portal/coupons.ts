@@ -104,30 +104,83 @@ export function couponRejectReason(r: CouponValidationResult): string | null {
 
 const COUPON_ABUSE_MAX_DISTINCT_CODES = 5;
 const COUPON_ABUSE_LOCKOUT_MINUTES = 30;
+// ⚠️ CORRIGIDO 24/08/2026 (achado pelo Marcio testando cupom no portal): a
+// janela de acúmulo era indefinida — codes_tried só zerava quando um
+// bloqueio anterior EXPIRAVA, então um código de teste digitado semanas
+// atrás continuava contando pra sempre até acidentalmente somar 5. Agora é
+// uma janela rolante de 24h: só conta tentativa com timestamp dentro das
+// últimas 24h, o resto é podado a cada chamada.
+const COUPON_ABUSE_WINDOW_HOURS = 24;
 export const COUPON_ABUSE_BLOCKED_MESSAGE = "Cupons temporariamente indisponível para sua conta.";
 
+type CouponAbuseAttempt = { code: string; at: string };
+
+function pruneRecentAttempts(raw: unknown, now: Date): CouponAbuseAttempt[] {
+  const cutoff = now.getTime() - COUPON_ABUSE_WINDOW_HOURS * 60 * 60 * 1000;
+  const list = Array.isArray(raw) ? raw : [];
+  const out: CouponAbuseAttempt[] = [];
+  for (const item of list) {
+    // ✅ Formato antigo era só string (sem timestamp) — trata como expirado
+    // de propósito: não dá pra saber quando foi tentado, e é exatamente
+    // esse tipo de entrada "eterna" que causava o bug acima.
+    if (!item || typeof item !== "object" || !("at" in item)) continue;
+    const at = new Date((item as any).at);
+    if (Number.isNaN(at.getTime()) || at.getTime() < cutoff) continue;
+    const code = String((item as any).code || "").trim().toUpperCase();
+    if (!code) continue;
+    out.push({ code, at: at.toISOString() });
+  }
+  return out;
+}
+
 /**
- * Rate limit anti-abuso (achado em auditoria de segurança, 2026-07-19):
- * se a MESMA CONTA (client_id) tentar 5 códigos DIFERENTES de cupom,
- * bloqueia novas tentativas por 30 min — mesmo que o código que estourou
- * o limite seja válido, ainda bloqueia (decisão do Marcio: desestimula
- * "catar" código por tentativa e erro, mesmo que o atacante acabe de
- * acertar um).
+ * Só LEITURA — nunca escreve nada. Chamar ANTES de validar o código de
+ * verdade, pra barrar cedo quem já está bloqueado (sem gastar uma query de
+ * validação nem, principalmente, registrar essa tentativa bloqueada como
+ * se fosse uma tentativa nova).
+ */
+export async function isCouponAbuseBlocked(
+  supabaseAdmin: any,
+  tenantId: string,
+  clientId: string,
+): Promise<{ blocked: boolean; blockedUntil?: string }> {
+  const cid = String(clientId || "").trim();
+  if (!cid) return { blocked: false };
+
+  const { data: row } = await supabaseAdmin
+    .from("coupon_abuse_guard")
+    .select("blocked_until")
+    .eq("tenant_id", tenantId)
+    .eq("client_id", cid)
+    .maybeSingle();
+
+  if (row?.blocked_until && new Date(row.blocked_until) > new Date()) {
+    return { blocked: true, blockedUntil: row.blocked_until };
+  }
+  return { blocked: false };
+}
+
+/**
+ * Rate limit anti-abuso (achado em auditoria de segurança, 2026-07-19,
+ * ajustado 24/08/2026): se a MESMA CONTA (client_id) errar 5 códigos
+ * DIFERENTES de cupom numa janela de 24h, bloqueia novas tentativas por
+ * 30 min.
+ *
+ * ⚠️ Só chamar isto quando o código JÁ foi validado de verdade (via
+ * validateCouponForCharge) e deu `ok: false` — código que FUNCIONOU nunca
+ * conta pra esse limite (antes contava, e um cupom aplicado com sucesso
+ * "gastava" parte do limite de erro à toa; achado junto com o bug da
+ * janela indefinida acima). O caller SEMPRE chama `isCouponAbuseBlocked`
+ * antes de validar (early exit) — este aqui só registra o resultado de
+ * uma tentativa que já sabemos que falhou.
  *
  * Escopo por client_id, não por whatsapp/sessão — mesma arquitetura já
  * usada em pendência, cupom (1 uso) e pagamento neste feature inteiro:
- * tudo é por conta, nunca pela pessoa/identidade toda (ver correção
- * "cupom não é por cliente e sim por username do servidor" mais acima
- * neste arquivo).
+ * tudo é por conta, nunca pela pessoa/identidade toda.
  *
- * 1 linha por (tenant_id, client_id) em `coupon_abuse_guard`, reseta
- * sozinha quando o bloqueio anterior expira.
- *
- * Chamar ANTES de validar o código de verdade — se já bloqueado, nem
- * registra a tentativa nova (evita o array crescer indefinidamente
- * enquanto a pessoa insiste durante o bloqueio).
+ * 1 linha por (tenant_id, client_id) em `coupon_abuse_guard`.
  */
-export async function checkCouponAbuseGuard(
+export async function recordFailedCouponAttempt(
   supabaseAdmin: any,
   tenantId: string,
   clientId: string,
@@ -145,19 +198,20 @@ export async function checkCouponAbuseGuard(
 
   const now = new Date();
 
+  // Já bloqueado — não registra tentativa nova (evita o array crescer
+  // indefinidamente enquanto a pessoa insiste durante o bloqueio).
   if (row?.blocked_until && new Date(row.blocked_until) > now) {
     return { blocked: true, blockedUntil: row.blocked_until };
   }
 
-  // Sem bloqueio ativo (nunca existiu, ou expirou) — janela nova.
+  const recentAttempts = pruneRecentAttempts(row?.codes_tried, now);
   const normalizedCode = String(codeAttempted || "").trim().toUpperCase();
-  const codesTried: string[] = row?.blocked_until && new Date(row.blocked_until) <= now ? [] : (row?.codes_tried || []);
-  if (normalizedCode && !codesTried.includes(normalizedCode)) {
-    codesTried.push(normalizedCode);
+  if (normalizedCode && !recentAttempts.some((a) => a.code === normalizedCode)) {
+    recentAttempts.push({ code: normalizedCode, at: now.toISOString() });
   }
 
   let blockedUntil: string | null = null;
-  if (codesTried.length >= COUPON_ABUSE_MAX_DISTINCT_CODES) {
+  if (recentAttempts.length >= COUPON_ABUSE_MAX_DISTINCT_CODES) {
     blockedUntil = new Date(now.getTime() + COUPON_ABUSE_LOCKOUT_MINUTES * 60 * 1000).toISOString();
   }
 
@@ -165,7 +219,7 @@ export async function checkCouponAbuseGuard(
     {
       tenant_id: tenantId,
       client_id: cid,
-      codes_tried: codesTried,
+      codes_tried: recentAttempts,
       blocked_until: blockedUntil,
       updated_at: now.toISOString(),
     },

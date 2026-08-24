@@ -9,7 +9,8 @@ import { getAppRenewalCharges } from "@/lib/client-portal/app-renewal-charges";
 import {
   validateCouponForCharge,
   couponRejectReason,
-  checkCouponAbuseGuard,
+  isCouponAbuseBlocked,
+  recordFailedCouponAttempt,
 } from "@/lib/client-portal/coupons";
 import { touchPortalSession } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
@@ -340,13 +341,15 @@ let couponDiscountAmount = 0;
 
 if (coupon_code_raw) {
   // ✅ Mesmo rate limit anti-abuso do validate-coupon (achado em auditoria
-  // de segurança), escopado por CONTA (client_id, já confirmado dono da
-  // sessão lá em cima) — cobre quem chama create-payment direto, pulando
-  // a prévia. Bloqueado = ignora o cupom silenciosamente (fail-open,
-  // mesmo espírito de "código inválido não derruba o pagamento" abaixo).
-  const abuseGuard = await checkCouponAbuseGuard(supabaseAdmin, sess.tenant_id, client_id, coupon_code_raw);
+  // de segurança, ajustado 24/08/2026 — janela de 24h, só conta tentativa
+  // que de fato falhou, ver lib/client-portal/coupons.ts), escopado por
+  // CONTA (client_id, já confirmado dono da sessão lá em cima) — cobre
+  // quem chama create-payment direto, pulando a prévia. Bloqueado = ignora
+  // o cupom silenciosamente (fail-open, mesmo espírito de "código inválido
+  // não derruba o pagamento" abaixo).
+  const preBlock = await isCouponAbuseBlocked(supabaseAdmin, sess.tenant_id, client_id);
 
-  if (abuseGuard.blocked) {
+  if (preBlock.blocked) {
     safeServerLog("create-payment: coupon blocked by abuse guard", { code: coupon_code_raw });
   } else {
     const { data: couponClientRow } = await supabaseAdmin
@@ -375,6 +378,10 @@ if (coupon_code_raw) {
       computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
     } else {
       safeServerLog("create-payment: coupon invalid", { code: coupon_code_raw, reason: couponRejectReason(couponResult) });
+      // ✅ Só conta pro limite de abuso depois de confirmar que falhou de
+      // verdade — código válido nunca conta (mesmo raciocínio de
+      // validate-coupon/route.ts).
+      await recordFailedCouponAttempt(supabaseAdmin, sess.tenant_id, client_id, coupon_code_raw);
     }
   }
 }
