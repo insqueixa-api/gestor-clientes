@@ -133,13 +133,22 @@ export async function POST(req: NextRequest) {
       // ✅ Achado 25/08/2026 (Márcio): a Appativa confirmar a ativação é só
       // a LICENÇA — o cliente só pode ser avisado depois que a gente
       // CONFIRMAR, de verdade, que o vencimento real (no painel do app)
-      // está no futuro. checkClientAppValidity é best-effort: quando o
-      // parceiro não devolve data nova (ex: DUPLEXTV quase nunca devolve),
-      // ela só devolve a data ANTIGA já salva como se tivesse achado — por
-      // isso aqui checamos especificamente `rawExpireDate` (o valor NOVO
-      // que veio agora do painel, não o fallback) antes de considerar
-      // confirmado.
+      // avançou. Não basta "não vencido": o portal deixa renovar com até 30
+      // dias de antecedência (ver RenewClient.tsx), e toda ativação é
+      // ANUAL ou VITALÍCIA — então uma renovação de verdade sempre resulta
+      // em pelo menos ~335 dias à frente (renovando no dia do vencimento,
+      // +365; renovando 30 dias antes, +395). Uma data ANTIGA que o
+      // parceiro ainda não atualizou (ex: DUPLEXTV quase nunca devolve data
+      // nova, ou o painel do parceiro demora a propagar) nunca passa de
+      // +30 dias, porque só foi possível renovar justamente por já estar
+      // dentro dessa janela. Por isso exige bem mais que "no futuro" —
+      // MIN_DAYS_FORWARD, com folga enorme entre os dois casos.
+      const MS_PER_DAY = 24 * 60 * 60 * 1000;
+      const MIN_DAYS_FORWARD = 300;
       let confirmedFutureExpiry = false;
+      let fulfillmentErrorMessage =
+        "Appativa confirmou a ativação, mas não foi possível confirmar automaticamente o novo vencimento. Verifique e conclua manualmente.";
+
       if (payment.client_app_id) {
         try {
           const row = await loadClientApp(supabaseAdmin, {
@@ -151,11 +160,31 @@ export async function POST(req: NextRequest) {
             // ⚠️ Narrowing via `"expireDate" in result` — mesmo bug de
             // strict:false já documentado (couponRejectReason, e no
             // markAppRenewalPaid mais cedo hoje).
-            if ("expireDate" in result && result.rawExpireDate) {
-              const dateOnly = extractDateOnly(result.rawExpireDate);
-              if (dateOnly && new Date(`${dateOnly}T23:59:59`).getTime() > Date.now()) {
-                confirmedFutureExpiry = true;
+            if ("expireDate" in result) {
+              if (result.rawExpireDate) {
+                const dateOnly = extractDateOnly(result.rawExpireDate);
+                const daysForward = dateOnly
+                  ? (new Date(`${dateOnly}T23:59:59`).getTime() - Date.now()) / MS_PER_DAY
+                  : -1;
+                if (daysForward >= MIN_DAYS_FORWARD) {
+                  confirmedFutureExpiry = true;
+                } else {
+                  fulfillmentErrorMessage =
+                    "Appativa confirmou a ativação, mas o vencimento no painel do aplicativo ainda não avançou (pode levar um tempo pra propagar do lado do parceiro). Verifique e conclua manualmente.";
+                }
+              } else {
+                fulfillmentErrorMessage =
+                  "Appativa confirmou a ativação, mas o parceiro não devolveu um vencimento novo. Verifique e conclua manualmente.";
               }
+            } else if (result.error === "Verificação de validade não disponível para este aplicativo.") {
+              // ✅ Apps sem checagem automática (ex: só dá pra ver o
+              // vencimento pela extensão do navegador) — a ativação em si
+              // foi confirmada pela Appativa, só falta o admin confirmar o
+              // vencimento novo por fora antes de concluir/avisar o cliente.
+              fulfillmentErrorMessage =
+                "Appativa confirmou a ativação — este aplicativo não tem verificação automática de vencimento. Confira pela extensão e conclua manualmente para notificar o cliente.";
+            } else if (result.error) {
+              fulfillmentErrorMessage = `Appativa confirmou a ativação, mas ${result.error} Verifique e conclua manualmente.`;
             }
           }
         } catch (e: any) {
@@ -165,17 +194,14 @@ export async function POST(req: NextRequest) {
 
       if (!confirmedFutureExpiry) {
         // ✅ Ativação aceita pela Appativa, mas não deu pra confirmar
-        // automaticamente que o vencimento avançou — NÃO conclui nem avisa
-        // o cliente sozinho. Fica visível pro admin (fulfillment_error) pra
-        // conferir/concluir manualmente na Auditoria (o modal "Concluir"
-        // já tem "Verificar validade" + "Salvar", cobre esse caso sem
-        // precisar de nada novo).
+        // automaticamente que o vencimento avançou de verdade (~1 ano) —
+        // NÃO conclui nem avisa o cliente sozinho. Fica visível pro admin
+        // (fulfillment_error) pra conferir/concluir manualmente na
+        // Auditoria (o modal "Concluir" já tem "Verificar validade" +
+        // "Salvar", cobre esse caso sem precisar de nada novo).
         await supabaseAdmin
           .from("client_portal_payments")
-          .update({
-            fulfillment_error:
-              "Appativa confirmou a ativação, mas não foi possível confirmar automaticamente o novo vencimento. Verifique e conclua manualmente.",
-          })
+          .update({ fulfillment_error: fulfillmentErrorMessage })
           .eq("id", payment.id)
           .eq("tenant_id", payment.tenant_id);
         return NextResponse.json({ ok: true });
