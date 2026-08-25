@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/gerenciador/aplicativo/page.tsx
-import { X, Pencil, Trash2 } from "lucide-react";
+import { X, Pencil, Trash2, Download } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -56,6 +56,18 @@ type AppData = {
   access_code?: string | null;
   portal_variable_fields?: string[] | null;
   discontinued_replacement_name?: string | null;
+  // ✅ De-para com o catálogo da Appativa (achado 25/08/2026) — id/nome do
+  // app correspondente lá, pra usar direto nos endpoints de ativação deles
+  // sem precisar comparar nome a nome via CSV.
+  appativa_app_id?: string | null;
+  appativa_app_name?: string | null;
+};
+
+type AppativaCatalogItem = {
+  id: string;
+  uuid: string;
+  nome: string;
+  valor: number;
 };
 
 type ServerOption = {
@@ -168,6 +180,15 @@ export default function AppManagerPage() {
   const [formIsActive, setFormIsActive] = useState(true);
   const [formDiscontinuedReplacement, setFormDiscontinuedReplacement] =
     useState<string>("");
+  // ✅ De-para com o catálogo da Appativa (achado 25/08/2026) — ver
+  // AppativaCatalogItem/appativaCatalog.
+  const [formAppativaAppId, setFormAppativaAppId] = useState<string>("");
+  const [formAppativaAppName, setFormAppativaAppName] = useState<string>("");
+  const [appativaCatalog, setAppativaCatalog] = useState<
+    AppativaCatalogItem[]
+  >([]);
+  const [appativaPickerOpen, setAppativaPickerOpen] = useState(false);
+  const [appativaPickerSearch, setAppativaPickerSearch] = useState("");
 
   // Dados exibidos no portal: marca o que o cliente precisa copiar no app.
   function toggleVariableBadge(key: string) {
@@ -261,7 +282,7 @@ export default function AppManagerPage() {
       if (!tid) return;
       setMyTenantId(tid);
 
-      const [appsRes, integrationsRes, serversRes] = await Promise.all([
+      const [appsRes, integrationsRes, serversRes, appativaRes] = await Promise.all([
         supabaseBrowser
           .from("apps")
           .select("*")
@@ -277,6 +298,18 @@ export default function AppManagerPage() {
           .select("id, name")
           .eq("tenant_id", tid)
           .order("name", { ascending: true }),
+        // ✅ Catálogo já sincronizado da Appativa (achado 25/08/2026, pedido
+        // do Márcio) — usado pelo seletor "Appativa" no formulário, pra
+        // vincular direto em vez de comparar nome a nome. Lê do cache
+        // (api_integrations.catalog_cache), nunca chama a API deles daqui —
+        // sincronizar é feito só em Settings > API de Integrações.
+        supabaseBrowser
+          .from("api_integrations")
+          .select("id, catalog_cache")
+          .eq("tenant_id", tid)
+          .eq("provider", "APPATIVA")
+          .eq("is_active", true)
+          .maybeSingle(),
       ]);
 
       if (appsRes.error) throw appsRes.error;
@@ -302,6 +335,9 @@ export default function AppManagerPage() {
         })) || [],
       );
       setServers(serversRes.data || []);
+      setAppativaCatalog(
+        (appativaRes.data?.catalog_cache as AppativaCatalogItem[]) || [],
+      );
     } catch (error: any) {
       addToast("error", "Erro ao carregar dados", error.message);
     } finally {
@@ -566,6 +602,9 @@ export default function AppManagerPage() {
     setFormVariableBadges([]);
     setFormIsActive(true);
     setFormDiscontinuedReplacement("");
+    setFormAppativaAppId("");
+    setFormAppativaAppName("");
+    setAppativaPickerSearch("");
     setIsModalOpen(true);
   }
 
@@ -602,6 +641,9 @@ export default function AppManagerPage() {
     setFormVariableBadges(selectedBadges);
     setFormIsActive(app.is_active !== false);
     setFormDiscontinuedReplacement(app.discontinued_replacement_name || "");
+    setFormAppativaAppId(app.appativa_app_id || "");
+    setFormAppativaAppName(app.appativa_app_name || "");
+    setAppativaPickerSearch("");
     setIsModalOpen(true);
   }
 
@@ -685,6 +727,8 @@ export default function AppManagerPage() {
           !formIsActive && formDiscontinuedReplacement.trim()
             ? formDiscontinuedReplacement.trim()
             : null,
+        appativa_app_id: formAppativaAppId || null,
+        appativa_app_name: formAppativaAppId ? formAppativaAppName || null : null,
       };
 
       if (editingId) {
@@ -710,6 +754,8 @@ export default function AppManagerPage() {
             !formIsActive && formDiscontinuedReplacement.trim()
               ? formDiscontinuedReplacement.trim()
               : null,
+          appativa_app_id: formAppativaAppId || null,
+          appativa_app_name: formAppativaAppId ? formAppativaAppName || null : null,
         };
         const { error } = await supabaseBrowser
           .from("apps")
@@ -863,6 +909,15 @@ export default function AppManagerPage() {
                   {needsConfiguration
                     ? `${appLabel} - Configurar API`
                     : `${appLabel} - Integrado`}
+                </span>
+              )}
+
+              {app.appativa_app_id && (
+                <span
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                  title={app.appativa_app_name || app.appativa_app_id}
+                >
+                  🔗 Appativa
                 </span>
               )}
 
@@ -1038,6 +1093,46 @@ export default function AppManagerPage() {
     );
   }
 
+  // ✅ Exportar catálogo próprio (achado 25/08/2026, pedido do Márcio) —
+  // pra comparar nome a nome contra o catálogo de um parceiro (ex: exportar
+  // ali em Settings > API de Integrações > Parceiros > Aplicativos
+  // disponíveis) e decidir os de-para/ajustes de nome antes de ativar apps
+  // por lá.
+  function exportAppsCsv() {
+    const header = "nome;tipo_custo;preco_licenca;periodo_licenca;integracao;tecnologia;ativo\n";
+    const rows = apps
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }))
+      .map((a) => {
+        const custo =
+          a.cost_type === "paid"
+            ? "Pago"
+            : a.cost_type === "partnership"
+              ? "Parceria"
+              : a.cost_type === "free"
+                ? "Gratuito"
+                : "";
+        const preco = a.license_price != null ? a.license_price.toFixed(2).replace(".", ",") : "";
+        const periodo =
+          a.license_period === "annual"
+            ? "Anual"
+            : a.license_period === "lifetime"
+              ? "Vitalícia"
+              : "";
+        return `${a.name.replace(/;/g, ",")};${custo};${preco};${periodo};${a.integration_type || ""};${a.technology || ""};${a.is_active ? "Sim" : "Não"}`;
+      })
+      .join("\n");
+    const blob = new Blob(["﻿" + header + rows], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `meu-catalogo-apps-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
       {/* ✅ Toasts em overlay */}
@@ -1059,13 +1154,23 @@ export default function AppManagerPage() {
           </div>
         </div>
 
-        <button
-          onClick={openNew}
-          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
-        >
-          <span className="text-base leading-none">+</span>
-          Novo Aplicativo
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={exportAppsCsv}
+            title="Exportar catálogo (CSV) — pra comparar com o de um parceiro"
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted font-medium text-xs md:text-sm transition-all flex items-center gap-1.5"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Exportar</span>
+          </button>
+          <button
+            onClick={openNew}
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
+          >
+            <span className="text-base leading-none">+</span>
+            Novo Aplicativo
+          </button>
+        </div>
       </div>
 
       {/* BARRA DE FILTROS */}
@@ -1476,6 +1581,96 @@ export default function AppManagerPage() {
                     </p>
                   </div>
                 )}
+
+              {/* APPATIVA — de-para com o catálogo do parceiro (achado
+                    25/08/2026, pedido do Márcio: "tem confusões de nomes",
+                    vincula direto pelo id em vez de comparar nome a nome
+                    via CSV exportado). */}
+              <div>
+                <Label>Appativa (catálogo do parceiro)</Label>
+                {formAppativaAppId ? (
+                  <div className="flex items-center justify-between gap-2 h-10 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+                    <span className="text-sm text-foreground truncate">
+                      {formAppativaAppName || formAppativaAppId}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormAppativaAppId("");
+                        setFormAppativaAppName("");
+                      }}
+                      className="shrink-0 text-muted-foreground hover:text-rose-500 transition-colors"
+                      title="Remover vínculo"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      value={appativaPickerSearch}
+                      onChange={(e) => {
+                        setAppativaPickerSearch(e.target.value);
+                        setAppativaPickerOpen(true);
+                      }}
+                      onFocus={() => setAppativaPickerOpen(true)}
+                      onBlur={() =>
+                        setTimeout(() => setAppativaPickerOpen(false), 150)
+                      }
+                      placeholder={
+                        appativaCatalog.length
+                          ? "Buscar no catálogo da Appativa..."
+                          : "Sincronize o catálogo em Parceiros primeiro"
+                      }
+                      disabled={appativaCatalog.length === 0}
+                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                    {appativaPickerOpen &&
+                      appativaPickerSearch.trim() &&
+                      appativaCatalog.length > 0 &&
+                      (() => {
+                        const matches = appativaCatalog
+                          .filter((it) =>
+                            it.nome
+                              .toLowerCase()
+                              .includes(appativaPickerSearch.trim().toLowerCase()),
+                          )
+                          .slice(0, 30);
+                        return (
+                          <div className="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
+                            {matches.length === 0 ? (
+                              <p className="px-3 py-2 text-xs text-muted-foreground">
+                                Nenhum aplicativo encontrado no catálogo.
+                              </p>
+                            ) : (
+                              matches.map((it) => (
+                                <button
+                                  key={it.id}
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    setFormAppativaAppId(it.id);
+                                    setFormAppativaAppName(it.nome);
+                                    setAppativaPickerOpen(false);
+                                    setAppativaPickerSearch("");
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                                >
+                                  {it.nome}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        );
+                      })()}
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Vincula este app ao aplicativo correspondente no catálogo da
+                  Appativa (de-para por id, não por nome) — evita confusão
+                  quando os nomes não batem exatamente.
+                </p>
+              </div>
 
               {/* CUSTO E PARCERIA */}
               <div className="bg-transparent border border-border rounded-xl p-4 space-y-4">
