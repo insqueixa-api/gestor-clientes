@@ -226,6 +226,16 @@ function FinanceiroPageContent() {
       c.nome.toLowerCase().includes("iptv"),
     )?.id;
 
+    // ✅ Conta Mercado Pago PJ (achado 26/08/2026, pedido do Márcio: essa
+    // conta é exclusiva do IPTV, os lançamentos automáticos de
+    // rendimento/recarga deveriam estar amarrados nela, não soltos sem
+    // conta). Resolvido por nome pra não depender de um UUID fixo por
+    // tenant.
+    const contaMpPj = contas.find((c) => {
+      const n = String(c?.nome || "").toLowerCase();
+      return n.includes("mercado pago") && n.includes("pj");
+    })?.id;
+
     try {
       const y = dateObj.getFullYear();
       const m = dateObj.getMonth();
@@ -320,7 +330,7 @@ function FinanceiroPageContent() {
               data_vencimento: dataVenc,
               status: "PAGO",
               data_pagamento: dataPagamentoMes,
-              conta_id: null,
+              conta_id: contaMpPj ?? null,
             })
             .eq("id", existentes[0].id);
           if (errUpd) falhasSync++;
@@ -344,7 +354,7 @@ function FinanceiroPageContent() {
               data_vencimento: dataVenc,
               status: "PAGO",
               data_pagamento: dataPagamentoMes,
-              conta_id: null,
+              conta_id: contaMpPj ?? null,
               categoria_id: catId,
               is_recorrente: true,
               frequencia: "MENSAL",
@@ -443,11 +453,13 @@ function FinanceiroPageContent() {
       // ✅ Sincroniza Entradas do Dashboard automaticamente + calcula saldo
       // de todas as contas numa chamada só (get_fin_saldos_contas — ver
       // docs/sql/fin_saldos_contas_bundle_rpc.sql). As duas rodam em
-      // paralelo: o sync escreve em fin_transacoes sempre com
-      // conta_id=null (linha ~347), então nunca afeta o saldo calculado
-      // por conta — não é uma dependência real, diferente da busca de
-      // transações do mês logo abaixo (essa sim precisa esperar o sync
-      // terminar, porque exibe os lançamentos sincronizados).
+      // paralelo por performance — mas desde 26/08/2026 (pedido do Márcio:
+      // amarrar os lançamentos automáticos de IPTV na conta Mercado Pago
+      // PJ, exclusiva do IPTV) o sync passou a escrever com um conta_id
+      // real, então em teoria o saldo calculado aqui pode vir 1 sync
+      // atrasado (corrige sozinho no próximo load/sync). Aceito — a busca
+      // de transações do mês logo abaixo é que precisa mesmo esperar o
+      // sync terminar, porque exibe os lançamentos sincronizados.
       const [, saldosRes] = await Promise.all([
         sincronizarRendimentos(
           tid,

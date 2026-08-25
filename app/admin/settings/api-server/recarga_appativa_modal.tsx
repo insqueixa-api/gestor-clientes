@@ -138,6 +138,18 @@ export default function RecargaAppativaModal({
         );
       }
 
+      // ✅ Conta Mercado Pago PJ (achado 26/08/2026, pedido do Márcio: essa
+      // conta é exclusiva do IPTV — mesma regra aplicada aos outros
+      // lançamentos automáticos de IPTV em financeiro_pessoal/page.tsx).
+      const { data: contas } = await supabaseBrowser
+        .from("fin_contas_bancarias")
+        .select("id, nome")
+        .eq("tenant_id", tenantId);
+      const contaMpPj = (contas || []).find((c: any) => {
+        const n = String(c?.nome || "").toLowerCase();
+        return n.includes("mercado pago") && n.includes("pj");
+      })?.id;
+
       const fmtNote = () =>
         [
           `[${paymentMethod}]`,
@@ -162,7 +174,7 @@ export default function RecargaAppativaModal({
           data_vencimento: purchaseDateOnly,
           status: "PAGO",
           data_pagamento: purchaseIso,
-          conta_id: null,
+          conta_id: contaMpPj ?? null,
           categoria_id: cat.id,
           is_recorrente: false,
           observacoes: fmtNote(),
