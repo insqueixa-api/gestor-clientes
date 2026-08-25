@@ -187,6 +187,13 @@ export default function AppManagerPage() {
   const [appativaCatalog, setAppativaCatalog] = useState<
     AppativaCatalogItem[]
   >([]);
+  // ✅ Preço em R$ de 1 crédito do parceiro (api_integrations.
+  // credit_unit_price) — usado pra mostrar o custo real de cada app
+  // vinculado no card (achado 25/08/2026, pedido do Márcio: "só pra eu ver
+  // visualmente meu custo e quanto eu cobro").
+  const [appativaCreditUnitPrice, setAppativaCreditUnitPrice] = useState<
+    number | null
+  >(null);
   const [appativaPickerOpen, setAppativaPickerOpen] = useState(false);
   // ✅ 2 campos de busca (achado 25/08/2026, pedido do Márcio: "buscar por
   // um ou por outro") — Nome e ID filtram o mesmo catálogo em conjunto
@@ -311,7 +318,7 @@ export default function AppManagerPage() {
         // sincronizar é feito só em Settings > API de Integrações.
         supabaseBrowser
           .from("api_integrations")
-          .select("id, catalog_cache")
+          .select("id, catalog_cache, credit_unit_price")
           .eq("tenant_id", tid)
           .eq("provider", "APPATIVA")
           .eq("is_active", true)
@@ -343,6 +350,11 @@ export default function AppManagerPage() {
       setServers(serversRes.data || []);
       setAppativaCatalog(
         (appativaRes.data?.catalog_cache as AppativaCatalogItem[]) || [],
+      );
+      setAppativaCreditUnitPrice(
+        appativaRes.data?.credit_unit_price != null
+          ? Number(appativaRes.data.credit_unit_price)
+          : null,
       );
     } catch (error: any) {
       addToast("error", "Erro ao carregar dados", error.message);
@@ -827,6 +839,17 @@ export default function AppManagerPage() {
   }
 
   function renderAppCard(app: AppData) {
+    // ✅ Custo real do app vinculado na Appativa (créditos_consumidos ×
+    // credit_unit_price) — pra comparar visualmente com o que é cobrado do
+    // cliente (license_price, mostrado logo abaixo na mesma linha de
+    // badges). Achado 25/08/2026, pedido do Márcio.
+    const appativaCatalogItem = app.appativa_app_id
+      ? appativaCatalog.find((it) => it.id === app.appativa_app_id)
+      : null;
+    const appativaCost =
+      appativaCatalogItem && appativaCreditUnitPrice != null
+        ? appativaCatalogItem.valor * appativaCreditUnitPrice
+        : null;
     const partnerServerName = app.partner_server_id
       ? servers.find((s) => s.id === app.partner_server_id)?.name || "Servidor"
       : "";
@@ -897,6 +920,38 @@ export default function AppManagerPage() {
                 {app.name}
               </h3>
             </div>
+            {app.appativa_app_id && (
+              <p className="text-[11px] text-muted-foreground pt-1">
+                🔗 Appativa:{" "}
+                <span className="font-medium text-foreground">
+                  {app.appativa_app_name || app.appativa_app_id}
+                </span>
+                {appativaCost != null && (
+                  <>
+                    {" "}
+                    · Custo:{" "}
+                    <span className="font-bold text-rose-500">
+                      {appativaCost.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </>
+                )}
+                {app.license_price != null && appativaCost != null && (
+                  <>
+                    {" "}
+                    · Você cobra:{" "}
+                    <span className="font-bold text-emerald-500">
+                      {app.license_price.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </>
+                )}
+              </p>
+            )}
             <div className="flex flex-wrap gap-1 pt-0.5">
               {app.tenant_id !== myTenantId && (
                 <span className="inline-flex items-center text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full">
@@ -917,15 +972,6 @@ export default function AppManagerPage() {
                   {needsConfiguration
                     ? `${appLabel} - Configurar API`
                     : `${appLabel} - Integrado`}
-                </span>
-              )}
-
-              {app.appativa_app_id && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                  title={app.appativa_app_name || app.appativa_app_id}
-                >
-                  🔗 Appativa
                 </span>
               )}
 

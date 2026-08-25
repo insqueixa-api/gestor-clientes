@@ -97,17 +97,23 @@ export async function POST(req: NextRequest) {
     }
   } else if (Number.isFinite(credits)) {
     // ✅ Achado 25/08/2026 (Márcio testando): sincronizar de novo com saldo
-    // recuperado não limpava sozinho o alerta antigo do sino — mesmo
-    // mecanismo que já existe pra servidor (ver resolveIfCreditsOk em
-    // recarga_servidor.tsx), só que faltava aqui.
-    try {
-      await supabase.rpc("resolve_notification", {
-        p_tenant_id: tenant_id,
-        p_type: "saldo_baixo",
-        p_source_id: integration.id,
-      });
-    } catch (e) {
-      console.error("[appativa/sync-credits] falha ao resolver notificação de saldo baixo", (e as any)?.message);
+    // recuperado não limpava sozinho o alerta antigo do sino. Primeira
+    // tentativa usou a RPC resolve_notification (mesma que
+    // resolveIfCreditsOk em recarga_servidor.tsx usa) — mas essa RPC exige
+    // auth.uid() de uma sessão de admin real (checa tenant_members), e
+    // esta rota roda com a service_role key (sem auth.uid(), sempre
+    // NOT_AUTHORIZED, engolido pelo try/catch em silêncio). Update direto
+    // na tabela em vez da RPC — service_role já ignora RLS, não precisa da
+    // checagem de auth.uid() que a RPC faz.
+    const { error: resolveErr } = await supabase
+      .from("notifications")
+      .update({ resolved_at: new Date().toISOString() })
+      .eq("tenant_id", tenant_id)
+      .eq("type", "saldo_baixo")
+      .eq("source_id", integration.id)
+      .is("resolved_at", null);
+    if (resolveErr) {
+      console.error("[appativa/sync-credits] falha ao resolver notificação de saldo baixo", resolveErr.message);
     }
   }
 
