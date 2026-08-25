@@ -88,6 +88,56 @@ export async function reenviarAtivacao(
   });
 }
 
+// ✅ Achado 25/08/2026 (Márcio, em produção — primeira ativação real): o
+// webhook deles pode demorar muito ou nunca disparar (o próprio /api/
+// historico tem um campo `enviado_n8n` que ficou `false` minutos depois de
+// uma ativação já confirmada do lado deles). Em vez de confiar só no push,
+// reconsultamos direto: /api/historico aceita um filtro `id` (não
+// documentado, mas testado e funcionando — devolve exatamente o item da
+// ativação, com total:1). Essa é a MESMA fonte que a Appativa mostra no
+// dashboard deles (appativa.store/reseller/activations) — não precisa de
+// login/sessão, só a X-API-Key normal.
+//
+// ⚠️ A resposta desse endpoint especificamente vem envelopada em
+// `success_case.body` (confirmado ao vivo — diferente de solicitar-ativacao/
+// reenviar-ativacao, que devolvem o corpo direto). Tratado de forma
+// defensiva abaixo (aceita os dois formatos) caso isso mude no futuro.
+export type HistoricoItem = {
+  id: string;
+  status_transacao: string;
+  data_expiracao?: string | null;
+  data_expiracao_at?: string | null;
+  obs?: string | null;
+  mac_app?: string | null;
+  nome_app?: string | null;
+};
+
+export async function consultarAtivacao(
+  apiKey: string,
+  historicoId: string,
+): Promise<AppativaResult<HistoricoItem>> {
+  try {
+    const res = await fetch(
+      `${APPATIVA_BASE_URL}/api/historico?id=${encodeURIComponent(historicoId)}`,
+      { headers: { "X-API-Key": apiKey }, cache: "no-store" },
+    );
+    const json = await res.json().catch(() => ({} as any));
+    const body = json?.success_case?.body ?? json;
+
+    if (!res.ok || body?.sucesso === false) {
+      const msg = body?.erro || body?.message || `Falha ao consultar histórico (HTTP ${res.status})`;
+      return { ok: false, error: String(msg) };
+    }
+
+    const item = Array.isArray(body?.items) ? body.items[0] : null;
+    if (!item) return { ok: false, error: "Ativação não encontrada no histórico da Appativa." };
+
+    return { ok: true, data: item as HistoricoItem };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Falha ao conectar com a Appativa" };
+  }
+}
+
 // ✅ Chave ativa do parceiro — resolvida uma vez, reaproveitada pelos
 // callers (markAppRenewalPaid, retry-activation route). Sempre lida fresca
 // do banco, nunca cacheada entre invocações da function.

@@ -1,10 +1,10 @@
 // lib/client-portal/fulfillment.ts
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
-import { notify, formatClientLabel } from "@/lib/notifications/notify";
+import { notify, resolveNotification, formatClientLabel } from "@/lib/notifications/notify";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
-import { extractFieldByType } from "@/lib/apps/panel";
-import { solicitarAtivacao, getAppativaApiKey } from "@/lib/integrations/appativa";
+import { extractFieldByType, findFieldByType, extractDateOnly } from "@/lib/apps/panel";
+import { solicitarAtivacao, consultarAtivacao, getAppativaApiKey } from "@/lib/integrations/appativa";
 
 // ============================================================
 // Tipos
@@ -404,6 +404,217 @@ export async function markAppRenewalPaid(
   } catch {
     // não bloqueia o fulfillment por falha na notificação
   }
+}
+
+function getAppOrigin() {
+  const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();
+  return appUrl.replace(/\/+$/, "");
+}
+
+const APPATIVA_SUCCESS_STATUSES = new Set(["ativado", "aprovado"]);
+const APPATIVA_FAILURE_STATUSES = new Set(["incorreto", "reprovado"]);
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+// Renovação é sempre anual ou vitalícia, e só é permitida com até 30 dias
+// de antecedência do vencimento — uma data ANTIGA (ainda não renovada)
+// nunca passa de +30 dias à frente. Exigir bem mais que isso separa com
+// folga enorme uma confirmação de verdade de um valor velho/errado.
+const APPATIVA_MIN_DAYS_FORWARD = 300;
+
+// ✅ Mesma lógica de escolha de template que components/apps/
+// AppRequestModal.tsx usa na conclusão manual (template "Renovação de
+// Aplicativo" + sorteio de variante), pro lado servidor. Fail-soft: nunca
+// lança, só loga.
+async function sendAppRenewalWhatsapp(
+  supabaseAdmin: any,
+  params: { tenantId: string; clientId: string; origin: string; whatsappSession: string },
+) {
+  try {
+    const { data: tmpl } = await supabaseAdmin
+      .from("message_templates")
+      .select("id, content, image_url")
+      .eq("tenant_id", params.tenantId)
+      .ilike("name", "%renovação de aplicativo%")
+      .maybeSingle();
+
+    if (!tmpl?.content) return;
+
+    let pickedContent = String(tmpl.content).trim();
+    const { data: variants } = await supabaseAdmin
+      .from("message_template_variants")
+      .select("content")
+      .eq("tenant_id", params.tenantId)
+      .eq("template_id", tmpl.id);
+    const pool = [tmpl.content, ...(variants || []).map((v: any) => v.content)].filter(
+      (c: any): c is string => !!c && String(c).trim().length > 0,
+    );
+    if (pool.length > 0) pickedContent = pool[Math.floor(Math.random() * pool.length)].trim();
+
+    const res = await fetch(`${params.origin}/api/whatsapp/envio_agora`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-internal-secret": String(process.env.INTERNAL_API_SECRET || ""),
+      },
+      cache: "no-store",
+      body: JSON.stringify({
+        tenant_id: params.tenantId,
+        client_id: params.clientId,
+        message: pickedContent,
+        image_url: tmpl.image_url || null,
+        message_template_id: tmpl.id,
+        whatsapp_session: params.whatsappSession,
+      }),
+    });
+    const json = await res.json().catch(() => ({} as any));
+    if (!res.ok || json?.ok === false) {
+      prodLog("appativa_resolve.whatsapp_send_failed", { status: res.status });
+    }
+  } catch (e: any) {
+    prodLog("appativa_resolve.whatsapp_send_error", { message: e?.message });
+  }
+}
+
+// ============================================================
+// resolveAppativaAppRenewal — reconsulta a Appativa (/api/historico) pra
+// confirmar/concluir um app_renewal pendente. Achado 25/08/2026 (Márcio, em
+// produção): o webhook deles (app/api/webhooks/appativa/route.ts) pode
+// demorar muito ou nunca disparar — o próprio /api/historico tem um campo
+// `enviado_n8n` que ficou `false` minutos depois de uma ativação já
+// confirmada do lado deles. Em vez de confiar só no push, essa função
+// reconsulta direto na fonte (mesmo dado que aparece no dashboard deles,
+// appativa.store/reseller/activations) — usada tanto pelo webhook (quando
+// ele chega) quanto pelo cron de fallback (app/api/cron/
+// appativa-poll-pending/route.ts), pra nunca duplicar a lógica de conclusão.
+//
+// Fonte do vencimento aqui é a Appativa (data_expiracao_at do histórico
+// dessa ativação específica), NÃO o painel do app em si — diferente de
+// checkClientAppValidity (lib/apps/orchestration.ts), que faz login no
+// painel de cada parceiro. Isso é uma vantagem, não uma limitação: funciona
+// igual pra QUALQUER app mapeado (inclusive os que só dá pra checar por
+// extensão, tipo Clouddy), porque não depende de handler próprio — é
+// exatamente o dado que o Márcio já confere manualmente no dashboard deles
+// hoje pra esses casos.
+export async function resolveAppativaAppRenewal(
+  supabaseAdmin: any,
+  tenantId: string,
+  paymentId: string,
+): Promise<{ outcome: "done" | "pending" | "error" | "skipped" }> {
+  const { data: payment } = await supabaseAdmin
+    .from("client_portal_payments")
+    .select("id, tenant_id, client_id, client_app_id, app_name_snapshot, price_currency, price_amount, fulfillment_status, appativa_historico_id")
+    .eq("tenant_id", tenantId)
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  if (!payment || !payment.appativa_historico_id) return { outcome: "skipped" };
+  if (payment.fulfillment_status === "manual_done") return { outcome: "done" };
+
+  const apiKey = await getAppativaApiKey(supabaseAdmin, tenantId);
+  if (!apiKey) return { outcome: "skipped" };
+
+  const result = await consultarAtivacao(apiKey, payment.appativa_historico_id);
+  if (!("data" in result)) {
+    prodLog("appativa_resolve.consultar_falhou", { paymentId, message: result.error });
+    return { outcome: "pending" };
+  }
+
+  const item = result.data;
+  const status = String(item.status_transacao || "").trim().toLowerCase();
+
+  if (APPATIVA_FAILURE_STATUSES.has(status)) {
+    await supabaseAdmin
+      .from("client_portal_payments")
+      .update({
+        fulfillment_error: `Appativa recusou a ativação (status: "${item.status_transacao}"). Confira o Device ID (MAC) do aplicativo.`,
+      })
+      .eq("id", payment.id)
+      .eq("tenant_id", tenantId);
+    return { outcome: "error" };
+  }
+
+  if (!APPATIVA_SUCCESS_STATUSES.has(status)) {
+    return { outcome: "pending" }; // ainda em fila do lado deles (Solicitado/Pendente/etc.)
+  }
+
+  const rawExpire = item.data_expiracao_at || item.data_expiracao || null;
+  const dateOnly = extractDateOnly(rawExpire);
+  const daysForward = dateOnly ? (new Date(`${dateOnly}T23:59:59`).getTime() - Date.now()) / MS_PER_DAY : -1;
+
+  if (!dateOnly || daysForward < APPATIVA_MIN_DAYS_FORWARD) {
+    await supabaseAdmin
+      .from("client_portal_payments")
+      .update({
+        fulfillment_error:
+          "Appativa confirmou a ativação, mas o vencimento devolvido não bateu com o esperado (renovação anual/vitalícia). Verifique e conclua manualmente.",
+      })
+      .eq("id", payment.id)
+      .eq("tenant_id", tenantId);
+    return { outcome: "error" };
+  }
+
+  // ✅ Persiste o vencimento confirmado em client_apps.field_values (mesmo
+  // campo que checkClientAppValidity usa) — reflete na UI (portal, admin)
+  // mesmo pra apps sem checagem automática própria.
+  if (payment.client_app_id) {
+    try {
+      const { data: appRow } = await supabaseAdmin
+        .from("client_apps")
+        .select("field_values, apps(fields_config)")
+        .eq("id", payment.client_app_id)
+        .maybeSingle();
+      const appMeta = Array.isArray(appRow?.apps) ? appRow.apps[0] : appRow?.apps;
+      const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
+      const dateField = findFieldByType(fieldsConfig, "date");
+      if (dateField && appRow) {
+        const fieldKey = String(dateField.id || dateField.label);
+        await supabaseAdmin
+          .from("client_apps")
+          .update({ field_values: { ...(appRow.field_values || {}), [fieldKey]: dateOnly } })
+          .eq("id", payment.client_app_id);
+      }
+    } catch (e: any) {
+      prodLog("appativa_resolve.persist_date_failed", { paymentId, message: e?.message });
+    }
+  }
+
+  await supabaseAdmin
+    .from("client_portal_payments")
+    .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null })
+    .eq("id", payment.id)
+    .eq("tenant_id", tenantId);
+
+  await resolveNotification(tenantId, "manual_pending", payment.id);
+
+  try {
+    const { data: client } = await supabaseAdmin
+      .from("clients")
+      .select("display_name, server_username, server_id, servers(name, whatsapp_session)")
+      .eq("id", payment.client_id)
+      .maybeSingle();
+    const serverMeta = Array.isArray(client?.servers) ? client.servers[0] : client?.servers;
+
+    await supabaseAdmin.from("client_events").insert({
+      tenant_id: tenantId,
+      client_id: payment.client_id,
+      event_type: "APP_RENEWAL_AUTO",
+      message: `Renovação automática via Appativa · ${payment.app_name_snapshot || "Aplicativo"}`,
+      meta: { payment_id: payment.id, appativa_historico_id: payment.appativa_historico_id, source: "appativa_resolve" },
+    });
+
+    const origin = getAppOrigin();
+    if (origin) {
+      await sendAppRenewalWhatsapp(supabaseAdmin, {
+        tenantId,
+        clientId: payment.client_id,
+        origin,
+        whatsappSession: (serverMeta as any)?.whatsapp_session || "default",
+      });
+    }
+  } catch (e: any) {
+    prodLog("appativa_resolve.post_success_side_effects_failed", { paymentId, message: e?.message });
+  }
+
+  return { outcome: "done" };
 }
 
 // ============================================================
