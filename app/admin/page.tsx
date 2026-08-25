@@ -284,6 +284,7 @@ export default async function AdminDashboardPage({
     data_vencimento: string;
     data_pagamento: string | null;
     categoria_id: string | null;
+    descricao: string | null;
   };
 
   // ✅ Previsto "congelado": fotografia tirada na virada do mês (ver
@@ -370,6 +371,17 @@ export default async function AdminDashboardPage({
   const finDespesasPagas = finTrxRows
     .filter((t) => t.tipo === "DESPESA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  // ✅ Achado 26/08/2026 (Márcio, em produção): "Recarga Appativa" é um
+  // lançamento direto em fin_transacoes (sem passar por
+  // server_credit_purchases, que só a recarga de SERVIDOR usa) — sem
+  // isso, ficava invisível pro "Despesas por Categoria" do IPTV e pro
+  // cálculo de Lucro abaixo, que só somavam purchasesRows. Some no mesmo
+  // expensesMonthVal (mês atual, mesma janela/status de finDespesasPagas).
+  const appativaRechargeMonthVal = finTrxRows
+    .filter((t) => t.descricao === "Recarga Appativa" && isFinPagoNoMes(t))
+    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+  expensesMonthVal += appativaRechargeMonthVal;
 
   const hasSnapshot = finSnapshotRows.length > 0;
 
