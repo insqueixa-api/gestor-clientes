@@ -15,6 +15,9 @@ const NovaIntegracaoModal = dynamic(() => import("./nova_integracao_modal"), {
 const AppIntegracaoModal = dynamic(() => import("./app_integracao_modal"), {
   ssr: false,
 });
+const ApiIntegracaoModal = dynamic(() => import("./api_integracao_modal"), {
+  ssr: false,
+});
 
 type IntegrationRow = {
   id: string;
@@ -47,18 +50,39 @@ type AppIntegration = {
   created_at: string;
 };
 
+// ✅ "Parceiros" (24/08/2026) — terceira categoria, separada de aplicativo
+// (robô que configura app no dispositivo do cliente) e servidor (painel
+// IPTV): integrações de API de parceiros externos, ex: Appativa. Chave de
+// API sempre lida daqui (nunca de env var), porque pode rotacionar.
+type PartnerIntegration = {
+  id: string;
+  tenant_id: string;
+  provider: string;
+  label: string;
+  login_email: string | null;
+  login_password: string | null;
+  api_key: string | null;
+  api_url: string | null;
+  is_active: boolean;
+  created_at: string;
+};
+
 export default function ApiServerPage() {
   const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  type ActiveTab = "servidores" | "aplicativos";
+  type ActiveTab = "servidores" | "aplicativos" | "parceiros";
   const [activeTab, setActiveTab] = useState<ActiveTab>("servidores");
   const [appList, setAppList] = useState<AppIntegration[]>([]);
   const [editingApp, setEditingApp] = useState<AppIntegration | null>(null);
   const [showTypeChooser, setShowTypeChooser] = useState(false);
   const [isModalAppOpen, setIsModalAppOpen] = useState(false);
+  const [partnerList, setPartnerList] = useState<PartnerIntegration[]>([]);
+  const [editingPartner, setEditingPartner] =
+    useState<PartnerIntegration | null>(null);
+  const [isModalPartnerOpen, setIsModalPartnerOpen] = useState(false);
 
   // ✅ Logo dos servidores (herdada de `servers.logo_url`, já subida lá em
   // Gerenciador → Servidor — só replicamos aqui, sem upload nesta tela).
@@ -100,7 +124,7 @@ export default function ApiServerPage() {
         return;
       }
 
-      const [srvRes, appRes, serversLogoRes, appsIconRes] = await Promise.all([
+      const [srvRes, appRes, partnerRes, serversLogoRes, appsIconRes] = await Promise.all([
         supabaseBrowser
           .from("vw_server_integrations")
           .select("*")
@@ -108,6 +132,11 @@ export default function ApiServerPage() {
           .order("created_at", { ascending: false }),
         supabaseBrowser
           .from("app_integrations")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: false }),
+        supabaseBrowser
+          .from("api_integrations")
           .select("*")
           .eq("tenant_id", tenantId)
           .order("created_at", { ascending: false }),
@@ -132,6 +161,12 @@ export default function ApiServerPage() {
       if (appRes.error) throw appRes.error;
       setIntegrations((srvRes.data as IntegrationRow[]) || []);
       setAppList((appRes.data as AppIntegration[]) || []);
+      // ✅ Não derruba a página se a tabela api_integrations ainda não
+      // existir (SQL rodado depois, docs/sql/api_integrations_partners.sql)
+      // — só a aba "Parceiros" fica vazia até lá.
+      if (!partnerRes.error) {
+        setPartnerList((partnerRes.data as PartnerIntegration[]) || []);
+      }
 
       // Servidor → logo (1ª ocorrência não-nula por integration_id)
       const srvLogoMap = new Map<string, string>();
@@ -434,6 +469,49 @@ export default function ApiServerPage() {
     }
   }
 
+  function partnerLabel(p: string) {
+    const u = String(p || "").toUpperCase();
+    if (u === "APPATIVA") return "Appativa";
+    return p || "--";
+  }
+
+  async function handlePartnerDelete(row: PartnerIntegration) {
+    const ok = await confirm({
+      title: "Remover parceiro?",
+      subtitle: `Deseja remover "${row.label}" (${partnerLabel(row.provider)})?`,
+      tone: "rose",
+      confirmText: "Remover",
+      cancelText: "Voltar",
+      details: ["A integração será removida do UniGestor."],
+    });
+    if (!ok) return;
+    try {
+      const { error } = await supabaseBrowser
+        .from("api_integrations")
+        .delete()
+        .eq("id", row.id);
+      if (error) throw error;
+      addToast("success", "Removido", "Parceiro removido.");
+      fetchData();
+    } catch (e: any) {
+      addToast("error", "Erro ao remover", e?.message ?? "Falha.");
+    }
+  }
+
+  async function handlePartnerToggle(row: PartnerIntegration) {
+    try {
+      const { error } = await supabaseBrowser
+        .from("api_integrations")
+        .update({ is_active: !row.is_active })
+        .eq("id", row.id);
+      if (error) throw error;
+      addToast("success", row.is_active ? "Desativado" : "Ativado");
+      fetchData();
+    } catch (e: any) {
+      addToast("error", "Erro", e?.message ?? "Falha.");
+    }
+  }
+
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
       {/* Topo */}
@@ -474,9 +552,19 @@ export default function ApiServerPage() {
                     setEditingApp(null);
                     setIsModalAppOpen(true);
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 flex items-center gap-2"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 flex items-center gap-2 border-b border-border"
                 >
                   📱 Aplicativo
+                </button>
+                <button
+                  onClick={() => {
+                    setShowTypeChooser(false);
+                    setEditingPartner(null);
+                    setIsModalPartnerOpen(true);
+                  }}
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-foreground/90 hover:bg-muted/50 flex items-center gap-2"
+                >
+                  🤝 Parceiro
                 </button>
               </div>
             )}
@@ -485,7 +573,7 @@ export default function ApiServerPage() {
       </div>
 
       <div className="flex gap-1 p-1 bg-card border border-border rounded-xl w-fit shadow-sm">
-        {(["servidores", "aplicativos"] as const).map((tab) => (
+        {(["servidores", "aplicativos", "parceiros"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -497,7 +585,9 @@ export default function ApiServerPage() {
           >
             {tab === "servidores"
               ? `🖥️ Servidores (${integrations.length})`
-              : `📱 Aplicativos (${appList.length})`}
+              : tab === "aplicativos"
+                ? `📱 Aplicativos (${appList.length})`
+                : `🤝 Parceiros (${partnerList.length})`}
           </button>
         ))}
       </div>
@@ -862,6 +952,112 @@ export default function ApiServerPage() {
         </>
       )}
 
+      {activeTab === "parceiros" && (
+        <>
+          {!loading && partnerList.length === 0 && (
+            <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
+              Nenhum parceiro cadastrado.
+            </div>
+          )}
+          {!loading && partnerList.length > 0 && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
+              {partnerList.map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
+                >
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
+                    <div className="flex items-center gap-2 min-w-0 pr-3">
+                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0 text-sm">
+                        🤝
+                      </div>
+                      <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
+                        {row.label}
+                      </h2>
+                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        {partnerLabel(row.provider)}
+                      </span>
+                      {!row.is_active && (
+                        <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                          Inativo
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <IconActionBtn
+                        title="Editar"
+                        tone="amber"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingPartner(row);
+                          setIsModalPartnerOpen(true);
+                        }}
+                      >
+                        <IconEdit />
+                      </IconActionBtn>
+                      <IconActionBtn
+                        title={row.is_active ? "Desativar" : "Ativar"}
+                        tone={row.is_active ? "red" : "green"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePartnerToggle(row);
+                        }}
+                      >
+                        {row.is_active ? <IconPause /> : <IconPlay />}
+                      </IconActionBtn>
+                      <IconActionBtn
+                        title="Remover"
+                        tone="red"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePartnerDelete(row);
+                        }}
+                      >
+                        <IconTrash />
+                      </IconActionBtn>
+                    </div>
+                  </div>
+                  <div className="p-4 sm:p-5 text-sm space-y-2">
+                    {row.api_url && (
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-muted-foreground shrink-0">
+                          🔗 URL
+                        </span>
+                        <a
+                          href={row.api_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-sky-500 hover:underline truncate max-w-[200px]"
+                          title={row.api_url}
+                        >
+                          {row.api_url.replace(/^https?:\/\//, "")}
+                        </a>
+                      </div>
+                    )}
+                    {row.login_email && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">📧 Login</span>
+                        <span className="font-medium text-foreground/90">
+                          {row.login_email}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">🔑 Chave</span>
+                      <span className="font-mono text-xs text-foreground/70">
+                        {row.api_key
+                          ? `${row.api_key.slice(0, 6)}••••${row.api_key.slice(-4)}`
+                          : "--"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
       {isModalAppOpen && (
         <AppIntegracaoModal
           integration={editingApp}
@@ -873,6 +1069,22 @@ export default function ApiServerPage() {
             setIsModalAppOpen(false);
             setEditingApp(null);
             addToast("success", "Salvo", "Integração salva.");
+            fetchData();
+          }}
+          onErrorAction={(msg) => addToast("error", "Erro", msg)}
+        />
+      )}
+      {isModalPartnerOpen && (
+        <ApiIntegracaoModal
+          integration={editingPartner}
+          onCloseAction={() => {
+            setIsModalPartnerOpen(false);
+            setEditingPartner(null);
+          }}
+          onSuccessAction={() => {
+            setIsModalPartnerOpen(false);
+            setEditingPartner(null);
+            addToast("success", "Salvo", "Parceiro salvo.");
             fetchData();
           }}
           onErrorAction={(msg) => addToast("error", "Erro", msg)}
