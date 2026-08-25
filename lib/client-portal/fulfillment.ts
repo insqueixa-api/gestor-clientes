@@ -613,6 +613,21 @@ export async function resolveAppativaAppRenewal(
   const item = result.data;
   const status = String(item.status_transacao || "").trim().toLowerCase();
 
+  // ✅ Achado 26/08/2026 (pedido do Márcio: "se não confirmarmos lá, o ver
+  // status vai confirmar... [créditos]"): o saldo pode só ser finalizado do
+  // lado deles quando o status sai de "Solicitado/Pendente" pra um estado
+  // definitivo (Ativado/Aprovado/Incorreto/Reprovado) — não necessariamente
+  // já na hora do solicitar-ativacao. Sincroniza aqui, na MESMA função que
+  // webhook/checagens automáticas/"Ver status" usam pra concluir, então
+  // cobre os 3 caminhos de uma vez, sem duplicar em cada caller.
+  if (APPATIVA_SUCCESS_STATUSES.has(status) || APPATIVA_FAILURE_STATUSES.has(status)) {
+    try {
+      await syncAppativaCredits(supabaseAdmin, tenantId);
+    } catch (e: any) {
+      prodLog("appativa_resolve.sync_credits_failed", { paymentId, message: e?.message });
+    }
+  }
+
   if (APPATIVA_FAILURE_STATUSES.has(status)) {
     await supabaseAdmin
       .from("client_portal_payments")
