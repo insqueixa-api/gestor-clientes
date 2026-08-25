@@ -1,6 +1,6 @@
 "use client";
 // app/admin/settings/api-server/page.tsx
-import { Pencil, RefreshCcw, Trash2 } from "lucide-react";
+import { Loader2, Pencil, RefreshCcw, Trash2 } from "lucide-react";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
@@ -18,6 +18,10 @@ const AppIntegracaoModal = dynamic(() => import("./app_integracao_modal"), {
 const ApiIntegracaoModal = dynamic(() => import("./api_integracao_modal"), {
   ssr: false,
 });
+const AppativaCatalogModal = dynamic(
+  () => import("./appativa_catalog_modal"),
+  { ssr: false },
+);
 
 type IntegrationRow = {
   id: string;
@@ -63,6 +67,8 @@ type PartnerIntegration = {
   login_password: string | null;
   api_key: string | null;
   api_url: string | null;
+  credits_available: number | null;
+  credits_last_sync_at: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -83,6 +89,10 @@ export default function ApiServerPage() {
   const [editingPartner, setEditingPartner] =
     useState<PartnerIntegration | null>(null);
   const [isModalPartnerOpen, setIsModalPartnerOpen] = useState(false);
+  const [syncingCreditsFor, setSyncingCreditsFor] = useState<string | null>(
+    null,
+  );
+  const [catalogModalFor, setCatalogModalFor] = useState<string | null>(null);
 
   // ✅ Logo dos servidores (herdada de `servers.logo_url`, já subida lá em
   // Gerenciador → Servidor — só replicamos aqui, sem upload nesta tela).
@@ -509,6 +519,32 @@ export default function ApiServerPage() {
       fetchData();
     } catch (e: any) {
       addToast("error", "Erro", e?.message ?? "Falha.");
+    }
+  }
+
+  async function handleSyncCredits(row: PartnerIntegration) {
+    setSyncingCreditsFor(row.id);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch("/api/integrations/appativa/sync-credits", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ integration_id: row.id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Falha ao sincronizar saldo.");
+      }
+      addToast("success", "Saldo atualizado", `${json.credits_available} crédito(s) disponíveis.`);
+      fetchData();
+    } catch (e: any) {
+      addToast("error", "Erro", e?.message ?? "Falha ao sincronizar saldo.");
+    } finally {
+      setSyncingCreditsFor(null);
     }
   }
 
@@ -984,6 +1020,22 @@ export default function ApiServerPage() {
                       )}
                     </div>
                     <div className="flex gap-2 shrink-0">
+                      {row.provider === "APPATIVA" && (
+                        <IconActionBtn
+                          title="Sincronizar saldo"
+                          tone="blue"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSyncCredits(row);
+                          }}
+                        >
+                          {syncingCreditsFor === row.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <IconSync />
+                          )}
+                        </IconActionBtn>
+                      )}
                       <IconActionBtn
                         title="Editar"
                         tone="amber"
@@ -1018,6 +1070,45 @@ export default function ApiServerPage() {
                     </div>
                   </div>
                   <div className="p-4 sm:p-5 text-sm space-y-2">
+                    {row.provider === "APPATIVA" && (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">
+                            🧾 Créditos
+                          </span>
+                          <span
+                            className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
+                              (row.credits_available ?? 0) >= 5
+                                ? "text-emerald-500 bg-emerald-500/10"
+                                : "text-rose-500 bg-rose-500/10"
+                            }`}
+                          >
+                            {row.credits_available == null
+                              ? "--"
+                              : row.credits_available}
+                          </span>
+                        </div>
+                        {row.credits_last_sync_at && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">
+                              ⏱ Último sync
+                            </span>
+                            <span className="font-medium text-foreground/90">
+                              {new Date(row.credits_last_sync_at).toLocaleString(
+                                "pt-BR",
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setCatalogModalFor(row.id)}
+                          className="w-full h-9 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          📱 Aplicativos disponíveis
+                        </button>
+                      </>
+                    )}
                     {row.api_url && (
                       <div className="flex justify-between items-center gap-2">
                         <span className="text-muted-foreground shrink-0">
@@ -1087,6 +1178,13 @@ export default function ApiServerPage() {
             addToast("success", "Salvo", "Parceiro salvo.");
             fetchData();
           }}
+          onErrorAction={(msg) => addToast("error", "Erro", msg)}
+        />
+      )}
+      {catalogModalFor && (
+        <AppativaCatalogModal
+          integrationId={catalogModalFor}
+          onCloseAction={() => setCatalogModalFor(null)}
           onErrorAction={(msg) => addToast("error", "Erro", msg)}
         />
       )}
