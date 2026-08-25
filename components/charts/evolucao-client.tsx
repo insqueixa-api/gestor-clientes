@@ -150,16 +150,6 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
       rowBg: isDark ? "rgba(16,185,129,0.035)" : "rgba(16,185,129,0.04)",
     },
     {
-      label: "Receita Ajustes",
-      key: "ajuste1",
-      dot: "#b45309",
-      lightColor: "#b45309",
-      darkColor: "#d97706",
-      bold: false,
-      colorValues: true,
-      rowBg: isDark ? "rgba(217,119,6,0.035)" : "rgba(217,119,6,0.04)",
-    },
-    {
       label: "Receita Executada",
       key: "line1",
       dot: "#047857",
@@ -179,16 +169,6 @@ export function EvolucaoFinanceiraClient({ data }: { data: MonthData[] }) {
       bold: false,
       colorValues: false,
       rowBg: isDark ? "rgba(244,63,94,0.035)" : "rgba(244,63,94,0.04)",
-    },
-    {
-      label: "Despesa Ajustes",
-      key: "ajuste2",
-      dot: "#b45309",
-      lightColor: "#b45309",
-      darkColor: "#d97706",
-      bold: false,
-      colorValues: true,
-      rowBg: isDark ? "rgba(217,119,6,0.035)" : "rgba(217,119,6,0.04)",
     },
     {
       label: "Despesa Executada",

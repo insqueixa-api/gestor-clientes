@@ -402,16 +402,13 @@ export default async function AdminDashboardPage({
         )
         .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  // ✅ Ajustes = surgiu depois da fotografia (conta nova, receita não
-  // programada). Lançamentos manuais (fin_transacoes) comparam por id direto;
-  // o "a receber" do IPTV compara pelo total ao vivo da view menos o que já
-  // tinha sido fotografado (não dá pra saber o id de cada cliente aqui sem
-  // buscar a lista toda de novo, então usamos a diferença dos totais).
-  // Categoria IPTV é excluída daqui pelo mesmo motivo do card "Receitas por
-  // Categoria": o lançamento "IPTV - Rendimentos"/"IPTV - Recarga de
-  // Servidores" sincronizado pela tela Financeiro Pessoal é dinheiro JÁ
-  // recebido (já entra em "Recebido no Mês" logo acima), não uma novidade —
-  // contar ele aqui também inflava o "+ Ajustes" com dinheiro repetido.
+  // ✅ Usado só pelo card "Receitas por Categoria" logo abaixo, pra separar
+  // o que já estava na fotografia do mês do que é "a receber" novo do IPTV
+  // (não dá pra saber o id de cada cliente aqui sem buscar a lista toda de
+  // novo, então usamos a diferença dos totais). Os cards de Receitas/
+  // Despesas do Mês (Previsão) não mostram mais essa distinção (pedido do
+  // Márcio, 26/08/2026: "previsão é previsão") — só a "Previsão" única
+  // permanece ali.
   const snapshotTransacaoIds = new Set(
     finSnapshotRows
       .filter((s) => s.origem === "fin_transacoes" && s.transacao_id)
@@ -421,39 +418,11 @@ export default async function AdminDashboardPage({
     .filter((s) => s.origem === "iptv_a_receber")
     .reduce((acc, s) => acc + toNumber(s.valor), 0);
 
-  const ajustesTransacoesReceita = hasSnapshot
-    ? finTrxRows
-        .filter(
-          (t) =>
-            t.tipo === "RECEITA" &&
-            t.data_vencimento >= _finMonthStart &&
-            t.data_vencimento <= _finMonthEnd &&
-            !snapshotTransacaoIds.has(t.id) &&
-            t.categoria_id !== iptvKey,
-        )
-        .reduce((acc, t) => acc + toNumber(t.valor), 0)
-    : 0;
-
   const ajustesIptv = hasSnapshot
     ? Math.max(
         0,
         toNumber(finance?.to_receive_brl_estimated) - snapshotIptvTotal,
       )
-    : 0;
-
-  const finReceitasAjustes = ajustesTransacoesReceita + ajustesIptv;
-
-  const finDespesasAjustes = hasSnapshot
-    ? finTrxRows
-        .filter(
-          (t) =>
-            t.tipo === "DESPESA" &&
-            t.data_vencimento >= _finMonthStart &&
-            t.data_vencimento <= _finMonthEnd &&
-            !snapshotTransacaoIds.has(t.id) &&
-            t.categoria_id !== iptvKey,
-        )
-        .reduce((acc, t) => acc + toNumber(t.valor), 0)
     : 0;
 
   const finReceitasPendentes = finTrxRows
@@ -1042,12 +1011,7 @@ export default async function AdminDashboardPage({
               rightValue={fmtBRL(finReceitasPendentes)}
               footer={
                 <div className="flex flex-col gap-0.5">
-                  <span>Previsão (congelada): {fmtBRL(finReceitasTotal)}</span>
-                  {finReceitasAjustes > 0 && (
-                    <span className="text-amber-500">
-                      + Ajustes: {fmtBRL(finReceitasAjustes)}
-                    </span>
-                  )}
+                  <span>Previsão: {fmtBRL(finReceitasTotal)}</span>
                 </div>
               }
             />
@@ -1060,12 +1024,7 @@ export default async function AdminDashboardPage({
               rightValue={fmtBRL(finDespesasPendentes)}
               footer={
                 <div className="flex flex-col gap-0.5">
-                  <span>Previsão (congelada): {fmtBRL(finDespesasTotal)}</span>
-                  {finDespesasAjustes > 0 && (
-                    <span className="text-amber-500">
-                      + Ajustes: {fmtBRL(finDespesasAjustes)}
-                    </span>
-                  )}
+                  <span>Previsão: {fmtBRL(finDespesasTotal)}</span>
                 </div>
               }
             />
