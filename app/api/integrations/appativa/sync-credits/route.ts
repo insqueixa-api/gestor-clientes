@@ -18,10 +18,9 @@ import { notify } from "@/lib/notifications/notify";
 export const dynamic = "force-dynamic";
 
 // ✅ Limiar próprio do parceiro (diferente do <=15 usado pros servidores
-// IPTV, ver lib/client-portal/fulfillment.ts) — pedido do Márcio.
-// ⚠️ TEMPORÁRIO (25/08/2026): 40 só pra testar que o alerta dispara de
-// verdade — valor final combinado é 5. Voltar pra 5 depois do teste.
-const LOW_CREDITS_THRESHOLD = 40;
+// IPTV, ver lib/client-portal/fulfillment.ts) — pedido do Márcio, testado
+// e confirmado funcionando em 25/08/2026 (sino + valor certo).
+const LOW_CREDITS_THRESHOLD = 5;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminTenant(req);
