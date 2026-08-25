@@ -176,12 +176,19 @@ export default function MessagesPage() {
       return true;
     });
 
-    // A–Z (case-insensitive / pt-BR)
-    return [...filtered].sort((a, b) =>
-      String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR", {
+    // ✅ Padrões (is_system_default/PROTECTED_TEMPLATES) primeiro, depois
+    // A–Z dentro de cada grupo (achado 26/08/2026, pedido do Márcio: os
+    // modelos protegidos ficavam misturados com os demais em ordem
+    // puramente alfabética — difícil notar quais são "padrão" à primeira
+    // vista).
+    return [...filtered].sort((a, b) => {
+      const aProtected = a.is_system_default || PROTECTED_TEMPLATES.includes(a.name) ? 0 : 1;
+      const bProtected = b.is_system_default || PROTECTED_TEMPLATES.includes(b.name) ? 0 : 1;
+      if (aProtected !== bProtected) return aProtected - bProtected;
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""), "pt-BR", {
         sensitivity: "base",
-      }),
-    );
+      });
+    });
   }, [messages, search, categoryFilter]);
 
   // Só mostra no filtro as categorias que realmente têm modelo cadastrado
