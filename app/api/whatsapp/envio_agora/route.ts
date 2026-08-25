@@ -17,6 +17,8 @@ import {
   renderTemplate,
   pickRandomDns,
   toolConsultarPrecosTexto,
+  safeDate,
+  toBRDate,
 } from "@/lib/whatsapp/template-vars";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 
@@ -87,6 +89,8 @@ type SendNowBody = {
   image_url?: string | null;
   new_expires_at?: string | null;
   credits_recharged?: number | string | null;
+  app_nome?: string | null;
+  app_vencimento?: string | null;
 };
 
 export async function POST(req: Request) {
@@ -291,6 +295,18 @@ export async function POST(req: Request) {
   // "{tabela_precos}" pro cliente). Mesmas funções que o bot já usa
   // (toolConsultarPrecosTexto, getPendencyPhraseForClient), calculadas 1x
   // pra conta inteira (não muda entre o contato principal/secundário).
+  // ✅ {app_nome}/{app_vencimento} (achado 26/08/2026, pedido do Márcio) —
+  // ao contrário das outras tags, esses 2 valores não vêm de uma consulta
+  // daqui: o CALLER (renovação de app, automática via Appativa ou manual
+  // pela Auditoria) já sabe exatamente qual app e qual vencimento, então
+  // só passa no body — mesmo padrão de credits_recharged (revenda) já
+  // existente. app_vencimento aceita YYYY-MM-DD (ou qualquer formato que
+  // `new Date()` entenda) e é formatado aqui pra DD/MM/AAAA.
+  const appNome = String((body as any).app_nome || "").trim();
+  const appVencimentoRaw = String((body as any).app_vencimento || "").trim();
+  const appVencimentoDate = appVencimentoRaw ? safeDate(appVencimentoRaw) : null;
+  const appVencimentoFormatted = appVencimentoDate ? toBRDate(appVencimentoDate) : "";
+
   let dnsServidor = "";
   let tabelaPrecos = "";
   let pendenciaDetalhe = "";
@@ -358,6 +374,8 @@ export async function POST(req: Request) {
       vars.dns_servidor = dnsServidor;
       vars.tabela_precos = tabelaPrecos;
       vars.pendencia_detalhe = pendenciaDetalhe;
+      vars.app_nome = appNome;
+      vars.app_vencimento = appVencimentoFormatted;
     }
 
     // ✅ LINK DO PORTAL — crítico, gerado via lib (mesmo RPC, mesmos logs, mesmo fallback)

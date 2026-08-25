@@ -273,6 +273,13 @@ export function buildClientTemplateVars(params: { clientRow: any; isSecondary?: 
     revenda_dns: row.reseller_dns || "",
     venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "",
 
+    // 📱 Aplicativo (renovação) — preenchido depois pela rota, quando o
+    // caller (renovação de app) manda app_nome/app_vencimento no body
+    // (achado 26/08/2026). Vazio por padrão pra nunca vazar {app_nome}
+    // literal num template usado fora desse contexto.
+    app_nome: "",
+    app_vencimento: "",
+
     // 💰 Financeiro
     link_pagamento: "", // preenchido depois via generatePortalLink (precisa do contato específico)
     cupom_frase: "", // preenchido depois via getCouponPhraseForClient (precisa de query assíncrona)
@@ -580,6 +587,9 @@ export function buildResellerTemplateVars(params: { resellerRow: any }): Record<
     revenda_telegram: row.reseller_telegram || "",
     revenda_dns: row.reseller_dns || "",
     venda_creditos: row.venda_creditos != null ? String(row.venda_creditos) : "",
+
+    app_nome: "",
+    app_vencimento: "",
 
     link_pagamento: "",
     cupom_frase: "", // cupons são um recurso do portal do cliente — revenda nunca preenche isso

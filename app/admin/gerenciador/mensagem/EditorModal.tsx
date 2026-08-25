@@ -109,6 +109,20 @@ const TAG_GROUPS = [
     ],
   },
   {
+    title: "📱 Aplicativo (Renovação)",
+    color: "bg-cyan-500/10 text-cyan-500",
+    tags: [
+      {
+        label: "{app_nome}",
+        desc: "Nome do app renovado — só disponível na mensagem de renovação de aplicativo",
+      },
+      {
+        label: "{app_vencimento}",
+        desc: "Novo vencimento do app (DD/MM/AAAA) — idem",
+      },
+    ],
+  },
+  {
     title: "🏢 Dados da Revenda",
     color: "bg-purple-500/10 text-purple-500",
     tags: [

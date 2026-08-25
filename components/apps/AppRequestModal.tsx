@@ -9,6 +9,7 @@ import {
   resolveIntegrationTypeByName,
   buildM3uUrlFromDns,
   buildM3uUrlSecondary,
+  findFieldByType,
 } from "@/lib/apps/panel";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
@@ -82,7 +83,7 @@ export default function AppRequestModal({
   // ✅ Mensagem genérica ao concluir renovação (pedido do Márcio, 04/08/2026)
   // — só faz sentido pra action="renewal". Toggle vem sempre ligado (o
   // admin desliga se não quiser mandar), template pré-selecionado pelo
-  // nome ("Renovação de Aplicativo") assim que os modelos carregam.
+  // nome ("Aplicativo Renovado") assim que os modelos carregam.
   const [sendRenewalMsg, setSendRenewalMsg] = useState(true);
   const [templates, setTemplates] = useState<
     {
@@ -204,7 +205,7 @@ export default function AppRequestModal({
       if (!tmplData) return;
       setTemplates(tmplData as any);
       const defaultTpl = tmplData.find((t: any) =>
-        t.name.toLowerCase().includes("renovação de aplicativo"),
+        t.name.toLowerCase().includes("aplicativo renovado"),
       );
       if (defaultTpl) {
         setSelectedTemplateId(defaultTpl.id);
@@ -752,6 +753,16 @@ export default function AppRequestModal({
                 finalMessage = pool[Math.floor(Math.random() * pool.length)];
             }
 
+            // ✅ {app_nome}/{app_vencimento} (achado 26/08/2026, pedido do
+            // Márcio): a mensagem de renovação agora informa o app e o
+            // vencimento novo direto, sem precisar mandar o cliente entrar
+            // no portal. O vencimento vem do campo "date" já carregado aqui
+            // (reflete o que "Verificar validade" ou a ativação automática
+            // via Appativa já persistiu em client_apps.field_values).
+            const dateField = findFieldByType(data?.fieldsConfig || [], "date");
+            const dateFieldKey = dateField ? String(dateField.id || dateField.label) : "";
+            const appVencimento = dateFieldKey ? data?.fieldValues?.[dateFieldKey] || "" : "";
+
             const res = await fetch("/api/whatsapp/envio_agora", {
               method: "POST",
               headers: {
@@ -764,6 +775,8 @@ export default function AppRequestModal({
                 message: finalMessage,
                 message_template_id: selectedTemplateId || null,
                 image_url: imageUrlToSend,
+                app_nome: data?.appName || "",
+                app_vencimento: appVencimento,
               }),
             });
             if (!res.ok) throw new Error("API retornou erro");

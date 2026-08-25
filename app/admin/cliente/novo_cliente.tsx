@@ -6258,7 +6258,7 @@ export default function NovoCliente({
                         const defaultTpl = templates.find((t) =>
                           t.name
                             .toLowerCase()
-                            .includes("renovação de aplicativo"),
+                            .includes("aplicativo renovado"),
                         );
                         if (defaultTpl) {
                           setSelectedTemplateId(defaultTpl.id);
@@ -6279,7 +6279,7 @@ export default function NovoCliente({
                           const defaultTpl = templates.find((t) =>
                             t.name
                               .toLowerCase()
-                              .includes("renovação de aplicativo"),
+                              .includes("aplicativo renovado"),
                           );
                           if (defaultTpl) {
                             setSelectedTemplateId(defaultTpl.id);

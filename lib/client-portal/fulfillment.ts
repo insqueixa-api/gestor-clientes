@@ -499,19 +499,31 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const APPATIVA_MIN_DAYS_FORWARD = 300;
 
 // ✅ Mesma lógica de escolha de template que components/apps/
-// AppRequestModal.tsx usa na conclusão manual (template "Renovação de
-// Aplicativo" + sorteio de variante), pro lado servidor. Fail-soft: nunca
+// AppRequestModal.tsx usa na conclusão manual (template "Aplicativo
+// Renovado" + sorteio de variante), pro lado servidor. Fail-soft: nunca
 // lança, só loga.
+//
+// ✅ {app_nome}/{app_vencimento} (achado 26/08/2026, pedido do Márcio): a
+// mensagem agora informa direto qual app foi renovado e o vencimento novo
+// — não precisa mais mandar o cliente entrar no portal pra conferir.
 async function sendAppRenewalWhatsapp(
   supabaseAdmin: any,
-  params: { tenantId: string; clientId: string; paymentId: string; origin: string; whatsappSession: string },
+  params: {
+    tenantId: string;
+    clientId: string;
+    paymentId: string;
+    origin: string;
+    whatsappSession: string;
+    appName: string;
+    appVencimento: string | null;
+  },
 ) {
   try {
     const { data: tmpl } = await supabaseAdmin
       .from("message_templates")
       .select("id, content, image_url")
       .eq("tenant_id", params.tenantId)
-      .ilike("name", "%renovação de aplicativo%")
+      .ilike("name", "%aplicativo renovado%")
       .maybeSingle();
 
     if (!tmpl?.content) return;
@@ -541,6 +553,8 @@ async function sendAppRenewalWhatsapp(
         image_url: tmpl.image_url || null,
         message_template_id: tmpl.id,
         whatsapp_session: params.whatsappSession,
+        app_nome: params.appName,
+        app_vencimento: params.appVencimento,
       }),
     });
     const json = await res.json().catch(() => ({} as any));
@@ -684,11 +698,25 @@ export async function resolveAppativaAppRenewal(
     }
   }
 
-  await supabaseAdmin
+  // ⚠️ Achado 26/08/2026 (revisão de corrida): o webhook e as 2 checagens
+  // automáticas (5s/30s) podem, em teoria, cair quase juntos — os dois
+  // já teriam lido fulfillment_status='manual_pending' antes de qualquer um
+  // escrever. Guard atômico via .eq("fulfillment_status","manual_pending")
+  // + .select(): só a PRIMEIRA chamada realmente conclui (Postgres serializa
+  // o UPDATE); qualquer outra concorrente encontra 0 linhas e sai sem
+  // reenviar o WhatsApp. Mesmo espírito do incidente de 11/08/2026
+  // (mark_app_renewal_manual_pending) que motivou o guard condicional ali.
+  const { data: claimedRows } = await supabaseAdmin
     .from("client_portal_payments")
     .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null })
     .eq("id", payment.id)
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .eq("fulfillment_status", "manual_pending")
+    .select("id");
+
+  if (!claimedRows || claimedRows.length === 0) {
+    return { outcome: "done" }; // outra chamada concorrente já concluiu — não repete WhatsApp/log
+  }
 
   await resolveNotification(tenantId, "manual_pending", payment.id);
 
@@ -716,6 +744,8 @@ export async function resolveAppativaAppRenewal(
         paymentId: payment.id,
         origin,
         whatsappSession: (serverMeta as any)?.whatsapp_session || "default",
+        appName: payment.app_name_snapshot || "Aplicativo",
+        appVencimento: dateOnly,
       });
     }
   } catch (e: any) {
