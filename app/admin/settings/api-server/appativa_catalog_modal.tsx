@@ -3,9 +3,12 @@
 //
 // "Aplicativos disponíveis" — catálogo completo da Appativa (achado
 // 24/08/2026: o Márcio quer poder comparar/ajustar os nomes dos apps dele
-// contra os nomes de lá, e decidir se amplia o catálogo). Busca ao abrir,
-// "Sincronizar" refaz a busca, "Exportar CSV" baixa o que está na tela —
-// tudo ao vivo, sem cache no banco (o botão de sync já É o refresh).
+// contra os nomes de lá, e decidir se amplia o catálogo).
+//
+// ✅ Achado 25/08/2026: abrir o modal NÃO sincroniza sozinho — só lê o
+// cache já salvo (api_integrations.catalog_cache), instantâneo. Só o
+// botão "Sincronizar" bate na API deles de verdade e atualiza o cache.
+// "Exportar CSV" baixa o que está na tela.
 //
 // ⚠️ "valor" no retorno da API deles NÃO é preço em R$ — é consumo de
 // crédito (ex: 0,6). O preço real é créditos_consumidos × credit_unit_price
@@ -35,10 +38,13 @@ export default function AppativaCatalogModal({
 }) {
   const [items, setItems] = useState<AppativaCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
-  async function fetchCatalog() {
-    setLoading(true);
+  async function fetchCatalog(sync: boolean) {
+    if (sync) setSyncing(true);
+    else setLoading(true);
     try {
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess?.session?.access_token;
@@ -49,22 +55,25 @@ export default function AppativaCatalogModal({
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ integration_id: integrationId }),
+        body: JSON.stringify({ integration_id: integrationId, sync }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error || "Falha ao buscar catálogo.");
       }
       setItems(json.items || []);
+      setLastSyncAt(json.last_sync_at ?? null);
     } catch (e: any) {
       onErrorAction(e?.message ?? "Falha ao buscar catálogo.");
     } finally {
       setLoading(false);
+      setSyncing(false);
     }
   }
 
   useEffect(() => {
-    fetchCatalog();
+    // ✅ Só lê o que já está salvo — não sincroniza sozinho ao abrir.
+    fetchCatalog(false);
   }, []);
 
   const filtered = items.filter((it) =>
@@ -100,7 +109,13 @@ export default function AppativaCatalogModal({
           Aplicativos disponíveis — Appativa
         </h2>
         <p className="text-xs text-foreground/70 mt-0.5">
-          {loading ? "Carregando..." : `${items.length} aplicativo(s) no catálogo do parceiro`}
+          {loading
+            ? "Carregando..."
+            : `${items.length} aplicativo(s) no catálogo do parceiro`}
+          {!loading && lastSyncAt && (
+            <> · sincronizado em {new Date(lastSyncAt).toLocaleString("pt-BR")}</>
+          )}
+          {!loading && !lastSyncAt && <> · nunca sincronizado</>}
         </p>
       </ModalHeader>
 
@@ -117,12 +132,12 @@ export default function AppativaCatalogModal({
           </div>
           <button
             type="button"
-            onClick={fetchCatalog}
-            disabled={loading}
+            onClick={() => fetchCatalog(true)}
+            disabled={loading || syncing}
             className="h-10 px-3 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center gap-1.5 text-sm disabled:opacity-50"
-            title="Sincronizar"
+            title="Sincronizar com a Appativa agora"
           >
-            {loading ? (
+            {syncing ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <RefreshCcw className="w-4 h-4" />
@@ -153,6 +168,11 @@ export default function AppativaCatalogModal({
           {loading ? (
             <p className="text-xs text-muted-foreground text-center py-8">
               Carregando catálogo...
+            </p>
+          ) : filtered.length === 0 && items.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-8">
+              Nenhum catálogo salvo ainda — clique em "Sincronizar" pra
+              buscar da Appativa.
             </p>
           ) : filtered.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">

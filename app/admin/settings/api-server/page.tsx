@@ -80,8 +80,15 @@ export default function ApiServerPage() {
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  type ActiveTab = "servidores" | "aplicativos" | "parceiros";
-  const [activeTab, setActiveTab] = useState<ActiveTab>("servidores");
+  // ✅ Página única com seções colapsáveis (25/08/2026, pedido do Márcio) —
+  // antes eram 3 abas que trocavam a view inteira; agora Servidores,
+  // Parceiros e Aplicativos ficam todos na mesma tela, cada um com sua
+  // seta pra colapsar/expandir, mesmo padrão de gerenciador/aplicativo.
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
+  const toggleGroup = (groupName: string) =>
+    setCollapsedGroups((prev) => ({ ...prev, [groupName]: !prev[groupName] }));
   const [appList, setAppList] = useState<AppIntegration[]>([]);
   const [editingApp, setEditingApp] = useState<AppIntegration | null>(null);
   const [showTypeChooser, setShowTypeChooser] = useState(false);
@@ -609,33 +616,19 @@ export default function ApiServerPage() {
         </div>
       </div>
 
-      <div className="flex gap-1 p-1 bg-card border border-border rounded-xl w-fit shadow-sm">
-        {(["servidores", "aplicativos", "parceiros"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-lg text-xs font-medium uppercase tracking-wider transition-all ${
-              activeTab === tab
-                ? "bg-emerald-600 text-white shadow"
-                : "text-muted-foreground hover:text-foreground/90"
-            }`}
-          >
-            {tab === "servidores"
-              ? `🖥️ Servidores (${integrations.length})`
-              : tab === "aplicativos"
-                ? `📱 Aplicativos (${appList.length})`
-                : `🤝 Parceiros (${partnerList.length})`}
-          </button>
-        ))}
-      </div>
-
       {loading && (
         <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
           Carregando integrações...
         </div>
       )}
 
-      {activeTab === "servidores" && (
+      <CollapsibleSection
+        icon="🖥️"
+        label="Servidores"
+        count={integrations.length}
+        collapsed={!!collapsedGroups.servidores}
+        onToggle={() => toggleGroup("servidores")}
+      >
         <>
           {!loading && integrations.length === 0 && (
             <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
@@ -799,9 +792,195 @@ export default function ApiServerPage() {
             />
           )}
         </>
-      )}
+      </CollapsibleSection>
 
-      {activeTab === "aplicativos" && (
+      <CollapsibleSection
+        icon="🤝"
+        label="Parceiros"
+        count={partnerList.length}
+        collapsed={!!collapsedGroups.parceiros}
+        onToggle={() => toggleGroup("parceiros")}
+      >
+        <>
+          {!loading && partnerList.length === 0 && (
+            <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
+              Nenhum parceiro cadastrado.
+            </div>
+          )}
+          {!loading && partnerList.length > 0 && (
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
+              {partnerList.map((row) => (
+                <div
+                  key={row.id}
+                  className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
+                >
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
+                    <div className="flex items-center gap-2 min-w-0 pr-3">
+                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0 text-sm">
+                        🤝
+                      </div>
+                      <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
+                        {row.label}
+                      </h2>
+                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        {partnerLabel(row.provider)}
+                      </span>
+                      {!row.is_active && (
+                        <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                          Inativo
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      {row.provider === "APPATIVA" && (
+                        <IconActionBtn
+                          title="Sincronizar saldo"
+                          tone="blue"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSyncCredits(row);
+                          }}
+                        >
+                          {syncingCreditsFor === row.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <IconSync />
+                          )}
+                        </IconActionBtn>
+                      )}
+                      <IconActionBtn
+                        title="Editar"
+                        tone="amber"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingPartner(row);
+                          setIsModalPartnerOpen(true);
+                        }}
+                      >
+                        <IconEdit />
+                      </IconActionBtn>
+                      <IconActionBtn
+                        title={row.is_active ? "Desativar" : "Ativar"}
+                        tone={row.is_active ? "red" : "green"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePartnerToggle(row);
+                        }}
+                      >
+                        {row.is_active ? <IconPause /> : <IconPlay />}
+                      </IconActionBtn>
+                      <IconActionBtn
+                        title="Remover"
+                        tone="red"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePartnerDelete(row);
+                        }}
+                      >
+                        <IconTrash />
+                      </IconActionBtn>
+                    </div>
+                  </div>
+                  <div className="p-4 sm:p-5 text-sm space-y-2">
+                    {row.provider === "APPATIVA" && (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">
+                            🧾 Créditos
+                          </span>
+                          <span
+                            className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
+                              (row.credits_available ?? 0) >= 5
+                                ? "text-emerald-500 bg-emerald-500/10"
+                                : "text-rose-500 bg-rose-500/10"
+                            }`}
+                          >
+                            {row.credits_available == null
+                              ? "--"
+                              : row.credits_available}
+                          </span>
+                        </div>
+                        {row.credits_last_sync_at && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">
+                              ⏱ Último sync
+                            </span>
+                            <span className="font-medium text-foreground/90">
+                              {new Date(row.credits_last_sync_at).toLocaleString(
+                                "pt-BR",
+                              )}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">
+                            💰 Valor do crédito
+                          </span>
+                          <span className="font-medium text-foreground/90">
+                            {row.credit_unit_price != null
+                              ? row.credit_unit_price.toLocaleString("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL",
+                                })
+                              : "-- (editar pra definir)"}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCatalogModalFor(row.id)}
+                          className="w-full h-9 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          📱 Aplicativos disponíveis
+                        </button>
+                      </>
+                    )}
+                    {row.api_url && (
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-muted-foreground shrink-0">
+                          🔗 URL
+                        </span>
+                        <a
+                          href={row.api_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-sky-500 hover:underline truncate max-w-[200px]"
+                          title={row.api_url}
+                        >
+                          {row.api_url.replace(/^https?:\/\//, "")}
+                        </a>
+                      </div>
+                    )}
+                    {row.login_email && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">📧 Login</span>
+                        <span className="font-medium text-foreground/90">
+                          {row.login_email}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">🔑 Chave</span>
+                      <span className="font-mono text-xs text-foreground/70">
+                        {row.api_key
+                          ? `${row.api_key.slice(0, 6)}••••${row.api_key.slice(-4)}`
+                          : "--"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        icon="📱"
+        label="Aplicativos"
+        count={appList.length}
+        collapsed={!!collapsedGroups.aplicativos}
+        onToggle={() => toggleGroup("aplicativos")}
+      >
         <>
           {!loading && appList.length === 0 && (
             <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
@@ -987,181 +1166,7 @@ export default function ApiServerPage() {
             </div>
           )}
         </>
-      )}
-
-      {activeTab === "parceiros" && (
-        <>
-          {!loading && partnerList.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
-              Nenhum parceiro cadastrado.
-            </div>
-          )}
-          {!loading && partnerList.length > 0 && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
-              {partnerList.map((row) => (
-                <div
-                  key={row.id}
-                  className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
-                >
-                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
-                    <div className="flex items-center gap-2 min-w-0 pr-3">
-                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0 text-sm">
-                        🤝
-                      </div>
-                      <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
-                        {row.label}
-                      </h2>
-                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
-                        {partnerLabel(row.provider)}
-                      </span>
-                      {!row.is_active && (
-                        <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
-                          Inativo
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      {row.provider === "APPATIVA" && (
-                        <IconActionBtn
-                          title="Sincronizar saldo"
-                          tone="blue"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSyncCredits(row);
-                          }}
-                        >
-                          {syncingCreditsFor === row.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <IconSync />
-                          )}
-                        </IconActionBtn>
-                      )}
-                      <IconActionBtn
-                        title="Editar"
-                        tone="amber"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingPartner(row);
-                          setIsModalPartnerOpen(true);
-                        }}
-                      >
-                        <IconEdit />
-                      </IconActionBtn>
-                      <IconActionBtn
-                        title={row.is_active ? "Desativar" : "Ativar"}
-                        tone={row.is_active ? "red" : "green"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePartnerToggle(row);
-                        }}
-                      >
-                        {row.is_active ? <IconPause /> : <IconPlay />}
-                      </IconActionBtn>
-                      <IconActionBtn
-                        title="Remover"
-                        tone="red"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePartnerDelete(row);
-                        }}
-                      >
-                        <IconTrash />
-                      </IconActionBtn>
-                    </div>
-                  </div>
-                  <div className="p-4 sm:p-5 text-sm space-y-2">
-                    {row.provider === "APPATIVA" && (
-                      <>
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">
-                            🧾 Créditos
-                          </span>
-                          <span
-                            className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
-                              (row.credits_available ?? 0) >= 5
-                                ? "text-emerald-500 bg-emerald-500/10"
-                                : "text-rose-500 bg-rose-500/10"
-                            }`}
-                          >
-                            {row.credits_available == null
-                              ? "--"
-                              : row.credits_available}
-                          </span>
-                        </div>
-                        {row.credits_last_sync_at && (
-                          <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">
-                              ⏱ Último sync
-                            </span>
-                            <span className="font-medium text-foreground/90">
-                              {new Date(row.credits_last_sync_at).toLocaleString(
-                                "pt-BR",
-                              )}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">
-                            💰 Valor do crédito
-                          </span>
-                          <span className="font-medium text-foreground/90">
-                            {row.credit_unit_price != null
-                              ? row.credit_unit_price.toLocaleString("pt-BR", {
-                                  style: "currency",
-                                  currency: "BRL",
-                                })
-                              : "-- (editar pra definir)"}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setCatalogModalFor(row.id)}
-                          className="w-full h-9 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          📱 Aplicativos disponíveis
-                        </button>
-                      </>
-                    )}
-                    {row.api_url && (
-                      <div className="flex justify-between items-center gap-2">
-                        <span className="text-muted-foreground shrink-0">
-                          🔗 URL
-                        </span>
-                        <a
-                          href={row.api_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-xs text-sky-500 hover:underline truncate max-w-[200px]"
-                          title={row.api_url}
-                        >
-                          {row.api_url.replace(/^https?:\/\//, "")}
-                        </a>
-                      </div>
-                    )}
-                    {row.login_email && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">📧 Login</span>
-                        <span className="font-medium text-foreground/90">
-                          {row.login_email}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">🔑 Chave</span>
-                      <span className="font-mono text-xs text-foreground/70">
-                        {row.api_key
-                          ? `${row.api_key.slice(0, 6)}••••${row.api_key.slice(-4)}`
-                          : "--"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+      </CollapsibleSection>
 
       {isModalAppOpen && (
         <AppIntegracaoModal
@@ -1213,6 +1218,62 @@ export default function ApiServerPage() {
       <div className="relative z-[999999]">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
       </div>
+    </div>
+  );
+}
+
+// ✅ Cabeçalho colapsável — mesmo padrão de renderAppGroup em
+// gerenciador/aplicativo/page.tsx (label + contador + seta que gira).
+function CollapsibleSection({
+  icon,
+  label,
+  count,
+  collapsed,
+  onToggle,
+  children,
+}: {
+  icon: string;
+  label: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <div
+        className="flex items-center justify-between cursor-pointer border-b border-border pb-2 group select-none transition-colors hover:border-emerald-500/50"
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-bold text-foreground/90 uppercase tracking-wider">
+            {icon} {label}
+          </h2>
+          <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
+            {count}
+          </span>
+        </div>
+        <button
+          className="text-muted-foreground group-hover:text-emerald-500 transition-colors p-1"
+          title={collapsed ? "Expandir" : "Minimizar"}
+          type="button"
+        >
+          <svg
+            className={`w-4 h-4 transition-transform duration-300 ${collapsed ? "" : "rotate-180"}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+      {!collapsed && (
+        <div className="animate-in slide-in-from-top-2 duration-300">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

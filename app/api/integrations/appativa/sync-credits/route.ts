@@ -19,7 +19,9 @@ export const dynamic = "force-dynamic";
 
 // ✅ Limiar próprio do parceiro (diferente do <=15 usado pros servidores
 // IPTV, ver lib/client-portal/fulfillment.ts) — pedido do Márcio.
-const LOW_CREDITS_THRESHOLD = 5;
+// ⚠️ TEMPORÁRIO (25/08/2026): 40 só pra testar que o alerta dispara de
+// verdade — valor final combinado é 5. Voltar pra 5 depois do teste.
+const LOW_CREDITS_THRESHOLD = 40;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminTenant(req);
