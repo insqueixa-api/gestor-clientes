@@ -329,19 +329,6 @@ export async function markAppRenewalPaid(
                 .eq("id", paymentRowId)
                 .eq("tenant_id", tenantId);
 
-              // ✅ Achado 26/08/2026 (Márcio, em produção): o saldo mostrado
-              // na aba Parceiros ficava desatualizado depois de uma
-              // ativação real — só atualizava se alguém clicasse
-              // "Sincronizar" manualmente. Solicitar-ativação já debita
-              // crédito na hora do lado deles, então sincroniza aqui
-              // também. Fail-soft — nunca derruba a ativação por causa
-              // disso.
-              try {
-                await syncAppativaCredits(supabaseAdmin, tenantId);
-              } catch (e: any) {
-                prodLog("markAppRenewalPaid: sync de créditos falhou", { message: e?.message });
-              }
-
               // ✅ Duas checagens automáticas (5s + 30s depois), pedido do
               // Márcio 25/08/2026: sem volume pra justificar polling
               // recorrente — só duas tentativas de fechar sozinho o caso
@@ -352,8 +339,21 @@ export async function markAppRenewalPaid(
               // resolveAppativaAppRenewal já sai cedo se já estiver
               // manual_done, então a 2ª tentativa é barata quando a 1ª já
               // resolveu.
+              //
+              // ⚠️ Achado 26/08/2026 (revisão pós-implementação, mesmo
+              // anti-padrão caçado em docs/perf-audit-checklist.md): o sync
+              // de créditos (achado anterior, mesmo dia — "saldo ficava
+              // desatualizado") estava com `await` direto aqui, ANTES do
+              // `after()`, atrasando a resposta ao navegador do cliente/
+              // webhook do MP/Stripe por uma chamada de rede extra que não
+              // tem nenhuma relação com o pagamento em si. Movido pra
+              // dentro do `after()` (1ª coisa, antes do sleep de 5s) — só
+              // bookkeeping, não precisa bloquear nada.
               deferNotifyToAppativaCheck = true;
               after(async () => {
+                await syncAppativaCredits(supabaseAdmin, tenantId).catch((e: any) =>
+                  prodLog("markAppRenewalPaid: sync de créditos falhou", { message: e?.message }),
+                );
                 try {
                   await new Promise((resolve) => setTimeout(resolve, 5_000));
                   const first = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
