@@ -188,7 +188,13 @@ export default function AppManagerPage() {
     AppativaCatalogItem[]
   >([]);
   const [appativaPickerOpen, setAppativaPickerOpen] = useState(false);
-  const [appativaPickerSearch, setAppativaPickerSearch] = useState("");
+  // ✅ 2 campos de busca (achado 25/08/2026, pedido do Márcio: "buscar por
+  // um ou por outro") — Nome e ID filtram o mesmo catálogo em conjunto
+  // (AND quando os dois têm texto); selecionar um resultado preenche os
+  // dois. Digitar em qualquer um invalida o vínculo atual até escolher de
+  // novo na lista.
+  const [appativaSearchName, setAppativaSearchName] = useState("");
+  const [appativaSearchId, setAppativaSearchId] = useState("");
 
   // Dados exibidos no portal: marca o que o cliente precisa copiar no app.
   function toggleVariableBadge(key: string) {
@@ -604,7 +610,8 @@ export default function AppManagerPage() {
     setFormDiscontinuedReplacement("");
     setFormAppativaAppId("");
     setFormAppativaAppName("");
-    setAppativaPickerSearch("");
+    setAppativaSearchName("");
+    setAppativaSearchId("");
     setIsModalOpen(true);
   }
 
@@ -643,7 +650,8 @@ export default function AppManagerPage() {
     setFormDiscontinuedReplacement(app.discontinued_replacement_name || "");
     setFormAppativaAppId(app.appativa_app_id || "");
     setFormAppativaAppName(app.appativa_app_name || "");
-    setAppativaPickerSearch("");
+    setAppativaSearchName(app.appativa_app_name || "");
+    setAppativaSearchId(app.appativa_app_id || "");
     setIsModalOpen(true);
   }
 
@@ -1587,88 +1595,123 @@ export default function AppManagerPage() {
                     vincula direto pelo id em vez de comparar nome a nome
                     via CSV exportado). */}
               <div>
-                <Label>Appativa (catálogo do parceiro)</Label>
-                {formAppativaAppId ? (
-                  <div className="flex items-center justify-between gap-2 h-10 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
-                    <span className="text-sm text-foreground truncate">
-                      {formAppativaAppName || formAppativaAppId}
-                    </span>
+                <div className="flex items-center justify-between">
+                  <Label>Appativa (catálogo do parceiro)</Label>
+                  {formAppativaAppId && (
                     <button
                       type="button"
                       onClick={() => {
                         setFormAppativaAppId("");
                         setFormAppativaAppName("");
+                        setAppativaSearchName("");
+                        setAppativaSearchId("");
                       }}
-                      className="shrink-0 text-muted-foreground hover:text-rose-500 transition-colors"
+                      className="text-[11px] text-muted-foreground hover:text-rose-500 transition-colors flex items-center gap-1"
                       title="Remover vínculo"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3 h-3" />
+                      Remover vínculo
                     </button>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <input
-                      value={appativaPickerSearch}
-                      onChange={(e) => {
-                        setAppativaPickerSearch(e.target.value);
-                        setAppativaPickerOpen(true);
-                      }}
-                      onFocus={() => setAppativaPickerOpen(true)}
-                      onBlur={() =>
-                        setTimeout(() => setAppativaPickerOpen(false), 150)
-                      }
-                      placeholder={
-                        appativaCatalog.length
-                          ? "Buscar no catálogo da Appativa..."
-                          : "Sincronize o catálogo em Parceiros primeiro"
-                      }
-                      disabled={appativaCatalog.length === 0}
-                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    {appativaPickerOpen &&
-                      appativaPickerSearch.trim() &&
-                      appativaCatalog.length > 0 &&
-                      (() => {
-                        const matches = appativaCatalog
-                          .filter((it) =>
-                            it.nome
-                              .toLowerCase()
-                              .includes(appativaPickerSearch.trim().toLowerCase()),
-                          )
-                          .slice(0, 30);
-                        return (
-                          <div className="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
-                            {matches.length === 0 ? (
-                              <p className="px-3 py-2 text-xs text-muted-foreground">
-                                Nenhum aplicativo encontrado no catálogo.
-                              </p>
-                            ) : (
-                              matches.map((it) => (
-                                <button
-                                  key={it.id}
-                                  type="button"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onClick={() => {
-                                    setFormAppativaAppId(it.id);
-                                    setFormAppativaAppName(it.nome);
-                                    setAppativaPickerOpen(false);
-                                    setAppativaPickerSearch("");
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                                >
-                                  {it.nome}
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        );
-                      })()}
-                  </div>
-                )}
+                  )}
+                </div>
+                <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    value={appativaSearchName}
+                    onChange={(e) => {
+                      setAppativaSearchName(e.target.value);
+                      setFormAppativaAppId("");
+                      setFormAppativaAppName("");
+                      setAppativaPickerOpen(true);
+                    }}
+                    onFocus={() => setAppativaPickerOpen(true)}
+                    onBlur={() =>
+                      setTimeout(() => setAppativaPickerOpen(false), 150)
+                    }
+                    placeholder={
+                      appativaCatalog.length
+                        ? "Buscar por nome..."
+                        : "Sincronize o catálogo em Parceiros primeiro"
+                    }
+                    disabled={appativaCatalog.length === 0}
+                    className={`w-full h-10 px-3 bg-transparent border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      formAppativaAppId
+                        ? "border-emerald-500/30 bg-emerald-500/10"
+                        : "border-border"
+                    }`}
+                  />
+                  <input
+                    value={appativaSearchId}
+                    onChange={(e) => {
+                      setAppativaSearchId(e.target.value);
+                      setFormAppativaAppId("");
+                      setFormAppativaAppName("");
+                      setAppativaPickerOpen(true);
+                    }}
+                    onFocus={() => setAppativaPickerOpen(true)}
+                    onBlur={() =>
+                      setTimeout(() => setAppativaPickerOpen(false), 150)
+                    }
+                    placeholder={
+                      appativaCatalog.length
+                        ? "Buscar por ID..."
+                        : "Sincronize o catálogo em Parceiros primeiro"
+                    }
+                    disabled={appativaCatalog.length === 0}
+                    className={`w-full h-10 px-3 bg-transparent border rounded-lg text-sm text-foreground font-mono text-xs outline-none focus:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      formAppativaAppId
+                        ? "border-emerald-500/30 bg-emerald-500/10"
+                        : "border-border"
+                    }`}
+                  />
+                  {appativaPickerOpen &&
+                    (appativaSearchName.trim() || appativaSearchId.trim()) &&
+                    appativaCatalog.length > 0 &&
+                    (() => {
+                      const nameQ = appativaSearchName.trim().toLowerCase();
+                      const idQ = appativaSearchId.trim().toLowerCase();
+                      const matches = appativaCatalog
+                        .filter((it) => {
+                          const nameOk = !nameQ || it.nome.toLowerCase().includes(nameQ);
+                          const idOk = !idQ || it.id.toLowerCase().includes(idQ);
+                          return nameOk && idOk;
+                        })
+                        .slice(0, 30);
+                      return (
+                        <div className="absolute z-30 top-full mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
+                          {matches.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-muted-foreground">
+                              Nenhum aplicativo encontrado no catálogo.
+                            </p>
+                          ) : (
+                            matches.map((it) => (
+                              <button
+                                key={it.id}
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setFormAppativaAppId(it.id);
+                                  setFormAppativaAppName(it.nome);
+                                  setAppativaSearchName(it.nome);
+                                  setAppativaSearchId(it.id);
+                                  setAppativaPickerOpen(false);
+                                }}
+                                className="w-full flex items-center justify-between gap-2 text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                              >
+                                <span className="truncate">{it.nome}</span>
+                                <span className="shrink-0 text-[10px] font-mono text-muted-foreground truncate max-w-[40%]">
+                                  {it.id}
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      );
+                    })()}
+                </div>
                 <p className="text-[11px] text-muted-foreground mt-1">
                   Vincula este app ao aplicativo correspondente no catálogo da
-                  Appativa (de-para por id, não por nome) — evita confusão
-                  quando os nomes não batem exatamente.
+                  Appativa (de-para por id, não por nome) — busque pelo nome
+                  ou pelo id, o que for mais fácil de bater.
                 </p>
               </div>
 

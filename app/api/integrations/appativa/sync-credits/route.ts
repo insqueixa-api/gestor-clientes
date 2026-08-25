@@ -95,6 +95,20 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[appativa/sync-credits] falha ao notificar saldo baixo", (e as any)?.message);
     }
+  } else if (Number.isFinite(credits)) {
+    // ✅ Achado 25/08/2026 (Márcio testando): sincronizar de novo com saldo
+    // recuperado não limpava sozinho o alerta antigo do sino — mesmo
+    // mecanismo que já existe pra servidor (ver resolveIfCreditsOk em
+    // recarga_servidor.tsx), só que faltava aqui.
+    try {
+      await supabase.rpc("resolve_notification", {
+        p_tenant_id: tenant_id,
+        p_type: "saldo_baixo",
+        p_source_id: integration.id,
+      });
+    } catch (e) {
+      console.error("[appativa/sync-credits] falha ao resolver notificação de saldo baixo", (e as any)?.message);
+    }
   }
 
   return NextResponse.json({ ok: true, credits_available: credits });
