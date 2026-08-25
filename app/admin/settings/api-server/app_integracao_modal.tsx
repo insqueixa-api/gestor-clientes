@@ -74,6 +74,7 @@ export default function AppIntegracaoModal({
   const isDuplexTv = appName === "DUPLEXTV";
   const isClouddy = appName === "CLOUDDY";
   const isNinjaPlayer = appName === "NINJAPLAYER";
+  const isAppativa = appName === "APPATIVA";
   const needsPin =
     isDuplecast ||
     isIboPro ||
@@ -93,13 +94,19 @@ export default function AppIntegracaoModal({
     isIptvPlayerio ||
     isDuplexTv ||
     isClouddy ||
-    isNinjaPlayer; // ✅ NINJAPLAYER: login é por mac+device_key POR CLIENTE
+    isNinjaPlayer ||
+    isAppativa; // ✅ NINJAPLAYER: login é por mac+device_key POR CLIENTE
   // (client_apps.field_values), não um login/senha compartilhado pelo
   // tenant — mesma razão do CLOUDDY logo acima.
   // (client_apps.field_values), não um só compartilhado pelo tenant —
   // mostrar os campos aqui confundiria (pareceria que fazem algo, mas a
   // rota nunca lê daqui). O que a rota REALMENTE usa daqui é api_url +
   // is_active (kill-switch).
+  // ✅ APPATIVA (24/08/2026): autentica por API key (não usuário/senha nem
+  // PIN) — a chave já está guardada como variável de ambiente (APPATIVA na
+  // Vercel/.env.local), igual TELEIN_API_KEY/TMDB_API_KEY, nunca por
+  // tenant nesta tabela. Este cadastro aqui é só label+URL+kill-switch,
+  // mesmo papel que já tem pros outros apps "noCredentials".
 
   useEffect(() => {
     if (integration) {
@@ -270,6 +277,7 @@ export default function AppIntegracaoModal({
                 <option value="DUPLEXTV">Duplex TV</option>
                 <option value="CLOUDDY">ClouDDy</option>
                 <option value="NINJAPLAYER">Ninja Player</option>
+                <option value="APPATIVA">Appativa (Ative App Mídias)</option>
               </select>
             </div>
 
@@ -306,7 +314,9 @@ export default function AppIntegracaoModal({
                                         ? 'Ex: "ClouDDy"'
                                         : isNinjaPlayer
                                           ? 'Ex: "Ninja Player"'
-                                          : 'Ex: "Nome do aplicativo"'
+                                          : isAppativa
+                                            ? 'Ex: "Appativa"'
+                                            : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -345,12 +355,23 @@ export default function AppIntegracaoModal({
                                         ? "Ex: https://console.clouddy.online"
                                         : isNinjaPlayer
                                           ? "Ex: https://meta-player.app"
-                                          : "Ex: https://gerenciaapp.top"
+                                          : isAppativa
+                                            ? "Ex: https://appativa.store"
+                                            : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"
               />
             </div>
+
+            {isAppativa && (
+              <div className="sm:col-span-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-[11px] text-amber-600">
+                🔑 Chave de API já cadastrada como variável de ambiente
+                (<code className="font-mono">APPATIVA</code>, na Vercel e no
+                .env.local) — nunca fica salva aqui no banco. Integração
+                ainda sem código (previsto pra 25/08/2026).
+              </div>
+            )}
 
             {/* Email de Login */}
             {!noCredentials && (
