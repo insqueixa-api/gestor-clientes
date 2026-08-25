@@ -96,6 +96,63 @@ export default function AppRequestModal({
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [messageContent, setMessageContent] = useState("");
 
+  // ✅ Estado da ativação via Appativa (achado 25/08/2026) — só existe pra
+  // action="renewal". Se a renovação foi processada por lá (webhook em
+  // app/api/webhooks/appativa/route.ts), mostra o andamento/erro real e
+  // deixa reenviar direto daqui, sem precisar o cliente mexer no portal.
+  const [appativaInfo, setAppativaInfo] = useState<{
+    error: string | null;
+    historicoId: string | null;
+  } | null>(null);
+  const [retryingAppativa, setRetryingAppativa] = useState(false);
+
+  async function loadAppativaInfo() {
+    if (action !== "renewal" || !paymentLogId) {
+      setAppativaInfo(null);
+      return;
+    }
+    const { data: row } = await supabaseBrowser
+      .from("client_portal_payments")
+      .select("fulfillment_error, appativa_historico_id")
+      .eq("id", paymentLogId)
+      .maybeSingle();
+    setAppativaInfo({
+      error: row?.fulfillment_error || null,
+      historicoId: row?.appativa_historico_id || null,
+    });
+  }
+
+  useEffect(() => {
+    loadAppativaInfo();
+  }, [action, paymentLogId]);
+
+  async function handleRetryAppativa() {
+    if (!paymentLogId || !tenantId) return;
+    setRetryingAppativa(true);
+    try {
+      const { data: session } = await supabaseBrowser.auth.getSession();
+      const token = session.session?.access_token;
+      const res = await fetch("/api/admin/apps/retry-appativa-activation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ tenant_id: tenantId, payment_id: paymentLogId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Falha ao reenviar a ativação.");
+      }
+      addToast("success", "Reenviado!", "Aguardando confirmação da Appativa.");
+      await loadAppativaInfo();
+    } catch (e: any) {
+      addToast("error", "Erro", e?.message || "Falha ao reenviar.");
+    } finally {
+      setRetryingAppativa(false);
+    }
+  }
+
   useEffect(() => {
     if (action !== "renewal") return;
     (async () => {
@@ -809,6 +866,30 @@ export default function AppRequestModal({
               <span className="text-muted-foreground">Aplicativo:</span>
               <span className="font-medium">{data.appName}</span>
             </div>
+
+            {/* Ativação via Appativa (achado 25/08/2026): quando a
+                renovação foi processada automaticamente por lá, mostra o
+                andamento real em vez do admin ter que adivinhar. */}
+            {action === "renewal" && appativaInfo?.error && (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400 space-y-2">
+                <p>⚠️ {appativaInfo.error}</p>
+                <button
+                  type="button"
+                  onClick={handleRetryAppativa}
+                  disabled={retryingAppativa}
+                  className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                >
+                  {retryingAppativa ? "Reenviando..." : "Reenviar via Appativa"}
+                </button>
+              </div>
+            )}
+            {action === "renewal" && !appativaInfo?.error && appativaInfo?.historicoId && (
+              <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-400">
+                🔄 Ativação em andamento via Appativa — aguardando confirmação automática. O
+                pagamento será concluído e o cliente avisado sozinho assim que a Appativa
+                confirmar e o vencimento novo for verificado.
+              </div>
+            )}
 
             {/* Campos do app — mesmo componente do card de aplicativos do
                 editar cliente: editável (dá pra corrigir um MAC errado ou

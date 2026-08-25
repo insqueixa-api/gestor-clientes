@@ -23,6 +23,7 @@ import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { resolveNotification } from "@/lib/notifications/notify";
 import { loadClientApp, checkClientAppValidity } from "@/lib/apps/orchestration";
+import { extractDateOnly } from "@/lib/apps/panel";
 import { prodLog } from "@/lib/client-portal/fulfillment";
 
 export const dynamic = "force-dynamic";
@@ -129,19 +130,55 @@ export async function POST(req: NextRequest) {
     if (SUCCESS_STATUSES.has(status)) {
       const origin = getAppOrigin();
 
-      // ✅ Busca o vencimento REAL no painel do app (Appativa confirma só a
-      // LICENÇA, não o vencimento) — mesma função que já persiste sozinha
-      // em client_apps.field_values, usada pelo botão "Verificar validade".
+      // ✅ Achado 25/08/2026 (Márcio): a Appativa confirmar a ativação é só
+      // a LICENÇA — o cliente só pode ser avisado depois que a gente
+      // CONFIRMAR, de verdade, que o vencimento real (no painel do app)
+      // está no futuro. checkClientAppValidity é best-effort: quando o
+      // parceiro não devolve data nova (ex: DUPLEXTV quase nunca devolve),
+      // ela só devolve a data ANTIGA já salva como se tivesse achado — por
+      // isso aqui checamos especificamente `rawExpireDate` (o valor NOVO
+      // que veio agora do painel, não o fallback) antes de considerar
+      // confirmado.
+      let confirmedFutureExpiry = false;
       if (payment.client_app_id) {
         try {
           const row = await loadClientApp(supabaseAdmin, {
             clientAppId: payment.client_app_id,
             tenantId: payment.tenant_id,
           });
-          if (row) await checkClientAppValidity(supabaseAdmin, row);
+          if (row) {
+            const result = await checkClientAppValidity(supabaseAdmin, row);
+            // ⚠️ Narrowing via `"expireDate" in result` — mesmo bug de
+            // strict:false já documentado (couponRejectReason, e no
+            // markAppRenewalPaid mais cedo hoje).
+            if ("expireDate" in result && result.rawExpireDate) {
+              const dateOnly = extractDateOnly(result.rawExpireDate);
+              if (dateOnly && new Date(`${dateOnly}T23:59:59`).getTime() > Date.now()) {
+                confirmedFutureExpiry = true;
+              }
+            }
+          }
         } catch (e: any) {
           prodLog("appativa_webhook.check_validity_failed", { message: e?.message });
         }
+      }
+
+      if (!confirmedFutureExpiry) {
+        // ✅ Ativação aceita pela Appativa, mas não deu pra confirmar
+        // automaticamente que o vencimento avançou — NÃO conclui nem avisa
+        // o cliente sozinho. Fica visível pro admin (fulfillment_error) pra
+        // conferir/concluir manualmente na Auditoria (o modal "Concluir"
+        // já tem "Verificar validade" + "Salvar", cobre esse caso sem
+        // precisar de nada novo).
+        await supabaseAdmin
+          .from("client_portal_payments")
+          .update({
+            fulfillment_error:
+              "Appativa confirmou a ativação, mas não foi possível confirmar automaticamente o novo vencimento. Verifique e conclua manualmente.",
+          })
+          .eq("id", payment.id)
+          .eq("tenant_id", payment.tenant_id);
+        return NextResponse.json({ ok: true });
       }
 
       // ✅ Update direto (nunca a RPC update_fulfillment_status — exige
