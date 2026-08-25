@@ -5,7 +5,7 @@ import * as Sentry from "@sentry/nextjs";
 import { notify, resolveNotification, formatClientLabel } from "@/lib/notifications/notify";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 import { extractFieldByType, findFieldByType, extractDateOnly } from "@/lib/apps/panel";
-import { solicitarAtivacao, consultarAtivacao, getAppativaApiKey } from "@/lib/integrations/appativa";
+import { solicitarAtivacao, consultarAtivacao, getAppativaApiKey, syncAppativaCredits } from "@/lib/integrations/appativa";
 
 // ============================================================
 // Tipos
@@ -328,6 +328,19 @@ export async function markAppRenewalPaid(
                 .update({ appativa_historico_id: result.data.id, fulfillment_error: null })
                 .eq("id", paymentRowId)
                 .eq("tenant_id", tenantId);
+
+              // ✅ Achado 26/08/2026 (Márcio, em produção): o saldo mostrado
+              // na aba Parceiros ficava desatualizado depois de uma
+              // ativação real — só atualizava se alguém clicasse
+              // "Sincronizar" manualmente. Solicitar-ativação já debita
+              // crédito na hora do lado deles, então sincroniza aqui
+              // também. Fail-soft — nunca derruba a ativação por causa
+              // disso.
+              try {
+                await syncAppativaCredits(supabaseAdmin, tenantId);
+              } catch (e: any) {
+                prodLog("markAppRenewalPaid: sync de créditos falhou", { message: e?.message });
+              }
 
               // ✅ Duas checagens automáticas (5s + 30s depois), pedido do
               // Márcio 25/08/2026: sem volume pra justificar polling

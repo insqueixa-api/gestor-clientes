@@ -15,6 +15,8 @@
 // Fail-soft: nunca lançam — erro de rede/HTTP vira {ok:false, error},
 // mesmo padrão já usado em checkClientAppValidity (lib/apps/orchestration.ts).
 
+import { notify, resolveNotification } from "@/lib/notifications/notify";
+
 const APPATIVA_BASE_URL = "https://api.ativeapp.com";
 
 type AppativaResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -136,6 +138,81 @@ export async function consultarAtivacao(
   } catch (e: any) {
     return { ok: false, error: e?.message || "Falha ao conectar com a Appativa" };
   }
+}
+
+// ✅ Limiar próprio do parceiro (diferente do <=15 usado pros servidores
+// IPTV) — mesmo valor já usado em app/api/integrations/appativa/
+// sync-credits/route.ts, testado e confirmado funcionando em produção
+// 25/08/2026 (sino + valor certo).
+const LOW_CREDITS_THRESHOLD = 5;
+
+// ✅ Extraída de app/api/integrations/appativa/sync-credits/route.ts
+// (26/08/2026, achado do Márcio: o saldo mostrado na aba Parceiros ficava
+// desatualizado depois de uma ativação real — só atualizava quando alguém
+// clicava "Sincronizar" manualmente). Reaproveitada pelo botão manual E
+// chamada automaticamente depois de toda solicitação/reenvio de ativação
+// real (markAppRenewalPaid e as 2 rotas de retry), já que é exatamente o
+// momento em que o saldo muda do lado deles. Fail-soft — nunca lança,
+// nunca deve derrubar o fluxo de ativação que a chamou.
+export async function syncAppativaCredits(
+  supabaseAdmin: any,
+  tenantId: string,
+): Promise<{ ok: boolean; credits?: number; error?: string }> {
+  const { data: integration } = await supabaseAdmin
+    .from("api_integrations")
+    .select("id, label, api_key")
+    .eq("tenant_id", tenantId)
+    .eq("provider", "APPATIVA")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  const apiKey = String(integration?.api_key || "").trim();
+  if (!integration || !apiKey) return { ok: false, error: "Parceiro Appativa não encontrado/sem chave" };
+
+  let creditsData: any;
+  try {
+    const res = await fetch(`${APPATIVA_BASE_URL}/api/creditos-disponiveis`, {
+      headers: { "X-API-Key": apiKey },
+      cache: "no-store",
+    });
+    creditsData = await res.json().catch(() => ({} as any));
+    if (!res.ok || creditsData?.sucesso !== true) {
+      return { ok: false, error: creditsData?.erro || creditsData?.message || "Falha ao consultar créditos" };
+    }
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Falha ao conectar com a Appativa" };
+  }
+
+  const credits = Number(creditsData?.creditos_disponiveis);
+
+  await supabaseAdmin
+    .from("api_integrations")
+    .update({ credits_available: credits, credits_last_sync_at: new Date().toISOString() })
+    .eq("id", integration.id)
+    .eq("tenant_id", tenantId);
+
+  if (Number.isFinite(credits) && credits < LOW_CREDITS_THRESHOLD) {
+    try {
+      await notify({
+        tenantId,
+        type: "saldo_baixo",
+        title: "🪫 Saldo Baixo — Parceiro",
+        message: `O parceiro "${integration.label}" está com apenas ${credits} crédito(s). Recarregue para evitar interrupção nas ativações.`,
+        link: "/admin/settings/api-server",
+        sourceId: integration.id,
+      });
+    } catch {
+      // não bloqueia o sync por falha na notificação
+    }
+  } else if (Number.isFinite(credits)) {
+    try {
+      await resolveNotification(tenantId, "saldo_baixo", integration.id);
+    } catch {
+      // não bloqueia o sync por falha ao resolver a notificação
+    }
+  }
+
+  return { ok: true, credits };
 }
 
 // ✅ Chave ativa do parceiro — resolvida uma vez, reaproveitada pelos

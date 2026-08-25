@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { extractFieldByType } from "@/lib/apps/panel";
-import { reenviarAtivacao, solicitarAtivacao, getAppativaApiKey } from "@/lib/integrations/appativa";
+import { reenviarAtivacao, solicitarAtivacao, getAppativaApiKey, syncAppativaCredits } from "@/lib/integrations/appativa";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +99,15 @@ export async function POST(req: NextRequest) {
     .eq("tenant_id", tenantId);
 
   if (updErr) return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500 });
+
+  // ✅ Reenvio pode gerar ajuste de crédito na hora (ver ReenviarAtivacaoResult
+  // em lib/integrations/appativa.ts) — sincroniza o saldo mostrado na aba
+  // Parceiros, mesmo achado de markAppRenewalPaid (26/08/2026). Fail-soft.
+  try {
+    await syncAppativaCredits(supabaseAdmin, tenantId);
+  } catch {
+    // não bloqueia a resposta por falha no sync de créditos
+  }
 
   return NextResponse.json({ ok: true, message: "Reenviado — aguardando confirmação da Appativa." });
 }
