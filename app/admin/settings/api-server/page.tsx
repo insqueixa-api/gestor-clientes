@@ -1,6 +1,6 @@
 "use client";
 // app/admin/settings/api-server/page.tsx
-import { Loader2, Pencil, RefreshCcw, Trash2 } from "lucide-react";
+import { Loader2, Pencil, RefreshCcw, Trash2, CreditCard } from "lucide-react";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
@@ -1071,7 +1071,7 @@ export default function ApiServerPage() {
                               setRecargaAppativaFor(row);
                             }}
                           >
-                            <span className="text-sm leading-none">💰</span>
+                            <IconMoney />
                           </IconActionBtn>
                           <IconActionBtn
                             title="Sincronizar saldo"
@@ -1572,6 +1572,12 @@ function IconTrash() {
 }
 function IconSync() {
   return <RefreshCcw className="w-4 h-4" />;
+}
+// ✅ Mesmo ícone de "Renovar"/recarga usado em cliente/page.tsx,
+// cliente/[id]/page.tsx, gerenciador/servidor/page.tsx e revendedor/
+// page.tsx (achado 26/08/2026, pedido do Márcio: consistência entre abas).
+function IconMoney() {
+  return <CreditCard className="w-4 h-4" />;
 }
 function IconEdit() {
   return <Pencil className="w-4 h-4" />;
