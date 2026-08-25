@@ -341,6 +341,10 @@ export default function RenewClient() {
     has_pending_setup_request: boolean;
     has_pending_removal_request: boolean;
     has_pending_manual_renewal: boolean;
+    // ✅ Erro de ativação automática via Appativa (achado 25/08/2026) — só
+    // preenchido quando o webhook deles confirmou falha (ex: MAC errado).
+    // Mostra o aviso + botão "Tentar novamente" no card.
+    pending_renewal_error: string | null;
     expiration: string | null;
     is_partnership: boolean;
     is_trial: boolean;
@@ -409,6 +413,11 @@ export default function RenewClient() {
   );
   const [renewPaymentDone, setRenewPaymentDone] = useState(false);
   const [copiedAppPixCode, setCopiedAppPixCode] = useState(false);
+  // ✅ "Tentar novamente" — ativação via Appativa que falhou (achado
+  // 25/08/2026), cliente já corrigiu o campo (ex: MAC) e reenvia.
+  const [retryActivationBusyId, setRetryActivationBusyId] = useState<
+    string | null
+  >(null);
   const [renewPollInterval, setRenewPollInterval] = useState<ReturnType<
     typeof setInterval
   > | null>(null);
@@ -520,6 +529,38 @@ export default function RenewClient() {
       );
     } finally {
       setRenewPaymentBusyId(null);
+    }
+  }
+
+  async function handleRetryActivation(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    setRetryActivationBusyId(clientAppId);
+    try {
+      const res = await fetch("/api/client-portal/apps/retry-activation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) {
+        throw new Error(result?.error || "Falha ao reenviar a ativação.");
+      }
+      addToast(
+        "success",
+        "Reenviado!",
+        "Aguardando a confirmação — você recebe uma mensagem assim que renovar.",
+      );
+      await refreshInstalledApps();
+    } catch (err: any) {
+      await alertError(
+        err?.message || "Não foi possível reenviar agora. Tente novamente em instantes.",
+      );
+    } finally {
+      setRetryActivationBusyId(null);
     }
   }
 
@@ -4639,6 +4680,30 @@ export default function RenewClient() {
                             </button>
                           )}
                         </div>
+
+                        {/* ✅ Ativação automática via Appativa falhou
+                              (achado 25/08/2026) — mostra o motivo real e
+                              deixa o cliente reenviar depois de corrigir o
+                              campo (ex: MAC) nos campos acima. */}
+                        {app.pending_renewal_error && (
+                          <div className="text-xs font-medium text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+                            <span>
+                              ⚠️ A renovação não foi concluída: {app.pending_renewal_error}
+                            </span>
+                            <button
+                              disabled={retryActivationBusyId === app.id}
+                              onClick={() => handleRetryActivation(app.id)}
+                              className="shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-500 text-white text-[11px] font-bold uppercase hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {retryActivationBusyId === app.id && (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              )}
+                              {retryActivationBusyId === app.id
+                                ? "Reenviando..."
+                                : "Tentar novamente"}
+                            </button>
+                          </div>
+                        )}
 
                         {/* Linha 3: Configurar/Reconfigurar à esquerda,
                               Renovar aplicativo à direita (Verificar virou o

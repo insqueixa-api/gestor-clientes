@@ -13,7 +13,7 @@
 // docs/sql/api_integrations_partners.sql).
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
-import { notify } from "@/lib/notifications/notify";
+import { notify, resolveNotification } from "@/lib/notifications/notify";
 
 export const dynamic = "force-dynamic";
 
@@ -102,19 +102,10 @@ export async function POST(req: NextRequest) {
     // resolveIfCreditsOk em recarga_servidor.tsx usa) — mas essa RPC exige
     // auth.uid() de uma sessão de admin real (checa tenant_members), e
     // esta rota roda com a service_role key (sem auth.uid(), sempre
-    // NOT_AUTHORIZED, engolido pelo try/catch em silêncio). Update direto
-    // na tabela em vez da RPC — service_role já ignora RLS, não precisa da
-    // checagem de auth.uid() que a RPC faz.
-    const { error: resolveErr } = await supabase
-      .from("notifications")
-      .update({ resolved_at: new Date().toISOString() })
-      .eq("tenant_id", tenant_id)
-      .eq("type", "saldo_baixo")
-      .eq("source_id", integration.id)
-      .is("resolved_at", null);
-    if (resolveErr) {
-      console.error("[appativa/sync-credits] falha ao resolver notificação de saldo baixo", resolveErr.message);
-    }
+    // NOT_AUTHORIZED, engolido em silêncio). resolveNotification()
+    // (lib/notifications/notify.ts) já faz o mesmo update direto — service
+    // role ignora RLS, não precisa da checagem de auth.uid() que a RPC faz.
+    await resolveNotification(tenant_id, "saldo_baixo", integration.id);
   }
 
   return NextResponse.json({ ok: true, credits_available: credits });

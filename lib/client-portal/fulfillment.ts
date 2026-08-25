@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
+import { extractFieldByType } from "@/lib/apps/panel";
+import { solicitarAtivacao, getAppativaApiKey } from "@/lib/integrations/appativa";
 
 // ============================================================
 // Tipos
@@ -246,6 +248,89 @@ export async function markAppRenewalPaid(
 
   if (!wasUpdated) {
     return; // já tinha sido processado por outra chamada — não notifica de novo
+  }
+
+  // ============================================================
+  // Ativação automática via Appativa (achado 25/08/2026) — só entra em
+  // ação quando o app renovado está mapeado (apps.appativa_app_id). Sem
+  // mapeamento, comportamento ZERO-MUDANÇA: cai direto no fluxo manual de
+  // sempre (sino+e-mail abaixo, admin conclui na Auditoria).
+  //
+  // A API da Appativa é ASSÍNCRONA — solicitar-ativacao só devolve um id
+  // (fila deles), nunca o vencimento real. Por isso o fulfillment_status
+  // continua 'manual_pending' mesmo numa solicitação aceita — quem conclui
+  // de verdade (fulfillment_status='manual_done', vencimento real,
+  // WhatsApp pro cliente) é o webhook (app/api/webhooks/appativa/route.ts)
+  // quando a confirmação chegar. Fica dentro do guard `wasUpdated` de
+  // propósito — mesma proteção de idempotência que já existe aqui evita
+  // chamar solicitar-ativacao 2x pro mesmo pagamento numa corrida entre os
+  // 4 caminhos que chamam esta função.
+  try {
+    if (payment?.client_app_id) {
+      const { data: appRow } = await supabaseAdmin
+        .from("client_apps")
+        .select("field_values, apps(appativa_app_id, fields_config)")
+        .eq("id", payment.client_app_id)
+        .maybeSingle();
+      const appMeta = Array.isArray(appRow?.apps) ? appRow.apps[0] : appRow?.apps;
+      const appativaAppId = appMeta?.appativa_app_id ? String(appMeta.appativa_app_id) : "";
+
+      if (appativaAppId) {
+        const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
+        const values = appRow?.field_values || {};
+        const macApp = extractFieldByType(fieldsConfig, values, "mac");
+        const keyApp = extractFieldByType(fieldsConfig, values, "device_key");
+
+        if (!macApp) {
+          // ✅ Sem MAC salvo — nem tenta chamar a Appativa, mesma mensagem
+          // que checkClientAppValidity já usa nesse caso (lib/apps/
+          // orchestration.ts) pra manter a linguagem consistente.
+          await supabaseAdmin
+            .from("client_portal_payments")
+            .update({ fulfillment_error: "Preencha o Device ID (MAC) antes de renovar." })
+            .eq("id", paymentRowId)
+            .eq("tenant_id", tenantId);
+        } else {
+          const apiKey = await getAppativaApiKey(supabaseAdmin, tenantId);
+          if (!apiKey) {
+            safeServerLog("markAppRenewalPaid: Appativa mapeada mas sem parceiro ativo/chave configurada");
+          } else {
+            const result = await solicitarAtivacao(apiKey, {
+              appativaAppId,
+              macApp,
+              keyApp: keyApp || undefined,
+            });
+
+            // ⚠️ Narrowing via `"data" in result`, de propósito — com
+            // `strict: false` neste projeto (sem strictNullChecks), o TS
+            // estreita mal uniões discriminadas por igualdade literal
+            // (`if (result.ok)`) quando um ramo tem campo extra (mesmo bug
+            // já documentado em couponRejectReason, lib/client-portal/
+            // coupons.ts). Narrowing por `in` não tem esse problema.
+            if ("data" in result) {
+              await supabaseAdmin
+                .from("client_portal_payments")
+                .update({ appativa_historico_id: result.data.id, fulfillment_error: null })
+                .eq("id", paymentRowId)
+                .eq("tenant_id", tenantId);
+            } else {
+              await supabaseAdmin
+                .from("client_portal_payments")
+                .update({ fulfillment_error: `Appativa: ${result.error}` })
+                .eq("id", paymentRowId)
+                .eq("tenant_id", tenantId);
+              Sentry.captureMessage("markAppRenewalPaid: solicitar-ativacao falhou", {
+                level: "warning",
+                tags: { kind: "client_portal_error", where: "appativa_solicitar_ativacao" },
+                extra: { paymentRowId, tenantId, error: result.error },
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    safeServerLog("markAppRenewalPaid: falha na tentativa de ativação automática (Appativa)", (e as any)?.message);
   }
 
   // ✅ Sino de notificação — mesmo padrão do manual_pending de assinatura

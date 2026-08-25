@@ -129,20 +129,35 @@ export async function POST(req: NextRequest) {
 
     const clientAppIds = (rows || []).map((r: any) => r.id).filter(Boolean);
     let pendingManualRenewalByAppId = new Set<string>();
+    // ✅ Erro de ativação automática (Appativa, achado 25/08/2026) — o
+    // webhook grava o motivo aqui quando a ativação falha (ex: MAC
+    // errado). Mapeado por client_app_id pra mostrar o aviso + botão
+    // "Tentar novamente" no card certo.
+    const pendingRenewalErrorByAppId = new Map<string, string>();
     if (clientAppIds.length > 0) {
       const { data: pendingManualPayments } = await supabaseAdmin
         .from("client_portal_payments")
-        .select("client_app_id")
+        .select("client_app_id, fulfillment_error, created_at")
         .eq("tenant_id", ctx.tenant_id)
         .eq("client_id", client_id)
         .eq("payment_type", "app_renewal")
         .eq("status", "approved")
         .eq("fulfillment_status", "manual_pending")
-        .in("client_app_id", clientAppIds);
+        .in("client_app_id", clientAppIds)
+        .order("created_at", { ascending: true });
 
-      pendingManualRenewalByAppId = new Set(
-        (pendingManualPayments || []).map((p: any) => String(p.client_app_id || "")).filter(Boolean),
-      );
+      for (const p of pendingManualPayments || []) {
+        const appId = String((p as any).client_app_id || "");
+        if (!appId) continue;
+        pendingManualRenewalByAppId.add(appId);
+        // ✅ Ordenado por created_at asc — a última sobrescreve, então o
+        // mapa sempre fica com o erro mais recente pra esse app.
+        if ((p as any).fulfillment_error) {
+          pendingRenewalErrorByAppId.set(appId, String((p as any).fulfillment_error));
+        } else {
+          pendingRenewalErrorByAppId.delete(appId);
+        }
+      }
     }
 
     // ✅ Variáveis nas instruções de configuração (25/07/2026, pedido do
@@ -287,6 +302,7 @@ export async function POST(req: NextRequest) {
         has_pending_setup_request: pendingSetupByAppId.has(row.id),
         has_pending_removal_request: pendingRemovalByAppId.has(row.id),
         has_pending_manual_renewal: pendingManualRenewalByAppId.has(String(row.id)),
+        pending_renewal_error: pendingRenewalErrorByAppId.get(String(row.id)) || null,
         expiration: isPartnership ? null : extractExpiration(vals, config),
         // Trial sem vencimento (ex: DUPLECAST, 15 dias grátis) — marca
         // persistida por lib/apps/orchestration.ts em field_values._trial_hint
