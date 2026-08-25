@@ -25,6 +25,9 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// ✅ Cobre as 2 checagens automáticas da Appativa agendadas via after() em
+// markAppRenewalPaid (5s + 30s + margem) — não atrasa a resposta ao admin.
+export const maxDuration = 60;
 
 function getAppOrigin() {
   const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();

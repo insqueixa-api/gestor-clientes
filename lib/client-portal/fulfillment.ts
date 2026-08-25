@@ -1,4 +1,5 @@
 // lib/client-portal/fulfillment.ts
+import { after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { notify, resolveNotification, formatClientLabel } from "@/lib/notifications/notify";
@@ -260,11 +261,16 @@ export async function markAppRenewalPaid(
   // (fila deles), nunca o vencimento real. Por isso o fulfillment_status
   // continua 'manual_pending' mesmo numa solicitação aceita — quem conclui
   // de verdade (fulfillment_status='manual_done', vencimento real,
-  // WhatsApp pro cliente) é o webhook (app/api/webhooks/appativa/route.ts)
-  // quando a confirmação chegar. Fica dentro do guard `wasUpdated` de
-  // propósito — mesma proteção de idempotência que já existe aqui evita
-  // chamar solicitar-ativacao 2x pro mesmo pagamento numa corrida entre os
-  // 4 caminhos que chamam esta função.
+  // WhatsApp pro cliente) é o webhook (app/api/webhooks/appativa/route.ts,
+  // quando chega) OU as 2 checagens automáticas (5s + 30s depois, agendadas
+  // logo abaixo via `after()`) OU o botão "Ver status" manual no modal
+  // "Concluir renovação" da Auditoria (app/api/admin/apps/
+  // check-appativa-status). Sem volume que justifique um cron recorrente
+  // (pedido do Márcio, 25/08/2026) — as 3 vias chamam a MESMA
+  // resolveAppativaAppRenewal, então nunca duplicam a lógica de conclusão.
+  // Fica dentro do guard `wasUpdated` de propósito — mesma proteção de
+  // idempotência que já existe aqui evita chamar solicitar-ativacao 2x pro
+  // mesmo pagamento numa corrida entre os 4 caminhos que chamam esta função.
   try {
     if (payment?.client_app_id) {
       const { data: appRow } = await supabaseAdmin
@@ -313,6 +319,29 @@ export async function markAppRenewalPaid(
                 .update({ appativa_historico_id: result.data.id, fulfillment_error: null })
                 .eq("id", paymentRowId)
                 .eq("tenant_id", tenantId);
+
+              // ✅ Duas checagens automáticas (5s + 30s depois), pedido do
+              // Márcio 25/08/2026: sem volume pra justificar polling
+              // recorrente — só duas tentativas de fechar sozinho o caso
+              // comum, depois disso fica manual pro botão "Ver status"
+              // resolver quando o admin quiser. `after()` roda DEPOIS da
+              // resposta HTTP já ter sido enviada — não atrasa o webhook do
+              // MP/Stripe nem o polling do navegador do cliente.
+              // resolveAppativaAppRenewal já sai cedo se já estiver
+              // manual_done, então a 2ª tentativa é barata quando a 1ª já
+              // resolveu.
+              after(async () => {
+                try {
+                  await new Promise((resolve) => setTimeout(resolve, 5_000));
+                  const first = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
+                  if (first.outcome === "done") return;
+
+                  await new Promise((resolve) => setTimeout(resolve, 30_000));
+                  await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
+                } catch (e: any) {
+                  prodLog("markAppRenewalPaid: checagem automática falhou", { message: e?.message });
+                }
+              });
             } else {
               await supabaseAdmin
                 .from("client_portal_payments")
@@ -482,9 +511,12 @@ async function sendAppRenewalWhatsapp(
 // `enviado_n8n` que ficou `false` minutos depois de uma ativação já
 // confirmada do lado deles. Em vez de confiar só no push, essa função
 // reconsulta direto na fonte (mesmo dado que aparece no dashboard deles,
-// appativa.store/reseller/activations) — usada tanto pelo webhook (quando
-// ele chega) quanto pelo cron de fallback (app/api/cron/
-// appativa-poll-pending/route.ts), pra nunca duplicar a lógica de conclusão.
+// appativa.store/reseller/activations) — usada pelo webhook (quando chega),
+// pelas 2 checagens automáticas (5s + 30s) agendadas em markAppRenewalPaid
+// (via after(), acima) e pelo botão "Ver status" manual do admin
+// (app/api/admin/apps/check-appativa-status/route.ts), pra nunca duplicar a
+// lógica de conclusão. Sem cron recorrente de propósito (pedido do Márcio,
+// 25/08/2026: volume baixo não justifica polling periódico).
 //
 // Fonte do vencimento aqui é a Appativa (data_expiracao_at do histórico
 // dessa ativação específica), NÃO o painel do app em si — diferente de

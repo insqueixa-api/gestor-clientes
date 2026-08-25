@@ -24,6 +24,10 @@ function verifyMpWebhook(req: NextRequest, paymentId: string, secret: string) {
 }
 
 export const dynamic = "force-dynamic";
+// ✅ Cobre as 2 checagens automáticas da Appativa agendadas via after() em
+// markAppRenewalPaid (5s + 30s + margem) — roda depois da resposta ao MP já
+// ter sido enviada, não atrasa o ack do webhook.
+export const maxDuration = 60;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

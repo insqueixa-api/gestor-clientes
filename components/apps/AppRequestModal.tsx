@@ -105,6 +105,7 @@ export default function AppRequestModal({
     historicoId: string | null;
   } | null>(null);
   const [retryingAppativa, setRetryingAppativa] = useState(false);
+  const [checkingAppativa, setCheckingAppativa] = useState(false);
 
   async function loadAppativaInfo() {
     if (action !== "renewal" || !paymentLogId) {
@@ -150,6 +151,45 @@ export default function AppRequestModal({
       addToast("error", "Erro", e?.message || "Falha ao reenviar.");
     } finally {
       setRetryingAppativa(false);
+    }
+  }
+
+  // ✅ Botão "Ver status" — checagem manual sob demanda (achado 25/08/2026,
+  // pedido do Márcio: sem cron recorrente, as 2 checagens automáticas de
+  // markAppRenewalPaid cobrem o caso comum, isso cobre o resto sem precisar
+  // entrar no painel/app da Appativa). Mesma lógica de conclusão do
+  // webhook (resolveAppativaAppRenewal), nunca duplicada.
+  async function handleCheckAppativaStatus() {
+    if (!paymentLogId || !tenantId) return;
+    setCheckingAppativa(true);
+    try {
+      const { data: session } = await supabaseBrowser.auth.getSession();
+      const token = session.session?.access_token;
+      const res = await fetch("/api/admin/apps/check-appativa-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ tenant_id: tenantId, payment_id: paymentLogId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Falha ao verificar status.");
+      }
+      if (json.outcome === "done") {
+        addToast("success", "Concluído!", "Vencimento confirmado e cliente avisado.");
+        onResolved();
+      } else if (json.outcome === "error") {
+        addToast("warning", "Ainda pendente", "Veja o motivo no aviso abaixo.");
+      } else {
+        addToast("warning", "Ainda em andamento", "A Appativa ainda não confirmou essa ativação.");
+      }
+      await loadAppativaInfo();
+    } catch (e: any) {
+      addToast("error", "Erro", e?.message || "Falha ao verificar status.");
+    } finally {
+      setCheckingAppativa(false);
     }
   }
 
@@ -873,21 +913,41 @@ export default function AppRequestModal({
             {action === "renewal" && appativaInfo?.error && (
               <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400 space-y-2">
                 <p>⚠️ {appativaInfo.error}</p>
-                <button
-                  type="button"
-                  onClick={handleRetryAppativa}
-                  disabled={retryingAppativa}
-                  className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-                >
-                  {retryingAppativa ? "Reenviando..." : "Reenviar via Appativa"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCheckAppativaStatus}
+                    disabled={checkingAppativa}
+                    className="rounded-md border border-amber-500/50 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 disabled:opacity-60"
+                  >
+                    {checkingAppativa ? "Verificando..." : "Ver status"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRetryAppativa}
+                    disabled={retryingAppativa}
+                    className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                  >
+                    {retryingAppativa ? "Reenviando..." : "Reenviar via Appativa"}
+                  </button>
+                </div>
               </div>
             )}
             {action === "renewal" && !appativaInfo?.error && appativaInfo?.historicoId && (
-              <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-400">
-                🔄 Ativação em andamento via Appativa — aguardando confirmação automática. O
-                pagamento será concluído e o cliente avisado sozinho assim que a Appativa
-                confirmar e o vencimento novo for verificado.
+              <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-400 space-y-2">
+                <p>
+                  🔄 Ativação em andamento via Appativa — aguardando confirmação. O pagamento
+                  será concluído e o cliente avisado sozinho assim que a Appativa confirmar e o
+                  vencimento novo for verificado.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCheckAppativaStatus}
+                  disabled={checkingAppativa}
+                  className="rounded-md border border-sky-500/50 px-3 py-1.5 text-xs font-semibold text-sky-700 dark:text-sky-400 hover:bg-sky-500/10 disabled:opacity-60"
+                >
+                  {checkingAppativa ? "Verificando..." : "Ver status"}
+                </button>
               </div>
             )}
 

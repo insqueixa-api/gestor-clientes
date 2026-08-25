@@ -13,6 +13,10 @@ import {
 import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
+// ✅ Cobre as 2 checagens automáticas da Appativa agendadas via after() em
+// markAppRenewalPaid (5s + 30s + margem de rede) — não atrasa a resposta
+// em si, só mantém a function viva em background depois dela.
+export const maxDuration = 60;
 
 // ✅ Nunca cachear respostas do portal
 const NO_STORE_HEADERS = {

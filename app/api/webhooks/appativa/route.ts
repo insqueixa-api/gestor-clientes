@@ -17,9 +17,10 @@
 // ficar `false` por minutos numa ativação já confirmada, ou seja, o push em
 // si pode atrasar/nunca chegar). Ao receber QUALQUER notificação pra um
 // id_cobranca nosso, revalidamos direto na API deles (resolveAppativaAppRenewal,
-// lib/client-portal/fulfillment.ts) — mesma função usada pelo cron de
-// fallback (app/api/cron/appativa-poll-pending/route.ts) que reconsulta
-// pendências periodicamente pro caso desse webhook nunca chegar.
+// lib/client-portal/fulfillment.ts) — mesma função usada pelas 2 checagens
+// automáticas (5s + 30s, agendadas em markAppRenewalPaid) e pelo botão
+// "Ver status" manual do admin (app/api/admin/apps/check-appativa-status).
+// Sem cron recorrente de propósito — volume baixo não justifica.
 //
 // URL cadastrada no painel da Appativa: https://unigestor.net.br/api/webhooks/appativa
 import { NextRequest, NextResponse } from "next/server";
