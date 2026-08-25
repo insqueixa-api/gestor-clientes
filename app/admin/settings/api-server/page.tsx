@@ -22,6 +22,10 @@ const AppativaCatalogModal = dynamic(
   () => import("./appativa_catalog_modal"),
   { ssr: false },
 );
+const RecargaAppativaModal = dynamic(
+  () => import("./recarga_appativa_modal"),
+  { ssr: false },
+);
 
 type IntegrationRow = {
   id: string;
@@ -39,6 +43,11 @@ type IntegrationRow = {
   created_at: string;
   updated_at?: string | null;
 };
+
+// ✅ icon_url próprio (achado 26/08/2026) — vem de uma query separada
+// contra server_integrations (a view vw_server_integrations não expõe essa
+// coluna), mesmo padrão de serverLogoMap logo abaixo.
+type ServerIntegrationIcon = { id: string; icon_url: string | null };
 
 type AppIntegration = {
   id: string;
@@ -70,6 +79,7 @@ type PartnerIntegration = {
   credits_available: number | null;
   credits_last_sync_at: string | null;
   credit_unit_price: number | null;
+  icon_url?: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -101,12 +111,29 @@ export default function ApiServerPage() {
     null,
   );
   const [catalogModalFor, setCatalogModalFor] = useState<string | null>(null);
+  const [recargaAppativaFor, setRecargaAppativaFor] =
+    useState<PartnerIntegration | null>(null);
 
-  // ✅ Logo dos servidores (herdada de `servers.logo_url`, já subida lá em
-  // Gerenciador → Servidor — só replicamos aqui, sem upload nesta tela).
+  // ✅ Logo dos servidores: HERDADA de `servers.logo_url` por padrão, mas
+  // agora também pode ter upload próprio aqui (achado 26/08/2026, pedido do
+  // Márcio: "quero poder mudar todas as fotos aqui, sem herdar nada de
+  // lugar nenhum" — o herdado continua valendo como fallback quando não
+  // houver upload próprio, mas nunca mais fica travado). serverLogoMap =
+  // herdado (servers.logo_url); serverIconMap = próprio
+  // (server_integrations.icon_url, novo).
   const [serverLogoMap, setServerLogoMap] = useState<Map<string, string>>(
     new Map(),
   );
+  const [serverIconMap, setServerIconMap] = useState<Map<string, string>>(
+    new Map(),
+  );
+  const [uploadingServerIconFor, setUploadingServerIconFor] = useState<
+    string | null
+  >(null);
+  const serverIconFileInputs = useRef<Record<string, HTMLInputElement | null>>(
+    {},
+  );
+
   // ✅ Logo dos aplicativos: herdada do catálogo (`apps.icon_url`) só quando
   // TODOS os apps que batem com esse handler têm a MESMA logo (ex: um app
   // só, ou vários com ícone idêntico). Se não bater (ex: GERENCIAAPP cobre
@@ -115,6 +142,15 @@ export default function ApiServerPage() {
   const [appIconMap, setAppIconMap] = useState<Map<string, string>>(new Map());
   const [uploadingIconFor, setUploadingIconFor] = useState<string | null>(null);
   const appIconFileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // ✅ Ícone próprio do parceiro (novo, achado 26/08/2026) — sem nada pra
+  // herdar aqui (Appativa não tem "outra aba" com logo), só upload manual.
+  const [uploadingPartnerIconFor, setUploadingPartnerIconFor] = useState<
+    string | null
+  >(null);
+  const partnerIconFileInputs = useRef<Record<string, HTMLInputElement | null>>(
+    {},
+  );
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -142,7 +178,7 @@ export default function ApiServerPage() {
         return;
       }
 
-      const [srvRes, appRes, partnerRes, serversLogoRes, appsIconRes] = await Promise.all([
+      const [srvRes, appRes, partnerRes, serversLogoRes, appsIconRes, serverIconRes] = await Promise.all([
         supabaseBrowser
           .from("vw_server_integrations")
           .select("*")
@@ -173,6 +209,13 @@ export default function ApiServerPage() {
           .from("apps")
           .select("icon_url,integration_type")
           .not("integration_type", "is", null),
+        // ✅ vw_server_integrations não expõe icon_url (view com lista de
+        // colunas explícita, sem "*" real) — busca direto na tabela base.
+        supabaseBrowser
+          .from("server_integrations")
+          .select("id,icon_url")
+          .eq("tenant_id", tenantId)
+          .not("icon_url", "is", null),
       ]);
 
       if (srvRes.error) throw srvRes.error;
@@ -198,6 +241,14 @@ export default function ApiServerPage() {
         }
       });
       setServerLogoMap(srvLogoMap);
+
+      // ✅ Ícone próprio (upload manual, novo) — sobrepõe o herdado quando
+      // presente.
+      const srvIconMap = new Map<string, string>();
+      (serverIconRes.data || []).forEach((s: ServerIntegrationIcon) => {
+        if (s.icon_url) srvIconMap.set(s.id, s.icon_url);
+      });
+      setServerIconMap(srvIconMap);
 
       // Handler → logo do catálogo, só quando TODOS os apps que batem com
       // esse handler têm logo cadastrada E é a mesma pra todos (1 app só, ou
@@ -406,6 +457,93 @@ export default function ApiServerPage() {
     const u = String(a || "").toUpperCase();
     if (u === "GERENCIAAPP") return "GerenciaApp";
     return a || "--";
+  }
+
+  // ✅ Ícone próprio do servidor (achado 26/08/2026) — mesmo mecanismo de
+  // handleAppIconUpload, mas grava em server_integrations.icon_url. Some
+  // como fallback quando não houver upload (serverLogoMap, herdado de
+  // servers.logo_url) continua funcionando igual, só que agora dá pra
+  // sobrepor.
+  async function handleServerIconUpload(row: IntegrationRow, file: File) {
+    if (!file.type.startsWith("image/")) {
+      addToast("error", "Arquivo inválido", "Selecione uma imagem.");
+      return;
+    }
+    try {
+      setUploadingServerIconFor(row.id);
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type,
+          folder: "server_integrations",
+        }),
+      });
+      const { presignedUrl, publicUrl } = await presignRes.json();
+      await fetch(presignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      const { error } = await supabaseBrowser
+        .from("server_integrations")
+        .update({ icon_url: publicUrl })
+        .eq("id", row.id);
+      if (error) throw error;
+      addToast("success", "Logo salva", "Ícone atualizado com sucesso.");
+      fetchData();
+    } catch (e: any) {
+      addToast(
+        "error",
+        "Erro no upload",
+        e?.message ?? "Falha ao enviar a imagem.",
+      );
+    } finally {
+      setUploadingServerIconFor(null);
+    }
+  }
+
+  // ✅ Ícone próprio do parceiro (achado 26/08/2026) — mesmo mecanismo,
+  // grava em api_integrations.icon_url.
+  async function handlePartnerIconUpload(row: PartnerIntegration, file: File) {
+    if (!file.type.startsWith("image/")) {
+      addToast("error", "Arquivo inválido", "Selecione uma imagem.");
+      return;
+    }
+    try {
+      setUploadingPartnerIconFor(row.id);
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type,
+          folder: "api_integrations",
+        }),
+      });
+      const { presignedUrl, publicUrl } = await presignRes.json();
+      await fetch(presignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      const { error } = await supabaseBrowser
+        .from("api_integrations")
+        .update({ icon_url: publicUrl })
+        .eq("id", row.id);
+      if (error) throw error;
+      addToast("success", "Logo salva", "Ícone atualizado com sucesso.");
+      fetchData();
+    } catch (e: any) {
+      addToast(
+        "error",
+        "Erro no upload",
+        e?.message ?? "Falha ao enviar a imagem.",
+      );
+    } finally {
+      setUploadingPartnerIconFor(null);
+    }
   }
 
   // ✅ Logo manual da integração — só usada quando o catálogo não resolve
@@ -645,17 +783,64 @@ export default function ApiServerPage() {
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="min-w-0 pr-3">
                       <div className="flex items-center gap-2 min-w-0">
-                        {serverLogoMap.get(row.id) ? (
-                          <img
-                            src={serverLogoMap.get(row.id)}
-                            alt=""
-                            className="w-7 h-7 rounded-lg object-cover border border-border shrink-0"
-                          />
-                        ) : (
-                          <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0 text-xs">
-                            🖥️
-                          </div>
-                        )}
+                        {(() => {
+                          // ✅ Ícone próprio (upload manual aqui) sempre
+                          // ganha do herdado (servers.logo_url) — achado
+                          // 26/08/2026, pedido do Márcio: poder trocar sem
+                          // depender do que a outra aba definiu.
+                          const ownIcon = serverIconMap.get(row.id);
+                          const inheritedIcon = serverLogoMap.get(row.id);
+                          const displayIcon = ownIcon || inheritedIcon;
+                          return (
+                            <div
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) handleServerIconUpload(row, file);
+                              }}
+                              onPaste={(e) => {
+                                const file = Array.from(
+                                  e.clipboardData.files,
+                                ).find((f) => f.type.startsWith("image/"));
+                                if (file) handleServerIconUpload(row, file);
+                              }}
+                              onClick={() =>
+                                serverIconFileInputs.current[row.id]?.click()
+                              }
+                              tabIndex={0}
+                              title="Clique, arraste ou cole (Ctrl+V) uma imagem"
+                              className="relative w-7 h-7 rounded-lg border border-dashed border-border shrink-0 flex items-center justify-center cursor-pointer hover:border-emerald-500/50 transition-colors overflow-hidden"
+                            >
+                              {uploadingServerIconFor === row.id ? (
+                                <span className="text-[9px] text-muted-foreground animate-pulse">
+                                  ...
+                                </span>
+                              ) : displayIcon ? (
+                                <img
+                                  src={displayIcon}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-xs">🖥️</span>
+                              )}
+                              <input
+                                ref={(el) => {
+                                  serverIconFileInputs.current[row.id] = el;
+                                }}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (f) handleServerIconUpload(row, f);
+                                  e.target.value = "";
+                                }}
+                              />
+                            </div>
+                          );
+                        })()}
                         <h2
                           className="text-base font-medium truncate text-foreground/90 tracking-tight"
                           title={row.integration_name}
@@ -816,8 +1001,52 @@ export default function ApiServerPage() {
                 >
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
-                      <div className="w-7 h-7 rounded-lg bg-muted flex items-center justify-center shrink-0 text-sm">
-                        🤝
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) handlePartnerIconUpload(row, file);
+                        }}
+                        onPaste={(e) => {
+                          const file = Array.from(e.clipboardData.files).find(
+                            (f) => f.type.startsWith("image/"),
+                          );
+                          if (file) handlePartnerIconUpload(row, file);
+                        }}
+                        onClick={() =>
+                          partnerIconFileInputs.current[row.id]?.click()
+                        }
+                        tabIndex={0}
+                        title="Clique, arraste ou cole (Ctrl+V) uma imagem"
+                        className="relative w-7 h-7 rounded-lg border border-dashed border-border shrink-0 flex items-center justify-center cursor-pointer hover:border-emerald-500/50 transition-colors overflow-hidden"
+                      >
+                        {uploadingPartnerIconFor === row.id ? (
+                          <span className="text-[9px] text-muted-foreground animate-pulse">
+                            ...
+                          </span>
+                        ) : row.icon_url ? (
+                          <img
+                            src={row.icon_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm">🤝</span>
+                        )}
+                        <input
+                          ref={(el) => {
+                            partnerIconFileInputs.current[row.id] = el;
+                          }}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handlePartnerIconUpload(row, f);
+                            e.target.value = "";
+                          }}
+                        />
                       </div>
                       <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
                         {row.label}
@@ -833,20 +1062,32 @@ export default function ApiServerPage() {
                     </div>
                     <div className="flex gap-2 shrink-0">
                       {row.provider === "APPATIVA" && (
-                        <IconActionBtn
-                          title="Sincronizar saldo"
-                          tone="blue"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSyncCredits(row);
-                          }}
-                        >
-                          {syncingCreditsFor === row.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <IconSync />
-                          )}
-                        </IconActionBtn>
+                        <>
+                          <IconActionBtn
+                            title="Nova recarga"
+                            tone="green"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRecargaAppativaFor(row);
+                            }}
+                          >
+                            <span className="text-sm leading-none">💰</span>
+                          </IconActionBtn>
+                          <IconActionBtn
+                            title="Sincronizar saldo"
+                            tone="blue"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSyncCredits(row);
+                            }}
+                          >
+                            {syncingCreditsFor === row.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <IconSync />
+                            )}
+                          </IconActionBtn>
+                        </>
                       )}
                       <IconActionBtn
                         title="Editar"
@@ -997,22 +1238,16 @@ export default function ApiServerPage() {
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
                       {(() => {
+                        // ✅ Ícone próprio (upload manual aqui) sempre ganha
+                        // do herdado do catálogo — achado 26/08/2026,
+                        // pedido do Márcio: poder trocar mesmo quando o
+                        // catálogo já resolvia uma logo única antes.
                         const catalogIcon = appIconMap.get(
                           String(row.app_name || "")
                             .trim()
                             .toUpperCase(),
                         );
-                        if (catalogIcon) {
-                          return (
-                            <img
-                              src={catalogIcon}
-                              alt=""
-                              className="w-7 h-7 rounded-lg object-cover border border-border shrink-0"
-                            />
-                          );
-                        }
-                        // Sem logo única no catálogo (0, várias, ou
-                        // divergentes) — upload manual pra essa integração.
+                        const displayIcon = row.icon_url || catalogIcon;
                         return (
                           <div
                             onDragOver={(e) => e.preventDefault()}
@@ -1038,9 +1273,9 @@ export default function ApiServerPage() {
                               <span className="text-[9px] text-muted-foreground animate-pulse">
                                 ...
                               </span>
-                            ) : row.icon_url ? (
+                            ) : displayIcon ? (
                               <img
-                                src={row.icon_url}
+                                src={displayIcon}
                                 alt=""
                                 className="w-full h-full object-cover"
                               />
@@ -1209,6 +1444,23 @@ export default function ApiServerPage() {
           }
           onCloseAction={() => setCatalogModalFor(null)}
           onErrorAction={(msg) => addToast("error", "Erro", msg)}
+        />
+      )}
+      {recargaAppativaFor && (
+        <RecargaAppativaModal
+          partnerId={recargaAppativaFor.id}
+          partnerLabel={recargaAppativaFor.label}
+          onClose={() => setRecargaAppativaFor(null)}
+          onSuccess={() => {
+            setRecargaAppativaFor(null);
+            addToast(
+              "success",
+              "Recarga registrada",
+              "Despesa lançada no Financeiro Pessoal e saldo sincronizado.",
+            );
+            fetchData();
+          }}
+          onError={(msg) => addToast("error", "Erro", msg)}
         />
       )}
       {ConfirmUI}
