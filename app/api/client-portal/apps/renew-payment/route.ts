@@ -114,6 +114,31 @@ export async function POST(req: NextRequest) {
 
     const gateway = gateways[0];
 
+    // ✅ Defesa em profundidade (auditoria de fraude/duplicação, 24/08/2026):
+    // nunca deixa cobrar de novo a licença de um app que JÁ foi pago e está
+    // aguardando conclusão manual (status=approved, fulfillment_status=
+    // manual_pending) — sem isso, um clique duplo (ou uma chamada direta à
+    // API, pulando a UI) cobraria o cliente 2x pela mesma licença ainda não
+    // entregue. O front já esconde essa opção (has_pending_manual_renewal
+    // em apps/list/route.ts); isto aqui é a garantia do lado do servidor,
+    // que vale pros dois gateways (Stripe e Mercado Pago) por rodar antes
+    // de qualquer um dos dois branches abaixo.
+    const { data: alreadyPending } = await supabaseAdmin
+      .from("client_portal_payments")
+      .select("id")
+      .eq("tenant_id", ctx.tenant_id)
+      .eq("client_id", client_id)
+      .eq("client_app_id", client_app_id)
+      .eq("payment_type", "app_renewal")
+      .eq("status", "approved")
+      .eq("fulfillment_status", "manual_pending")
+      .limit(1)
+      .maybeSingle();
+
+    if (alreadyPending) {
+      return jsonError("Você já pagou a renovação desse aplicativo — está aguardando conclusão. Fale com o suporte se precisar de ajuda.", 409);
+    }
+
     // ======================
     // STRIPE (cliente USD/EUR)
     // ======================
@@ -133,11 +158,20 @@ export async function POST(req: NextRequest) {
       stripeParams.append("metadata[payment_type]", "app_renewal");
       stripeParams.append("metadata[gateway_id]", String(gateway.id));
 
+      // ✅ Idempotência (achado em auditoria de fraude/duplicação,
+      // 24/08/2026) — mesmo raciocínio do bloco Mercado Pago abaixo (janela
+      // de 10min): sem isso, um retry de rede ou duplo-clique podia criar
+      // um SEGUNDO PaymentIntent pra mesma licença.
+      const stripeStableAmount = chargeAmount.toFixed(2);
+      const stripeBucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
+      const stripeIdempotencyKey = `apprenew-stripe-${ctx.tenant_id}-${client_app_id}-${stripeStableAmount}-${stripeBucket10m}`;
+
       const stripeRes = await fetch("https://api.stripe.com/v1/payment_intents", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${secretKey}`,
           "Content-Type": "application/x-www-form-urlencoded",
+          "Idempotency-Key": stripeIdempotencyKey,
         },
         body: stripeParams,
       });

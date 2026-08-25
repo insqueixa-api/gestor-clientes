@@ -775,11 +775,21 @@ if (insErr || !inserted) {
             );
           }
 
+          // ✅ Idempotência (achado em auditoria de fraude/duplicação,
+          // 24/08/2026) — mesmo raciocínio do bloco Mercado Pago acima
+          // (janela de 10min pelo valor final, já inclui a renovação de
+          // app embutida): sem isso, um retry de rede ou duplo-clique podia
+          // criar um SEGUNDO PaymentIntent pro mesmo pagamento.
+          const stripeStableAmount = Number(finalComputedPrice).toFixed(2);
+          const stripeBucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
+          const stripeIdempotencyKey = `createpay-${sess.tenant_id}-${client_id}-${period}-${currency}-${stripeStableAmount}-${stripeBucket10m}`;
+
           const stripeRes = await fetch("https://api.stripe.com/v1/payment_intents", {
             method: "POST",
             headers: {
               Authorization: `Bearer ${secretKey}`,
               "Content-Type": "application/x-www-form-urlencoded",
+              "Idempotency-Key": stripeIdempotencyKey,
             },
             body: stripeParams,
           });

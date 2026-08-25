@@ -50,6 +50,25 @@ export async function getAppRenewalCharges(
 
   if (error || !data?.length) return { items: [], total: 0 };
 
+  // ✅ Defesa em profundidade (auditoria de fraude/duplicação, 24/08/2026):
+  // nunca embute de novo a renovação de um app que JÁ foi pago e está
+  // aguardando conclusão manual (mesmo guard de apps/renew-payment/
+  // route.ts) — o front já esconde isso (has_pending_manual_renewal em
+  // apps/list/route.ts), aqui é a garantia do lado do servidor pro fluxo
+  // combinado (create-payment nunca confia em nada vindo do front).
+  const { data: pendingRows } = await supabaseAdmin
+    .from("client_portal_payments")
+    .select("client_app_id")
+    .eq("tenant_id", tenantId)
+    .eq("client_id", clientId)
+    .eq("payment_type", "app_renewal")
+    .eq("status", "approved")
+    .eq("fulfillment_status", "manual_pending")
+    .in("client_app_id", ids);
+  const alreadyPendingIds = new Set(
+    (pendingRows || []).map((r: any) => String(r.client_app_id || "")).filter(Boolean),
+  );
+
   const currency = String(targetCurrency || "BRL");
   const items: AppRenewalChargeItem[] = [];
   for (const row of data as any[]) {
@@ -57,6 +76,7 @@ export async function getAppRenewalCharges(
     // .eq("client_id", clientId), reforça aqui contra qualquer regressão
     // futura no filtro acima.
     if (String(row.client_id) !== String(clientId)) continue;
+    if (alreadyPendingIds.has(String(row.id))) continue;
 
     const appMeta = Array.isArray(row.apps) ? row.apps[0] : row.apps;
     if (!appMeta) continue;
