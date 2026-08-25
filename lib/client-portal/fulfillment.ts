@@ -455,7 +455,7 @@ const APPATIVA_MIN_DAYS_FORWARD = 300;
 // lança, só loga.
 async function sendAppRenewalWhatsapp(
   supabaseAdmin: any,
-  params: { tenantId: string; clientId: string; origin: string; whatsappSession: string },
+  params: { tenantId: string; clientId: string; paymentId: string; origin: string; whatsappSession: string },
 ) {
   try {
     const { data: tmpl } = await supabaseAdmin
@@ -497,9 +497,20 @@ async function sendAppRenewalWhatsapp(
     const json = await res.json().catch(() => ({} as any));
     if (!res.ok || json?.ok === false) {
       prodLog("appativa_resolve.whatsapp_send_failed", { status: res.status });
+      await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", params.paymentId);
+      return;
     }
+
+    // ✅ Mesma coluna/valores que a conclusão manual (AppRequestModal.tsx,
+    // via RPC update_whatsapp_status) e a renovação automática de
+    // assinatura (mais acima neste arquivo) usam — achado 26/08/2026: sem
+    // isso, a coluna WHATSAPP da Auditoria ficava "—" mesmo com a mensagem
+    // realmente entregue (só o envio em si estava sendo feito, nunca
+    // registrado).
+    await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", params.paymentId);
   } catch (e: any) {
     prodLog("appativa_resolve.whatsapp_send_error", { message: e?.message });
+    await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", params.paymentId);
   }
 }
 
@@ -638,6 +649,7 @@ export async function resolveAppativaAppRenewal(
       await sendAppRenewalWhatsapp(supabaseAdmin, {
         tenantId,
         clientId: payment.client_id,
+        paymentId: payment.id,
         origin,
         whatsappSession: (serverMeta as any)?.whatsapp_session || "default",
       });
