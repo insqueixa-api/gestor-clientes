@@ -35,6 +35,11 @@ export type ApiIntegration = {
   login_password: string | null;
   api_key: string | null;
   api_url: string | null;
+  // ✅ Preço em R$ de 1 crédito do parceiro (achado 24/08/2026: o "valor"
+  // que a API deles devolve por app é consumo de crédito, não preço em
+  // R$ — esse campo converte um no outro). Editável manualmente porque
+  // pode mudar conforme a faixa de compra de créditos.
+  credit_unit_price: number | null;
   is_active: boolean;
   created_at: string;
 };
@@ -61,6 +66,11 @@ export default function ApiIntegracaoModal({
   );
   const [apiKey, setApiKey] = useState(integration?.api_key ?? "");
   const [apiUrl, setApiUrl] = useState(integration?.api_url ?? "");
+  const [creditUnitPrice, setCreditUnitPrice] = useState(
+    integration?.credit_unit_price != null
+      ? String(integration.credit_unit_price)
+      : "",
+  );
   const [isActive, setIsActive] = useState(integration?.is_active ?? true);
 
   const [saving, setSaving] = useState(false);
@@ -73,6 +83,13 @@ export default function ApiIntegracaoModal({
       setLoginPassword(integration.login_password ?? "");
       setApiKey(integration.api_key ?? "");
       setApiUrl(integration.api_url ?? "");
+      // ✅ Sempre carrega o último preço salvo (pedido do Márcio) — só cai
+      // pro placeholder vazio se a integração nunca teve um valor definido.
+      setCreditUnitPrice(
+        integration.credit_unit_price != null
+          ? String(integration.credit_unit_price)
+          : "",
+      );
       setIsActive(integration.is_active ?? true);
     }
   }, [integration]);
@@ -85,6 +102,10 @@ export default function ApiIntegracaoModal({
       setSaving(true);
       if (!tenantId) throw new Error("Tenant não encontrado.");
 
+      const parsedCreditUnitPrice = creditUnitPrice.trim()
+        ? Number(creditUnitPrice.replace(",", "."))
+        : null;
+
       const payload = {
         tenant_id: tenantId,
         provider,
@@ -93,6 +114,10 @@ export default function ApiIntegracaoModal({
         login_password: loginPassword.trim() || null,
         api_key: apiKey.trim(),
         api_url: normalizeApiUrl(apiUrl) || null,
+        credit_unit_price:
+          parsedCreditUnitPrice != null && Number.isFinite(parsedCreditUnitPrice)
+            ? parsedCreditUnitPrice
+            : null,
         is_active: isActive,
       };
 
@@ -212,6 +237,25 @@ export default function ApiIntegracaoModal({
             <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">
               Se o parceiro trocar a chave, atualize aqui — o código sempre
               usa a que estiver salva no momento.
+            </p>
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+              Valor do crédito (R$)
+            </label>
+            <input
+              value={creditUnitPrice}
+              onChange={(e) => setCreditUnitPrice(e.target.value)}
+              placeholder="Ex: 12,10"
+              inputMode="decimal"
+              className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
+            />
+            <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">
+              O que a API deles chama de "valor" por aplicativo é consumo de
+              crédito, não preço em R$ — esse campo converte um no outro
+              (créditos × este valor). Pode mudar conforme a faixa de compra;
+              atualize aqui quando comprar créditos a um preço diferente.
             </p>
           </div>
 

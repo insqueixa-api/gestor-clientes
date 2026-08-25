@@ -69,6 +69,7 @@ type PartnerIntegration = {
   api_url: string | null;
   credits_available: number | null;
   credits_last_sync_at: string | null;
+  credit_unit_price: number | null;
   is_active: boolean;
   created_at: string;
 };
@@ -1100,6 +1101,19 @@ export default function ApiServerPage() {
                             </span>
                           </div>
                         )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">
+                            💰 Valor do crédito
+                          </span>
+                          <span className="font-medium text-foreground/90">
+                            {row.credit_unit_price != null
+                              ? row.credit_unit_price.toLocaleString("pt-BR", {
+                                  style: "currency",
+                                  currency: "BRL",
+                                })
+                              : "-- (editar pra definir)"}
+                          </span>
+                        </div>
                         <button
                           type="button"
                           onClick={() => setCatalogModalFor(row.id)}
@@ -1184,6 +1198,10 @@ export default function ApiServerPage() {
       {catalogModalFor && (
         <AppativaCatalogModal
           integrationId={catalogModalFor}
+          creditUnitPrice={
+            partnerList.find((p) => p.id === catalogModalFor)?.credit_unit_price ??
+            null
+          }
           onCloseAction={() => setCatalogModalFor(null)}
           onErrorAction={(msg) => addToast("error", "Erro", msg)}
         />

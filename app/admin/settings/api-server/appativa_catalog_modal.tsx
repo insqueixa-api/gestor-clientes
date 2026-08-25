@@ -6,6 +6,10 @@
 // contra os nomes de lá, e decidir se amplia o catálogo). Busca ao abrir,
 // "Sincronizar" refaz a busca, "Exportar CSV" baixa o que está na tela —
 // tudo ao vivo, sem cache no banco (o botão de sync já É o refresh).
+//
+// ⚠️ "valor" no retorno da API deles NÃO é preço em R$ — é consumo de
+// crédito (ex: 0,6). O preço real é créditos_consumidos × credit_unit_price
+// (editável em "Editar" no card do parceiro, achado 24/08/2026).
 import { useEffect, useState } from "react";
 import { Loader2, RefreshCcw, Download, Search } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -15,15 +19,17 @@ type AppativaCatalogItem = {
   id: string;
   uuid: string;
   nome: string;
-  valor: number;
+  valor: number; // ✅ créditos consumidos, não R$
 };
 
 export default function AppativaCatalogModal({
   integrationId,
+  creditUnitPrice,
   onCloseAction,
   onErrorAction,
 }: {
   integrationId: string;
+  creditUnitPrice: number | null;
   onCloseAction: () => void;
   onErrorAction: (msg: string) => void;
 }) {
@@ -66,12 +72,13 @@ export default function AppativaCatalogModal({
   );
 
   function exportCsv() {
-    const header = "nome;id;uuid;valor\n";
+    const header = "nome;id;uuid;creditos_consumidos;valor_reais\n";
     const rows = items
-      .map(
-        (it) =>
-          `${it.nome.replace(/;/g, ",")};${it.id};${it.uuid};${it.valor.toFixed(2).replace(".", ",")}`,
-      )
+      .map((it) => {
+        const valorReais =
+          creditUnitPrice != null ? it.valor * creditUnitPrice : null;
+        return `${it.nome.replace(/;/g, ",")};${it.id};${it.uuid};${it.valor.toFixed(2).replace(".", ",")};${valorReais != null ? valorReais.toFixed(2).replace(".", ",") : ""}`;
+      })
       .join("\n");
     const blob = new Blob(["﻿" + header + rows], {
       type: "text/csv;charset=utf-8",
@@ -134,6 +141,14 @@ export default function AppativaCatalogModal({
           </button>
         </div>
 
+        {creditUnitPrice == null && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5 text-[11px] text-amber-600">
+            ⚠️ Valor do crédito não configurado — os preços em R$ abaixo não
+            podem ser calculados. Feche e clique em "Editar" no card do
+            parceiro pra definir.
+          </div>
+        )}
+
         <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-border divide-y divide-border">
           {loading ? (
             <p className="text-xs text-muted-foreground text-center py-8">
@@ -144,25 +159,37 @@ export default function AppativaCatalogModal({
               Nenhum aplicativo encontrado.
             </p>
           ) : (
-            filtered.map((it) => (
-              <div
-                key={it.id}
-                className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
-              >
-                <div className="min-w-0">
-                  <p className="font-medium text-foreground truncate">{it.nome}</p>
-                  <p className="text-[10px] text-muted-foreground font-mono truncate">
-                    id: {it.id}
-                  </p>
+            filtered.map((it) => {
+              const valorReais =
+                creditUnitPrice != null ? it.valor * creditUnitPrice : null;
+              return (
+                <div
+                  key={it.id}
+                  className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground truncate">{it.nome}</p>
+                    <p className="text-[10px] text-muted-foreground font-mono truncate">
+                      id: {it.id}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs font-bold text-emerald-500">
+                      {valorReais != null
+                        ? valorReais.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })
+                        : "--"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {it.valor.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}{" "}
+                      crédito(s)
+                    </p>
+                  </div>
                 </div>
-                <span className="shrink-0 text-xs font-bold text-emerald-500">
-                  {it.valor.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </span>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </ModalBody>
