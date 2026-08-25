@@ -818,9 +818,7 @@ export default function AppManagerPage() {
                                     ? "Fun Play"
                                     : app.integration_type === "FOCOXPLAY"
                                       ? "FocoX Play"
-                                      : app.integration_type === "APPATIVA"
-                                        ? "Appativa"
-                                        : app.integration_type;
+                                      : app.integration_type;
 
     return (
       <div
@@ -1472,7 +1470,6 @@ export default function AppManagerPage() {
                       <option value="DUPLEXTV">Duplex TV</option>
                       <option value="CLOUDDY">ClouDDy</option>
                       <option value="NINJAPLAYER">Ninja Player</option>
-                      <option value="APPATIVA">Appativa (Ative App Mídias)</option>
                     </select>
                     <p className="text-[11px] text-muted-foreground mt-1">
                       Quando configurado, habilita automação ao criar clientes.
