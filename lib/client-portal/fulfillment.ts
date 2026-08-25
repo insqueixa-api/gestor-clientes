@@ -271,6 +271,15 @@ export async function markAppRenewalPaid(
   // Fica dentro do guard `wasUpdated` de propósito — mesma proteção de
   // idempotência que já existe aqui evita chamar solicitar-ativacao 2x pro
   // mesmo pagamento numa corrida entre os 4 caminhos que chamam esta função.
+  //
+  // ✅ Achado 26/08/2026 (pedido do Márcio): quando a solicitação é aceita
+  // e as checagens automáticas vão rodar, o sino/e-mail de "pendente" NÃO
+  // dispara na hora — só se as 2 checagens (5s + 30s) terminarem sem
+  // confirmar. Assim, no caso comum (Appativa confirma rápido), nunca chega
+  // a aparecer como pendente pro admin. Em qualquer outro caminho (sem
+  // mapeamento, sem MAC, falha ao solicitar, etc.) o aviso continua
+  // disparando na hora, sem mudança.
+  let deferNotifyToAppativaCheck = false;
   try {
     if (payment?.client_app_id) {
       const { data: appRow } = await supabaseAdmin
@@ -330,6 +339,7 @@ export async function markAppRenewalPaid(
               // resolveAppativaAppRenewal já sai cedo se já estiver
               // manual_done, então a 2ª tentativa é barata quando a 1ª já
               // resolveu.
+              deferNotifyToAppativaCheck = true;
               after(async () => {
                 try {
                   await new Promise((resolve) => setTimeout(resolve, 5_000));
@@ -337,7 +347,14 @@ export async function markAppRenewalPaid(
                   if (first.outcome === "done") return;
 
                   await new Promise((resolve) => setTimeout(resolve, 30_000));
-                  await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
+                  const second = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
+                  if (second.outcome === "done") return;
+
+                  // ✅ As 2 tentativas automáticas não confirmaram — só
+                  // agora dispara o sino/e-mail de "pendente" (achado
+                  // 26/08/2026: evita avisar o admin de algo que se resolve
+                  // sozinho em segundos no caso comum).
+                  await notifyAppRenewalManualPending(supabaseAdmin, tenantId, paymentRowId, payment, origin);
                 } catch (e: any) {
                   prodLog("markAppRenewalPaid: checagem automática falhou", { message: e?.message });
                 }
@@ -362,9 +379,28 @@ export async function markAppRenewalPaid(
     safeServerLog("markAppRenewalPaid: falha na tentativa de ativação automática (Appativa)", (e as any)?.message);
   }
 
-  // ✅ Sino de notificação — mesmo padrão do manual_pending de assinatura
-  // IPTV (notifyManual acima). Sem isso, o pagamento cai pra ação manual
-  // mas ninguém no admin fica sabendo até abrir a Auditoria por acaso.
+  // ✅ Sino + e-mail de "pendente" — disparado na hora pra todo caminho
+  // exceto o de checagem automática em andamento (deferNotifyToAppativaCheck
+  // = true), que só notifica se as 2 tentativas (5s + 30s) não confirmarem
+  // sozinhas (ver dentro do after() acima).
+  if (!deferNotifyToAppativaCheck) {
+    await notifyAppRenewalManualPending(supabaseAdmin, tenantId, paymentRowId, payment, origin);
+  }
+}
+
+// ✅ Sino de notificação — mesmo padrão do manual_pending de assinatura IPTV
+// (notifyManual acima). Sem isso, o pagamento cai pra ação manual mas
+// ninguém no admin fica sabendo até abrir a Auditoria por acaso. Extraída
+// (26/08/2026) pra poder ser chamada tanto na hora (fluxo manual/sem
+// Appativa) quanto de dentro do after() — só depois das 2 checagens
+// automáticas da Appativa não confirmarem sozinhas.
+async function notifyAppRenewalManualPending(
+  supabaseAdmin: any,
+  tenantId: string,
+  paymentRowId: string,
+  payment: any,
+  origin?: string,
+) {
   try {
     const { data: client } = await supabaseAdmin
       .from("clients")
