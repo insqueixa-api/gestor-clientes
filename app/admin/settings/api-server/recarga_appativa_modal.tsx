@@ -315,6 +315,22 @@ export default function RecargaAppativaModal({
             </div>
           </div>
 
+          {currency !== "BRL" && Number(qty) > 0 && (
+            // ✅ Achado 26/08/2026 (Márcio: "aonde aparece o custo unitário
+            // em BRL?") — é esse valor (não o da moeda original) que vira
+            // "Valor do crédito" no card do parceiro, já que
+            // credit_unit_price é sempre gravado em BRL.
+            <div className="text-xs text-muted-foreground">
+              ≈ Custo por crédito em BRL:{" "}
+              <span className="font-medium text-emerald-500">
+                {new Intl.NumberFormat("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                }).format(totalBrl / (Number(qty) || 1))}
+              </span>
+            </div>
+          )}
+
           {currency !== "BRL" && (
             <div className="space-y-1 animate-in slide-in-from-top-2">
               <Label>Cotação para BRL (R$)</Label>

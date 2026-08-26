@@ -373,7 +373,7 @@ export default function RecargaDuplecastModal({
             )}
           </div>
 
-          {amountMode === "total" && qtyNum > 0 && (
+          {qtyNum > 0 && (
             <div className="text-xs text-muted-foreground">
               ≈ Custo por código:{" "}
               <span className="font-medium text-foreground/90">
@@ -382,6 +382,23 @@ export default function RecargaDuplecastModal({
                   currency,
                 }).format(effectiveUnitCost)}
               </span>
+              {currency !== "BRL" && (
+                // ✅ Achado 26/08/2026 (Márcio: "aonde aparece o custo
+                // unitário em BRL?") — é esse valor (não o da moeda
+                // original) que vira "Valor do código" no card do
+                // parceiro, já que credit_unit_price é sempre gravado em
+                // BRL.
+                <>
+                  {" "}
+                  ·{" "}
+                  <span className="font-medium text-emerald-500">
+                    {new Intl.NumberFormat("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    }).format(totalBrl / qtyNum)}
+                  </span>
+                </>
+              )}
             </div>
           )}
 
