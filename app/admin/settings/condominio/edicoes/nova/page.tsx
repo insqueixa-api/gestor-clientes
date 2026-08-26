@@ -131,11 +131,14 @@ export default function NovaEdicaoPage() {
   // todo errado") — a prévia sempre mandava `versao: 1` fixo pro gerador de
   // PDF, então o nome sugerido pelo navegador (vem do <title> do PDF, ver
   // shared.ts/nomeArquivoPdf) sempre dizia "v001", mesmo editando uma edição
-  // que já era v002/v003. Editando uma edição existente, usa a versão real
-  // dela; numa edição nova, calcula a próxima versão do período (mesma
-  // lógica de handleSalvarRascunho) — sempre bate com o nome que vai valer
-  // quando salvar de verdade.
-  const [versao, setVersao] = useState(1);
+  // que já era v002/v003. `versaoExistente` (carregada 1x, se estiver
+  // editando uma edição já salva) vs. calculada na hora (edição nova, ver
+  // `versao` useMemo abaixo, a partir de `edicoesExistentes` já em memória
+  // — sem NENHUMA chamada nova ao Supabase quando tipo/data mudam).
+  const [versaoExistente, setVersaoExistente] = useState<number | null>(null);
+  const [edicoesExistentes, setEdicoesExistentes] = useState<
+    { id: string; periodo_chave: string; versao: number }[]
+  >([]);
   const [introducao, setIntroducao] = useState("");
   const [revisando, setRevisando] = useState(false);
   const [sugestaoIA, setSugestaoIA] = useState<string | null>(null);
@@ -166,7 +169,17 @@ export default function NovaEdicaoPage() {
     (async () => {
       setLoading(true);
       try {
-        const [resCond, resAcoes] = await Promise.all([
+        // ✅ Achado 26/08/2026 (pedido do Márcio: "manter uma chamada única
+        // ao Supabase com tudo de uma vez") — as 3 consultas que essa tela
+        // sempre precisou (condomínio, ações disponíveis, TODAS as edições
+        // já existentes desse condomínio) viram uma única leva paralela.
+        // "Todas as edições" (não só a do período atual) serve dois
+        // propósitos ao mesmo tempo: (1) achar a edição sendo editada
+        // (edicaoIdParam) sem uma 2ª query — filtra na hora, em memória —
+        // e (2) calcular a próxima versão de QUALQUER período (tipo/data
+        // podem mudar depois, sem precisar consultar de novo — ver
+        // `versao` mais abaixo, useMemo).
+        const [resCond, resAcoes, resEdicoes] = await Promise.all([
           supabaseBrowser
             .from("condominios")
             .select("*")
@@ -180,38 +193,46 @@ export default function NovaEdicaoPage() {
             .eq("condominio_id", condominioId)
             .eq("arquivada", false)
             .order("created_at", { ascending: false }),
+          supabaseBrowser
+            .from("condominio_edicoes")
+            .select("id, periodo_chave, versao, titulo, tipo, data_referencia, introducao, itens")
+            .eq("tenant_id", tenantId)
+            .eq("condominio_id", condominioId),
         ]);
         if (resCond.error) throw resCond.error;
         if (resAcoes.error) throw resAcoes.error;
+        if (resEdicoes.error) throw resEdicoes.error;
         setCondominio(resCond.data);
         setAcoesDisponiveis(resAcoes.data || []);
+        setEdicoesExistentes(resEdicoes.data || []);
 
-        if (edicaoIdParam) {
-          const { data: edicaoData, error: edicaoErr } = await supabaseBrowser
-            .from("condominio_edicoes")
-            .select("*")
-            .eq("id", edicaoIdParam)
-            .eq("tenant_id", tenantId)
-            .single();
-          if (edicaoErr) throw edicaoErr;
-          if (edicaoData) {
-            setTitulo(edicaoData.titulo);
-            setTipo(edicaoData.tipo);
-            setDataReferencia(edicaoData.data_referencia);
-            setIntroducao(edicaoData.introducao || "");
-            setVersao(edicaoData.versao || 1);
-            const itensSalvos: ItemSelecionado[] = edicaoData.itens || [];
-            const gruposReconstruidos: Grupo[] = [];
-            for (const item of itensSalvos) {
-              const ultimo = gruposReconstruidos[gruposReconstruidos.length - 1];
-              if (ultimo && ultimo.status === item.status) {
-                ultimo.itens.push(item);
-              } else {
-                gruposReconstruidos.push({ status: item.status, itens: [item] });
-              }
+        const edicaoData = edicaoIdParam
+          ? (resEdicoes.data || []).find((e: any) => e.id === edicaoIdParam)
+          : null;
+
+        if (edicaoData) {
+          setTitulo(edicaoData.titulo);
+          setTipo(edicaoData.tipo);
+          setDataReferencia(edicaoData.data_referencia);
+          setIntroducao(edicaoData.introducao || "");
+          setVersaoExistente(edicaoData.versao || 1);
+          const itensSalvos: ItemSelecionado[] = edicaoData.itens || [];
+          const gruposReconstruidos: Grupo[] = [];
+          for (const item of itensSalvos) {
+            const ultimo = gruposReconstruidos[gruposReconstruidos.length - 1];
+            if (ultimo && ultimo.status === item.status) {
+              ultimo.itens.push(item);
+            } else {
+              gruposReconstruidos.push({ status: item.status, itens: [item] });
             }
-            setGrupos(gruposReconstruidos);
           }
+          setGrupos(gruposReconstruidos);
+        } else if (edicaoIdParam) {
+          // edicaoIdParam foi passado mas não achamos a linha (id errado,
+          // ou de outro condomínio) — mesmo erro que a query antiga
+          // (.single()) já dava nesse caso, só que sem precisar de uma 2ª
+          // chamada pra descobrir.
+          throw new Error("Edição não encontrada para este condomínio.");
         } else if (acoesPreSelecionadasParam) {
           const idsPreSelecionados = new Set(
             acoesPreSelecionadasParam.split(",").filter(Boolean),
@@ -362,25 +383,20 @@ export default function NovaEdicaoPage() {
   const itensFinais = grupos.flatMap((g) => g.itens);
   const periodoChave = calcPeriodoChave(tipo, dataReferencia);
 
-  // ✅ Edição NOVA (sem edicaoIdParam) — calcula a próxima versão do
-  // período sempre que tipo/data mudam, mesma query de handleSalvarRascunho
-  // (linhas mais abaixo), pra "versao" já bater com o que vai ser salvo de
-  // verdade quando o rascunho for gravado. Edição existente já tem sua
-  // versão real carregada acima, essa consulta nunca roda pra ela.
-  useEffect(() => {
-    if (edicaoIdParam || !tenantId || !condominioId) return;
-    (async () => {
-      const { data } = await supabaseBrowser
-        .from("condominio_edicoes")
-        .select("versao")
-        .eq("tenant_id", tenantId)
-        .eq("condominio_id", condominioId)
-        .eq("periodo_chave", periodoChave)
-        .order("versao", { ascending: false })
-        .limit(1);
-      setVersao((data?.[0]?.versao || 0) + 1);
-    })();
-  }, [edicaoIdParam, tenantId, condominioId, periodoChave]);
+  // ✅ Versão real pro nome do PDF (achado 26/08/2026) — puramente derivada
+  // de `edicoesExistentes` (já carregada 1x, junto com condomínio/ações, no
+  // useEffect inicial) + `periodoChave` (muda na hora, sem round-trip
+  // nenhum ao Supabase). Editando uma edição existente, `versaoExistente`
+  // já veio fixa de lá; criando uma nova, é sempre MAX(versão do mesmo
+  // período) + 1 — mesma regra de handleSalvarRascunho mais abaixo (se já
+  // tem v001 publicada, a próxima é v002).
+  const versao = useMemo(() => {
+    if (versaoExistente != null) return versaoExistente;
+    const maxVersaoDoPeriodo = edicoesExistentes
+      .filter((e) => e.periodo_chave === periodoChave)
+      .reduce((max, e) => Math.max(max, e.versao), 0);
+    return maxVersaoDoPeriodo + 1;
+  }, [versaoExistente, edicoesExistentes, periodoChave]);
 
   async function handlePreVisualizar() {
     if (!condominio || itensFinais.length === 0) {

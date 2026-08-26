@@ -43,6 +43,10 @@ export type AcaoRow = {
   arquivada: boolean;
   created_at: string;
   updated_at: string;
+  // ✅ Achado 26/08/2026, pedido do Márcio — "publicar" própria da Ação,
+  // independente de ela entrar em alguma Edição (que já tem seu próprio
+  // published_at). Ver docs/sql/condominio_acoes_published_at.sql.
+  published_at: string | null;
 };
 
 // Mesmo formato de nome do protótipo local (Vidamerica): "{condomínio} -

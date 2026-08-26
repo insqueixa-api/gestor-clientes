@@ -14,6 +14,7 @@ import {
   Images,
   Newspaper,
   ChevronDown,
+  Rss,
 } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -157,6 +158,27 @@ export default function CondominioPage() {
       addToast(
         "success",
         item.arquivada ? "Ação restaurada" : "Ação arquivada",
+        item.titulo,
+      );
+      fetchBundle(selectedCondominioId);
+    } catch (e: any) {
+      addToast("error", "Erro", e.message);
+    }
+  }
+
+  // ✅ "Publicar"/"Despublicar" (achado 26/08/2026, pedido do Márcio) —
+  // published_at próprio da Ação, independente de ela entrar em alguma
+  // Edição (que já tem seu published_at próprio, sem relação com este).
+  async function handleTogglePublicar(item: AcaoRow) {
+    try {
+      const { error } = await supabaseBrowser
+        .from("condominio_acoes")
+        .update({ published_at: item.published_at ? null : new Date().toISOString() })
+        .eq("id", item.id);
+      if (error) throw error;
+      addToast(
+        "success",
+        item.published_at ? "Ação despublicada" : "Ação publicada",
         item.titulo,
       );
       fetchBundle(selectedCondominioId);
@@ -490,6 +512,18 @@ export default function CondominioPage() {
                               </button>
                               <button
                                 type="button"
+                                title={item.published_at ? "Despublicar" : "Publicar"}
+                                onClick={() => handleTogglePublicar(item)}
+                                className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors ${
+                                  item.published_at
+                                    ? "border-sky-500/20 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20"
+                                    : "border-border text-muted-foreground hover:bg-muted"
+                                }`}
+                              >
+                                <Rss className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
                                 title={item.arquivada ? "Restaurar" : "Arquivar"}
                                 onClick={() => handleToggleArquivar(item)}
                                 className={`w-7 h-7 rounded-lg border flex items-center justify-center transition-colors ${
@@ -524,12 +558,11 @@ export default function CondominioPage() {
                             </p>
                           )}
 
-                          {/* ✅ Datas de criação/atualização (achado
-                              26/08/2026, pedido do Márcio). Sem "data de
-                              publicação" aqui de propósito — esse conceito
-                              hoje só existe em condominio_edicoes
-                              (published_at), não em cada Ação individual;
-                              perguntei antes de inventar uma coluna nova. */}
+                          {/* ✅ Datas de criação/atualização/publicação
+                              (achado 26/08/2026, pedido do Márcio) —
+                              published_at é próprio da Ação (botão Rss
+                              acima), independente de ela entrar em alguma
+                              Edição (que tem seu próprio published_at). */}
                           <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground pt-1 border-t border-border/50">
                             <span title={new Date(item.created_at).toLocaleString("pt-BR")}>
                               Criado: {new Date(item.created_at).toLocaleDateString("pt-BR")}
@@ -537,6 +570,14 @@ export default function CondominioPage() {
                             {item.updated_at && item.updated_at !== item.created_at && (
                               <span title={new Date(item.updated_at).toLocaleString("pt-BR")}>
                                 · Atualizado: {new Date(item.updated_at).toLocaleDateString("pt-BR")}
+                              </span>
+                            )}
+                            {item.published_at && (
+                              <span
+                                className="text-sky-500 font-medium"
+                                title={new Date(item.published_at).toLocaleString("pt-BR")}
+                              >
+                                · Publicado: {new Date(item.published_at).toLocaleDateString("pt-BR")}
                               </span>
                             )}
                           </div>
