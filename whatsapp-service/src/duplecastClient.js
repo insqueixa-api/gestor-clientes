@@ -189,6 +189,62 @@ async function listAvailableCodes(siteRoot, jar, userAgent) {
   return { ...counts, html };
 }
 
+// ✅ Códigos individuais ainda não usados (achado 26/08/2026, pedido do
+// Márcio — renovação via código de revenda): a lista filtrada "unused" tem
+// um botão de ativação por linha, `href=".../client_codes/activate/{code}/"`
+// — ancora nesse href (não no texto da linha) pra extrair os códigos,
+// mesmo espírito de parseCodeCounts (nunca confiar em texto solto). Cada
+// código também mostra a duração da licença que ele concede (ex: "1 Year")
+// — confirmado ao vivo, útil pra saber quanto o vencimento deve avançar.
+function parseUnusedCodes(html) {
+  const matches = [...html.matchAll(/client_codes\/activate\/(\d+)\//g)];
+  return [...new Set(matches.map((m) => m[1]))];
+}
+
+async function listUnusedCodes(siteRoot, jar, userAgent) {
+  const url = `${siteRoot}/client/plugin/duplecast/client_codes/index/unused/`;
+  const res = await fetch(url, { headers: baseHeaders(jar, userAgent, url) });
+  jar.absorb(res.headers);
+  const html = await res.text();
+  return parseUnusedCodes(html);
+}
+
+// ✅ Ativação de código de revenda (achado 26/08/2026, pedido do Márcio —
+// renovação do Duplecast usando um código disponível da conta de revenda).
+// Confirmado ao vivo inspecionando o HTML real do formulário: <form
+// method="post" action="/plugin/duplecast/client_codes/activate/{code}/">
+// com _csrf_token (hidden) + mac (vazio, a preencher) + code (pré-
+// preenchido). O próprio site avisa "the activation process is
+// irreversible!" — nunca chamar isso sem certeza do MAC/código certos.
+//
+// ⚠️ Não confia na resposta do POST em si pra confirmar sucesso (ainda não
+// mapeado com certeza o que a página devolve num erro, ex: código já usado)
+// — sempre reconsulta o dispositivo depois (mesmo padrão de "create" acima:
+// confirma direto na fonte, não no que o parceiro respondeu na hora).
+async function activateCode(siteRoot, jar, userAgent, code, mac) {
+  const url = `${siteRoot}/plugin/duplecast/client_codes/activate/${code}/`;
+  const getRes = await fetch(url, { headers: baseHeaders(jar, userAgent, url) });
+  jar.absorb(getRes.headers);
+  const html = await getRes.text();
+  const token = extractCsrfToken(html);
+  if (!token) throw new Error("CSRF token não encontrado na página de ativação de código (o Cloudflare pode ter mudado o desafio, ou o código já não existe mais).");
+
+  const params = new URLSearchParams();
+  params.set("_csrf_token", token);
+  params.set("mac", mac);
+  params.set("code", code);
+
+  const postRes = await fetch(url, {
+    method: "POST",
+    headers: baseHeaders(jar, userAgent, url, true, siteRoot),
+    body: params.toString(),
+    redirect: "manual",
+  });
+  jar.absorb(postRes.headers);
+
+  return { status: postRes.status, location: postRes.headers.get("location") };
+}
+
 async function fetchDeviceMain(siteRoot, jar, userAgent) {
   const url = `${siteRoot}/plugin/duplecast/device_main/`;
   const res = await fetch(url, { headers: baseHeaders(jar, userAgent, url) });
@@ -319,7 +375,7 @@ async function deletePlaylistByName(siteRoot, jar, userAgent, searchName, pin) {
 }
 
 // Ponto de entrada único, chamado pela rota /duplecast/action.
-export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, username, password }) {
+export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, username, password, code }) {
   if (!baseUrl) throw new Error("baseUrl é obrigatório.");
 
   const siteRoot = String(baseUrl).replace(/\/$/, "");
@@ -331,6 +387,43 @@ export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey,
     const { jar, userAgent } = await resellerLogin(siteRoot, username, password);
     const { all, unused, used } = await listAvailableCodes(siteRoot, jar, userAgent);
     return { all, unused, used };
+  }
+
+  // ✅ Renovação via código de revenda (achado 26/08/2026, pedido do
+  // Márcio): consome UM código disponível da conta de revenda (username/
+  // password), vinculando ao MAC informado — depois confirma o vencimento
+  // real direto no dispositivo (mac+device_key), nunca confiando só na
+  // resposta do POST de ativação em si. `code` é opcional — sem ele, pega o
+  // 1º código "unused" disponível sozinho (ver listUnusedCodes).
+  //
+  // ⚠️ IRREVERSÍVEL do lado da Duplecast (aviso deles: "the activation
+  // process is irreversible!") — cada chamada gasta um código de verdade.
+  if (action === "renew_code") {
+    if (!username || !password) throw new Error("username e password são obrigatórios para renew_code.");
+    if (!macValue) throw new Error("macValue é obrigatório para renew_code.");
+
+    const { jar, userAgent } = await resellerLogin(siteRoot, username, password);
+
+    let codeToUse = code;
+    if (!codeToUse) {
+      const unused = await listUnusedCodes(siteRoot, jar, userAgent);
+      if (!unused.length) throw new Error("Nenhum código disponível na conta de revenda (0 unused).");
+      codeToUse = unused[0];
+    }
+
+    const activateResult = await activateCode(siteRoot, jar, userAgent, codeToUse, macValue);
+
+    // ✅ Confirmação real — sessão de DISPOSITIVO (mac+device_key), mesma
+    // fonte que "check"/"create" já usam. Só assim sabemos que o vencimento
+    // de fato mudou, em vez de confiar no redirect/status do POST acima.
+    if (!deviceKey) {
+      return { activated: activateResult.status < 400, code: codeToUse, ...activateResult, expireDate: null, isTrial: null };
+    }
+    const device = await deviceLogin(siteRoot, macValue, deviceKey);
+    const mainHtml = await fetchDeviceMain(siteRoot, device.jar, device.userAgent);
+    const expireDate = parseExpireDate(mainHtml);
+    const isTrial = !expireDate && parseIsTrial(mainHtml);
+    return { activated: activateResult.status < 400, code: codeToUse, ...activateResult, expireDate, isTrial };
   }
 
   if (!macValue || !deviceKey) throw new Error("macValue e deviceKey são obrigatórios.");

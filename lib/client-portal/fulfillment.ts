@@ -7,6 +7,7 @@ import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 import { extractFieldByType, findFieldByType, extractDateOnly } from "@/lib/apps/panel";
 import { solicitarAtivacao, consultarAtivacao, getAppativaApiKey, syncAppativaCredits } from "@/lib/integrations/appativa";
 import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
+import { renewDuplecastWithCode } from "@/lib/apps/duplecast-renewal";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
 
 // ============================================================
@@ -482,6 +483,94 @@ export async function markAppRenewalPaid(
                 }
               } catch (e: any) {
                 prodLog("gpc_roku_renew.post_success_side_effects_failed", { paymentRowId, message: e?.message });
+              }
+            }
+          } else {
+            await supabaseAdmin
+              .from("client_portal_payments")
+              .update({ fulfillment_error: result.error })
+              .eq("id", paymentRowId)
+              .eq("tenant_id", tenantId);
+          }
+        }
+      } else if (appMeta?.name === "DupleCast") {
+        // ============================================================
+        // Renovação paga automática do Duplecast (achado 26/08/2026, pedido
+        // do Márcio — ver lib/apps/duplecast-renewal.ts): consome 1 código
+        // disponível da conta de revenda (sempre "1 Year", mesmo período do
+        // plano cobrado, license_period="annual") e confirma o vencimento
+        // real direto no dispositivo — síncrono, sem webhook/polling (a
+        // ativação da Duplecast já confirma dentro da própria chamada).
+        const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
+        const values = appRow?.field_values || {};
+        const macApp = extractFieldByType(fieldsConfig, values, "mac");
+        const deviceKeyApp = extractFieldByType(fieldsConfig, values, "device_key");
+
+        if (!macApp || !deviceKeyApp) {
+          await supabaseAdmin
+            .from("client_portal_payments")
+            .update({ fulfillment_error: "Preencha o Device ID (MAC) e a Device Key antes de renovar." })
+            .eq("id", paymentRowId)
+            .eq("tenant_id", tenantId);
+        } else {
+          const result = await renewDuplecastWithCode(supabaseAdmin, {
+            tenantId,
+            clientAppId: payment.client_app_id,
+            macValue: macApp,
+            deviceKey: deviceKeyApp,
+            fieldsConfig,
+            fieldValues: values,
+          });
+
+          // ⚠️ Narrowing via `"error" in result` — mesmo motivo documentado
+          // nos branches acima (strict:false não estreita bem uniões
+          // discriminadas por negação de boolean).
+          if (!("error" in result)) {
+            // Mesmo guard atômico usado nos sucessos acima — evita reenviar
+            // WhatsApp/log se outra chamada concorrente já concluiu esse
+            // mesmo pagamento.
+            const { data: claimedRows } = await supabaseAdmin
+              .from("client_portal_payments")
+              .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null })
+              .eq("id", paymentRowId)
+              .eq("tenant_id", tenantId)
+              .eq("fulfillment_status", "manual_pending")
+              .select("id");
+
+            deferManualPendingNotify = true;
+
+            if (claimedRows && claimedRows.length > 0) {
+              await resolveNotification(tenantId, "manual_pending", paymentRowId);
+
+              try {
+                await supabaseAdmin.from("client_events").insert({
+                  tenant_id: tenantId,
+                  client_id: payment.client_id,
+                  event_type: "APP_RENEWAL_AUTO",
+                  message: `Renovação automática via Duplecast (código ${result.code}) · ${payment.app_name_snapshot || "Aplicativo"}`,
+                  meta: { payment_id: paymentRowId, mac: macApp, code: result.code, source: "duplecast_renew_code" },
+                });
+
+                const { data: client } = await supabaseAdmin
+                  .from("clients")
+                  .select("display_name, server_username, server_id, servers(name, whatsapp_session)")
+                  .eq("id", payment.client_id)
+                  .maybeSingle();
+                const serverMeta = Array.isArray(client?.servers) ? client.servers[0] : client?.servers;
+
+                if (origin) {
+                  await sendAppRenewalWhatsapp(supabaseAdmin, {
+                    tenantId,
+                    clientId: payment.client_id,
+                    paymentId: paymentRowId,
+                    origin,
+                    whatsappSession: (serverMeta as any)?.whatsapp_session || "default",
+                    appName: payment.app_name_snapshot || "Aplicativo",
+                    appVencimento: result.expireDate,
+                  });
+                }
+              } catch (e: any) {
+                prodLog("duplecast_renew.post_success_side_effects_failed", { paymentRowId, message: e?.message });
               }
             }
           } else {
