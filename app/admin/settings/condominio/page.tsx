@@ -452,7 +452,12 @@ export default function CondominioPage() {
                           <img
                             src={capa.url}
                             alt={item.titulo}
-                            className="w-full h-36 object-cover"
+                            // ✅ object-top (achado 26/08/2026, pedido do
+                            // Márcio: "a foto corta a cabeça") — sem isso o
+                            // crop padrão é center/center, cortando igual em
+                            // cima e embaixo; fotos de pessoas costumam
+                            // sobrar mais espaço embaixo do que em cima.
+                            className="w-full h-36 object-cover object-top"
                           />
                         )}
                         <div className="p-4 space-y-2">
@@ -518,6 +523,23 @@ export default function CondominioPage() {
                               {item.texto}
                             </p>
                           )}
+
+                          {/* ✅ Datas de criação/atualização (achado
+                              26/08/2026, pedido do Márcio). Sem "data de
+                              publicação" aqui de propósito — esse conceito
+                              hoje só existe em condominio_edicoes
+                              (published_at), não em cada Ação individual;
+                              perguntei antes de inventar uma coluna nova. */}
+                          <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground pt-1 border-t border-border/50">
+                            <span title={new Date(item.created_at).toLocaleString("pt-BR")}>
+                              Criado: {new Date(item.created_at).toLocaleDateString("pt-BR")}
+                            </span>
+                            {item.updated_at && item.updated_at !== item.created_at && (
+                              <span title={new Date(item.updated_at).toLocaleString("pt-BR")}>
+                                · Atualizado: {new Date(item.updated_at).toLocaleDateString("pt-BR")}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

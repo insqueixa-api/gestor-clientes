@@ -127,6 +127,15 @@ export default function NovaEdicaoPage() {
   const [titulo, setTitulo] = useState("Informativo Semanal aos Moradores");
   const [tipo, setTipo] = useState<"semanal" | "mensal">("semanal");
   const [dataReferencia, setDataReferencia] = useState(hojeISO());
+  // ✅ Achado 26/08/2026 (Márcio: "a prévia gerada, o nome do arquivo vem
+  // todo errado") — a prévia sempre mandava `versao: 1` fixo pro gerador de
+  // PDF, então o nome sugerido pelo navegador (vem do <title> do PDF, ver
+  // shared.ts/nomeArquivoPdf) sempre dizia "v001", mesmo editando uma edição
+  // que já era v002/v003. Editando uma edição existente, usa a versão real
+  // dela; numa edição nova, calcula a próxima versão do período (mesma
+  // lógica de handleSalvarRascunho) — sempre bate com o nome que vai valer
+  // quando salvar de verdade.
+  const [versao, setVersao] = useState(1);
   const [introducao, setIntroducao] = useState("");
   const [revisando, setRevisando] = useState(false);
   const [sugestaoIA, setSugestaoIA] = useState<string | null>(null);
@@ -190,6 +199,7 @@ export default function NovaEdicaoPage() {
             setTipo(edicaoData.tipo);
             setDataReferencia(edicaoData.data_referencia);
             setIntroducao(edicaoData.introducao || "");
+            setVersao(edicaoData.versao || 1);
             const itensSalvos: ItemSelecionado[] = edicaoData.itens || [];
             const gruposReconstruidos: Grupo[] = [];
             for (const item of itensSalvos) {
@@ -352,6 +362,26 @@ export default function NovaEdicaoPage() {
   const itensFinais = grupos.flatMap((g) => g.itens);
   const periodoChave = calcPeriodoChave(tipo, dataReferencia);
 
+  // ✅ Edição NOVA (sem edicaoIdParam) — calcula a próxima versão do
+  // período sempre que tipo/data mudam, mesma query de handleSalvarRascunho
+  // (linhas mais abaixo), pra "versao" já bater com o que vai ser salvo de
+  // verdade quando o rascunho for gravado. Edição existente já tem sua
+  // versão real carregada acima, essa consulta nunca roda pra ela.
+  useEffect(() => {
+    if (edicaoIdParam || !tenantId || !condominioId) return;
+    (async () => {
+      const { data } = await supabaseBrowser
+        .from("condominio_edicoes")
+        .select("versao")
+        .eq("tenant_id", tenantId)
+        .eq("condominio_id", condominioId)
+        .eq("periodo_chave", periodoChave)
+        .order("versao", { ascending: false })
+        .limit(1);
+      setVersao((data?.[0]?.versao || 0) + 1);
+    })();
+  }, [edicaoIdParam, tenantId, condominioId, periodoChave]);
+
   async function handlePreVisualizar() {
     if (!condominio || itensFinais.length === 0) {
       addToast("error", "Selecione pelo menos uma ação antes de pré-visualizar.");
@@ -369,7 +399,7 @@ export default function NovaEdicaoPage() {
         },
         body: JSON.stringify({
           condominio,
-          edicao: { tipo, data_referencia: dataReferencia, versao: 1, introducao },
+          edicao: { tipo, data_referencia: dataReferencia, versao, introducao },
           itens: itensFinais,
         }),
       });
