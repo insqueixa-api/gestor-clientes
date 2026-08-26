@@ -214,6 +214,23 @@ function linkifyText(text: string) {
   });
 }
 
+// ✅ Achado 26/08/2026 (Márcio: trial de 7 dias do GPC Roku não mostrava o
+// botão de renovar na hora, dependendo da hora do dia em que foi
+// configurado): comparar a data de vencimento (meio-dia) contra
+// `Date.now()` (hora exata atual) dá uma diferença fracionária — "vence em
+// 7 dias" podia virar 6.9 ou 7.1 dependendo de que horas são agora,
+// empurrando o app pra fora/dentro da janela por acaso. Meio-dia dos dois
+// lados (mesmo padrão de getTimeRemaining logo abaixo) sempre dá um número
+// de dias limpo, sem depender da hora do dia.
+function daysUntilSP(dateOnly: string): number {
+  const todaySP = new Date().toLocaleDateString("sv-SE", {
+    timeZone: "America/Sao_Paulo",
+  });
+  const d1 = new Date(`${todaySP}T12:00:00`);
+  const d2 = new Date(`${dateOnly}T12:00:00`);
+  return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 // ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil)
 // ✅ PARA — sem dependência externa, lógica idêntica ao admin
 function getTimeRemaining(vencimento: string) {
@@ -738,9 +755,7 @@ export default function RenewClient() {
       if (app.license_price == null || app.license_price <= 0) return false;
       const datePart = app.expiration ? String(app.expiration).split("T")[0] : "";
       if (!datePart) return false;
-      const diffDays =
-        (new Date(`${datePart}T12:00:00`).getTime() - Date.now()) / 86400000;
-      return diffDays < 7;
+      return daysUntilSP(datePart) < 7;
     });
   }, [installedApps]);
 
@@ -4305,9 +4320,7 @@ export default function RenewClient() {
                 // continua em 30 (visão do admin, não amarrada ao processo
                 // de ativação de nenhum parceiro específico).
                 const expirationDiffDays = expirationDatePart
-                  ? (new Date(`${expirationDatePart}T12:00:00`).getTime() -
-                      Date.now()) /
-                    86400000
+                  ? daysUntilSP(expirationDatePart)
                   : null;
                 const isExpired =
                   expirationDiffDays !== null && expirationDiffDays < 0;
@@ -5781,11 +5794,7 @@ export default function RenewClient() {
                   const datePart = app.expiration
                     ? String(app.expiration).split("T")[0]
                     : "";
-                  const diffDays = datePart
-                    ? (new Date(`${datePart}T12:00:00`).getTime() -
-                        Date.now()) /
-                      86400000
-                    : null;
+                  const diffDays = datePart ? daysUntilSP(datePart) : null;
                   const isExpiredApp = diffDays !== null && diffDays < 0;
                   const otherFieldsApp = app.fields.filter(
                     (f) => f.type !== "obs",
