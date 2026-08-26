@@ -26,6 +26,10 @@ const RecargaAppativaModal = dynamic(
   () => import("./recarga_appativa_modal"),
   { ssr: false },
 );
+const RecargaDuplecastModal = dynamic(
+  () => import("./recarga_duplecast_modal"),
+  { ssr: false },
+);
 
 type IntegrationRow = {
   id: string;
@@ -112,6 +116,8 @@ export default function ApiServerPage() {
   );
   const [catalogModalFor, setCatalogModalFor] = useState<string | null>(null);
   const [recargaAppativaFor, setRecargaAppativaFor] =
+    useState<PartnerIntegration | null>(null);
+  const [recargaDuplecastFor, setRecargaDuplecastFor] =
     useState<PartnerIntegration | null>(null);
 
   // ✅ Logo dos servidores: HERDADA de `servers.logo_url` por padrão, mas
@@ -1069,13 +1075,17 @@ export default function ApiServerPage() {
                       )}
                     </div>
                     <div className="flex gap-2 shrink-0">
-                      {row.provider === "APPATIVA" && (
+                      {(row.provider === "APPATIVA" || row.provider === "DUPLECAST") && (
                         <IconActionBtn
                           title="Nova recarga"
                           tone="green"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setRecargaAppativaFor(row);
+                            if (row.provider === "DUPLECAST") {
+                              setRecargaDuplecastFor(row);
+                            } else {
+                              setRecargaAppativaFor(row);
+                            }
                           }}
                         >
                           <IconMoney />
@@ -1463,6 +1473,23 @@ export default function ApiServerPage() {
           onClose={() => setRecargaAppativaFor(null)}
           onSuccess={() => {
             setRecargaAppativaFor(null);
+            addToast(
+              "success",
+              "Recarga registrada",
+              "Despesa lançada no Financeiro Pessoal e saldo sincronizado.",
+            );
+            fetchData();
+          }}
+          onError={(msg) => addToast("error", "Erro", msg)}
+        />
+      )}
+      {recargaDuplecastFor && (
+        <RecargaDuplecastModal
+          partnerId={recargaDuplecastFor.id}
+          partnerLabel={recargaDuplecastFor.label}
+          onClose={() => setRecargaDuplecastFor(null)}
+          onSuccess={() => {
+            setRecargaDuplecastFor(null);
             addToast(
               "success",
               "Recarga registrada",
