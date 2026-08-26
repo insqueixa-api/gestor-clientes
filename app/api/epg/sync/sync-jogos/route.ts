@@ -13,7 +13,7 @@ const supabaseAdmin = createAdmin(
 )
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +56,7 @@ const API_HEADERS = {
 // Canais que não fazem parte do seu catálogo — jogos que só tenham transmissão
 // por eles são descartados do sync  (não é canal de TV real pro seu uso: VBTV
 // e Antel são de outros países, bet365 é casa de apostas, não canal).
-const CANAIS_BLOQUEADOS = ['vbtv','Youtube Canal do Benja','Youtube NSports','Nsports', 'Canal GolBrasil', 'Xsports', 'Youtube Paulistão', 'Youtube Canal GOAT', 'Youtube SportyNet', 'SportyNet', 'Youtube Xsports', 'getv', 'youtube uol', 'bet365', 'fanatiz', 'antel tv internacional', 'youtube metrópoles']
+const CANAIS_BLOQUEADOS = ['vbtv','Youtube Canal do Benja','Youtube NSports','Nsports', 'Canal GolBrasil', 'Xsports', 'Youtube Paulistão', 'Youtube Canal GOAT', 'Youtube SportyNet', 'SportyNet', 'Youtube Xsports', 'getv', 'youtube uol', 'bet365', 'fanatiz', 'antel tv internacional', 'youtube metrópoles', 'Youtube TNT Sports Brasil']
 
 // ✅ Normaliza pra bloqueio funcionar com o que for colado ali (copiar da
 // tela e colar direto, sem ajustar nada): minúsculo (.includes() é
