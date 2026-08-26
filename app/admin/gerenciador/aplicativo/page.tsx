@@ -62,6 +62,14 @@ type AppData = {
   // sem precisar comparar nome a nome via CSV.
   appativa_app_id?: string | null;
   appativa_app_name?: string | null;
+  // ✅ Escolha entre Duplecast/Appativa (achado 26/08/2026, pedido do
+  // Márcio) — só importa quando integration_type="DUPLECAST" E
+  // appativa_app_id também está mapeado (as duas opções existem pro mesmo
+  // app): 'appativa' força a renovação automática a passar pela Appativa em
+  // vez do Duplecast (ex: créditos do Duplecast acabaram); qualquer outro
+  // valor (incl. null) mantém o Duplecast, que é o padrão. Nunca muda nada
+  // pra apps sem os dois mapeados ao mesmo tempo.
+  renewal_source?: string | null;
 };
 
 type AppativaCatalogItem = {
@@ -198,6 +206,14 @@ export default function AppManagerPage() {
   const [appativaCreditUnitPrice, setAppativaCreditUnitPrice] = useState<
     number | null
   >(null);
+  // ✅ Custo por código do Duplecast (achado 26/08/2026, pedido do Márcio,
+  // mesmo espírito do appativaCreditUnitPrice acima) — flat por ativação,
+  // não varia por app (diferente da Appativa, que tem custo por app).
+  const [duplecastCreditUnitPrice, setDuplecastCreditUnitPrice] = useState<
+    number | null
+  >(null);
+  // ✅ Escolha Duplecast/Appativa (achado 26/08/2026) — ver AppData.renewal_source.
+  const [formRenewalSource, setFormRenewalSource] = useState<string>("duplecast");
   const [appativaPickerOpen, setAppativaPickerOpen] = useState(false);
   // ✅ 2 campos de busca (achado 25/08/2026, pedido do Márcio: "buscar por
   // um ou por outro") — Nome e ID filtram o mesmo catálogo em conjunto
@@ -299,7 +315,7 @@ export default function AppManagerPage() {
       if (!tid) return;
       setMyTenantId(tid);
 
-      const [appsRes, integrationsRes, serversRes, appativaRes] = await Promise.all([
+      const [appsRes, integrationsRes, serversRes, appativaRes, duplecastRes] = await Promise.all([
         supabaseBrowser
           .from("apps")
           .select("*")
@@ -325,6 +341,15 @@ export default function AppManagerPage() {
           .select("id, catalog_cache, credit_unit_price")
           .eq("tenant_id", tid)
           .eq("provider", "APPATIVA")
+          .eq("is_active", true)
+          .maybeSingle(),
+        // ✅ Custo por código do Duplecast (achado 26/08/2026) — mesmo
+        // padrão da Appativa acima, só que sem catálogo (preço flat).
+        supabaseBrowser
+          .from("api_integrations")
+          .select("credit_unit_price")
+          .eq("tenant_id", tid)
+          .eq("provider", "DUPLECAST")
           .eq("is_active", true)
           .maybeSingle(),
       ]);
@@ -358,6 +383,11 @@ export default function AppManagerPage() {
       setAppativaCreditUnitPrice(
         appativaRes.data?.credit_unit_price != null
           ? Number(appativaRes.data.credit_unit_price)
+          : null,
+      );
+      setDuplecastCreditUnitPrice(
+        duplecastRes.data?.credit_unit_price != null
+          ? Number(duplecastRes.data.credit_unit_price)
           : null,
       );
     } catch (error: any) {
@@ -626,6 +656,7 @@ export default function AppManagerPage() {
     setFormDiscontinuedReplacement("");
     setFormAppativaAppId("");
     setFormAppativaAppName("");
+    setFormRenewalSource("duplecast");
     setAppativaSearchName("");
     setAppativaSearchId("");
     setIsModalOpen(true);
@@ -666,6 +697,7 @@ export default function AppManagerPage() {
     setFormDiscontinuedReplacement(app.discontinued_replacement_name || "");
     setFormAppativaAppId(app.appativa_app_id || "");
     setFormAppativaAppName(app.appativa_app_name || "");
+    setFormRenewalSource(app.renewal_source || "duplecast");
     setAppativaSearchName(app.appativa_app_name || "");
     setAppativaSearchId(app.appativa_app_id || "");
     setIsModalOpen(true);
@@ -753,6 +785,10 @@ export default function AppManagerPage() {
             : null,
         appativa_app_id: formAppativaAppId || null,
         appativa_app_name: formAppativaAppId ? formAppativaAppName || null : null,
+        renewal_source:
+          formIntegration === "DUPLECAST" && formAppativaAppId
+            ? formRenewalSource
+            : null,
       };
 
       if (editingId) {
@@ -780,6 +816,10 @@ export default function AppManagerPage() {
               : null,
           appativa_app_id: formAppativaAppId || null,
           appativa_app_name: formAppativaAppId ? formAppativaAppName || null : null,
+          renewal_source:
+            formIntegration === "DUPLECAST" && formAppativaAppId
+              ? formRenewalSource
+              : null,
         };
         const { error } = await supabaseBrowser
           .from("apps")
@@ -954,6 +994,46 @@ export default function AppManagerPage() {
                     </span>
                   </>
                 )}
+              </p>
+            )}
+            {/* ✅ Custo do Duplecast/GerenciaApp (achado 26/08/2026, pedido
+                do Márcio: mesmo espírito do bloco da Appativa acima, "só pra
+                eu ver visualmente meu custo"). GerenciaApp é sempre grátis
+                (assinatura mensal fixa, não varia por app); Duplecast custa
+                1 código (credit_unit_price) por renovação, e se o app
+                também estiver mapeado na Appativa, mostra qual das duas
+                está de fato ativa (app.renewal_source). */}
+            {app.integration_type === "DUPLECAST" && (
+              <p className="text-[11px] text-muted-foreground pt-1">
+                🔗 Duplecast
+                {duplecastCreditUnitPrice != null && (
+                  <>
+                    {" "}
+                    · Custo:{" "}
+                    <span className="font-bold text-rose-500">
+                      {duplecastCreditUnitPrice.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </>
+                )}
+                {app.appativa_app_id && (
+                  <span
+                    className={`ml-1 font-medium ${app.renewal_source === "appativa" ? "text-amber-500" : "text-sky-500"}`}
+                  >
+                    · renovando via{" "}
+                    {app.renewal_source === "appativa" ? "Appativa" : "Duplecast"}
+                  </span>
+                )}
+              </p>
+            )}
+            {app.integration_type === "GERENCIAAPP" && (
+              <p className="text-[11px] text-muted-foreground pt-1">
+                🔗 GerenciaApp ·{" "}
+                <span className="font-medium text-sky-500">
+                  Grátis (assinatura mensal fixa)
+                </span>
               </p>
             )}
             <div className="flex flex-wrap gap-1 pt-0.5">
@@ -1777,6 +1857,34 @@ export default function AppManagerPage() {
                   ou pelo id, o que for mais fácil de bater.
                 </p>
               </div>
+
+              {/* ✅ Escolha Duplecast x Appativa (achado 26/08/2026, pedido
+                  do Márcio) — só faz sentido quando o app É o Duplecast E
+                  também está vinculado na Appativa (as duas automações
+                  disputam a mesma renovação). Default "Duplecast" — o
+                  simples fato de vincular na Appativa aqui em cima NUNCA
+                  muda sozinho qual parceiro está ativo; só troca quando
+                  escolhido aqui explicitamente. */}
+              {formIntegration === "DUPLECAST" && formAppativaAppId && (
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
+                  <Label>Renovar automaticamente via</Label>
+                  <select
+                    value={formRenewalSource}
+                    onChange={(e) => setFormRenewalSource(e.target.value)}
+                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                  >
+                    <option value="duplecast">
+                      Duplecast{duplecastCreditUnitPrice != null ? ` (${duplecastCreditUnitPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/código)` : ""}
+                    </option>
+                    <option value="appativa">Appativa (fallback)</option>
+                  </select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Os dois estão vinculados nesse app — escolha qual realmente
+                    ativa quando um cliente paga a renovação. Útil pra trocar
+                    pra Appativa se os códigos do Duplecast acabarem.
+                  </p>
+                </div>
+              )}
 
               {/* CUSTO E PARCERIA */}
               <div className="bg-transparent border border-border rounded-xl p-4 space-y-4">

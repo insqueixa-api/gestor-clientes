@@ -287,13 +287,21 @@ export async function markAppRenewalPaid(
     if (payment?.client_app_id) {
       const { data: appRow } = await supabaseAdmin
         .from("client_apps")
-        .select("field_values, apps(appativa_app_id, fields_config, name)")
+        .select("field_values, apps(appativa_app_id, fields_config, name, renewal_source)")
         .eq("id", payment.client_app_id)
         .maybeSingle();
       const appMeta = Array.isArray(appRow?.apps) ? appRow.apps[0] : appRow?.apps;
       const appativaAppId = appMeta?.appativa_app_id ? String(appMeta.appativa_app_id) : "";
+      // ✅ Achado 26/08/2026 (pedido do Márcio: "caso meus créditos do
+      // Duplecast acabem, posso decidir manter o deles [Appativa]") — o app
+      // "DupleCast" pode estar mapeado nos DOIS parceiros ao mesmo tempo; o
+      // padrão continua sendo Duplecast (zero-mudança pra quem nunca mexeu
+      // nisso), só vira Appativa quando explicitamente escolhido em
+      // apps.renewal_source (app/admin/gerenciador/aplicativo/page.tsx).
+      const isDuplecastApp = appMeta?.name === "DupleCast";
+      const wantsAppativaForDuplecast = isDuplecastApp && appMeta?.renewal_source === "appativa";
 
-      if (appativaAppId) {
+      if (appativaAppId && (!isDuplecastApp || wantsAppativaForDuplecast)) {
         const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
         const values = appRow?.field_values || {};
         const macApp = extractFieldByType(fieldsConfig, values, "mac");
@@ -493,7 +501,7 @@ export async function markAppRenewalPaid(
               .eq("tenant_id", tenantId);
           }
         }
-      } else if (appMeta?.name === "DupleCast") {
+      } else if (isDuplecastApp) {
         // ============================================================
         // Renovação paga automática do Duplecast (achado 26/08/2026, pedido
         // do Márcio — ver lib/apps/duplecast-renewal.ts): consome 1 código
