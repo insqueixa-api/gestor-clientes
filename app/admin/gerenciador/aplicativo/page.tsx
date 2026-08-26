@@ -982,18 +982,6 @@ export default function AppManagerPage() {
                     </span>
                   </>
                 )}
-                {app.license_price != null && appativaCost != null && (
-                  <>
-                    {" "}
-                    · Você cobra:{" "}
-                    <span className="font-bold text-emerald-500">
-                      {app.license_price.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </>
-                )}
               </p>
             )}
             {/* ✅ Custo do Duplecast/GerenciaApp (achado 26/08/2026, pedido
