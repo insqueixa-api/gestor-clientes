@@ -1186,6 +1186,33 @@ function FinanceiroPageContent() {
               </button>
             )}
           </div>
+          {/* ✅ Achado 26/08/2026 (pedido do Márcio): no celular, Pendente/
+              Concluído já ficam como atalho rápido ao lado da busca, fora de
+              qualquer filtro — ajuda muito. No PC ficava escondido dentro do
+              select "Status". Agora os 2 atalhos ficam aqui também, antes do
+              filtro de Tipo, e o select "Status" (que também tinha
+              "Vencidos" separado) saiu — mesmo comportamento nos dois
+              tamanhos de tela. */}
+          <button
+            onClick={() =>
+              setStatusFilter(
+                statusFilter === "QUICK_PENDENTE" ? "Todos" : "QUICK_PENDENTE",
+              )
+            }
+            className={`h-10 px-3 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap ${statusFilter === "QUICK_PENDENTE" ? "border-amber-500/30 bg-amber-500/10 text-amber-500" : "border-border bg-transparent text-muted-foreground hover:text-foreground/90"}`}
+          >
+            ⏳ Pendente
+          </button>
+          <button
+            onClick={() =>
+              setStatusFilter(
+                statusFilter === "QUICK_CONCLUIDO" ? "Todos" : "QUICK_CONCLUIDO",
+              )
+            }
+            className={`h-10 px-3 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500" : "border-border bg-transparent text-muted-foreground hover:text-foreground/90"}`}
+          >
+            ✅ Concluído
+          </button>
           <select
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value)}
@@ -1194,16 +1221,6 @@ function FinanceiroPageContent() {
             <option value="Todos">Tipo</option>
             <option value="RECEITA">Receitas</option>
             <option value="DESPESA">Despesas</option>
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
-          >
-            <option value="Todos">Status</option>
-            <option value="PAGO">Pagos / Recebidos</option>
-            <option value="PENDENTE">Pendentes</option>
-            <option value="VENCIDO">Vencidos</option>
           </select>
           <select
             value={contaFilter}
