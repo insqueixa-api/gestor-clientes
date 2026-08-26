@@ -4,10 +4,10 @@
 // (recarga_servidor.tsx), achado 26/08/2026 — antes "IPTV - Recarga de
 // Servidores" só era recalculado quando alguém abria a tela Financeiro
 // Pessoal, deixando a Evolução Consolidada e a lista de lançamentos
-// desatualizadas até a próxima visita. Ver lib/finance/sync-iptv-despesa.ts.
+// desatualizadas até a próxima visita. Ver lib/finance/sync-iptv-lancamentos.ts.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
-import { syncIptvRecargaServidores } from "@/lib/finance/sync-iptv-despesa";
+import { syncIptvRecargaServidores } from "@/lib/finance/sync-iptv-lancamentos";
 
 export const dynamic = "force-dynamic";
 

@@ -603,6 +603,23 @@ export default function QuickRechargeModal({
         if (error) throw new Error(error.message);
       }
 
+      // ✅ Sincroniza "IPTV - Rendimentos" na hora (achado 26/08/2026,
+      // pedido do Márcio: antes só recalculava quando alguém abria o
+      // Financeiro Pessoal). Fail-soft — nunca bloqueia a venda em si.
+      try {
+        const { data: sessSync } = await supabaseBrowser.auth.getSession();
+        const tokenSync = sessSync?.session?.access_token;
+        await fetch("/api/finance/sync-iptv-receita", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(tokenSync ? { Authorization: `Bearer ${tokenSync}` } : {}),
+          },
+        });
+      } catch {
+        // não bloqueia a venda por falha no sync do financeiro
+      }
+
       // ✅ 5) ENVIAR WHATSAPP SE ESTIVER ATIVO
       if (sendWhats && messageContent && messageContent.trim()) {
         setLoadingText("Enviando WhatsApp...");

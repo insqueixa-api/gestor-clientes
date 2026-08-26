@@ -6,6 +6,7 @@ import { notify, resolveNotification, formatClientLabel } from "@/lib/notificati
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 import { extractFieldByType, findFieldByType, extractDateOnly } from "@/lib/apps/panel";
 import { solicitarAtivacao, consultarAtivacao, getAppativaApiKey, syncAppativaCredits } from "@/lib/integrations/appativa";
+import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
 
 // ============================================================
 // Tipos
@@ -1074,6 +1075,16 @@ export async function runFulfillment(params: FulfillmentParams) {
     } catch (e) {
       safeServerLog("fulfillment: failed to insert manual client_renewals", (e as any)?.message);
     }
+
+    // ✅ "IPTV - Rendimentos" sincroniza na hora (achado 26/08/2026, pedido
+    // do Márcio: antes só recalculava quando alguém abria o Financeiro
+    // Pessoal). Fail-soft — nunca bloqueia o fluxo de renovação por causa
+    // disso.
+    try {
+      await syncIptvRendimentos(supabaseAdmin, tenantId);
+    } catch (e) {
+      safeServerLog("fulfillment: failed to sync IPTV rendimentos (manual)", (e as any)?.message);
+    }
     // ========================================================================
 
     return { expDateISO: null };
@@ -1322,6 +1333,17 @@ credits_used: months * qtyScreens,
     }
   } catch (e) {
     safeServerLog("fulfillment: failed to insert client_renewals", (e as any)?.message);
+  }
+
+  // ✅ "IPTV - Rendimentos" sincroniza na hora (achado 26/08/2026, pedido
+  // do Márcio: antes só recalculava quando alguém abria o Financeiro
+  // Pessoal, deixando a Evolução Consolidada desatualizada até a próxima
+  // visita). Fail-soft — nunca bloqueia a renovação do cliente por causa
+  // disso.
+  try {
+    await syncIptvRendimentos(supabaseAdmin, tenantId);
+  } catch (e) {
+    safeServerLog("fulfillment: failed to sync IPTV rendimentos", (e as any)?.message);
   }
 
 // 6) Sync e Alerta de Saldo Baixo (Gmail via API Interna)
