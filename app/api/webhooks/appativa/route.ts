@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
 import { resolveAppativaAppRenewal, prodLog } from "@/lib/client-portal/fulfillment";
+import { flagSuspiciousAccess } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -51,8 +52,16 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     // Sem match — evento de outra coisa (ou replay de algo já limpo).
-    // Mesmo espírito "silencioso" dos webhooks MP/Stripe.
-    if (!payment) return NextResponse.json({ ok: true });
+    // Mesmo espírito "silencioso" dos webhooks MP/Stripe (a resposta não
+    // muda, pra não virar um oráculo de "esse id existe?"), mas registra
+    // no Sentry pra dar visibilidade caso alguém fique testando ids ao
+    // acaso (achado 26/08/2026, revisão de segurança pedida pelo Márcio).
+    if (!payment) {
+      flagSuspiciousAccess("appativa_webhook_id_desconhecido", {
+        id_cobranca_suffix: idCobranca.slice(-6),
+      });
+      return NextResponse.json({ ok: true });
+    }
 
     const result = await resolveAppativaAppRenewal(supabaseAdmin, payment.tenant_id, payment.id);
     prodLog("appativa_webhook.resolved", { payment_id: payment.id, outcome: result.outcome });
