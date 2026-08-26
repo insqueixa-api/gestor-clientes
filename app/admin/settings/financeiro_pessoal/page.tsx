@@ -204,24 +204,25 @@ function FinanceiroPageContent() {
     );
   const handleToday = () => setCurrentDate(new Date());
 
+  // ✅ Achado 26/08/2026 (pedido do Márcio, página às vezes demorando pra
+  // carregar): antes essa função buscava resF/resPurchases sozinha e o
+  // caller esperava ela terminar (2 upserts sequenciais por dentro) ANTES
+  // de buscar a lista de lançamentos do mês — 2 idas ao banco inteiras só
+  // pra escrever, na frente de tudo o resto. Agora resF/resPurchases (e o
+  // cálculo de valorIptv/valorDespesas) vêm de fora, já buscados no MESMO
+  // Promise.all de contas/categorias/saldo — essa função só resolve
+  // catIPTV/contaMpPj e escreve. O caller dispara ela em paralelo com a
+  // busca da lista (não espera mais), usando os mesmos valores já
+  // calculados pra mostrar os 2 lançamentos certos na hora, sem esperar a
+  // escrita confirmar.
   const sincronizarRendimentos = async (
     tid: string,
     dateObj: Date,
     contas: any[],
     categorias: any[],
+    valorIptv: number,
+    valorDespesas: number,
   ) => {
-    const hoje = new Date();
-
-    const isMesAtual =
-      dateObj.getMonth() === hoje.getMonth() &&
-      dateObj.getFullYear() === hoje.getFullYear();
-    const mesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-    const isMesAnterior =
-      dateObj.getMonth() === mesPassado.getMonth() &&
-      dateObj.getFullYear() === mesPassado.getFullYear();
-
-    if (!isMesAtual && !isMesAnterior) return;
-
     const catIPTV = categorias.find((c) =>
       c.nome.toLowerCase().includes("iptv"),
     )?.id;
@@ -243,42 +244,6 @@ function FinanceiroPageContent() {
 
       const dataVenc = `${y}-${String(m + 1).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
       const mesStart = `${y}-${String(m + 1).padStart(2, "0")}-01`;
-
-      // Strings para filtrar data exata no formato Timestamp do Supabase
-      const mesStartStr = `${y}-${String(m + 1).padStart(2, "0")}-01T00:00:00.000Z`;
-      const mesEndStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}T23:59:59.999Z`;
-
-      const [resF, resPurchases] = await Promise.all([
-        supabaseBrowser
-          .from("vw_dashboard_finance_cards")
-          .select("*")
-          .eq("tenant_id", tid)
-          .maybeSingle(),
-        supabaseBrowser
-          .from("server_credit_purchases")
-          .select("total_amount_brl")
-          .eq("tenant_id", tid)
-          .gte("created_at", mesStartStr)
-          .lte("created_at", mesEndStr),
-      ]);
-
-      let valorIptv = 0;
-      let valorDespesas = 0;
-
-      if (isMesAtual) {
-        valorIptv =
-          Number(resF.data?.clients_paid_month_brl_estimated || 0) +
-          Number(resF.data?.reseller_paid_month_brl || 0);
-      } else if (isMesAnterior) {
-        valorIptv =
-          Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) +
-          Number(resF.data?.reseller_paid_prev_month_brl || 0);
-      }
-
-      valorDespesas = (resPurchases.data || []).reduce(
-        (acc, row) => acc + Number(row.total_amount_brl),
-        0,
-      );
 
       // Data de pagamento = último dia do mês sincronizado (nunca "hoje")
       const dataPagamentoMes = new Date(`${dataVenc}T12:00:00`).toISOString();
@@ -403,7 +368,17 @@ function FinanceiroPageContent() {
         .toISOString()
         .split("T")[0];
 
-      const [resContas, resCat] = await Promise.all([
+      // ✅ Achado 26/08/2026 (pedido do Márcio, página às vezes demorando
+      // pra carregar): antes eram 4 ondas sequenciais (contas/categorias →
+      // sync+saldo → lista do mês → parcelas pendentes), cada uma esperando
+      // a anterior. resF/resPurchases (só leitura, usados só pra calcular
+      // valorIptv/valorDespesas) e o saldo das contas não dependem de nada
+      // que vem de contas/categorias — entram na MESMA primeira onda.
+      const ultimoDia = new Date(y, dateObj.getMonth() + 1, 0).getDate();
+      const mesStartStr = `${y}-${m}-01T00:00:00.000Z`;
+      const mesEndStr = `${y}-${m}-${String(ultimoDia).padStart(2, "0")}T23:59:59.999Z`;
+
+      const [resContas, resCat, resF, resPurchases, saldosRes] = await Promise.all([
         supabaseBrowser
           .from("fin_contas_bancarias")
           .select("*")
@@ -414,6 +389,18 @@ function FinanceiroPageContent() {
           .select("*")
           .eq("tenant_id", tid)
           .order("nome"),
+        supabaseBrowser
+          .from("vw_dashboard_finance_cards")
+          .select("*")
+          .eq("tenant_id", tid)
+          .maybeSingle(),
+        supabaseBrowser
+          .from("server_credit_purchases")
+          .select("total_amount_brl")
+          .eq("tenant_id", tid)
+          .gte("created_at", mesStartStr)
+          .lte("created_at", mesEndStr),
+        supabaseBrowser.rpc("get_fin_saldos_contas"),
       ]);
       if (isStale()) return; // uma troca de mês mais nova já começou
 
@@ -450,28 +437,6 @@ function FinanceiroPageContent() {
         setCategoriasDB(categoriasCarregadas);
       }
 
-      // ✅ Sincroniza Entradas do Dashboard automaticamente + calcula saldo
-      // de todas as contas numa chamada só (get_fin_saldos_contas — ver
-      // docs/sql/fin_saldos_contas_bundle_rpc.sql). As duas rodam em
-      // paralelo por performance — mas desde 26/08/2026 (pedido do Márcio:
-      // amarrar os lançamentos automáticos de IPTV na conta Mercado Pago
-      // PJ, exclusiva do IPTV) o sync passou a escrever com um conta_id
-      // real, então em teoria o saldo calculado aqui pode vir 1 sync
-      // atrasado (corrige sozinho no próximo load/sync). Aceito — a busca
-      // de transações do mês logo abaixo é que precisa mesmo esperar o
-      // sync terminar, porque exibe os lançamentos sincronizados.
-      const [, saldosRes] = await Promise.all([
-        sincronizarRendimentos(
-          tid,
-          dateObj,
-          resContas.data || [],
-          categoriasCarregadas,
-        ),
-        supabaseBrowser.rpc("get_fin_saldos_contas"),
-      ]);
-
-      if (isStale()) return;
-
       if (saldosRes.error) {
         addToast(
           "error",
@@ -485,6 +450,51 @@ function FinanceiroPageContent() {
         saldos[c.id] = Number(saldosMap[c.id] ?? 0);
       }
       setSaldosContas(saldos);
+
+      // ✅ Calcula valorIptv/valorDespesas aqui (não mais dentro de
+      // sincronizarRendimentos) — resF/resPurchases já vieram na mesma
+      // onda de contas/categorias/saldo, lá em cima.
+      const hoje = new Date();
+      const isMesAtual =
+        dateObj.getMonth() === hoje.getMonth() &&
+        dateObj.getFullYear() === hoje.getFullYear();
+      const mesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      const isMesAnterior =
+        dateObj.getMonth() === mesPassado.getMonth() &&
+        dateObj.getFullYear() === mesPassado.getFullYear();
+
+      let valorIptv = 0;
+      if (isMesAtual) {
+        valorIptv =
+          Number(resF.data?.clients_paid_month_brl_estimated || 0) +
+          Number(resF.data?.reseller_paid_month_brl || 0);
+      } else if (isMesAnterior) {
+        valorIptv =
+          Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) +
+          Number(resF.data?.reseller_paid_prev_month_brl || 0);
+      }
+      const valorDespesas = (resPurchases.data || []).reduce(
+        (acc, row) => acc + Number(row.total_amount_brl),
+        0,
+      );
+
+      // ✅ Achado 26/08/2026 (pedido do Márcio, página às vezes demorando
+      // pra carregar): antes esperava a escrita (2 upserts) terminar ANTES
+      // de buscar a lista do mês — agora dispara em paralelo (sem esperar,
+      // erros já viram toast por dentro da própria função) e usa os MESMOS
+      // valorIptv/valorDespesas já calculados acima pra corrigir os 2
+      // lançamentos na lista assim que ela chega, sem esperar a escrita
+      // confirmar no banco.
+      if (isMesAtual || isMesAnterior) {
+        sincronizarRendimentos(
+          tid,
+          dateObj,
+          resContas.data || [],
+          categoriasCarregadas,
+          valorIptv,
+          valorDespesas,
+        ).catch(() => {});
+      }
 
       // Cria as strings de timestamp para a data de pagamento
       const startOfMonthTimestamp = `${startOfMonth}T00:00:00.000Z`;
@@ -527,6 +537,20 @@ function FinanceiroPageContent() {
         data_pagamento: t.data_pagamento,
         emprestimo_id: t.emprestimo_id,
       }));
+
+      // ✅ Corrige os 2 lançamentos automáticos com o valor recém-calculado
+      // acima, sem esperar a escrita em background (disparada logo acima)
+      // confirmar — evita mostrar um valor de uma sincronização anterior
+      // por 1 load. Só faz sentido pro mês atual/anterior (onde o sync
+      // realmente roda); em qualquer outro mês, o valor já salvo no banco
+      // é o que vale.
+      if (isMesAtual || isMesAnterior) {
+        for (const t of formatadas) {
+          if (t.descricao === "IPTV - Rendimentos") t.valor = valorIptv;
+          else if (t.descricao === "IPTV - Recarga de Servidores")
+            t.valor = valorDespesas;
+        }
+      }
 
       if (isStale()) return;
       setTransacoes(formatadas);
