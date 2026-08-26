@@ -630,6 +630,21 @@ export async function resolveAppativaAppRenewal(
   const result = await consultarAtivacao(apiKey, payment.appativa_historico_id);
   if (!("data" in result)) {
     prodLog("appativa_resolve.consultar_falhou", { paymentId, message: result.error });
+    // ✅ Achado 26/08/2026 (Márcio perguntou "por que o check de 30s não
+    // pegou, se a Appativa confirmou em 23s?"): sem isso, uma falha real na
+    // chamada (timeout, 5xx, lag de leitura logo após o solicitar-ativacao)
+    // virava "pending" em silêncio — indistinguível de "ainda em fila do
+    // lado deles" e só visível no console.log do Vercel (que não dá pra
+    // consultar depois). Sentry (level warning, não crash) dá rastro
+    // consultável via API pra próxima vez que isso acontecer. Esperado
+    // aparecer 1-2x logo após o solicitar-ativacao (undocumented lag do
+    // ?id= deles) — só vira sinal de alerta de verdade se repetir toda
+    // tentativa de um mesmo pagamento.
+    Sentry.captureMessage("appativa_resolve: consultar-ativacao falhou", {
+      level: "warning",
+      tags: { kind: "client_portal_error", where: "appativa_consultar_ativacao" },
+      extra: { paymentId, tenantId, historicoId: payment.appativa_historico_id, error: result.error },
+    });
     return { outcome: "pending" };
   }
 
