@@ -628,6 +628,7 @@ export default function ApiServerPage() {
   function partnerLabel(p: string) {
     const u = String(p || "").toUpperCase();
     if (u === "APPATIVA") return "Appativa";
+    if (u === "DUPLECAST") return "Duplecast";
     return p || "--";
   }
 
@@ -668,12 +669,19 @@ export default function ApiServerPage() {
     }
   }
 
+  // ✅ Duplecast (achado 26/08/2026) — mesmo botão "Sincronizar saldo" do
+  // parceiro, só que aponta pra rota que fala com a VM em vez da API da
+  // Appativa. Escolhida pelo provider da linha.
   async function handleSyncCredits(row: PartnerIntegration) {
     setSyncingCreditsFor(row.id);
     try {
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess?.session?.access_token;
-      const res = await fetch("/api/integrations/appativa/sync-credits", {
+      const syncUrl =
+        row.provider === "DUPLECAST"
+          ? "/api/integrations/duplecast/sync-credits"
+          : "/api/integrations/appativa/sync-credits";
+      const res = await fetch(syncUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1062,32 +1070,32 @@ export default function ApiServerPage() {
                     </div>
                     <div className="flex gap-2 shrink-0">
                       {row.provider === "APPATIVA" && (
-                        <>
-                          <IconActionBtn
-                            title="Nova recarga"
-                            tone="green"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRecargaAppativaFor(row);
-                            }}
-                          >
-                            <IconMoney />
-                          </IconActionBtn>
-                          <IconActionBtn
-                            title="Sincronizar saldo"
-                            tone="blue"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSyncCredits(row);
-                            }}
-                          >
-                            {syncingCreditsFor === row.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <IconSync />
-                            )}
-                          </IconActionBtn>
-                        </>
+                        <IconActionBtn
+                          title="Nova recarga"
+                          tone="green"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRecargaAppativaFor(row);
+                          }}
+                        >
+                          <IconMoney />
+                        </IconActionBtn>
+                      )}
+                      {(row.provider === "APPATIVA" || row.provider === "DUPLECAST") && (
+                        <IconActionBtn
+                          title="Sincronizar saldo"
+                          tone="blue"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSyncCredits(row);
+                          }}
+                        >
+                          {syncingCreditsFor === row.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <IconSync />
+                          )}
+                        </IconActionBtn>
                       )}
                       <IconActionBtn
                         title="Editar"
@@ -1123,11 +1131,11 @@ export default function ApiServerPage() {
                     </div>
                   </div>
                   <div className="p-4 sm:p-5 text-sm space-y-2">
-                    {row.provider === "APPATIVA" && (
+                    {(row.provider === "APPATIVA" || row.provider === "DUPLECAST") && (
                       <>
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground">
-                            🧾 Créditos
+                            🧾 {row.provider === "DUPLECAST" ? "Códigos disponíveis" : "Créditos"}
                           </span>
                           <span
                             className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
@@ -1155,7 +1163,7 @@ export default function ApiServerPage() {
                         )}
                         <div className="flex justify-between items-center">
                           <span className="text-muted-foreground">
-                            💰 Valor do crédito
+                            💰 {row.provider === "DUPLECAST" ? "Valor do código" : "Valor do crédito"}
                           </span>
                           <span className="font-medium text-foreground/90">
                             {row.credit_unit_price != null
@@ -1166,13 +1174,15 @@ export default function ApiServerPage() {
                               : "-- (editar pra definir)"}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setCatalogModalFor(row.id)}
-                          className="w-full h-9 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
-                        >
-                          📱 Aplicativos disponíveis
-                        </button>
+                        {row.provider === "APPATIVA" && (
+                          <button
+                            type="button"
+                            onClick={() => setCatalogModalFor(row.id)}
+                            className="w-full h-9 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            📱 Aplicativos disponíveis
+                          </button>
+                        )}
                       </>
                     )}
                     {row.api_url && (

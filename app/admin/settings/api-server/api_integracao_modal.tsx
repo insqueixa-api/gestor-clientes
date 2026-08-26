@@ -94,7 +94,14 @@ export default function ApiIntegracaoModal({
     }
   }, [integration]);
 
-  const canSave = label.trim() && apiKey.trim();
+  // ✅ Duplecast (achado 26/08/2026, pedido do Márcio: migrar da Appativa
+  // pra cá — mais barato) não autentica por chave de API, é login de
+  // revenda (e-mail/senha) resolvido pela VM (whatsapp-service, FlareSolverr
+  // pro Cloudflare) — ver app/api/integrations/duplecast/sync-credits.
+  const isDuplecast = provider === "DUPLECAST";
+  const canSave = isDuplecast
+    ? !!(label.trim() && loginEmail.trim() && loginPassword.trim())
+    : !!(label.trim() && apiKey.trim());
 
   async function handleSave() {
     if (!canSave) return;
@@ -112,7 +119,7 @@ export default function ApiIntegracaoModal({
         label: label.trim(),
         login_email: loginEmail.trim() || null,
         login_password: loginPassword.trim() || null,
-        api_key: apiKey.trim(),
+        api_key: apiKey.trim() || null,
         api_url: normalizeApiUrl(apiUrl) || null,
         credit_unit_price:
           parsedCreditUnitPrice != null && Number.isFinite(parsedCreditUnitPrice)
@@ -168,6 +175,7 @@ export default function ApiIntegracaoModal({
               className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors cursor-pointer"
             >
               <option value="APPATIVA">Appativa (Ative App Mídias)</option>
+              <option value="DUPLECAST">Duplecast (login de revenda)</option>
             </select>
           </div>
 
@@ -223,22 +231,30 @@ export default function ApiIntegracaoModal({
             />
           </div>
 
-          <div className="sm:col-span-2">
-            <label className="block text-[10px] font-medium text-emerald-500 mb-1.5 uppercase tracking-wider">
-              Chave de API
-            </label>
-            <input
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Ex: ak_live_..."
-              type="password"
-              className="w-full h-11 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card transition-colors font-mono text-xs"
-            />
-            <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">
-              Se o parceiro trocar a chave, atualize aqui — o código sempre
-              usa a que estiver salva no momento.
-            </p>
-          </div>
+          {!isDuplecast && (
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] font-medium text-emerald-500 mb-1.5 uppercase tracking-wider">
+                Chave de API
+              </label>
+              <input
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Ex: ak_live_..."
+                type="password"
+                className="w-full h-11 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-sm text-foreground outline-none focus:border-emerald-500 focus:bg-card transition-colors font-mono text-xs"
+              />
+              <p className="text-[10px] text-foreground/70 mt-1.5 ml-1">
+                Se o parceiro trocar a chave, atualize aqui — o código sempre
+                usa a que estiver salva no momento.
+              </p>
+            </div>
+          )}
+          {isDuplecast && (
+            <div className="sm:col-span-2 p-3 rounded-xl border border-sky-500/30 bg-sky-500/10 text-xs text-sky-700 dark:text-sky-400">
+              ℹ️ Duplecast não usa chave de API — o e-mail/senha de revenda
+              acima é usado pra logar via VM (que resolve o Cloudflare deles).
+            </div>
+          )}
 
           <div className="sm:col-span-2">
             <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
