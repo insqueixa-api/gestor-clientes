@@ -39,9 +39,15 @@ const fmtBRL = (v: number) =>
   );
 
 // Mesma paleta do card "Evolução Consolidada" (components/charts/evolucao-client.tsx):
-// previsto = cinza esmaecido (só contexto), executado = cor cheia, desvio = âmbar do "Ajustes".
+// previsto = cinza esmaecido (só contexto), executado = cor cheia.
+//
+// ✅ Achado 26/08/2026 (pedido do Márcio): estourar o previsto usava uma
+// cor âmbar fixa pra QUALQUER categoria — inclusive receita, onde estourar
+// a meta é bom (vendeu mais que o esperado), não um alerta. Corrigido:
+// "estourou" agora usa o tom mais forte/escuro da PRÓPRIA cor da categoria
+// (accents[x].bar, já o tom mais escuro do degradê) — vermelho mais forte
+// pra despesa, verde mais forte pra receita.
 const PREVISTO_COLOR = "rgba(15,23,42,0.45)";
-const OVERFLOW_COLOR = "#b45309"; // amber-700 — mesmo tom do "Ajustes" no gráfico
 
 const accents: Record<
   AccentColor,
@@ -285,7 +291,7 @@ export function RankingCard({
                       <span
                         className="font-medium"
                         style={{
-                          color: isOver ? OVERFLOW_COLOR : c.execColor,
+                          color: isOver ? c.bar : c.execColor,
                         }}
                       >
                         {fmt(item.executado)}
@@ -310,7 +316,7 @@ export function RankingCard({
                         style={{
                           left: `${basePct}%`,
                           width: `${overPct}%`,
-                          background: OVERFLOW_COLOR,
+                          background: c.bar,
                         }}
                       />
                     )}
