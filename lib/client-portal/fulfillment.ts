@@ -275,7 +275,7 @@ export async function markAppRenewalPaid(
   //
   // ✅ Achado 26/08/2026 (pedido do Márcio): quando a solicitação é aceita
   // e as checagens automáticas vão rodar, o sino/e-mail de "pendente" NÃO
-  // dispara na hora — só se as 2 checagens (5s + 30s) terminarem sem
+  // dispara na hora — só se as checagens (5 em 5s por 1 min) terminarem sem
   // confirmar. Assim, no caso comum (Appativa confirma rápido), nunca chega
   // a aparecer como pendente pro admin. Em qualquer outro caminho (sem
   // mapeamento, sem MAC, falha ao solicitar, etc.) o aviso continua
@@ -330,16 +330,17 @@ export async function markAppRenewalPaid(
                 .eq("id", paymentRowId)
                 .eq("tenant_id", tenantId);
 
-              // ✅ Duas checagens automáticas (5s + 30s depois), pedido do
-              // Márcio 25/08/2026: sem volume pra justificar polling
-              // recorrente — só duas tentativas de fechar sozinho o caso
-              // comum, depois disso fica manual pro botão "Ver status"
-              // resolver quando o admin quiser. `after()` roda DEPOIS da
-              // resposta HTTP já ter sido enviada — não atrasa o webhook do
-              // MP/Stripe nem o polling do navegador do cliente.
-              // resolveAppativaAppRenewal já sai cedo se já estiver
-              // manual_done, então a 2ª tentativa é barata quando a 1ª já
-              // resolveu.
+              // ✅ Checagem automática de 5 em 5s por 1 min (achado
+              // 26/08/2026, pedido do Márcio: uma renovação real levou ~2min
+              // entre pago e confirmado — as antigas 2 tentativas, 5s+30s,
+              // não alcançavam, só fechou quando ele clicou "Ver status" à
+              // mão). Ainda sem cron recorrente — depois de 1 min sem
+              // confirmar, fica manual pro botão "Ver status" resolver
+              // quando o admin quiser. `after()` roda DEPOIS da resposta
+              // HTTP já ter sido enviada — não atrasa o webhook do MP/Stripe
+              // nem o polling do navegador do cliente. resolveAppativaAppRenewal
+              // já sai cedo se já estiver manual_done, então cada tentativa
+              // extra é barata quando uma anterior já resolveu.
               //
               // ⚠️ Achado 26/08/2026 (revisão pós-implementação, mesmo
               // anti-padrão caçado em docs/perf-audit-checklist.md): o sync
@@ -356,19 +357,26 @@ export async function markAppRenewalPaid(
                   prodLog("markAppRenewalPaid: sync de créditos falhou", { message: e?.message }),
                 );
                 try {
-                  await new Promise((resolve) => setTimeout(resolve, 5_000));
-                  const first = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
-                  if (first.outcome === "done") return;
+                  const POLL_INTERVAL_MS = 5_000;
+                  const POLL_TOTAL_MS = 60_000;
+                  const attempts = Math.floor(POLL_TOTAL_MS / POLL_INTERVAL_MS);
+                  let resolved = false;
+                  for (let i = 0; i < attempts; i++) {
+                    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+                    const check = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
+                    if (check.outcome === "done") {
+                      resolved = true;
+                      break;
+                    }
+                  }
 
-                  await new Promise((resolve) => setTimeout(resolve, 30_000));
-                  const second = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
-                  if (second.outcome === "done") return;
-
-                  // ✅ As 2 tentativas automáticas não confirmaram — só
-                  // agora dispara o sino/e-mail de "pendente" (achado
-                  // 26/08/2026: evita avisar o admin de algo que se resolve
-                  // sozinho em segundos no caso comum).
-                  await notifyAppRenewalManualPending(supabaseAdmin, tenantId, paymentRowId, payment, origin);
+                  if (!resolved) {
+                    // ✅ 1 min de tentativas automáticas não confirmou — só
+                    // agora dispara o sino/e-mail de "pendente" (achado
+                    // 26/08/2026: evita avisar o admin de algo que se resolve
+                    // sozinho em segundos no caso comum).
+                    await notifyAppRenewalManualPending(supabaseAdmin, tenantId, paymentRowId, payment, origin);
+                  }
                 } catch (e: any) {
                   prodLog("markAppRenewalPaid: checagem automática falhou", { message: e?.message });
                 }

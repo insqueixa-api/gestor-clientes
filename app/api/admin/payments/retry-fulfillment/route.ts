@@ -27,7 +27,11 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 // ✅ Cobre as 2 checagens automáticas da Appativa agendadas via after() em
 // markAppRenewalPaid (5s + 30s + margem) — não atrasa a resposta ao admin.
-export const maxDuration = 60;
+// ✅ 90s (achado 26/08/2026): a checagem automática da Appativa (after(), em
+// markAppRenewalPaid) agora tenta de 5 em 5s por até 1 min — precisa de
+// espaço além dos 60s antigos pra rodar até o fim antes do Vercel matar a
+// function.
+export const maxDuration = 90;
 
 function getAppOrigin() {
   const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();

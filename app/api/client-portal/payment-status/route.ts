@@ -16,7 +16,11 @@ export const dynamic = "force-dynamic";
 // ✅ Cobre as 2 checagens automáticas da Appativa agendadas via after() em
 // markAppRenewalPaid (5s + 30s + margem de rede) — não atrasa a resposta
 // em si, só mantém a function viva em background depois dela.
-export const maxDuration = 60;
+// ✅ 90s (achado 26/08/2026): a checagem automática da Appativa (after(), em
+// markAppRenewalPaid) agora tenta de 5 em 5s por até 1 min — precisa de
+// espaço além dos 60s antigos pra rodar até o fim antes do Vercel matar a
+// function.
+export const maxDuration = 90;
 
 // ✅ Nunca cachear respostas do portal
 const NO_STORE_HEADERS = {

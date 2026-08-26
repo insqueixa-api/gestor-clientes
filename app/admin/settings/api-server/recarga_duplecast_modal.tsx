@@ -72,7 +72,15 @@ export default function RecargaDuplecastModal({
   const [saving, setSaving] = useState(false);
 
   const [qty, setQty] = useState("");
+  // ✅ "Por Total" (26/08/2026, pedido do Márcio: "eu pago 25 USD por 10
+  // códigos... vou preencher o valor total, aí sim vai calcular o valor
+  // unitário" — a Duplecast vende em pacote, ele não sabe o preço por
+  // código de cabeça). Default "total", diferente do recarga_appativa_modal
+  // (que só vende crédito a crédito, então o custo unitário já é o dado
+  // natural de entrada).
+  const [amountMode, setAmountMode] = useState<"total" | "unit">("total");
   const [unitCost, setUnitCost] = useState("");
+  const [totalCost, setTotalCost] = useState("");
   const [currency, setCurrency] = useState("BRL");
   const [fxRate, setFxRate] = useState("1");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
@@ -81,7 +89,15 @@ export default function RecargaDuplecastModal({
   );
   const [notes, setNotes] = useState("");
 
-  const totalOriginal = (Number(qty) || 0) * (Number(unitCost) || 0);
+  const qtyNum = Number(qty) || 0;
+  const totalOriginal =
+    amountMode === "total" ? Number(totalCost) || 0 : qtyNum * (Number(unitCost) || 0);
+  const effectiveUnitCost =
+    amountMode === "total"
+      ? qtyNum > 0
+        ? (Number(totalCost) || 0) / qtyNum
+        : 0
+      : Number(unitCost) || 0;
   const totalBrl =
     currency === "BRL" ? totalOriginal : totalOriginal * (Number(fxRate) || 1);
 
@@ -116,7 +132,12 @@ export default function RecargaDuplecastModal({
       onError?.("A quantidade de códigos deve ser maior que zero.");
       return;
     }
-    if (Number(unitCost) < 0) {
+    if (amountMode === "total") {
+      if (!totalCost || Number(totalCost) <= 0) {
+        onError?.("O valor total deve ser maior que zero.");
+        return;
+      }
+    } else if (Number(unitCost) < 0) {
       onError?.("O custo unitário não pode ser negativo.");
       return;
     }
@@ -153,7 +174,7 @@ export default function RecargaDuplecastModal({
           `[${paymentMethod}]`,
           `${qty} códigos`,
           currency !== "BRL" ? `· Câmbio: ${Number(fxRate).toFixed(4)}` : null,
-          `· Unit: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(Number(unitCost) || 0)}`,
+          `· Unit: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(effectiveUnitCost)}`,
           notes.trim() ? `· ${notes.trim()}` : null,
         ]
           .filter(Boolean)
@@ -245,6 +266,31 @@ export default function RecargaDuplecastModal({
         </div>
 
         <div className="p-4 bg-transparent rounded-xl border border-border space-y-4">
+          <div className="flex items-center gap-1 p-1 bg-muted/50 rounded-lg w-fit">
+            <button
+              type="button"
+              onClick={() => setAmountMode("total")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                amountMode === "total"
+                  ? "bg-emerald-600 text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Valor Total
+            </button>
+            <button
+              type="button"
+              onClick={() => setAmountMode("unit")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                amountMode === "unit"
+                  ? "bg-emerald-600 text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Custo por Código
+            </button>
+          </div>
+
           <div className="grid grid-cols-12 gap-3">
             <div className="col-span-4 space-y-1">
               <Label>Qtd. Códigos</Label>
@@ -268,16 +314,41 @@ export default function RecargaDuplecastModal({
                 <option value="EUR">EUR (€)</option>
               </Select>
             </div>
-            <div className="col-span-4 space-y-1">
-              <Label>Custo Unit.</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={unitCost}
-                onChange={(e) => setUnitCost(e.target.value)}
-              />
-            </div>
+            {amountMode === "total" ? (
+              <div className="col-span-4 space-y-1">
+                <Label>Valor Total</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={totalCost}
+                  onChange={(e) => setTotalCost(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+            ) : (
+              <div className="col-span-4 space-y-1">
+                <Label>Custo Unit.</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={unitCost}
+                  onChange={(e) => setUnitCost(e.target.value)}
+                />
+              </div>
+            )}
           </div>
+
+          {amountMode === "total" && qtyNum > 0 && (
+            <div className="text-xs text-muted-foreground">
+              ≈ Custo por código:{" "}
+              <span className="font-medium text-foreground/90">
+                {new Intl.NumberFormat("pt-BR", {
+                  style: "currency",
+                  currency,
+                }).format(effectiveUnitCost)}
+              </span>
+            </div>
+          )}
 
           {currency !== "BRL" && (
             <div className="space-y-1 animate-in slide-in-from-top-2">
