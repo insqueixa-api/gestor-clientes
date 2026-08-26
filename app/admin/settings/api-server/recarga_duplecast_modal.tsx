@@ -200,6 +200,18 @@ export default function RecargaDuplecastModal({
         });
       if (insErr) throw insErr;
 
+      // ✅ Grava o custo real por código no card do parceiro (26/08/2026,
+      // pedido do Márcio) — antes só dava pra ver "Valor do código" editando
+      // manualmente; agora toda recarga já atualiza sozinha com o valor
+      // real dessa compra (convertido pra BRL, mesma moeda que o card exibe).
+      if (qtyNum > 0) {
+        await supabaseBrowser
+          .from("api_integrations")
+          .update({ credit_unit_price: totalBrl / qtyNum })
+          .eq("id", partnerId)
+          .eq("tenant_id", tenantId);
+      }
+
       // ✅ Só lança a despesa e sincroniza o saldo — a recarga em si já foi
       // feita manualmente no painel de revenda da Duplecast ("Buy Codes")
       // antes de preencher este modal (mesmo espírito do recarga_appativa_modal.tsx).

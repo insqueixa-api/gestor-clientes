@@ -181,6 +181,20 @@ export default function RecargaAppativaModal({
         });
       if (insErr) throw insErr;
 
+      // ✅ Grava o custo real por crédito no card do parceiro (26/08/2026,
+      // pedido do Márcio) — antes só dava pra ver "Valor do crédito"
+      // editando manualmente; agora toda recarga já atualiza sozinha com o
+      // valor real dessa compra (convertido pra BRL, mesma moeda que o card
+      // exibe).
+      const qtyNum = Number(qty) || 0;
+      if (qtyNum > 0) {
+        await supabaseBrowser
+          .from("api_integrations")
+          .update({ credit_unit_price: totalBrl / qtyNum })
+          .eq("id", partnerId)
+          .eq("tenant_id", tenantId);
+      }
+
       // ✅ Só lança a despesa e sincroniza o saldo — a recarga em si já foi
       // feita manualmente no site da Appativa antes de preencher este
       // modal (mesmo espírito de "registra o log, sincroniza depois" do
