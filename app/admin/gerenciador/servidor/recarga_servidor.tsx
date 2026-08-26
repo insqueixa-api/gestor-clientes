@@ -167,6 +167,27 @@ export default function RecargaServidorModal({
     fetchFx();
   }, [currency]);
 
+  // ✅ Sincroniza "IPTV - Recarga de Servidores" em fin_transacoes na hora
+  // (achado 26/08/2026, pedido do Márcio: antes só recalculava quando
+  // alguém abria a tela Financeiro Pessoal, deixando a Evolução
+  // Consolidada e a lista de lançamentos desatualizadas até a próxima
+  // visita). Fail-soft — nunca bloqueia a recarga em si por causa disso.
+  async function syncIptvDespesa() {
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      await fetch("/api/finance/sync-iptv-despesa", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+    } catch {
+      // não bloqueia a recarga por falha no sync do financeiro
+    }
+  }
+
   // ✅ NOVO: lê o saldo real e atualizado do banco; se subiu acima do limite
   // crítico, resolve a notificação de saldo baixo no sino (se existir)
   async function resolveIfCreditsOk() {
@@ -388,6 +409,7 @@ export default function RecargaServidorModal({
 
         // ❌ REMOVIDO: alert("✅ Compra registrada e saldo sincronizado!");
         await resolveIfCreditsOk();
+        await syncIptvDespesa();
         onSuccess();
         return;
       }
@@ -407,6 +429,7 @@ export default function RecargaServidorModal({
       if (error) throw error;
 
       await resolveIfCreditsOk();
+      await syncIptvDespesa();
       onSuccess();
     } catch (error: any) {
       if (onError) {
