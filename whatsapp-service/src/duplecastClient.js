@@ -122,6 +122,67 @@ async function deviceLogin(siteRoot, mac, deviceKey) {
   return { jar, userAgent };
 }
 
+// ✅ Login de REVENDA (achado 26/08/2026, pedido do Márcio: quer ver os
+// códigos de ativação disponíveis, pra migrar o Duplecast da Appativa —
+// mais caro — pra cá). Diferente do deviceLogin (mac+device_key, sessão
+// presa a UM dispositivo): aqui é a conta de revenda inteira
+// (username/password, mesmos login_email/login_password já salvos em
+// app_integrations — não usados desde que o create/check/delete migraram
+// pro device_login). Campos confirmados ao vivo inspecionando o HTML real
+// da página (26/08/2026): username/password/_csrf_token, POST /client/login.
+async function resellerLogin(siteRoot, username, password) {
+  const loginUrl = `${siteRoot}/client/login`;
+  const { html, cookies, userAgent } = await solveChallenge(loginUrl);
+  const token = extractCsrfToken(html);
+  if (!token) throw new Error("CSRF token não encontrado na página de login de revenda (o Cloudflare pode ter mudado o desafio).");
+
+  const jar = new CookieJar(cookies);
+
+  const params = new URLSearchParams();
+  params.set("_csrf_token", token);
+  params.set("username", username);
+  params.set("password", password);
+
+  const postRes = await fetch(loginUrl, {
+    method: "POST",
+    headers: baseHeaders(jar, userAgent, loginUrl, true, siteRoot),
+    body: params.toString(),
+    redirect: "manual",
+  });
+  jar.absorb(postRes.headers);
+
+  if (postRes.status !== 302 || String(postRes.headers.get("location") || "").includes("/login")) {
+    throw new Error("Login de revenda falhou no Duplecast. Confira usuário/senha cadastrados nesse parceiro.");
+  }
+
+  return { jar, userAgent };
+}
+
+// ✅ "All 305 | Unused 11 | Used 294" no topo da grid — extrai os 3
+// contadores por regex (mesmo espírito de parseExpireDate/parseIsTrial:
+// nunca confia em estrutura de tabela, só no texto visível). "Unused" é o
+// que interessa como "créditos disponíveis" (código de ativação pronto
+// pra usar, ainda não vinculado a nenhum MAC).
+function parseCodeCounts(html) {
+  const all = html.match(/All\s*<[^>]*>\s*(\d+)/i) || html.match(/All[^0-9]{0,40}(\d+)/i);
+  const unused = html.match(/Unused\s*<[^>]*>\s*(\d+)/i) || html.match(/Unused[^0-9]{0,40}(\d+)/i);
+  const used = html.match(/Used\s*<[^>]*>\s*(\d+)/i) || html.match(/[^Un]Used[^0-9]{0,40}(\d+)/i);
+  return {
+    all: all ? Number(all[1]) : null,
+    unused: unused ? Number(unused[1]) : null,
+    used: used ? Number(used[1]) : null,
+  };
+}
+
+async function listAvailableCodes(siteRoot, jar, userAgent) {
+  const url = `${siteRoot}/client/plugin/duplecast/client_codes/index/`;
+  const res = await fetch(url, { headers: baseHeaders(jar, userAgent, url) });
+  jar.absorb(res.headers);
+  const html = await res.text();
+  const counts = parseCodeCounts(html);
+  return { ...counts, html };
+}
+
 async function fetchDeviceMain(siteRoot, jar, userAgent) {
   const url = `${siteRoot}/plugin/duplecast/device_main/`;
   const res = await fetch(url, { headers: baseHeaders(jar, userAgent, url) });
@@ -252,7 +313,7 @@ async function deletePlaylistByName(siteRoot, jar, userAgent, searchName, pin) {
 }
 
 // Ponto de entrada único, chamado pela rota /duplecast/action.
-export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, debugUrl }) {
+export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, debugUrl, username, password }) {
   if (!baseUrl) throw new Error("baseUrl é obrigatório.");
 
   const siteRoot = String(baseUrl).replace(/\/$/, "");
@@ -268,6 +329,17 @@ export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey,
     if (!debugUrl) throw new Error("debugUrl é obrigatório para debug_fetch.");
     const { html } = await solveChallenge(debugUrl);
     return { html };
+  }
+
+  // ✅ Créditos disponíveis do parceiro (achado 26/08/2026) — login de
+  // REVENDA (username/password), não de dispositivo. `includeHtml` é só
+  // pra depuração inicial (confirmar que o regex de contagem bateu com a
+  // página real) — remover depois de confirmado.
+  if (action === "list_codes") {
+    if (!username || !password) throw new Error("username e password são obrigatórios para list_codes.");
+    const { jar, userAgent } = await resellerLogin(siteRoot, username, password);
+    const { all, unused, used, html } = await listAvailableCodes(siteRoot, jar, userAgent);
+    return { all, unused, used, htmlSnippet: html.slice(0, 4000) };
   }
 
   if (!macValue || !deviceKey) throw new Error("macValue e deviceKey são obrigatórios.");
