@@ -55,8 +55,10 @@ const API_HEADERS = {
 
 // Canais que não fazem parte do seu catálogo — jogos que só tenham transmissão
 // por eles são descartados do sync  (não é canal de TV real pro seu uso: VBTV
-// e Antel são de outros países, bet365 é casa de apostas, não canal).
-const CANAIS_BLOQUEADOS = ['vbtv','Youtube Canal do Benja','Youtube NSports','Nsports', 'Canal GolBrasil', 'Xsports', 'Youtube Paulistão', 'Youtube Canal GOAT', 'Youtube SportyNet', 'SportyNet', 'Youtube Xsports', 'getv', 'youtube uol', 'bet365', 'fanatiz', 'antel tv internacional', 'youtube metrópoles', 'Youtube TNT Sports Brasil']
+// e Antel são de outros países, bet365 é casa de apostas, não canal). Qualquer
+// canal "Youtube ..." é bloqueado à parte (ver canalBloqueado), não precisa
+// listar aqui — só entram nesta lista os que não começam com "Youtube".
+const CANAIS_BLOQUEADOS = ['vbtv', 'Nsports', 'Canal GolBrasil', 'Xsports', 'SportyNet', 'getv', 'bet365', 'fanatiz', 'antel tv internacional']
 
 // ✅ Normaliza pra bloqueio funcionar com o que for colado ali (copiar da
 // tela e colar direto, sem ajustar nada): minúsculo (.includes() é
@@ -68,6 +70,7 @@ function normalizarNomeCanal(s: string): string {
 
 function canalBloqueado(nome: string): boolean {
   const n = normalizarNomeCanal(nome)
+  if (n.startsWith('youtube')) return true
   return CANAIS_BLOQUEADOS.some((b) => n.includes(normalizarNomeCanal(b)))
 }
 
