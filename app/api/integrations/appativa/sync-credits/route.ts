@@ -26,10 +26,26 @@ export async function POST(req: NextRequest) {
   if (!integration_id) {
     return NextResponse.json({ ok: false, error: "integration_id é obrigatório" }, { status: 400 });
   }
+  // ✅ Valor por crédito dessa recarga (opcional — só vem preenchido quando
+  // chamado pelo modal "Nova Recarga", ver recarga_appativa_modal.tsx).
+  // Achado 26/08/2026 (Márcio, recarga não persistia): o modal tentava
+  // gravar isso direto do navegador (supabaseBrowser) — falhava em
+  // silêncio. Gravado aqui, server-side, junto com o resto do sync.
+  const rawUnitPrice = body?.credit_unit_price;
+  const creditUnitPrice =
+    rawUnitPrice != null && Number.isFinite(Number(rawUnitPrice)) ? Number(rawUnitPrice) : null;
 
   const result = await syncAppativaCredits(auth.supabase, tenant_id);
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
+  }
+
+  if (creditUnitPrice != null) {
+    await auth.supabase
+      .from("api_integrations")
+      .update({ credit_unit_price: creditUnitPrice })
+      .eq("id", integration_id)
+      .eq("tenant_id", tenant_id);
   }
 
   return NextResponse.json({ ok: true, credits_available: result.credits });

@@ -8,8 +8,21 @@
 // login_password salvos aqui — não mais usados pro fluxo por dispositivo,
 // que hoje usa mac+device_key). Mesmo padrão de app/api/integrations/
 // appativa/sync-credits/route.ts, só que a fonte é a VM, não uma API key.
+//
+// ⚠️ Achado 26/08/2026 (Márcio, recarga não persistia): o modal de recarga
+// tentava gravar credit_unit_price direto do navegador (supabaseBrowser) —
+// falhava em silêncio (sem erro visível, sem persistir). Movido pra cá,
+// junto com credits_available, na MESMA chamada server-side (service role,
+// sem depender de RLS via sessão do navegador) — o modal agora só manda o
+// valor calculado no body.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
+import { notify, resolveNotification } from "@/lib/notifications/notify";
+
+// ✅ Mesmo limiar do parceiro Appativa (lib/integrations/appativa.ts) —
+// pedido do Márcio 26/08/2026: "habilitou o sino tbm para <5, igual o
+// outro parceiro?".
+const LOW_CREDITS_THRESHOLD = 5;
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -24,10 +37,15 @@ export async function POST(req: NextRequest) {
   if (!integration_id) {
     return NextResponse.json({ ok: false, error: "integration_id é obrigatório" }, { status: 400 });
   }
+  // ✅ Valor por código dessa recarga (opcional — só vem preenchido quando
+  // chamado pelo modal "Nova Recarga", ver recarga_duplecast_modal.tsx).
+  const rawUnitPrice = body?.credit_unit_price;
+  const creditUnitPrice =
+    rawUnitPrice != null && Number.isFinite(Number(rawUnitPrice)) ? Number(rawUnitPrice) : null;
 
   const { data: integ, error: fetchErr } = await supabase
     .from("api_integrations")
-    .select("id, login_email, login_password, api_url")
+    .select("id, label, login_email, login_password, api_url")
     .eq("id", integration_id)
     .eq("tenant_id", tenant_id)
     .eq("provider", "DUPLECAST")
@@ -81,12 +99,40 @@ export async function POST(req: NextRequest) {
 
   const { error: updErr } = await supabase
     .from("api_integrations")
-    .update({ credits_available: credits, credits_last_sync_at: new Date().toISOString() })
+    .update({
+      credits_available: credits,
+      credits_last_sync_at: new Date().toISOString(),
+      ...(creditUnitPrice != null ? { credit_unit_price: creditUnitPrice } : {}),
+    })
     .eq("id", integ.id)
     .eq("tenant_id", tenant_id);
 
   if (updErr) {
     return NextResponse.json({ ok: false, error: "Falha ao salvar saldo" }, { status: 500 });
+  }
+
+  // ✅ Sino de saldo baixo (26/08/2026, pedido do Márcio: "habilitou tbm pro
+  // Duplecast, igual o outro parceiro?") — mesmo limiar/mensagem/padrão de
+  // lib/integrations/appativa.ts (syncAppativaCredits), fail-soft.
+  if (credits < LOW_CREDITS_THRESHOLD) {
+    try {
+      await notify({
+        tenantId: tenant_id,
+        type: "saldo_baixo",
+        title: "🪫 Saldo Baixo — Parceiro",
+        message: `O parceiro "${integ.label}" está com apenas ${credits} código(s) disponível(is). Recarregue para evitar interrupção nas ativações.`,
+        link: "/admin/settings/api-server",
+        sourceId: integ.id,
+      });
+    } catch {
+      // não bloqueia o sync por falha na notificação
+    }
+  } else {
+    try {
+      await resolveNotification(tenant_id, "saldo_baixo", integ.id);
+    } catch {
+      // não bloqueia o sync por falha ao resolver a notificação
+    }
   }
 
   return NextResponse.json({ ok: true, credits_available: credits, all: vmJson.all, used: vmJson.used });
