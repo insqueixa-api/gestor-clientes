@@ -301,7 +301,7 @@ export async function markAppRenewalPaid(
       const isDuplecastApp = appMeta?.name === "DupleCast";
       const wantsAppativaForDuplecast = isDuplecastApp && appMeta?.renewal_source === "appativa";
 
-      if (appativaAppId && (!isDuplecastApp || wantsAppativaForDuplecast)) {
+      if (appativaAppId && !isDuplecastApp) {
         const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
         const values = appRow?.field_values || {};
         const macApp = extractFieldByType(fieldsConfig, values, "mac");
@@ -503,40 +503,93 @@ export async function markAppRenewalPaid(
         }
       } else if (isDuplecastApp) {
         // ============================================================
-        // Renovação paga automática do Duplecast (achado 26/08/2026, pedido
-        // do Márcio — ver lib/apps/duplecast-renewal.ts): consome 1 código
-        // disponível da conta de revenda (sempre "1 Year", mesmo período do
-        // plano cobrado, license_period="annual") e confirma o vencimento
-        // real direto no dispositivo — síncrono, sem webhook/polling (a
-        // ativação da Duplecast já confirma dentro da própria chamada).
+        // Renovação paga automática do Duplecast — com fallback pra
+        // Appativa quando os dois estão mapeados no mesmo app (achado
+        // 26/08/2026, pedido do Márcio: "caso meus créditos do Duplecast
+        // acabem, posso decidir manter o deles"; e depois: "só temos que ter
+        // certeza que realmente está assim, pra não enviar os dois ao mesmo
+        // tempo"). Tenta o 1º (apps.renewal_source, padrão Duplecast); só
+        // tenta o 2º se o 1º FALHAR DE VERDADE na hora (erro síncrono na
+        // própria chamada) — nunca os dois ao mesmo tempo, e nunca depois
+        // que o 1º já foi aceito de verdade. "Falhar" pra Appativa aqui é só
+        // a fila recusar NA HORA (ex: sem crédito, MAC inválido) — depois de
+        // aceita na fila (solicitar-ativacao devolveu um id), a confirmação
+        // real vem depois (webhook/checagens automáticas) e não tem mais
+        // como voltar atrás pro Duplecast, mesma limitação de qualquer fila
+        // assíncrona (o crédito da Appativa já foi debitado nesse ponto).
         const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
         const values = appRow?.field_values || {};
         const macApp = extractFieldByType(fieldsConfig, values, "mac");
-        const deviceKeyApp = extractFieldByType(fieldsConfig, values, "device_key");
+        const keyApp = extractFieldByType(fieldsConfig, values, "device_key");
 
-        if (!macApp || !deviceKeyApp) {
+        if (!macApp) {
           await supabaseAdmin
             .from("client_portal_payments")
-            .update({ fulfillment_error: "Preencha o Device ID (MAC) e a Device Key antes de renovar." })
+            .update({ fulfillment_error: "Preencha o Device ID (MAC) antes de renovar." })
             .eq("id", paymentRowId)
             .eq("tenant_id", tenantId);
         } else {
-          const result = await renewDuplecastWithCode(supabaseAdmin, {
-            tenantId,
-            clientAppId: payment.client_app_id,
-            macValue: macApp,
-            deviceKey: deviceKeyApp,
-            fieldsConfig,
-            fieldValues: values,
-          });
+          const primaryIsAppativa = wantsAppativaForDuplecast;
+          const primaryLabel = primaryIsAppativa ? "Appativa" : "Duplecast";
+          const secondaryLabel = primaryIsAppativa ? "Duplecast" : "Appativa";
 
-          // ⚠️ Narrowing via `"error" in result` — mesmo motivo documentado
-          // nos branches acima (strict:false não estreita bem uniões
-          // discriminadas por negação de boolean).
-          if (!("error" in result)) {
-            // Mesmo guard atômico usado nos sucessos acima — evita reenviar
-            // WhatsApp/log se outra chamada concorrente já concluiu esse
-            // mesmo pagamento.
+          // Duplecast é sempre o parceiro nativo desse app (viável mesmo
+          // sem mapeamento na Appativa); Appativa só é um 2º válido se
+          // também estiver mapeada (appativaAppId).
+          const secondaryAvailable = primaryIsAppativa ? true : !!appativaAppId;
+
+          async function tryDuplecast() {
+            if (!keyApp) return { ok: false as const, error: "Preencha a Device Key antes de renovar." };
+            const r = await renewDuplecastWithCode(supabaseAdmin, {
+              tenantId,
+              clientAppId: payment.client_app_id,
+              macValue: macApp,
+              deviceKey: keyApp,
+              fieldsConfig,
+              fieldValues: values,
+            });
+            return "error" in r ? { ok: false as const, error: r.error } : { ok: true as const, expireDate: r.expireDate, code: r.code };
+          }
+
+          async function tryAppativaQueue() {
+            if (!appativaAppId) return { ok: false as const, error: "Appativa não mapeada nesse app." };
+            const apiKey = await getAppativaApiKey(supabaseAdmin, tenantId);
+            if (!apiKey) return { ok: false as const, error: "Parceiro Appativa sem chave configurada." };
+            const r = await solicitarAtivacao(apiKey, { appativaAppId, macApp, keyApp: keyApp || undefined });
+            return "data" in r ? { ok: true as const, historicoId: String(r.data.id) } : { ok: false as const, error: r.error };
+          }
+
+          const primaryResult = primaryIsAppativa ? await tryAppativaQueue() : await tryDuplecast();
+          let usedSource: "duplecast" | "appativa" = primaryIsAppativa ? "appativa" : "duplecast";
+          let finalResult: { ok: true; expireDate?: string; code?: string; historicoId?: string } | { ok: false; error: string } = primaryResult;
+          let usedFallback = false;
+
+          // ✅ Só tenta o 2º se o 1º falhou DE VERDADE — se o 1º deu certo
+          // (Duplecast confirmado, ou Appativa aceita na fila), este bloco
+          // NUNCA roda. É isso que garante nunca consumir os dois ao mesmo
+          // tempo.
+          if (!primaryResult.ok && secondaryAvailable) {
+            usedFallback = true;
+            usedSource = primaryIsAppativa ? "duplecast" : "appativa";
+            finalResult = primaryIsAppativa ? await tryDuplecast() : await tryAppativaQueue();
+          }
+
+          // ⚠️ Narrowing via `"error" in x` (não `!x.ok`) — mesmo motivo
+          // documentado nos branches acima (strict:false não estreita bem
+          // uniões discriminadas por negação de boolean).
+          if ("error" in finalResult) {
+            const primaryError = "error" in primaryResult ? primaryResult.error : "";
+            const errMsg = usedFallback
+              ? `${primaryLabel}: ${primaryError} · ${secondaryLabel} (fallback): ${finalResult.error}`
+              : `${primaryLabel}: ${primaryError}`;
+            await supabaseAdmin
+              .from("client_portal_payments")
+              .update({ fulfillment_error: errMsg })
+              .eq("id", paymentRowId)
+              .eq("tenant_id", tenantId);
+          } else if (usedSource === "duplecast") {
+            // ✅ Sucesso via Duplecast — síncrono, mesmo fluxo de conclusão
+            // usado pelo GPC Roku acima (marca done, notifica, WhatsApp).
             const { data: claimedRows } = await supabaseAdmin
               .from("client_portal_payments")
               .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null })
@@ -555,8 +608,8 @@ export async function markAppRenewalPaid(
                   tenant_id: tenantId,
                   client_id: payment.client_id,
                   event_type: "APP_RENEWAL_AUTO",
-                  message: `Renovação automática via Duplecast (código ${result.code}) · ${payment.app_name_snapshot || "Aplicativo"}`,
-                  meta: { payment_id: paymentRowId, mac: macApp, code: result.code, source: "duplecast_renew_code" },
+                  message: `Renovação automática via Duplecast (código ${finalResult.code})${usedFallback ? " — fallback, Appativa falhou na hora" : ""} · ${payment.app_name_snapshot || "Aplicativo"}`,
+                  meta: { payment_id: paymentRowId, mac: macApp, code: finalResult.code, source: "duplecast_renew_code", fallback: usedFallback },
                 });
 
                 const { data: client } = await supabaseAdmin
@@ -574,7 +627,7 @@ export async function markAppRenewalPaid(
                     origin,
                     whatsappSession: (serverMeta as any)?.whatsapp_session || "default",
                     appName: payment.app_name_snapshot || "Aplicativo",
-                    appVencimento: result.expireDate,
+                    appVencimento: finalResult.expireDate!,
                   });
                 }
               } catch (e: any) {
@@ -582,11 +635,40 @@ export async function markAppRenewalPaid(
               }
             }
           } else {
+            // ✅ Sucesso via Appativa (aceita na fila) — assíncrono, mesmo
+            // fluxo de checagem/conclusão do branch de Appativa acima
+            // (5 em 5s por 1 min, depois fica manual pro "Ver status").
             await supabaseAdmin
               .from("client_portal_payments")
-              .update({ fulfillment_error: result.error })
+              .update({ appativa_historico_id: finalResult.historicoId, fulfillment_error: null })
               .eq("id", paymentRowId)
               .eq("tenant_id", tenantId);
+
+            deferManualPendingNotify = true;
+            after(async () => {
+              await syncAppativaCredits(supabaseAdmin, tenantId).catch((e: any) =>
+                prodLog("markAppRenewalPaid: sync de créditos falhou", { message: e?.message }),
+              );
+              try {
+                const POLL_INTERVAL_MS = 5_000;
+                const POLL_TOTAL_MS = 60_000;
+                const attempts = Math.floor(POLL_TOTAL_MS / POLL_INTERVAL_MS);
+                let resolved = false;
+                for (let i = 0; i < attempts; i++) {
+                  await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+                  const check = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
+                  if (check.outcome === "done") {
+                    resolved = true;
+                    break;
+                  }
+                }
+                if (!resolved) {
+                  await notifyAppRenewalManualPending(supabaseAdmin, tenantId, paymentRowId, payment, origin);
+                }
+              } catch (e: any) {
+                prodLog("markAppRenewalPaid: checagem automática (fallback Appativa) falhou", { message: e?.message });
+              }
+            });
           }
         }
       }
