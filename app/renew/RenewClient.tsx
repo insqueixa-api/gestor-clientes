@@ -717,12 +717,19 @@ export default function RenewClient() {
     { app_name: string; price_amount: number }[]
   >([]);
 
-  // ✅ Apps elegíveis pro alerta "vencendo em 30 dias" no Bloco 1 — mesma
+  // ✅ Apps elegíveis pro alerta "vencendo em 7 dias" no Bloco 1 — mesma
   // fórmula de vencimento usada na aba Apps (ver expirationDiffDays mais
   // abaixo). Fica de fora: parceria/GerenciaApp (renovam grátis por lá, sem
   // cobrança), descontinuado, sem preço cadastrado e quem já tem renovação
   // manual pendente (evita cobrar de novo por algo que o suporte já está
   // processando).
+  //
+  // ⚠️ Achado 26/08/2026 (Márcio): era 30 dias, mas a Appativa só ativa
+  // mesmo faltando 7 dias pro vencimento (renovam 1x/mês do lado deles) —
+  // com 30 dias o cliente pagava adiantado e via "pendente" por semanas
+  // sem nada acontecer de verdade. Baixado pra 7 pra só aparecer quando o
+  // pagamento antecipado já reflete perto do que vai ser processado de
+  // fato.
   const expiringAppsForAlert = useMemo(() => {
     return installedApps.filter((app) => {
       if (app.is_partnership || app.is_gerenciaapp_family) return false;
@@ -733,7 +740,7 @@ export default function RenewClient() {
       if (!datePart) return false;
       const diffDays =
         (new Date(`${datePart}T12:00:00`).getTime() - Date.now()) / 86400000;
-      return diffDays < 30;
+      return diffDays < 7;
     });
   }, [installedApps]);
 
@@ -4290,9 +4297,13 @@ export default function RenewClient() {
                   ? String(app.expiration).split("T")[0]
                   : "";
                 // ✅ 3 estados (pedido do Marcio, 25/07/2026): já vencido
-                // fica vermelho ("Vencido"), vencendo em menos de 30 dias
-                // (mesmo limiar do admin em cliente/[id]/page.tsx) fica
-                // âmbar ("Vencendo"), resto fica neutro ("Validade").
+                // fica vermelho ("Vencido"), vencendo em menos de 7 dias
+                // fica âmbar ("Vencendo"), resto fica neutro ("Validade").
+                // Baixado de 30→7 em 26/08/2026 (mesmo achado do alerta
+                // acima, expiringAppsForAlert) — deixado de propósito
+                // diferente do limiar do admin em cliente/[id]/page.tsx, que
+                // continua em 30 (visão do admin, não amarrada ao processo
+                // de ativação de nenhum parceiro específico).
                 const expirationDiffDays = expirationDatePart
                   ? (new Date(`${expirationDatePart}T12:00:00`).getTime() -
                       Date.now()) /
@@ -4303,7 +4314,7 @@ export default function RenewClient() {
                 const isExpiringSoon =
                   expirationDiffDays !== null &&
                   expirationDiffDays >= 0 &&
-                  expirationDiffDays < 30;
+                  expirationDiffDays < 7;
                 return (
                   <div
                     key={app.id}
