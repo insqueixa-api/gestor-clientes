@@ -755,7 +755,11 @@ export default function RenewClient() {
       if (app.license_price == null || app.license_price <= 0) return false;
       const datePart = app.expiration ? String(app.expiration).split("T")[0] : "";
       if (!datePart) return false;
-      return daysUntilSP(datePart) < 7;
+      // ✅ <= 7, não < 7 (achado 26/08/2026): um trial novo de 7 dias exatos
+      // (GPC Roku) tem diff limpo = 7 no dia da criação — com "< 7" o botão
+      // nunca aparecia no dia 0, exatamente quando mais importa (o cliente
+      // acabou de configurar e devia poder pagar na hora).
+      return daysUntilSP(datePart) <= 7;
     });
   }, [installedApps]);
 
@@ -4324,10 +4328,13 @@ export default function RenewClient() {
                   : null;
                 const isExpired =
                   expirationDiffDays !== null && expirationDiffDays < 0;
+                // ✅ <= 7, não < 7 — mesmo achado de expiringAppsForAlert
+                // acima (trial novo de 7 dias exatos precisa aparecer no
+                // dia 0, não só a partir do dia 1).
                 const isExpiringSoon =
                   expirationDiffDays !== null &&
                   expirationDiffDays >= 0 &&
-                  expirationDiffDays < 7;
+                  expirationDiffDays <= 7;
                 return (
                   <div
                     key={app.id}
