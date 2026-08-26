@@ -47,10 +47,24 @@ async function requestGemini(apiKey: string, payload: any, timeoutMs: number): P
 // não erro de prompt/payload, então valem fallback pra chave paga. Outros
 // status (400 payload inválido, 403 chave errada) não valem — trocar de
 // chave não resolve.
+//
+// ⚠️ Achado 26/08/2026 (Márcio: "configurar M3U do IBO Player deu timeout,
+// acho que foi o Gemini grátis que não respondeu"): um timeout (o
+// AbortController de requestGemini estourando o `timeoutMs`) NUNCA caía
+// aqui — a chamada nem chega a devolver um HTTP status pra virar
+// GeminiHttpError, só um AbortError/DOMException genérico, que a checagem
+// original (`err instanceof GeminiHttpError`) descartava de cara. Resultado:
+// a chave grátis simplesmente não responder dentro do prazo NUNCA acionava
+// o fallback pra paga — exatamente o caso mais comum de "grátis
+// sobrecarregada", só que sem devolver um 429/503 explícito. Timeout entra
+// no mesmo balde de "transitório, vale tentar a paga".
 function isRetryableGeminiError(err: unknown): boolean {
-  if (!(err instanceof GeminiHttpError)) return false;
-  if (err.status === 429 || err.status === 503) return true;
-  return /RESOURCE_EXHAUSTED|UNAVAILABLE/i.test(err.bodyText);
+  if (err instanceof GeminiHttpError) {
+    if (err.status === 429 || err.status === 503) return true;
+    return /RESOURCE_EXHAUSTED|UNAVAILABLE/i.test(err.bodyText);
+  }
+  if (err instanceof Error && err.name === "AbortError") return true;
+  return false;
 }
 
 export async function callGemini(apiKey: string, payload: any, timeoutMs = 55_000): Promise<any> {
