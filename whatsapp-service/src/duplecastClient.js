@@ -159,18 +159,24 @@ async function resellerLogin(siteRoot, username, password) {
 }
 
 // ✅ "All 305 | Unused 11 | Used 294" no topo da grid — extrai os 3
-// contadores por regex (mesmo espírito de parseExpireDate/parseIsTrial:
-// nunca confia em estrutura de tabela, só no texto visível). "Unused" é o
-// que interessa como "créditos disponíveis" (código de ativação pronto
-// pra usar, ainda não vinculado a nenhum MAC).
+// contadores por regex, ancorado no `href` de cada link
+// (client_codes/index/all|unused|used/), não no texto visível — achado ao
+// vivo (26/08/2026): "Used" é substring de "Unused", então casar só pelo
+// texto pegava o número errado (o de "Unused" duas vezes). Confirmado
+// contra o HTML real: <a href=".../index/unused/" class="ajax">Unused
+// <span class="badge">11</span></a>. "Unused" é o que interessa como
+// "créditos disponíveis" (código de ativação pronto pra usar, ainda não
+// vinculado a nenhum MAC).
 function parseCodeCounts(html) {
-  const all = html.match(/All\s*<[^>]*>\s*(\d+)/i) || html.match(/All[^0-9]{0,40}(\d+)/i);
-  const unused = html.match(/Unused\s*<[^>]*>\s*(\d+)/i) || html.match(/Unused[^0-9]{0,40}(\d+)/i);
-  const used = html.match(/Used\s*<[^>]*>\s*(\d+)/i) || html.match(/[^Un]Used[^0-9]{0,40}(\d+)/i);
+  const extract = (slug) => {
+    const re = new RegExp(`client_codes/index/${slug}/"[^>]*>\\s*\\w+\\s*<span[^>]*>\\s*(\\d+)`, "i");
+    const m = html.match(re);
+    return m ? Number(m[1]) : null;
+  };
   return {
-    all: all ? Number(all[1]) : null,
-    unused: unused ? Number(unused[1]) : null,
-    used: used ? Number(used[1]) : null,
+    all: extract("all"),
+    unused: extract("unused"),
+    used: extract("used"),
   };
 }
 
@@ -313,33 +319,18 @@ async function deletePlaylistByName(siteRoot, jar, userAgent, searchName, pin) {
 }
 
 // Ponto de entrada único, chamado pela rota /duplecast/action.
-export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, debugUrl, username, password }) {
+export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, username, password }) {
   if (!baseUrl) throw new Error("baseUrl é obrigatório.");
 
   const siteRoot = String(baseUrl).replace(/\/$/, "");
 
-  // ✅ Debug temporário (26/08/2026) — só leitura, NUNCA envia credencial
-  // nenhuma. Só resolve o desafio Cloudflare de uma URL e devolve o HTML
-  // puro, pra inspecionar a página de login de revenda de verdade (form,
-  // nomes de campo, csrf) antes de escrever o login de revenda de verdade
-  // — sem isso, ia ter que adivinhar os nomes dos campos e arriscar
-  // tentativas de login erradas de verdade no Duplecast. Remover depois
-  // que o login de revenda estiver implementado e confirmado.
-  if (action === "debug_fetch") {
-    if (!debugUrl) throw new Error("debugUrl é obrigatório para debug_fetch.");
-    const { html } = await solveChallenge(debugUrl);
-    return { html };
-  }
-
   // ✅ Créditos disponíveis do parceiro (achado 26/08/2026) — login de
-  // REVENDA (username/password), não de dispositivo. `includeHtml` é só
-  // pra depuração inicial (confirmar que o regex de contagem bateu com a
-  // página real) — remover depois de confirmado.
+  // REVENDA (username/password), não de dispositivo.
   if (action === "list_codes") {
     if (!username || !password) throw new Error("username e password são obrigatórios para list_codes.");
     const { jar, userAgent } = await resellerLogin(siteRoot, username, password);
-    const { all, unused, used, html } = await listAvailableCodes(siteRoot, jar, userAgent);
-    return { all, unused, used, htmlSnippet: html.slice(0, 4000) };
+    const { all, unused, used } = await listAvailableCodes(siteRoot, jar, userAgent);
+    return { all, unused, used };
   }
 
   if (!macValue || !deviceKey) throw new Error("macValue e deviceKey são obrigatórios.");
