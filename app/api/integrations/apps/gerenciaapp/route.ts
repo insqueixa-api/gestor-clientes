@@ -457,15 +457,31 @@ export async function POST(req: Request) {
       }
       const { user, playlists } = await getEditData(BASE_URL, session, existing[0].id);
 
-      // Estende a partir do vencimento atual se ainda não venceu (não perde
-      // tempo já "pago"); a partir de hoje se já venceu. Mesmo padrão usado
-      // no fulfillment de renovação paga (lib/client-portal/fulfillment.ts).
-      const currentExpire = user.expire_account ? new Date(`${user.expire_account}T00:00:00`) : null;
-      const now = new Date();
-      const base = currentExpire && currentExpire.getTime() > now.getTime() ? currentExpire : now;
-      const next = new Date(base);
-      next.setFullYear(next.getFullYear() + 1);
-      const newExpireDate = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+      // ✅ Achado 26/08/2026 (GPC Roku, pedido do Márcio — ver docs/sql/
+      // gpc_roku_activations.sql): esse app é pago com validade de 10 anos
+      // a contar do pagamento, não +1 ano a partir do vencimento atual —
+      // quando o body traz uma data explícita, usa ela DIRETO (sem somar
+      // nada). Sem esse campo, comportamento idêntico ao de sempre pro
+      // resto da família (GPC Pro, IBO Revenda etc.).
+      const explicitExpireDate = /^\d{4}-\d{2}-\d{2}$/.test(String(body.expire_date || ""))
+        ? String(body.expire_date)
+        : null;
+
+      let newExpireDate: string;
+      if (explicitExpireDate) {
+        newExpireDate = explicitExpireDate;
+      } else {
+        // Estende a partir do vencimento atual se ainda não venceu (não
+        // perde tempo já "pago"); a partir de hoje se já venceu. Mesmo
+        // padrão usado no fulfillment de renovação paga
+        // (lib/client-portal/fulfillment.ts).
+        const currentExpire = user.expire_account ? new Date(`${user.expire_account}T00:00:00`) : null;
+        const now = new Date();
+        const base = currentExpire && currentExpire.getTime() > now.getTime() ? currentExpire : now;
+        const next = new Date(base);
+        next.setFullYear(next.getFullYear() + 1);
+        newExpireDate = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+      }
 
       await syncPlaylists(BASE_URL, session, existing[0].id, { ...user, expire_account: newExpireDate }, playlists);
 

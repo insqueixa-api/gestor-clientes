@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/gerenciador/aplicativo/page.tsx
-import { X, Pencil, Trash2, Download } from "lucide-react";
+import { X, Pencil, Trash2, Download, Settings } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/apps/device-types";
 import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import GpcRokuActivationsModal from "./gpc_roku_activations_modal";
 
 // --- TIPOS ---
 type AppField = {
@@ -143,6 +144,9 @@ export default function AppManagerPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  // ✅ GPC Roku (achado 26/08/2026, pedido do Márcio — ver docs/sql/
+  // gpc_roku_activations.sql): engrenagem no card abre o painel de MACs.
+  const [gpcRokuActivationsFor, setGpcRokuActivationsFor] = useState<string | null>(null);
 
   // ✅ Trava de scroll do fundo agora vem de graça do <Modal> (components/ui/
   // Modal.tsx) que envolve o modal logo abaixo — tinha uma versão própria
@@ -1014,6 +1018,15 @@ export default function AppManagerPage() {
           </div>
 
           <div className="flex gap-2">
+            {app.name === "GPC Roku" && (
+              <button
+                onClick={() => setGpcRokuActivationsFor(app.id)}
+                className="p-1.5 text-sky-500 bg-sky-500/10 border border-sky-500/20 hover:bg-sky-500/20 rounded-lg transition-all"
+                title="Gerenciar MACs ativados"
+              >
+                <IconSettings />
+              </button>
+            )}
             {app.tenant_id === myTenantId && (
               <>
                 <button
@@ -1197,6 +1210,10 @@ export default function AppManagerPage() {
       </div>
 
       {ConfirmUI}
+
+      {gpcRokuActivationsFor && tenantId && (
+        <GpcRokuActivationsModal tenantId={tenantId} onClose={() => setGpcRokuActivationsFor(null)} />
+      )}
 
       {/* HEADER DA PÁGINA */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
@@ -2174,6 +2191,9 @@ export default function AppManagerPage() {
 
 function IconEdit() {
   return <Pencil className="w-4 h-4" />;
+}
+function IconSettings() {
+  return <Settings className="w-4 h-4" />;
 }
 function IconX() {
   return <X className="w-4 h-4" />;

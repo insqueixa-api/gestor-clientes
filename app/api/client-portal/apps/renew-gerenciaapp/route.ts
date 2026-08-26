@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, field_values, apps(name, integration_type, fields_config)")
+      .select("id, field_values, apps(name, integration_type, fields_config, cost_type)")
       .eq("id", client_app_id)
       .eq("client_id", client_id)
       .single();
@@ -70,11 +70,20 @@ export async function POST(req: NextRequest) {
     appName = (row as any).apps?.name || "Aplicativo";
     const integrationType = String((row as any).apps?.integration_type || "").trim().toUpperCase();
     const fieldsConfig: any[] = Array.isArray((row as any).apps?.fields_config) ? (row as any).apps.fields_config : [];
+    const costType = String((row as any).apps?.cost_type || "").trim();
     const values = row.field_values || {};
 
     const handler = integrationType ? getIntegrationHandler(integrationType) : null;
     if (!handler || (handler as any).actionPrefix !== "GERENCIAAPP") {
       return jsonError("Essa renovação gratuita só está disponível pra família GerenciaApp.", 400);
+    }
+    // ✅ Defesa em profundidade (achado 26/08/2026): o GPC Roku é da mesma
+    // família GerenciaApp mas é PAGO (license_price=50) — a UI já não
+    // oferece mais este botão pra ele (is_gerenciaapp_family exige
+    // cost_type "free", ver app/api/client-portal/apps/list/route.ts), mas
+    // essa rota nunca deve aceitar um app pago mesmo que a UI erre de novo.
+    if (costType === "paid") {
+      return jsonError("Esse aplicativo precisa ser renovado com pagamento — use o botão de renovação normal.", 400);
     }
 
     const macValue = extractFieldByType(fieldsConfig, values, "mac");

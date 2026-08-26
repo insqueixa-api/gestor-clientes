@@ -2519,6 +2519,66 @@ export default function NovoCliente({
     // extensão do Chrome aqui (ver mesma nota em handleConfigApp).
   }
 
+  // ✅ "Marcar pago" do GPC Roku (achado 26/08/2026, pedido do Márcio — ver
+  // docs/sql/gpc_roku_activations.sql): único membro cobrado da família
+  // GerenciaApp — quando o cliente paga por fora do Portal, este botão
+  // marca o MAC como pago (10 anos) direto no registro + no painel real.
+  async function handleMarkGpcRokuPaid(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    if (!currentApp.client_app_id) {
+      addToast("warning", "Atenção", "Salve o cliente primeiro.");
+      return;
+    }
+
+    const macValue = getMacFromApp(currentApp);
+    if (!macValue || macValue.trim() === "") {
+      addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) antes de marcar como pago.");
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Marcar GPC Roku como pago?",
+      subtitle: "Valida a licença por 10 anos a contar de agora — use só quando o cliente já pagou (por fora do Portal).",
+      tone: "emerald",
+      confirmText: "Sim, marcar como pago",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setLoading(true);
+    setLoadingStep("Marcando como pago...");
+    try {
+      const apiJson = await callAdminAppApi("/api/admin/apps/gpc-roku/mark-paid", {
+        client_app_id: currentApp.client_app_id,
+      });
+      setLoading(false);
+      setLoadingStep("");
+
+      if (apiJson?.ok && apiJson.expireDate) {
+        const dateField = currentApp?.fields_config?.find(
+          (f: any) => String(f?.type || "").toLowerCase() === "date",
+        );
+        if (dateField) {
+          const fieldKey = dateField.id || dateField.label;
+          updateAppFieldValue(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
+        }
+        addToast(
+          "success",
+          "Marcado como pago",
+          `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
+        );
+      } else {
+        addToast("error", "Não foi possível marcar como pago", apiJson?.error || "Falha desconhecida.");
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setLoadingStep("");
+      addToast("error", "Não foi possível marcar como pago", err.message || "Falha.");
+    }
+  }
+
   // ✅ ClouDDy (console.clouddy.online) — sem INTEGRATION_REGISTRY/rota de
   // API própria, tudo via extensão. Motivo:
   // Cloudflare Turnstile real no login — testado exaustivamente numa VM
@@ -6064,6 +6124,11 @@ export default function NovoCliente({
                                     canCheckVencimento={canCheckVencimento}
                                     showRemoveButton={canAutoDelete}
                                     loading={loading}
+                                    onMarkGpcRokuPaid={
+                                      catApp?.name === "GPC Roku"
+                                        ? () => handleMarkGpcRokuPaid(app.instanceId)
+                                        : undefined
+                                    }
                                     onOpenPanel={() => {
                                       const url =
                                         appIntegrations.find(

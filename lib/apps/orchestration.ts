@@ -33,6 +33,7 @@ import type {
   IntegrationHandler,
   PartnerApiResponse,
 } from "@/lib/apps/types";
+import { getGpcRokuActivation, upsertGpcRokuActivation, formatDateOnly } from "@/lib/apps/gpc-roku-registry";
 
 export type LoadedClientApp = {
   id: string;
@@ -192,7 +193,7 @@ export async function configureClientApp(
 
   const { data: client, error: clientErr } = await supabaseAdmin
     .from("clients")
-    .select("server_username, server_password, server_id, m3u_url")
+    .select("tenant_id, server_username, server_password, server_id, m3u_url")
     .eq("id", row.client_id)
     .single();
   if (clientErr || !client) {
@@ -280,6 +281,51 @@ export async function configureClientApp(
     });
   } catch (e: any) {
     return { ok: false, stage: "precondition", error: e?.message || "Não foi possível montar a configuração para este app.", status: 400 };
+  }
+
+  // ✅ GPC Roku (achado 26/08/2026, pedido do Márcio — ver docs/sql/
+  // gpc_roku_activations.sql): único membro cobrado da família GerenciaApp,
+  // ele quem controla ativação/validade, não o +1 ano fixo que
+  // buildCreatePayload manda pra todo mundo. MAC já conhecido → usa a
+  // validade cadastrada; MAC novo → cadastra como teste de 7 dias. Nunca
+  // muda a validade num MAC já conhecido — isso só acontece no pagamento
+  // (lib/client-portal/fulfillment.ts).
+  if (row.appName === "GPC Roku" && client.tenant_id) {
+    try {
+      const existing = await getGpcRokuActivation(supabaseAdmin, client.tenant_id, macValue);
+      if (existing) {
+        (payload as Record<string, unknown>).expire_date = existing.valid_until;
+        await upsertGpcRokuActivation(supabaseAdmin, {
+          tenantId: client.tenant_id,
+          mac: macValue,
+          clientId: row.client_id,
+          clientAppId: row.id,
+          status: existing.status,
+          validUntil: existing.valid_until,
+        });
+      } else {
+        const trialUntil = new Date();
+        trialUntil.setDate(trialUntil.getDate() + 7);
+        const trialDate = formatDateOnly(trialUntil);
+        await upsertGpcRokuActivation(supabaseAdmin, {
+          tenantId: client.tenant_id,
+          mac: macValue,
+          clientId: row.client_id,
+          clientAppId: row.id,
+          status: "trial",
+          validUntil: trialDate,
+          activatedBy: "Sistema (trial automático)",
+        });
+        (payload as Record<string, unknown>).expire_date = trialDate;
+      }
+    } catch (e: any) {
+      return {
+        ok: false,
+        stage: "precondition",
+        error: e?.message || "Falha ao consultar o registro de ativação do GPC Roku.",
+        status: 500,
+      };
+    }
   }
 
   const apiRes = await fetch(apiEndpointUrl, {

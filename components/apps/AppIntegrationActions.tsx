@@ -57,6 +57,15 @@ function IconTrash({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
   );
 }
 
+function IconMoney({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v10M9.5 9.5c0-1.1 1.12-2 2.5-2s2.5.9 2.5 2-1.12 2-2.5 2-2.5.9-2.5 2 1.12 2 2.5 2 2.5-.9 2.5-2" />
+    </svg>
+  );
+}
+
 export type AppIntegrationActionsProps = {
   /** ClouDDy usa o fluxo via extensão do Chrome (3 botões), sem API própria. */
   isClouddy: boolean;
@@ -75,6 +84,11 @@ export type AppIntegrationActionsProps = {
   onConfigure: (mode: ReconfigureMode) => void | Promise<void>;
   onCheck: () => void | Promise<void>;
   onRemove?: () => void | Promise<void>;
+  /** GPC Roku (achado 26/08/2026, pedido do Márcio — ver docs/sql/
+   * gpc_roku_activations.sql): botão extra "Marcar pago (10 anos)" pra
+   * quando o cliente paga por fora do Portal. Só aparece quando informado —
+   * nenhum outro app da família GerenciaApp passa isso. */
+  onMarkGpcRokuPaid?: () => void | Promise<void>;
   /** ClouDDy também é uma automação — segue o mesmo seletor Principal/
    * Secundária das demais antes de mandar pra extensão. */
   onClouddyConfigure: (mode: ReconfigureMode) => void | Promise<void>;
@@ -94,6 +108,7 @@ export default function AppIntegrationActions({
   onConfigure,
   onCheck,
   onRemove,
+  onMarkGpcRokuPaid,
   onClouddyConfigure,
   onClouddyCheck,
   onClouddyDelete,
@@ -165,7 +180,9 @@ export default function AppIntegrationActions({
   if (!hasApiIntegration) return null;
 
   const showRemove = showRemoveButton && !!onRemove;
-  const cols = showRemove ? "grid-cols-3" : "grid-cols-2";
+  const showMarkPaid = !!onMarkGpcRokuPaid;
+  const buttonCount = 2 + (showRemove ? 1 : 0) + (showMarkPaid ? 1 : 0);
+  const cols = buttonCount === 4 ? "grid-cols-4" : buttonCount === 3 ? "grid-cols-3" : "grid-cols-2";
 
   return (
     <div className="bg-transparent border-0">
@@ -213,6 +230,19 @@ export default function AppIntegrationActions({
           >
             <IconExternalLink />
             <span className="hidden sm:inline text-xs font-medium">Painel</span>
+          </button>
+        )}
+
+        {showMarkPaid && (
+          <button
+            type="button"
+            onClick={() => onMarkGpcRokuPaid!()}
+            disabled={loading}
+            className="h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            title="Cliente pagou por fora do Portal — marca como pago, validade de 10 anos"
+          >
+            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
+            <span className="hidden sm:inline">Marcar pago</span>
           </button>
         )}
 

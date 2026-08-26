@@ -326,13 +326,21 @@ export async function POST(req: NextRequest) {
         is_active: row.apps?.is_active !== false,
         discontinued_replacement_name: row.apps?.discontinued_replacement_name || null,
         // ✅ Família GerenciaApp (IBO Revenda, Zone X, VU Revenda, Facilita,
-        // Uni Revenda, GPC Roku/Android/LG — todos mapeiam pro mesmo
+        // Uni Revenda, GPC Android/LG/Pro — todos mapeiam pro mesmo
         // integration_type "GERENCIAAPP", ver lib/integrations/index.ts):
         // reconfigurar JÁ atualiza o vencimento de verdade (o create manda
         // uma data, depois o check busca a real), então "renovar" pra esses
         // é só reconfigurar de novo — grátis, sem cobrança de licença.
         // Pedido do Márcio, 28/07/2026.
-        is_gerenciaapp_family: integrationType === "GERENCIAAPP",
+        //
+        // ⚠️ Achado 26/08/2026: também exige cost_type "free" — o GPC Roku
+        // usa o MESMO integration_type "GERENCIAAPP", mas é PAGO
+        // (license_price=50, cost_type="paid", validade controlada por
+        // gpc_roku_activations). Sem esse segundo requisito, ele caía nesse
+        // branch "grátis" e a rota /renew-gerenciaapp renovava sem cobrar
+        // nada — bug real em produção, corrigido junto com a feature de
+        // validade por MAC.
+        is_gerenciaapp_family: integrationType === "GERENCIAAPP" && row.apps?.cost_type === "free",
       };
     }));
 

@@ -6,6 +6,7 @@ import { notify, resolveNotification, formatClientLabel } from "@/lib/notificati
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 import { extractFieldByType, findFieldByType, extractDateOnly } from "@/lib/apps/panel";
 import { solicitarAtivacao, consultarAtivacao, getAppativaApiKey, syncAppativaCredits } from "@/lib/integrations/appativa";
+import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
 
 // ============================================================
@@ -280,12 +281,12 @@ export async function markAppRenewalPaid(
   // a aparecer como pendente pro admin. Em qualquer outro caminho (sem
   // mapeamento, sem MAC, falha ao solicitar, etc.) o aviso continua
   // disparando na hora, sem mudança.
-  let deferNotifyToAppativaCheck = false;
+  let deferManualPendingNotify = false;
   try {
     if (payment?.client_app_id) {
       const { data: appRow } = await supabaseAdmin
         .from("client_apps")
-        .select("field_values, apps(appativa_app_id, fields_config)")
+        .select("field_values, apps(appativa_app_id, fields_config, name)")
         .eq("id", payment.client_app_id)
         .maybeSingle();
       const appMeta = Array.isArray(appRow?.apps) ? appRow.apps[0] : appRow?.apps;
@@ -351,7 +352,7 @@ export async function markAppRenewalPaid(
               // tem nenhuma relação com o pagamento em si. Movido pra
               // dentro do `after()` (1ª coisa, antes do sleep de 5s) — só
               // bookkeeping, não precisa bloquear nada.
-              deferNotifyToAppativaCheck = true;
+              deferManualPendingNotify = true;
               after(async () => {
                 await syncAppativaCredits(supabaseAdmin, tenantId).catch((e: any) =>
                   prodLog("markAppRenewalPaid: sync de créditos falhou", { message: e?.message }),
@@ -395,6 +396,102 @@ export async function markAppRenewalPaid(
             }
           }
         }
+      } else if (appMeta?.name === "GPC Roku") {
+        // ============================================================
+        // Renovação paga automática do GPC Roku (achado 26/08/2026, pedido
+        // do Márcio — ver docs/sql/gpc_roku_activations.sql): diferente do
+        // resto da família GerenciaApp (grátis de verdade), esse app tem
+        // custo real pra ele. Ao pagar, marca o MAC como "pago" com
+        // validade de 10 anos A CONTAR DO PAGAMENTO (não uma extensão a
+        // partir do vencimento atual) e chama a MESMA action "renew" do
+        // GerenciaApp (app/api/integrations/apps/gerenciaapp/route.ts),
+        // agora aceitando uma data explícita — síncrono, sem precisar de
+        // webhook/polling como a Appativa (o "renew" deles já confirma
+        // dentro da própria chamada).
+        const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
+        const values = appRow?.field_values || {};
+        const macApp = extractFieldByType(fieldsConfig, values, "mac");
+
+        if (!macApp) {
+          await supabaseAdmin
+            .from("client_portal_payments")
+            .update({ fulfillment_error: "Preencha o Device ID (MAC) antes de renovar." })
+            .eq("id", paymentRowId)
+            .eq("tenant_id", tenantId);
+        } else {
+          // ✅ Núcleo (troca o vencimento no GerenciaApp + grava no
+          // registro) compartilhado com o botão manual do admin
+          // (app/api/admin/apps/gpc-roku/mark-paid/route.ts) — só o que vem
+          // DEPOIS (marcar pagamento concluído, notificar, WhatsApp) é
+          // específico do fluxo de pagamento, fica aqui.
+          const result = await renewGpcRokuTenYears(supabaseAdmin, {
+            tenantId,
+            clientId: payment.client_id,
+            clientAppId: payment.client_app_id,
+            macValue: macApp,
+            fieldsConfig,
+            fieldValues: values,
+          });
+
+          // ⚠️ Narrowing via `"error" in result` (não `!result.ok`), mesmo
+          // motivo documentado no branch da Appativa acima (strict:false não
+          // estreita bem uniões discriminadas por negação de boolean).
+          if (!("error" in result)) {
+            // Mesmo guard atômico usado no sucesso da Appativa — evita
+            // reenviar WhatsApp/log se outra chamada concorrente já
+            // concluiu esse mesmo pagamento.
+            const { data: claimedRows } = await supabaseAdmin
+              .from("client_portal_payments")
+              .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null })
+              .eq("id", paymentRowId)
+              .eq("tenant_id", tenantId)
+              .eq("fulfillment_status", "manual_pending")
+              .select("id");
+
+            deferManualPendingNotify = true;
+
+            if (claimedRows && claimedRows.length > 0) {
+              await resolveNotification(tenantId, "manual_pending", paymentRowId);
+
+              try {
+                await supabaseAdmin.from("client_events").insert({
+                  tenant_id: tenantId,
+                  client_id: payment.client_id,
+                  event_type: "APP_RENEWAL_AUTO",
+                  message: `Renovação automática via GerenciaApp (GPC Roku) · ${payment.app_name_snapshot || "Aplicativo"}`,
+                  meta: { payment_id: paymentRowId, mac: macApp, source: "gpc_roku_renew" },
+                });
+
+                const { data: client } = await supabaseAdmin
+                  .from("clients")
+                  .select("display_name, server_username, server_id, servers(name, whatsapp_session)")
+                  .eq("id", payment.client_id)
+                  .maybeSingle();
+                const serverMeta = Array.isArray(client?.servers) ? client.servers[0] : client?.servers;
+
+                if (origin) {
+                  await sendAppRenewalWhatsapp(supabaseAdmin, {
+                    tenantId,
+                    clientId: payment.client_id,
+                    paymentId: paymentRowId,
+                    origin,
+                    whatsappSession: (serverMeta as any)?.whatsapp_session || "default",
+                    appName: payment.app_name_snapshot || "Aplicativo",
+                    appVencimento: result.expireDate,
+                  });
+                }
+              } catch (e: any) {
+                prodLog("gpc_roku_renew.post_success_side_effects_failed", { paymentRowId, message: e?.message });
+              }
+            }
+          } else {
+            await supabaseAdmin
+              .from("client_portal_payments")
+              .update({ fulfillment_error: result.error })
+              .eq("id", paymentRowId)
+              .eq("tenant_id", tenantId);
+          }
+        }
       }
     }
   } catch (e) {
@@ -402,10 +499,11 @@ export async function markAppRenewalPaid(
   }
 
   // ✅ Sino + e-mail de "pendente" — disparado na hora pra todo caminho
-  // exceto o de checagem automática em andamento (deferNotifyToAppativaCheck
-  // = true), que só notifica se as 2 tentativas (5s + 30s) não confirmarem
-  // sozinhas (ver dentro do after() acima).
-  if (!deferNotifyToAppativaCheck) {
+  // exceto os que já concluíram sozinhos ou estão em checagem automática
+  // (deferManualPendingNotify = true): Appativa em fila (só notifica se 1
+  // min de tentativas não confirmar, ver dentro do after() acima) ou GPC
+  // Roku já concluído de verdade nesta mesma chamada (síncrono).
+  if (!deferManualPendingNotify) {
     await notifyAppRenewalManualPending(supabaseAdmin, tenantId, paymentRowId, payment, origin);
   }
 }
