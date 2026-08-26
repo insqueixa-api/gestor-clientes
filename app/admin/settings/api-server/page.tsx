@@ -83,9 +83,23 @@ type PartnerIntegration = {
   credits_available: number | null;
   credits_last_sync_at: string | null;
   credit_unit_price: number | null;
+  // ✅ Últimos valores digitados no modal "Nova Recarga" (26/08/2026, pedido
+  // do Márcio: o modal sempre abria zerado) — ver docs/sql/
+  // api_integrations_last_recharge_meta.sql.
+  last_recharge_meta?: RechargeMeta | null;
   icon_url?: string | null;
   is_active: boolean;
   created_at: string;
+};
+
+export type RechargeMeta = {
+  amountMode?: "total" | "unit";
+  qty?: number;
+  currency?: string;
+  unitCost?: number;
+  totalCost?: number;
+  fxRate?: number;
+  paymentMethod?: string;
 };
 
 export default function ApiServerPage() {
@@ -1470,6 +1484,7 @@ export default function ApiServerPage() {
         <RecargaAppativaModal
           partnerId={recargaAppativaFor.id}
           partnerLabel={recargaAppativaFor.label}
+          lastRechargeMeta={recargaAppativaFor.last_recharge_meta ?? null}
           onClose={() => setRecargaAppativaFor(null)}
           onSuccess={() => {
             setRecargaAppativaFor(null);
@@ -1487,6 +1502,7 @@ export default function ApiServerPage() {
         <RecargaDuplecastModal
           partnerId={recargaDuplecastFor.id}
           partnerLabel={recargaDuplecastFor.label}
+          lastRechargeMeta={recargaDuplecastFor.last_recharge_meta ?? null}
           onClose={() => setRecargaDuplecastFor(null)}
           onSuccess={() => {
             setRecargaDuplecastFor(null);

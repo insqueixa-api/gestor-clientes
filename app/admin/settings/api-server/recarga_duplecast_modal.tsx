@@ -17,6 +17,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@/components/ui/Modal";
+import type { RechargeMeta } from "./page";
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -56,6 +57,7 @@ function Select({
 type Props = {
   partnerId: string;
   partnerLabel: string;
+  lastRechargeMeta?: RechargeMeta | null;
   onClose: () => void;
   onSuccess: () => void;
   onError?: (msg: string) => void;
@@ -64,6 +66,7 @@ type Props = {
 export default function RecargaDuplecastModal({
   partnerId,
   partnerLabel,
+  lastRechargeMeta,
   onClose,
   onSuccess,
   onError,
@@ -71,19 +74,35 @@ export default function RecargaDuplecastModal({
   const tenantId = useTenantId();
   const [saving, setSaving] = useState(false);
 
-  const [qty, setQty] = useState("");
+  // ✅ Pré-preenche com a última recarga registrada (26/08/2026, pedido do
+  // Márcio: o modal sempre abria zerado, obrigando a redigitar tudo — a
+  // Duplecast é sempre "10 códigos por 25 USD via PIX", raramente muda de
+  // uma recarga pra outra).
+  const [qty, setQty] = useState(
+    lastRechargeMeta?.qty != null ? String(lastRechargeMeta.qty) : "",
+  );
   // ✅ "Por Total" (26/08/2026, pedido do Márcio: "eu pago 25 USD por 10
   // códigos... vou preencher o valor total, aí sim vai calcular o valor
   // unitário" — a Duplecast vende em pacote, ele não sabe o preço por
   // código de cabeça). Default "total", diferente do recarga_appativa_modal
   // (que só vende crédito a crédito, então o custo unitário já é o dado
   // natural de entrada).
-  const [amountMode, setAmountMode] = useState<"total" | "unit">("total");
-  const [unitCost, setUnitCost] = useState("");
-  const [totalCost, setTotalCost] = useState("");
-  const [currency, setCurrency] = useState("BRL");
-  const [fxRate, setFxRate] = useState("1");
-  const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [amountMode, setAmountMode] = useState<"total" | "unit">(
+    lastRechargeMeta?.amountMode ?? "total",
+  );
+  const [unitCost, setUnitCost] = useState(
+    lastRechargeMeta?.unitCost != null ? String(lastRechargeMeta.unitCost) : "",
+  );
+  const [totalCost, setTotalCost] = useState(
+    lastRechargeMeta?.totalCost != null ? String(lastRechargeMeta.totalCost) : "",
+  );
+  const [currency, setCurrency] = useState(lastRechargeMeta?.currency ?? "BRL");
+  const [fxRate, setFxRate] = useState(
+    lastRechargeMeta?.fxRate != null ? String(lastRechargeMeta.fxRate) : "1",
+  );
+  const [paymentMethod, setPaymentMethod] = useState(
+    lastRechargeMeta?.paymentMethod ?? "PIX",
+  );
   const [purchasedAt, setPurchasedAt] = useState(
     new Date().toISOString().slice(0, 16),
   );
@@ -216,6 +235,17 @@ export default function RecargaDuplecastModal({
         body: JSON.stringify({
           integration_id: partnerId,
           ...(qtyNum > 0 ? { credit_unit_price: totalBrl / qtyNum } : {}),
+          // ✅ Lembra os valores pra próxima "Nova Recarga" (26/08/2026,
+          // pedido do Márcio — ver docs/sql/api_integrations_last_recharge_meta.sql).
+          last_recharge_meta: {
+            amountMode,
+            qty: qtyNum,
+            currency,
+            unitCost: Number(unitCost) || undefined,
+            totalCost: Number(totalCost) || undefined,
+            fxRate: Number(fxRate) || 1,
+            paymentMethod,
+          },
         }),
       });
       const syncJson = await syncRes.json().catch(() => ({}));

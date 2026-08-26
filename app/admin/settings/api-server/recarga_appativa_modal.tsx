@@ -19,6 +19,7 @@ import {
   ModalBody,
   ModalFooter,
 } from "@/components/ui/Modal";
+import type { RechargeMeta } from "./page";
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -58,6 +59,7 @@ function Select({
 type Props = {
   partnerId: string;
   partnerLabel: string;
+  lastRechargeMeta?: RechargeMeta | null;
   onClose: () => void;
   onSuccess: () => void;
   onError?: (msg: string) => void;
@@ -66,6 +68,7 @@ type Props = {
 export default function RecargaAppativaModal({
   partnerId,
   partnerLabel,
+  lastRechargeMeta,
   onClose,
   onSuccess,
   onError,
@@ -73,11 +76,21 @@ export default function RecargaAppativaModal({
   const tenantId = useTenantId();
   const [saving, setSaving] = useState(false);
 
-  const [qty, setQty] = useState("");
-  const [unitCost, setUnitCost] = useState("");
-  const [currency, setCurrency] = useState("BRL");
-  const [fxRate, setFxRate] = useState("1");
-  const [paymentMethod, setPaymentMethod] = useState("PIX");
+  // ✅ Pré-preenche com a última recarga registrada (26/08/2026, pedido do
+  // Márcio: o modal sempre abria zerado, obrigando a redigitar tudo).
+  const [qty, setQty] = useState(
+    lastRechargeMeta?.qty != null ? String(lastRechargeMeta.qty) : "",
+  );
+  const [unitCost, setUnitCost] = useState(
+    lastRechargeMeta?.unitCost != null ? String(lastRechargeMeta.unitCost) : "",
+  );
+  const [currency, setCurrency] = useState(lastRechargeMeta?.currency ?? "BRL");
+  const [fxRate, setFxRate] = useState(
+    lastRechargeMeta?.fxRate != null ? String(lastRechargeMeta.fxRate) : "1",
+  );
+  const [paymentMethod, setPaymentMethod] = useState(
+    lastRechargeMeta?.paymentMethod ?? "PIX",
+  );
   const [purchasedAt, setPurchasedAt] = useState(
     new Date().toISOString().slice(0, 16),
   );
@@ -204,6 +217,15 @@ export default function RecargaAppativaModal({
         body: JSON.stringify({
           integration_id: partnerId,
           ...(qtyNum > 0 ? { credit_unit_price: totalBrl / qtyNum } : {}),
+          // ✅ Lembra os valores pra próxima "Nova Recarga" (26/08/2026,
+          // pedido do Márcio — ver docs/sql/api_integrations_last_recharge_meta.sql).
+          last_recharge_meta: {
+            qty: qtyNum,
+            currency,
+            unitCost: Number(unitCost) || undefined,
+            fxRate: Number(fxRate) || 1,
+            paymentMethod,
+          },
         }),
       });
       const syncJson = await syncRes.json().catch(() => ({}));

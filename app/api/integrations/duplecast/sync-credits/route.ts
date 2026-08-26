@@ -42,6 +42,12 @@ export async function POST(req: NextRequest) {
   const rawUnitPrice = body?.credit_unit_price;
   const creditUnitPrice =
     rawUnitPrice != null && Number.isFinite(Number(rawUnitPrice)) ? Number(rawUnitPrice) : null;
+  // ✅ Lembra os valores digitados pra pré-preencher a próxima "Nova Recarga"
+  // (26/08/2026, pedido do Márcio — ver docs/sql/
+  // api_integrations_last_recharge_meta.sql). Gravado à parte, best-effort,
+  // já que a coluna pode ainda não existir se a migração não tiver rodado —
+  // não pode arriscar o update crítico de credits_available acima.
+  const lastRechargeMeta = body?.last_recharge_meta ?? null;
 
   const { data: integ, error: fetchErr } = await supabase
     .from("api_integrations")
@@ -109,6 +115,18 @@ export async function POST(req: NextRequest) {
 
   if (updErr) {
     return NextResponse.json({ ok: false, error: "Falha ao salvar saldo" }, { status: 500 });
+  }
+
+  if (lastRechargeMeta) {
+    try {
+      await supabase
+        .from("api_integrations")
+        .update({ last_recharge_meta: lastRechargeMeta })
+        .eq("id", integ.id)
+        .eq("tenant_id", tenant_id);
+    } catch {
+      // best-effort — não bloqueia o sync se a coluna ainda não existir
+    }
   }
 
   // ✅ Sino de saldo baixo (26/08/2026, pedido do Márcio: "habilitou tbm pro
