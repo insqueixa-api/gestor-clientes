@@ -31,6 +31,13 @@ export type StatusAcao =
   | "pausado"
   | "concluido";
 
+// ✅ posY opcional (achado 26/08/2026, pedido do Márcio: "a foto corta a
+// cabeça... poderia arrastar a foto no melhor ângulo") — 0 a 100, mesmo
+// número usado em `object-position: center Y%`. Ausente = usa o padrão
+// (mais pro topo, ver page.tsx) — fotos antigas continuam funcionando sem
+// precisar de backfill.
+export type Foto = { url: string; legenda: string; posY?: number };
+
 export type AcaoRow = {
   id: string;
   tenant_id: string;
@@ -39,7 +46,7 @@ export type AcaoRow = {
   categoria: string;
   texto: string | null;
   status: StatusAcao;
-  fotos: { url: string; legenda: string }[];
+  fotos: Foto[];
   arquivada: boolean;
   created_at: string;
   updated_at: string;

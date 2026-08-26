@@ -11,7 +11,12 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
-import type { AcaoRow, StatusAcao } from "./shared";
+import type { AcaoRow, Foto, StatusAcao } from "./shared";
+
+// ✅ 1 capa + até 3 abaixo (achado 26/08/2026, pedido do Márcio: "limite a
+// 4 fotos por card") — mesmo limite vale aqui no upload e em page.tsx (onde
+// as fotos são exibidas).
+const MAX_FOTOS = 4;
 
 // Mesmas 10 categorias fixas do protótipo local (Vidamerica/lib/types.ts) —
 // texto livre no banco (não é uma tabela à parte, ver docs/sql/
@@ -39,8 +44,6 @@ const STATUS_OPCOES: { valor: StatusAcao; label: string }[] = [
   { valor: "pausado", label: "Pausado" },
   { valor: "concluido", label: "Concluído" },
 ];
-
-type Foto = { url: string; legenda: string };
 
 type Props = {
   acao?: AcaoRow | null;
@@ -170,13 +173,12 @@ export default function ModalAcao({
     return CATEGORIAS_FIXAS.find((c) => c.valor === valor)?.label || valor;
   }
 
-  async function handleFotoUpload(file: File) {
+  async function handleFotoUpload(file: File): Promise<Foto | null> {
     if (!file.type.startsWith("image/")) {
-      await alertError("Arquivo inválido. Selecione uma imagem.");
-      return;
+      await alertError(`Arquivo inválido: "${file.name}" não é uma imagem.`);
+      return null;
     }
     try {
-      setUploadingFoto(true);
       const compressed = await imageCompression(file, {
         maxSizeMB: 1,
         maxWidthOrHeight: 1600,
@@ -198,9 +200,40 @@ export default function ModalAcao({
         body: compressed,
         headers: { "Content-Type": compressed.type || file.type },
       });
-      setFotos((prev) => [...prev, { url: publicUrl, legenda: "" }]);
+      return { url: publicUrl, legenda: "" };
     } catch (e: any) {
-      await alertError("Erro no upload: " + e?.message);
+      await alertError(`Erro no upload de "${file.name}": ` + e?.message);
+      return null;
+    }
+  }
+
+  // ✅ Ctrl+clique/seleção múltipla (achado 26/08/2026, pedido do Márcio:
+  // "hoje eu tenho que selecionar foto por foto") — o <input multiple>
+  // já entrega vários arquivos de uma vez; sobe um de cada vez (sequencial,
+  // simples e evita estourar presigns em paralelo) até bater o limite de
+  // MAX_FOTOS. Selecionar mais do que cabe só usa as primeiras — avisa
+  // quantas ficaram de fora.
+  async function handleFotosSelecionadas(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+    const vagas = MAX_FOTOS - fotos.length;
+    if (vagas <= 0) {
+      await alertError(`Limite de ${MAX_FOTOS} fotos por ação já atingido.`);
+      return;
+    }
+    const arquivos = Array.from(fileList);
+    const aEnviar = arquivos.slice(0, vagas);
+    if (arquivos.length > vagas) {
+      await alertError(
+        `Só cabem mais ${vagas} foto(s) (limite de ${MAX_FOTOS}) — as ${arquivos.length - vagas} última(s) selecionada(s) foram ignoradas.`,
+      );
+    }
+
+    setUploadingFoto(true);
+    try {
+      for (const file of aEnviar) {
+        const foto = await handleFotoUpload(file);
+        if (foto) setFotos((prev) => [...prev, foto]);
+      }
     } finally {
       setUploadingFoto(false);
     }
@@ -430,20 +463,29 @@ export default function ModalAcao({
               </div>
             ))}
 
-            <label className="flex items-center justify-center gap-2 h-10 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-emerald-500/50 transition-colors text-xs font-medium text-muted-foreground">
-              {uploadingFoto ? "Enviando..." : "+ Adicionar foto"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={uploadingFoto}
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFotoUpload(f);
-                  e.target.value = "";
-                }}
-              />
-            </label>
+            {fotos.length < MAX_FOTOS && (
+              <label className="flex items-center justify-center gap-2 h-10 border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-emerald-500/50 transition-colors text-xs font-medium text-muted-foreground">
+                {uploadingFoto
+                  ? "Enviando..."
+                  : `+ Adicionar foto (${fotos.length}/${MAX_FOTOS}) — segure Ctrl pra escolher várias`}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  disabled={uploadingFoto}
+                  onChange={(e) => {
+                    handleFotosSelecionadas(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            )}
+            {fotos.length >= MAX_FOTOS && (
+              <p className="text-[11px] text-muted-foreground text-center">
+                Limite de {MAX_FOTOS} fotos atingido — remova uma pra adicionar outra.
+              </p>
+            )}
           </div>
         </div>
       </ModalBody>

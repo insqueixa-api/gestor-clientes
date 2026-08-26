@@ -15,6 +15,7 @@ import {
   Newspaper,
   ChevronDown,
   Rss,
+  Move,
 } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -33,6 +34,7 @@ const ModalCondominio = dynamic(() => import("./ModalCondominio"), {
   ssr: false,
 });
 const ModalAcao = dynamic(() => import("./ModalAcao"), { ssr: false });
+const CapaEditorModal = dynamic(() => import("./CapaEditorModal"), { ssr: false });
 
 const STATUS_FILTROS: { valor: StatusAcao | "Todos"; label: string }[] = [
   { valor: "Todos", label: "Todos" },
@@ -68,6 +70,9 @@ export default function CondominioPage() {
 
   const [isModalAcaoOpen, setIsModalAcaoOpen] = useState(false);
   const [editingAcao, setEditingAcao] = useState<AcaoRow | null>(null);
+  // ✅ "Ajustar capa" (achado 26/08/2026, pedido do Márcio: arrastar a
+  // posição da foto + trocar qual foto é a capa) — ver CapaEditorModal.tsx.
+  const [editingCapaFor, setEditingCapaFor] = useState<AcaoRow | null>(null);
 
   // ✅ Seleção em lote (mexer em várias ações de uma vez, ex: arquivar N) e
   // grupos colapsados (por status) — a página sempre abre com tudo
@@ -474,12 +479,14 @@ export default function CondominioPage() {
                           <img
                             src={capa.url}
                             alt={item.titulo}
-                            // ✅ object-top (achado 26/08/2026, pedido do
-                            // Márcio: "a foto corta a cabeça") — sem isso o
-                            // crop padrão é center/center, cortando igual em
-                            // cima e embaixo; fotos de pessoas costumam
-                            // sobrar mais espaço embaixo do que em cima.
-                            className="w-full h-36 object-cover object-top"
+                            // ✅ posY ajustável por foto (achado 26/08/2026,
+                            // pedido do Márcio — botão "Ajustar capa" mais
+                            // abaixo, CapaEditorModal.tsx). Sem posY salvo
+                            // ainda, cai pro mesmo padrão "mais pro topo" de
+                            // antes (20%), não mais o center/center puro que
+                            // cortava cabeça.
+                            className="w-full h-36 object-cover"
+                            style={{ objectPosition: `center ${capa.posY ?? 20}%` }}
                           />
                         )}
                         <div className="p-4 space-y-2">
@@ -510,6 +517,16 @@ export default function CondominioPage() {
                               >
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
+                              {item.fotos?.length > 0 && (
+                                <button
+                                  type="button"
+                                  title="Ajustar capa"
+                                  onClick={() => setEditingCapaFor(item)}
+                                  className="w-7 h-7 rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 flex items-center justify-center transition-colors"
+                                >
+                                  <Move className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 title={item.published_at ? "Despublicar" : "Publicar"}
@@ -621,6 +638,20 @@ export default function CondominioPage() {
               editingAcao ? "Ação atualizada" : "Ação criada",
               editingAcao?.titulo,
             );
+            fetchBundle(selectedCondominioId);
+          }}
+          onError={(msg) => addToast("error", "Erro ao salvar", msg)}
+        />
+      )}
+
+      {editingCapaFor && tenantId && (
+        <CapaEditorModal
+          acao={editingCapaFor}
+          tenantId={tenantId}
+          onClose={() => setEditingCapaFor(null)}
+          onSaved={() => {
+            setEditingCapaFor(null);
+            addToast("success", "Capa atualizada", editingCapaFor.titulo);
             fetchBundle(selectedCondominioId);
           }}
           onError={(msg) => addToast("error", "Erro ao salvar", msg)}
