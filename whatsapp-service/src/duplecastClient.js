@@ -252,11 +252,26 @@ async function deletePlaylistByName(siteRoot, jar, userAgent, searchName, pin) {
 }
 
 // Ponto de entrada único, chamado pela rota /duplecast/action.
-export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName }) {
+export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, debugUrl }) {
   if (!baseUrl) throw new Error("baseUrl é obrigatório.");
-  if (!macValue || !deviceKey) throw new Error("macValue e deviceKey são obrigatórios.");
 
   const siteRoot = String(baseUrl).replace(/\/$/, "");
+
+  // ✅ Debug temporário (26/08/2026) — só leitura, NUNCA envia credencial
+  // nenhuma. Só resolve o desafio Cloudflare de uma URL e devolve o HTML
+  // puro, pra inspecionar a página de login de revenda de verdade (form,
+  // nomes de campo, csrf) antes de escrever o login de revenda de verdade
+  // — sem isso, ia ter que adivinhar os nomes dos campos e arriscar
+  // tentativas de login erradas de verdade no Duplecast. Remover depois
+  // que o login de revenda estiver implementado e confirmado.
+  if (action === "debug_fetch") {
+    if (!debugUrl) throw new Error("debugUrl é obrigatório para debug_fetch.");
+    const { html } = await solveChallenge(debugUrl);
+    return { html };
+  }
+
+  if (!macValue || !deviceKey) throw new Error("macValue e deviceKey são obrigatórios.");
+
   const { jar, userAgent } = await deviceLogin(siteRoot, macValue, deviceKey);
 
   if (action === "check") {
