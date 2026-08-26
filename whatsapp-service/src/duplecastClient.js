@@ -402,6 +402,25 @@ export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey,
     if (!username || !password) throw new Error("username e password são obrigatórios para renew_code.");
     if (!macValue) throw new Error("macValue é obrigatório para renew_code.");
 
+    // ✅ Achado 26/08/2026 (revisão pós-implementação, antes de qualquer
+    // teste real): lê o vencimento ATUAL do dispositivo ANTES de ativar —
+    // sem isso, uma ativação que falha em silêncio do lado da Duplecast
+    // (ex: código já usado, MAC recusado, POST aceito com HTTP 200 mas sem
+    // efeito real) ainda seria reportada como sucesso só porque o
+    // dispositivo já tinha ALGUMA validade de antes (o "activated" abaixo
+    // dependia só do status HTTP do POST + existir uma data qualquer — não
+    // provava que ela realmente avançou).
+    let beforeExpireDate = null;
+    if (deviceKey) {
+      try {
+        const before = await deviceLogin(siteRoot, macValue, deviceKey);
+        beforeExpireDate = parseExpireDate(await fetchDeviceMain(siteRoot, before.jar, before.userAgent));
+      } catch {
+        // segue mesmo se a checagem "antes" falhar — só perde a comparação
+        // (fallback pro comportamento antigo: aceita qualquer data presente)
+      }
+    }
+
     const { jar, userAgent } = await resellerLogin(siteRoot, username, password);
 
     let codeToUse = code;
@@ -423,7 +442,14 @@ export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey,
     const mainHtml = await fetchDeviceMain(siteRoot, device.jar, device.userAgent);
     const expireDate = parseExpireDate(mainHtml);
     const isTrial = !expireDate && parseIsTrial(mainHtml);
-    return { activated: activateResult.status < 400, code: codeToUse, ...activateResult, expireDate, isTrial };
+
+    // ✅ Só considera realmente ativado se o vencimento AVANÇOU de verdade
+    // (datas "YYYY-MM-DD" comparam certo como string) — ou apareceu pela
+    // 1ª vez (não tínhamos "antes" pra comparar). "Tem uma data" sozinho
+    // não prova que a ativação de agora fez efeito.
+    const reallyActivated = !!expireDate && (!beforeExpireDate || expireDate > beforeExpireDate);
+
+    return { activated: reallyActivated, code: codeToUse, ...activateResult, expireDate, isTrial };
   }
 
   if (!macValue || !deviceKey) throw new Error("macValue e deviceKey são obrigatórios.");
