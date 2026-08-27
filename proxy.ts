@@ -2,7 +2,14 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isAdminRole } from "@/lib/api/auth";
 import { flagSuspiciousAccess } from "@/lib/observability";
-import { ADMIN_CTX_COOKIE, ADMIN_CTX_REVALIDATE_MS, parseAdminCtxCookie } from "@/lib/api/admin-ctx";
+import {
+  ADMIN_CTX_COOKIE,
+  ADMIN_CTX_HEADER,
+  ADMIN_CTX_MAX_AGE,
+  ADMIN_CTX_REVALIDATE_MS,
+  parseAdminCtxCookie,
+  type AdminCtxCookiePayload,
+} from "@/lib/api/admin-ctx";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -16,9 +23,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  // ✅ 27/08/2026: apaga qualquer x-admin-ctx que já venha no request antes
+  // de decidir se seta um de verdade — sem isso, um client malicioso
+  // poderia forjar esse header e o layout (que passa a confiar nele, ver
+  // lib/api/admin-ctx.ts) leria tenant/role errados sem bater no Supabase.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete(ADMIN_CTX_HEADER);
+
+  let cookiesToForward: { name: string; value: string; options?: Record<string, unknown> }[] = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,8 +40,7 @@ export async function proxy(request: NextRequest) {
         getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          cookiesToForward = cookiesToSet;
         },
       },
     }
@@ -69,16 +80,26 @@ export async function proxy(request: NextRequest) {
   // fonte única de verdade pra "o que conta como admin", só o jeito de pegar
   // o client Supabase que continua separado (proxy usa cookie de request,
   // Server Component usa next/headers).
+  //
+  // ✅ 27/08/2026: além de validar, agora resolve o contexto completo aqui
+  // (Edge, sem cold-start de container) e repassa via ADMIN_CTX_HEADER pro
+  // app/admin/layout.tsx — que antes refazia essa mesma consulta inteira em
+  // Node a cada navegação. Mesmo caminho frio de lib/api/auth-server.ts
+  // (getAdminTenantContext): tenant_members → tenants+profiles em paralelo
+  // → grava cookie de cache. Duplicado de propósito (igual o resto deste
+  // arquivo já fazia) em vez de importar de auth-server.ts, que puxa
+  // next/headers e não roda em Edge.
+  let resolvedCtx: AdminCtxCookiePayload | null = null;
+
   if (user && pathname.startsWith('/admin')) {
-    // ✅ Mesmo cache de lib/api/auth-server.ts (cookie setado no login, até
-    // o logoff) — se já validamos essa sessão antes (cache ainda dentro da
-    // janela de 24h), pula a consulta a tenant_members aqui também.
-    if (!trustedFresh) {
+    if (trustedFresh && cached) {
+      resolvedCtx = cached;
+    } else {
       const { data: member } = await supabase
         .from('tenant_members')
         .select('tenant_id, role')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .maybeSingle<{ tenant_id: string; role: string | null }>();
 
       if (!member) {
         await supabase.auth.signOut();
@@ -90,11 +111,43 @@ export async function proxy(request: NextRequest) {
         await supabase.auth.signOut();
         return NextResponse.redirect(new URL('/login', request.url));
       }
+
+      const [{ data: tenantRow }, { data: profile }] = await Promise.all([
+        supabase.from("tenants").select("name").eq("id", member.tenant_id).maybeSingle<{ name: string | null }>(),
+        supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle<{ display_name: string | null }>(),
+      ]);
+
+      resolvedCtx = {
+        userId: user.id,
+        tenantId: member.tenant_id,
+        role: member.role as string,
+        tenantName: tenantRow?.name ?? null,
+        displayName: profile?.display_name ?? null,
+        verifiedAt: Date.now(),
+      };
+
+      cookiesToForward.push({
+        name: ADMIN_CTX_COOKIE,
+        value: JSON.stringify(resolvedCtx),
+        options: {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: ADMIN_CTX_MAX_AGE,
+        },
+      });
     }
+  }
+
+  if (resolvedCtx) {
+    requestHeaders.set(ADMIN_CTX_HEADER, JSON.stringify(resolvedCtx));
   }
 
   // Se não caiu em nenhuma regra de redirecionamento, continua normalmente.
   // Isso permite que um usuário logado acesse /renew ou qualquer outra rota sem bloqueios.
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  cookiesToForward.forEach(({ name, value, options }) => response.cookies.set(name, value, options as any));
   return response;
 }
 

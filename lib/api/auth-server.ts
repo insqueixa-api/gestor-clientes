@@ -2,11 +2,11 @@
 // Equivalente de requireAdminTenant (lib/api/auth.ts) para uso em Server
 // Components / layouts, onde a sessão vem do cookie (via lib/supabase/server.ts)
 // em vez de um Bearer token. Mesma fonte de verdade de role (tenant_members).
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminRole } from "./auth";
 import { flagSuspiciousAccess } from "@/lib/observability";
-import { ADMIN_CTX_COOKIE, ADMIN_CTX_MAX_AGE, ADMIN_CTX_REVALIDATE_MS, parseAdminCtxCookie, type AdminCtxCookiePayload } from "./admin-ctx";
+import { ADMIN_CTX_COOKIE, ADMIN_CTX_HEADER, ADMIN_CTX_MAX_AGE, ADMIN_CTX_REVALIDATE_MS, parseAdminCtxCookie, parseAdminCtxHeader, type AdminCtxCookiePayload } from "./admin-ctx";
 
 export type AdminTenantContext = {
   ok: true;
@@ -73,6 +73,26 @@ export async function clearAdminCtxCookie(): Promise<void> {
 // Não redireciona sozinho — quem chama decide (redirect, notFound, etc.),
 // igual o app/admin/layout.tsx já fazia manualmente antes desta função existir.
 export async function getAdminTenantContext(): Promise<AdminTenantContext | AdminTenantDenied> {
+  // 0) Tentativa mais barata de todas: o proxy.ts (Edge, roda antes desta
+  // função em toda requisição pra /admin/*) já fez essa checagem inteira
+  // nesse mesmo request e deixou o resultado pronto no header ADMIN_CTX_HEADER
+  // — nem precisa criar o client Supabase aqui. Só cai pro caminho normal
+  // (getSession/getUser) se o header não vier (ex: chamada fora de /admin/*,
+  // como as rotas de API que também usam esta função, que o matcher do
+  // proxy não cobre).
+  const hdrs = await headers();
+  const fromProxy = parseAdminCtxHeader(hdrs.get(ADMIN_CTX_HEADER));
+  if (fromProxy) {
+    return {
+      ok: true,
+      tenantId: fromProxy.tenantId,
+      userId: fromProxy.userId,
+      role: fromProxy.role,
+      tenantName: fromProxy.tenantName,
+      displayName: fromProxy.displayName,
+    };
+  }
+
   const supabase = await createClient();
 
   // 1) Tentativa barata: sessão local (sem bater no servidor de Auth). Se o

@@ -37,6 +37,25 @@ export function parseAdminCtxCookie(raw: string | undefined | null, userId: stri
   }
 }
 
+// ✅ 27/08/2026: header interno pra proxy.ts (Edge, já resolveu tenant/role
+// nesse mesmo request) repassar o contexto pronto pra dentro do Server
+// Component (Node, app/admin/layout.tsx) sem ele precisar reconsultar
+// sessão/tenant_members do zero — corta o round-trip duplicado que fazia
+// TTFB de todo /admin/* sofrer com o cold-start do runtime Node.
+// Sem validação de origem aqui de propósito: quem garante que esse header
+// nunca chega forjado de fora é o proxy.ts, que APAGA/reescreve ele em toda
+// requisição que casa com o matcher de /admin — ver comentário lá.
+export const ADMIN_CTX_HEADER = "x-admin-ctx";
+
+export function parseAdminCtxHeader(raw: string | undefined | null): AdminCtxCookiePayload | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AdminCtxCookiePayload;
+  } catch {
+    return null;
+  }
+}
+
 // ✅ Extrai um cookie do header Cookie cru (Request.headers.get("cookie")) —
 // usado em lib/api/auth.ts (requireAdminTenant), que recebe um Request de
 // Web API puro, sem o helper de cookies do NextRequest/next-headers.
