@@ -1,7 +1,7 @@
 // app/api/auth/google/lookup-operadora/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { consultarOperadoraExterna } from "@/lib/telein";
+import { consultarOperadoraExterna, resolveNationalNumber10Digits } from "@/lib/telein";
 
 export const dynamic = "force-dynamic";
 
@@ -71,11 +71,16 @@ export async function POST(req: Request) {
 
     if (phone.startsWith("55")) {
       const national = phone.slice(2);
-      // Fixo: a Telein não resolve portabilidade de linha fixa (confirmado
-      // em 10/08/2026 — todo número de 10 dígitos testado volta código de
-      // erro 99, celular continua funcionando normal). Nem consulta.
+      // ✅ Achado 28/08/2026: nem todo número de 10 dígitos é fixo de
+      // verdade — pode ser celular antigo sem o 9º dígito. Tenta recuperar
+      // como celular (mesma lógica do sync em massa) antes de desistir e
+      // marcar "Fixo" (ver lib/telein.ts).
       if (national.length === 10) {
-        return NextResponse.json({ operadora: "Fixo" });
+        const resolved = await resolveNationalNumber10Digits(national, true);
+        return NextResponse.json({
+          operadora: resolved.label,
+          correctedNational: resolved.correctedNational,
+        });
       }
       // true = ignora o cache e sempre bate na Telein: essa é a checagem
       // manual de dentro da edição do contato — o Márcio quer forçar aqui

@@ -6,7 +6,7 @@ import {
   batchUpdatePeople,
   getGoogleAccessToken,
 } from "@/lib/google/people-batch";
-import { consultarOperadoraExterna } from "@/lib/telein";
+import { consultarOperadoraExterna, resolveNationalNumber10Digits } from "@/lib/telein";
 
 export const dynamic = "force-dynamic";
 
@@ -200,13 +200,19 @@ export async function POST(req: Request) {
                 throw new Error(`Falha na Telein (Número: ${fullDigits})`);
               }
             } else if (national.length === 10) {
-              // Fixo: a Telein não resolve portabilidade de linha fixa
-              // (confirmado em 10/08/2026 — todo número de 10 dígitos
-              // testado, incluindo alguns que antes tinham operadora
-              // resolvida, agora volta código de erro 99; celular continua
-              // funcionando normal). Nem consulta, pra não gastar
-              // chamada/limite à toa nem gerar o falso "Falha na Telein".
-              if (phone.label !== "Fixo") {
+              // ✅ Achado 28/08/2026: nem todo número de 10 dígitos é fixo de
+              // verdade — pode ser celular antigo sem o 9º dígito. Tenta
+              // recuperar como celular antes de desistir e marcar "Fixo"
+              // (ver lib/telein.ts).
+              const resolved = await resolveNationalNumber10Digits(national);
+              if (resolved.correctedNational) {
+                const correctedValue = `0${resolved.correctedNational.slice(0, 2)} ${resolved.correctedNational.slice(2, 7)}-${resolved.correctedNational.slice(7)}`;
+                if (phone.label !== resolved.label || phone.value !== correctedValue) {
+                  updatedPhones[i].label = resolved.label;
+                  updatedPhones[i].value = correctedValue;
+                  hasChanges = true;
+                }
+              } else if (phone.label !== "Fixo") {
                 updatedPhones[i].label = "Fixo";
                 hasChanges = true;
               }

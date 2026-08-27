@@ -95,3 +95,35 @@ export async function consultarOperadoraExterna(
     return null;
   }
 }
+
+/**
+ * Resolve um número nacional de 10 dígitos (DDD + 8 dígitos) que hoje cai no
+ * atalho "assume Fixo, nem consulta a Telein" (achado 10/08/2026: linha fixa
+ * de verdade sempre volta erro 99). Esse atalho está incorreto pra números
+ * que na verdade são CELULAR ANTIGO sem o 9º dígito (cadastrado antes da
+ * migração de 2016) — achado em 28/08/2026 com "Matheus Vidamerica 3NaTV"
+ * (031 8417-2767): consultado direto na Telein SEM o atalho, ela reconheceu
+ * como 31984172767 e devolveu operadora real (Claro).
+ *
+ * DDDs de fixo de verdade sempre têm o número local começando em 2-5; celular
+ * (com ou sem o 9) sempre começa em 6-9 — então só tenta essa recuperação
+ * quando o 1º dígito local está em 6-9, pra não gastar consulta à toa nos
+ * fixos de verdade (que continuam indo direto pro fallback "Fixo").
+ */
+export async function resolveNationalNumber10Digits(
+  national: string,
+  forceRefresh = false,
+): Promise<{ label: string; correctedNational?: string }> {
+  const ddd = national.slice(0, 2);
+  const local8 = national.slice(2);
+
+  if (/^[6-9]/.test(local8)) {
+    const nationalWithNine = `${ddd}9${local8}`;
+    const operadoraName = await consultarOperadoraExterna(`55${nationalWithNine}`, forceRefresh);
+    if (operadoraName) {
+      return { label: operadoraName, correctedNational: nationalWithNine };
+    }
+  }
+
+  return { label: "Fixo" };
+}

@@ -319,12 +319,23 @@ export default function EditContatoModal({
       const data = await res.json();
 
       if (data.operadora) {
-        // Atualiza o label no formulário
+        // Atualiza o label (e, se a Telein recuperou um celular antigo sem o
+        // 9º dígito — achado 28/08/2026 — também corrige o número exibido)
         setEditForm((prev) => {
           const phones = [...prev.phones];
           const index = phones.findIndex((x) => x.id === phoneId);
-          if (index > -1)
-            phones[index] = { ...phones[index], label: data.operadora };
+          if (index > -1) {
+            phones[index] = {
+              ...phones[index],
+              label: data.operadora,
+              ...(data.correctedNational
+                ? {
+                    national: formatNational("55", data.correctedNational),
+                    confirmed: true,
+                  }
+                : {}),
+            };
+          }
           return { ...prev, phones };
         });
         // Sucesso
