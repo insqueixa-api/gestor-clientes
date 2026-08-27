@@ -1,6 +1,7 @@
 // app/api/auth/google/create/route.ts
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { brPhoneTailCandidates } from "@/lib/phone-tail";
 
 export const dynamic = "force-dynamic";
 
@@ -38,14 +39,6 @@ function getGoogleLabel(label: string, defaultType: string) {
   return { type: label };
 }
 
-// ✅ Últimos 9 dígitos do telefone (sem DDI/formatação) — mesma convenção
-// de comparação de número usada no resto do sistema.
-function phoneTail(raw: string | null | undefined) {
-  return String(raw || "")
-    .replace(/\D/g, "")
-    .slice(-9);
-}
-
 // ✅ Procura DIRETO no Google (não só na nossa tabela local de cache) se já
 // existe um contato com esse telefone, antes de criar um novo — evita
 // duplicar quando o contato existe no Google mas nunca foi registrado na
@@ -54,11 +47,18 @@ function phoneTail(raw: string | null | undefined) {
 // (people.connections.list, não searchContacts — o índice de busca do
 // Google tem atraso pra contatos recém-criados/editados, não é confiável
 // pra essa checagem).
+//
+// ✅ Compara pelo CONJUNTO de tails válidos (com/sem o 9º dígito) de cada
+// lado, não por igualdade de string — achado 28/08/2026 (ver
+// lib/phone-tail.ts): um corte cru de 9 dígitos não tolera essa ambiguidade
+// de verdade, então os dois lados precisam ter seus próprios candidatos
+// calculados e comparados por interseção.
 async function findExistingResourceNameByPhone(
   accessToken: string,
-  targetTail: string,
+  targetTails: string[],
 ) {
-  if (targetTail.length < 8) return null;
+  if (targetTails.length === 0) return null;
+  const targetSet = new Set(targetTails);
   let pageToken: string | undefined;
   do {
     const url = new URL(
@@ -76,7 +76,8 @@ async function findExistingResourceNameByPhone(
 
     for (const person of data.connections || []) {
       for (const phone of person.phoneNumbers || []) {
-        if (phoneTail(phone.value) === targetTail) {
+        const otherCandidates = brPhoneTailCandidates(phone.value);
+        if (otherCandidates.some((t) => targetSet.has(t))) {
           return person.resourceName as string;
         }
       }
@@ -134,10 +135,10 @@ export async function POST(req: Request) {
     // Google pro mesmo telefone) que fazia o WhatsApp mostrar o nome
     // repetido/emendado na lista de conversas.
     const primaryPhoneRaw = (phones || [])[0]?.value || null;
-    const targetTail = phoneTail(primaryPhoneRaw);
+    const targetTails = brPhoneTailCandidates(primaryPhoneRaw);
     const existingResourceName = await findExistingResourceNameByPhone(
       accessToken,
-      targetTail,
+      targetTails,
     );
 
     if (existingResourceName) {

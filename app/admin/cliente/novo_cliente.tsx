@@ -11,6 +11,7 @@ import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador In
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { normalizeMacInput } from "@/lib/apps/field-types";
+import { brPhoneTailCandidates } from "@/lib/phone-tail";
 import {
   ADMIN_CHECK_HANDLERS,
   resolveIntegrationTypeByName,
@@ -3101,23 +3102,24 @@ export default function NovoCliente({
       const formattedName = suffix ? `${firstName} ${suffix}` : displayName;
 
       // --- Checa se o contato já existe ---
-      // ✅ Compara pelos ÚLTIMOS 9 DÍGITOS, não pelo phone_e164 inteiro —
-      // mesma convenção de phoneTail() em api/auth/google/create/route.ts.
-      // O mesmo número real pode estar salvo com formatações diferentes
-      // (com/sem 0 na frente, com/sem 9º dígito) em registros antigos; um
-      // match exato de string deixava passar contato existente e criava
-      // duplicata. Isso só afeta a COMPARAÇÃO — o que é salvo continua no
-      // mesmo formato de sempre.
-      const phoneTail = rawDigits.slice(-9);
-      const { data: existingMatches } = await supabaseBrowser
-        .from("google_contacts")
-        .select(
-          "id, phones, google_resource_name, display_name, emails, labels",
-        )
-        .eq("tenant_id", tid)
-        .like("phone_e164", `%${phoneTail}`)
-        .order("synced_at", { ascending: false })
-        .limit(1);
+      // ✅ Compara testando as duas variações válidas de tail (com/sem o 9º
+      // dígito) — achado 28/08/2026: um corte cru dos últimos 9 dígitos
+      // NÃO tolera essa ambiguidade de verdade (inserir/remover o 9 desloca
+      // todos os dígitos seguintes, então os últimos 9 caracteres nunca
+      // batem entre as duas versões do mesmo número). Ver lib/phone-tail.ts.
+      const phoneTailCandidates = brPhoneTailCandidates(rawDigits);
+      const { data: existingMatches } =
+        phoneTailCandidates.length > 0
+          ? await supabaseBrowser
+              .from("google_contacts")
+              .select(
+                "id, phones, google_resource_name, display_name, emails, labels",
+              )
+              .eq("tenant_id", tid)
+              .or(phoneTailCandidates.map((t) => `phone_e164.like.%${t}`).join(","))
+              .order("synced_at", { ascending: false })
+              .limit(1)
+          : { data: null };
       const existingContact = existingMatches?.[0] || null;
 
       if (existingContact) {
@@ -3514,16 +3516,17 @@ export default function NovoCliente({
         if (syncOperadora) {
           setLoadingStep("Operadora...");
           try {
-            // ✅ Mesma convenção de comparação da syncToGoogleAgenda: últimos
-            // 9 dígitos, não phone_e164 exato — o mesmo número real pode
-            // estar salvo com formatações diferentes em registros antigos.
+            // ✅ Mesma convenção de comparação da syncToGoogleAgenda: testa
+            // as duas variações válidas de tail (com/sem o 9º dígito) em vez
+            // de só cortar os últimos 9 dígitos crus — ver lib/phone-tail.ts.
             const findContactIdByPhone = async (e164: string) => {
-              const tail = onlyDigits(e164).slice(-9);
+              const candidates = brPhoneTailCandidates(e164);
+              if (candidates.length === 0) return undefined;
               const { data } = await supabaseBrowser
                 .from("google_contacts")
                 .select("id")
                 .eq("tenant_id", tid)
-                .like("phone_e164", `%${tail}`)
+                .or(candidates.map((t) => `phone_e164.like.%${t}`).join(","))
                 .order("synced_at", { ascending: false })
                 .limit(1);
               return data?.[0]?.id as string | undefined;

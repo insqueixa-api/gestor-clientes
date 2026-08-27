@@ -17,6 +17,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { brPhoneTailCandidates } from "@/lib/phone-tail";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import ClientAlertBell from "@/components/alerts/ClientAlertBell";
@@ -472,13 +473,16 @@ export default function ClientDetailsPage() {
     tid: string,
     e164: string | null | undefined,
   ): Promise<AgendaContactRef | null> {
-    const tail = String(e164 || "").replace(/\D+/g, "").slice(-9);
-    if (tail.length < 8) return null;
+    // ✅ Testa as duas variações válidas de tail (com/sem o 9º dígito) — um
+    // corte cru dos últimos 9 dígitos não tolera essa ambiguidade de
+    // verdade (achado 28/08/2026, ver lib/phone-tail.ts).
+    const candidates = brPhoneTailCandidates(e164);
+    if (candidates.length === 0) return null;
     const { data } = await supabaseBrowser
       .from("google_contacts")
       .select("id, avatar_url, google_resource_name")
       .eq("tenant_id", tid)
-      .like("phone_e164", `%${tail}`)
+      .or(candidates.map((t) => `phone_e164.like.%${t}`).join(","))
       .order("synced_at", { ascending: false })
       .limit(1);
     return (data?.[0] as AgendaContactRef) || null;
