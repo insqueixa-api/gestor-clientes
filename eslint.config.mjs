@@ -27,6 +27,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Separate standalone service, not part of the Next.js app:
     "whatsapp-service/**",
+    // Referência/documentação do serviço de PDF (roda numa VM, não é buildado por este projeto):
+    "docs/vm-pdf-service/**",
     // Auto-generated PWA service worker files (workbox):
     "public/sw.js",
     "public/workbox-*.js",
