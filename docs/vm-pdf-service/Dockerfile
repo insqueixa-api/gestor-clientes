@@ -1,4 +1,4 @@
-FROM ghcr.io/puppeteer/puppeteer:23.11.1
+FROM ghcr.io/puppeteer/puppeteer:25.9.0
 
 WORKDIR /app
 USER root
