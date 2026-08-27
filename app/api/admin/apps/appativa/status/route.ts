@@ -34,7 +34,12 @@ export async function POST(req: NextRequest) {
 
   const historicoId = row.field_values?.["_appativa_pending_id"];
   if (!historicoId) {
-    return NextResponse.json({ ok: true, pending: false });
+    // ⚠️ Sem marcador pendente aqui não é o mesmo que "falhou" — pode ser
+    // que o polling em segundo plano (lib/apps/appativa-client-activation.ts)
+    // já tenha resolvido (sucesso OU erro) entre o clique do admin em
+    // "Ativar" e este "Ver status". Devolve um flag neutro em vez de
+    // inventar sucesso/erro que não temos mais como confirmar aqui.
+    return NextResponse.json({ ok: true, pending: false, alreadyResolved: true });
   }
 
   const apiKey = await getAppativaApiKey(supabase, tenantId);

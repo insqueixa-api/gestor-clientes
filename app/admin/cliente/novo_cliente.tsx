@@ -2789,6 +2789,15 @@ export default function NovoCliente({
           "Ativação confirmada",
           `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
         );
+      } else if (apiJson.alreadyResolved) {
+        // ⚠️ Não é sucesso nem erro confirmado — só não há mais nada
+        // pendente pra checar (pode ter resolvido em segundo plano entre o
+        // "Ativar" e este clique). Recarregar a página mostra o estado real.
+        addToast(
+          "warning",
+          "Nada pendente agora",
+          "Essa ativação não está mais em andamento — recarregue a página pra ver o vencimento atual.",
+        );
       } else {
         addToast("error", "Ativação falhou", apiJson.error || "A Appativa recusou a ativação.");
       }
