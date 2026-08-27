@@ -97,6 +97,24 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
+  // Sentry Cron Monitoring — só no disparo do pg_cron, pra alertar se a rota
+  // não terminar (achado no incidente do timeout de 26/08/2026, que morreu
+  // sem gerar nenhuma exceção no Sentry).
+  const checkInId = isCron
+    ? Sentry.captureCheckIn(
+        { monitorSlug: "sync-catalog-natv", status: "in_progress" },
+        {
+          schedule: { type: "crontab", value: "50 5 * * *" },
+          timezone: "UTC",
+          checkinMargin: 5,
+          maxRuntime: 6,
+        }
+      )
+    : null;
+  const finishCheckIn = (status: "ok" | "error") => {
+    if (checkInId) Sentry.captureCheckIn({ checkInId, monitorSlug: "sync-catalog-natv", status });
+  };
+
   const log: Record<string, any> = {
     servidor: SERVIDOR, executado_em: agora,
     etapas: {}, resultado: {}, erro: null,
@@ -121,6 +139,7 @@ export async function POST(req: NextRequest) {
     if (clienteErr || !cliente?.m3u_url) {
       log.erro = `m3u_url do cliente NaTV não encontrado: ${clienteErr?.message}`;
       await salvarLog(log);
+      finishCheckIn("error");
       return NextResponse.json({ error: log.erro }, { status: 500 });
     }
 
@@ -159,6 +178,7 @@ export async function POST(req: NextRequest) {
     if (ultimoErro) {
       log.erro = `Falha ao baixar M3U após ${MAX_TENTATIVAS} tentativas: ${ultimoErro.message}`;
       await salvarLog(log);
+      finishCheckIn("error");
       return NextResponse.json({ error: log.erro }, { status: 502 });
     }
 
@@ -373,6 +393,7 @@ await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR }
     // mais só do cron diário de horário fixo, ver lib/catalogo/limpar-orfaos.ts.
     await limparOrfaosAposSync(SERVIDOR);
 
+    finishCheckIn("ok");
     return NextResponse.json({ ok: true, ...log.resultado });
 
   } catch (e: any) {
@@ -380,6 +401,7 @@ await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR }
     await salvarLog(log);
     console.error(`[CATALOG-NATV] Erro fatal:`, e.message);
     Sentry.captureException(e, { tags: { kind: "cron_error", where: "sync-catalog-natv" } });
+    finishCheckIn("error");
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

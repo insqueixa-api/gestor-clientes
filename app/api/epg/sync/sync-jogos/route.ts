@@ -314,6 +314,26 @@ export async function GET(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
   }
+
+  // Sentry Cron Monitoring — só no disparo do pg_cron (não em run manual do
+  // admin), pra alertar se a rota não terminar (achado no incidente do
+  // timeout de 26/08/2026, que morreu sem gerar nenhuma exceção no Sentry).
+  const checkInId = isCron
+    ? Sentry.captureCheckIn(
+        { monitorSlug: 'sync-jogos', status: 'in_progress' },
+        {
+          schedule: { type: 'crontab', value: '35 5 * * *' },
+          timezone: 'UTC',
+          checkinMargin: 5,
+          maxRuntime: 6,
+        }
+      )
+    : null
+
+  const finishCheckIn = (status: 'ok' | 'error') => {
+    if (checkInId) Sentry.captureCheckIn({ checkInId, monitorSlug: 'sync-jogos', status })
+  }
+
   const agora = new Date()
   const hoje = formatDateForAPI(agora)
   const amanha = new Date(agora)
@@ -349,6 +369,7 @@ export async function GET(request: Request) {
     console.log(`[sync-jogos] Jogos com TV: ${comTV.length}`)
 
     if (comTV.length === 0) {
+      finishCheckIn('ok')
       return NextResponse.json({
         ok: true,
         message: 'Nenhum jogo com TV hoje',
@@ -433,6 +454,7 @@ export async function GET(request: Request) {
       console.log('[sync-jogos] Banco jogos_dia limpo com sucesso após envio ao R2.');
     }
 
+    finishCheckIn('ok')
     return NextResponse.json({
       ok: true,
       date: hoje,
@@ -445,6 +467,7 @@ export async function GET(request: Request) {
     const msg = err instanceof Error ? err.message : String(err)
     console.error('[sync-jogos] Erro:', msg)
     Sentry.captureException(err, { tags: { kind: "cron_error", where: "sync-jogos" } })
+    finishCheckIn('error')
     return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }
 }
