@@ -2066,6 +2066,20 @@ export default function NovoCliente({
     return macValue;
   }
 
+  // Mesma lógica de extractFieldByType(..., "device_key") em lib/apps/panel.ts —
+  // usado pelo "Renovar Duplecast" pra validar antes de chamar a API.
+  function getDeviceKeyFromApp(appInstance?: SelectedAppInstance) {
+    if (!appInstance) return "";
+    const keyField = appInstance.fields_config?.find(
+      (f: any) =>
+        String(f?.type || "").toLowerCase() === "device_key" ||
+        String(f?.label || "").toLowerCase().includes("device key"),
+    );
+    if (!keyField) return "";
+    const key = String(keyField.id || keyField.label || "").trim();
+    return appInstance.values[key] || "";
+  }
+
   // 🔥 FUNÇÃO SALVA-VIDAS: Tenta pegar a integração do banco. Se vier vazio OU a chave for velha, deduz pelo NOME!
   function resolveIntegration(appInstance?: SelectedAppInstance) {
     if (!appInstance) return null;
@@ -2576,6 +2590,72 @@ export default function NovoCliente({
       setLoading(false);
       setLoadingStep("");
       addToast("error", "Não foi possível marcar como pago", err.message || "Falha.");
+    }
+  }
+
+  // ✅ "Renovar Duplecast" (achado 26/08/2026, pedido do Márcio: "o duplecast
+  // tbm está lá no admin né? para ativar por lá") — consome 1 código real da
+  // conta de revenda, mesmo núcleo (renewDuplecastWithCode) usado quando o
+  // cliente paga pelo Portal. Diferente da Appativa: SÍNCRONO — a resposta
+  // já vem com o vencimento real confirmado, sem polling em segundo plano.
+  async function handleRenewDuplecast(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    if (!currentApp.client_app_id) {
+      addToast("warning", "Atenção", "Salve o cliente primeiro.");
+      return;
+    }
+
+    const macValue = getMacFromApp(currentApp);
+    if (!macValue || macValue.trim() === "") {
+      addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) antes de renovar.");
+      return;
+    }
+    const deviceKey = getDeviceKeyFromApp(currentApp);
+    if (!deviceKey || deviceKey.trim() === "") {
+      addToast("error", "Device Key Obrigatória", "Preencha a Device Key antes de renovar.");
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Renovar Duplecast via código?",
+      subtitle: "Consome 1 código real da conta de revenda pra renovar esse device agora — use só quando o cliente já pagou (por fora do Portal) ou pra forçar uma renovação manual.",
+      tone: "sky",
+      confirmText: "Sim, renovar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setLoading(true);
+    setLoadingStep("Renovando via código Duplecast...");
+    try {
+      const apiJson = await callAdminAppApi("/api/admin/apps/duplecast/activate", {
+        client_app_id: currentApp.client_app_id,
+      });
+      setLoading(false);
+      setLoadingStep("");
+
+      if (apiJson?.ok && apiJson.expireDate) {
+        const dateField = currentApp?.fields_config?.find(
+          (f: any) => String(f?.type || "").toLowerCase() === "date",
+        );
+        if (dateField) {
+          const fieldKey = dateField.id || dateField.label;
+          updateAppFieldValue(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
+        }
+        addToast(
+          "success",
+          "Duplecast renovado",
+          `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
+        );
+      } else {
+        addToast("error", "Não foi possível renovar", apiJson?.error || "Falha desconhecida.");
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setLoadingStep("");
+      addToast("error", "Não foi possível renovar", err.message || "Falha.");
     }
   }
 
@@ -6190,6 +6270,11 @@ export default function NovoCliente({
                                     onMarkGpcRokuPaid={
                                       catApp?.name === "GPC Roku"
                                         ? () => handleMarkGpcRokuPaid(app.instanceId)
+                                        : undefined
+                                    }
+                                    onRenewDuplecast={
+                                      catApp?.name === "DupleCast"
+                                        ? () => handleRenewDuplecast(app.instanceId)
                                         : undefined
                                     }
                                     onActivateAppativa={

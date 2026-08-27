@@ -97,6 +97,11 @@ export type AppIntegrationActionsProps = {
    * quando o cliente paga por fora do Portal. Só aparece quando informado —
    * nenhum outro app da família GerenciaApp passa isso. */
   onMarkGpcRokuPaid?: () => void | Promise<void>;
+  /** Duplecast (achado 26/08/2026, pedido do Márcio) — botão extra
+   * "Renovar via código" que consome 1 código real da conta de revenda,
+   * mesmo núcleo (renewDuplecastWithCode) usado quando o cliente paga pelo
+   * Portal. Só pro app Duplecast. */
+  onRenewDuplecast?: () => void | Promise<void>;
   /** Appativa (achado 26/08/2026, pedido do Márcio: "ali eu também deveria
    * chamar essa integração pra confirmar essa ativação dos aplicativos") —
    * botão extra "Ativar via Appativa" pra apps mapeados em
@@ -125,6 +130,7 @@ export default function AppIntegrationActions({
   onCheck,
   onRemove,
   onMarkGpcRokuPaid,
+  onRenewDuplecast,
   onActivateAppativa,
   onClouddyConfigure,
   onClouddyCheck,
@@ -216,8 +222,14 @@ export default function AppIntegrationActions({
 
   const showRemove = showRemoveButton && !!onRemove;
   const showMarkPaid = !!onMarkGpcRokuPaid;
+  const showRenewDuplecast = !!onRenewDuplecast;
   const showActivateAppativa = !!onActivateAppativa;
-  const buttonCount = 2 + (showRemove ? 1 : 0) + (showMarkPaid ? 1 : 0) + (showActivateAppativa ? 1 : 0);
+  const buttonCount =
+    2 +
+    (showRemove ? 1 : 0) +
+    (showMarkPaid ? 1 : 0) +
+    (showRenewDuplecast ? 1 : 0) +
+    (showActivateAppativa ? 1 : 0);
   const cols =
     buttonCount >= 5
       ? "grid-cols-5"
@@ -286,6 +298,19 @@ export default function AppIntegrationActions({
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
             <span className="hidden sm:inline">Marcar pago</span>
+          </button>
+        )}
+
+        {showRenewDuplecast && (
+          <button
+            type="button"
+            onClick={() => onRenewDuplecast!()}
+            disabled={loading}
+            className="h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            title="Consome 1 código real da conta de revenda pra renovar esse device agora"
+          >
+            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
+            <span className="hidden sm:inline">Renovar Duplecast</span>
           </button>
         )}
 
