@@ -466,9 +466,8 @@ export default function ClientDetailsPage() {
   }, [client?.dont_message_until]);
 
   // ✅ Busca o contato correspondente na Agenda (Google) pra mostrar a foto
-  // já salva — comparação pelos últimos 9 dígitos, mesma convenção usada em
-  // novo_cliente.tsx (o mesmo número pode estar salvo com formatação
-  // diferente em registros antigos).
+  // já salva — mesma convenção de comparação usada em novo_cliente.tsx (ver
+  // lib/phone-tail.ts).
   async function findAgendaContact(
     tid: string,
     e164: string | null | undefined,
