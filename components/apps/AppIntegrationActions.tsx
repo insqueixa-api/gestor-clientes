@@ -110,6 +110,13 @@ export type AppIntegrationActionsProps = {
    * hasApiIntegration é false (ex: SmartOne, sem nenhum painel próprio,
    * só Appativa). */
   onActivateAppativa?: () => void | Promise<void>;
+  /** Appativa (achado 27/08/2026, pedido do Márcio: "deixa um ver status no
+   * admin, no caso quando tem a ativação em andamento") — quando true, o
+   * botão de Appativa vira "Ver status" (onCheckAppativaStatus) em vez de
+   * "Ativar via Appativa", refletindo client_apps.field_values._appativa_
+   * pending_id salvo pela última ativação manual disparada. */
+  appativaPending?: boolean;
+  onCheckAppativaStatus?: () => void | Promise<void>;
   /** ClouDDy também é uma automação — segue o mesmo seletor Principal/
    * Secundária das demais antes de mandar pra extensão. */
   onClouddyConfigure: (mode: ReconfigureMode) => void | Promise<void>;
@@ -132,6 +139,8 @@ export default function AppIntegrationActions({
   onMarkGpcRokuPaid,
   onRenewDuplecast,
   onActivateAppativa,
+  appativaPending = false,
+  onCheckAppativaStatus,
   onClouddyConfigure,
   onClouddyCheck,
   onClouddyDelete,
@@ -206,6 +215,20 @@ export default function AppIntegrationActions({
     // componente inteiro sumia (return null logo abaixo) e o botão de
     // ativar nunca aparecia pra eles.
     if (!onActivateAppativa) return null;
+    if (appativaPending && onCheckAppativaStatus) {
+      return (
+        <button
+          type="button"
+          onClick={() => onCheckAppativaStatus()}
+          disabled={loading}
+          className="w-full h-10 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+          title="Ativação em andamento — consulta o status agora na Appativa"
+        >
+          {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
+          Ver status
+        </button>
+      );
+    }
     return (
       <button
         type="button"
@@ -314,7 +337,20 @@ export default function AppIntegrationActions({
           </button>
         )}
 
-        {showActivateAppativa && (
+        {showActivateAppativa && appativaPending && onCheckAppativaStatus && (
+          <button
+            type="button"
+            onClick={() => onCheckAppativaStatus()}
+            disabled={loading}
+            className="h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            title="Ativação em andamento — consulta o status agora na Appativa"
+          >
+            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
+            <span className="hidden sm:inline">Ver status</span>
+          </button>
+        )}
+
+        {showActivateAppativa && !appativaPending && (
           <button
             type="button"
             onClick={() => onActivateAppativa!()}

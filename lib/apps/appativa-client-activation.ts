@@ -43,7 +43,12 @@ function extractDateOnly(v: unknown): string | null {
 // Uma tentativa de checagem — mesma lógica de validação de
 // resolveAppativaAppRenewal (lib/client-portal/fulfillment.ts), só que sem
 // nenhuma dependência de client_portal_payments.
-async function checkOnce(
+//
+// ✅ Exportada (achado 27/08/2026, pedido do Márcio: "ver status" quando a
+// ativação manual está em andamento) — reaproveitada também pela rota
+// síncrona app/api/admin/apps/appativa/status/route.ts, pra checar o
+// historicoId salvo sem duplicar essa lógica de novo.
+export async function checkAppativaHistoricoOnce(
   apiKey: string,
   historicoId: string,
 ): Promise<{ outcome: "done"; expireDate: string } | { outcome: "pending" } | { outcome: "error"; error: string }> {
@@ -107,6 +112,23 @@ export async function triggerAppativaActivationForClient(
 
   const historicoId = String(result.data.id);
 
+  // ✅ Marca "ativação em andamento" (achado 27/08/2026, pedido do Márcio:
+  // "deixa um ver status no admin, no caso quando tem a ativação em
+  // andamento") — persiste ANTES de responder, pra tela do cliente já
+  // conseguir mostrar "Ver status" em vez de "Ativar via Appativa" mesmo
+  // que o admin recarregue a página logo em seguida. Chave prefixada com
+  // "_" segue o mesmo padrão já usado por "_trial_hint" (lib/apps/
+  // orchestration.ts) — nunca aparece no formulário, só como estado interno.
+  const fieldValuesWithPending = { ...params.fieldValues, _appativa_pending_id: historicoId };
+  try {
+    await supabaseAdmin
+      .from("client_apps")
+      .update({ field_values: fieldValuesWithPending })
+      .eq("id", params.clientAppId);
+  } catch {
+    // best-effort — não bloqueia a ativação em si
+  }
+
   // ✅ Confirmação roda em segundo plano (after()) — o admin já recebe
   // "solicitado" na hora; a tela reflete o vencimento novo sozinha assim que
   // resolver (sem precisar de um client_portal_payments pra guardar
@@ -116,16 +138,17 @@ export async function triggerAppativaActivationForClient(
     try {
       await new Promise((resolve) => setTimeout(resolve, APPATIVA_INITIAL_DELAY_MS));
       for (let i = 0; i < APPATIVA_POLL_ATTEMPTS; i++) {
-        const check = await checkOnce(apiKey, historicoId);
+        const check = await checkAppativaHistoricoOnce(apiKey, historicoId);
         if (check.outcome === "done") {
+          const { _appativa_pending_id, ...restFieldValues } = fieldValuesWithPending;
           const dateField = findFieldByType(params.fieldsConfig, "date");
-          if (dateField) {
-            const fieldKey = String(dateField.id || dateField.label);
-            await supabaseAdmin
-              .from("client_apps")
-              .update({ field_values: { ...params.fieldValues, [fieldKey]: check.expireDate } })
-              .eq("id", params.clientAppId);
-          }
+          const updated = dateField
+            ? { ...restFieldValues, [String(dateField.id || dateField.label)]: check.expireDate }
+            : restFieldValues;
+          await supabaseAdmin
+            .from("client_apps")
+            .update({ field_values: updated })
+            .eq("id", params.clientAppId);
           return;
         }
         if (check.outcome === "error") {
@@ -133,12 +156,25 @@ export async function triggerAppativaActivationForClient(
           // acionou, na tela do cliente; ele confere o resultado voltando
           // nessa mesma tela). Sentry.captureMessage seria redundante com
           // o que solicitar-ativacao/consultar-ativacao já registram.
+          const { _appativa_pending_id, ...restFieldValues } = fieldValuesWithPending;
+          try {
+            await supabaseAdmin
+              .from("client_apps")
+              .update({ field_values: restFieldValues })
+              .eq("id", params.clientAppId);
+          } catch {
+            // best-effort — a checagem de erro em si já é o que importa
+          }
           return;
         }
         if (i < APPATIVA_POLL_ATTEMPTS - 1) {
           await new Promise((resolve) => setTimeout(resolve, APPATIVA_POLL_INTERVAL_MS));
         }
       }
+      // ⚠️ Esgotou as tentativas sem confirmar nem errar — _appativa_pending_id
+      // fica salvo de propósito (sem log/Auditoria, por pedido do Márcio):
+      // é exatamente o que habilita o botão "Ver status" pra checar de novo
+      // depois, manualmente.
     } catch {
       // best-effort — não derruba nada, o admin pode tentar de novo
     }

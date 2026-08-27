@@ -952,6 +952,12 @@ export default function NovoCliente({
     // vencimento", pra não precisar recarregar a página pra ver o aviso.
     isTrial?: boolean;
 
+    // ✅ Ativação Appativa manual em andamento (achado 27/08/2026, pedido do
+    // Márcio: "deixa um ver status no admin") — vem de field_values.
+    // _appativa_pending_id (lib/apps/appativa-client-activation.ts) e é
+    // atualizado ao vivo, sem precisar recarregar a página.
+    appativaPending?: boolean;
+
     // 🔥 id real da linha em client_apps — undefined enquanto a instância
     // ainda não foi salva (app novo, adicionado nesta sessão de edição).
     // Sem isso, updates imediatos pós-integração (Configurar/Verificar)
@@ -1742,7 +1748,7 @@ export default function NovoCliente({
               const instances = currentApps.map((ca: any) => {
                 const savedValues = ca.field_values || {};
 
-                const { _config_cost, _config_partner, _trial_hint, ...restValues } =
+                const { _config_cost, _config_partner, _trial_hint, _appativa_pending_id, ...restValues } =
                   savedValues;
 
                 const cfg = Array.isArray(ca.apps?.fields_config)
@@ -1797,6 +1803,8 @@ export default function NovoCliente({
                   partnerServerId: _config_partner || "",
 
                   isTrial: _trial_hint === "1",
+
+                  appativaPending: !!_appativa_pending_id,
 
                   is_minimized: isEditing, // editando = minimizado; criando teste = aberto
                 };
@@ -2042,6 +2050,17 @@ export default function NovoCliente({
     setSelectedApps((prev) =>
       prev.map((app) =>
         app.instanceId === instanceId ? { ...app, isTrial } : app,
+      ),
+    );
+  }
+
+  // Espelha ao vivo o `_appativa_pending_id` que lib/apps/
+  // appativa-client-activation.ts persiste em field_values — sem isso, o
+  // botão "Ver status" só apareceria depois de recarregar a página.
+  function setAppativaPending(instanceId: string, pending: boolean) {
+    setSelectedApps((prev) =>
+      prev.map((app) =>
+        app.instanceId === instanceId ? { ...app, appativaPending: pending } : app,
       ),
     );
   }
@@ -2393,6 +2412,18 @@ export default function NovoCliente({
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
     if (!currentApp) return;
 
+    // ✅ Achado 27/08/2026, pedido do Márcio: "o verificar vencimento pode
+    // checar lá primeiro" — quando há uma ativação Appativa em andamento
+    // (disparada pelo botão manual), "Verificar vencimento" consulta a
+    // Appativa antes de qualquer outra coisa, mesmo pra apps sem handler
+    // nativo (ex: SmartOne) — sem isso, esses apps só caem no aviso
+    // genérico "não disponível" logo abaixo.
+    const catAppForCheck = catalog.find((c) => c.id === currentApp.app_id) as any;
+    if (currentApp.appativaPending && catAppForCheck?.appativa_app_id) {
+      await handleCheckAppativaStatus(instanceId);
+      return;
+    }
+
     const appName = currentApp.name;
     const handler = resolveIntegration(currentApp);
     if (!handler || !ADMIN_CHECK_HANDLERS.has(handler.actionPrefix)) {
@@ -2700,6 +2731,7 @@ export default function NovoCliente({
       setLoadingStep("");
 
       if (apiJson?.ok) {
+        setAppativaPending(instanceId, true);
         addToast(
           "success",
           "Ativação solicitada",
@@ -2712,6 +2744,58 @@ export default function NovoCliente({
       setLoading(false);
       setLoadingStep("");
       addToast("error", "Não foi possível ativar", err.message || "Falha.");
+    }
+  }
+
+  // ✅ "Ver status" (achado 27/08/2026, pedido do Márcio: "deixa um ver
+  // status no admin, no caso quando tem a ativação em andamento") — consulta
+  // na hora o historicoId da última ativação manual disparada, sem esperar
+  // o polling de 1 min em segundo plano terminar sozinho.
+  async function handleCheckAppativaStatus(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp?.client_app_id) return;
+
+    setLoading(true);
+    setLoadingStep("Consultando status na Appativa...");
+    try {
+      const apiJson = await callAdminAppApi("/api/admin/apps/appativa/status", {
+        client_app_id: currentApp.client_app_id,
+      });
+      setLoading(false);
+      setLoadingStep("");
+
+      if (!apiJson?.ok) {
+        addToast("error", "Não foi possível consultar", apiJson?.error || "Falha desconhecida.");
+        return;
+      }
+
+      if (apiJson.pending) {
+        addToast("warning", "Ainda em andamento", "A Appativa ainda não confirmou essa ativação — tente de novo em instantes.");
+        return;
+      }
+
+      setAppativaPending(instanceId, false);
+
+      if (apiJson.expireDate) {
+        const dateField = currentApp?.fields_config?.find(
+          (f: any) => String(f?.type || "").toLowerCase() === "date",
+        );
+        if (dateField) {
+          const fieldKey = dateField.id || dateField.label;
+          updateAppFieldValue(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
+        }
+        addToast(
+          "success",
+          "Ativação confirmada",
+          `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
+        );
+      } else {
+        addToast("error", "Ativação falhou", apiJson.error || "A Appativa recusou a ativação.");
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setLoadingStep("");
+      addToast("error", "Não foi possível consultar", err.message || "Falha.");
     }
   }
 
@@ -6280,6 +6364,12 @@ export default function NovoCliente({
                                     onActivateAppativa={
                                       catApp?.appativa_app_id
                                         ? () => handleAtivarAppativa(app.instanceId)
+                                        : undefined
+                                    }
+                                    appativaPending={!!app.appativaPending}
+                                    onCheckAppativaStatus={
+                                      catApp?.appativa_app_id
+                                        ? () => handleCheckAppativaStatus(app.instanceId)
                                         : undefined
                                     }
                                     onOpenPanel={() => {
