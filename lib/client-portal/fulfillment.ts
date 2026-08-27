@@ -5,7 +5,15 @@ import * as Sentry from "@sentry/nextjs";
 import { notify, resolveNotification, formatClientLabel } from "@/lib/notifications/notify";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 import { extractFieldByType, findFieldByType, extractDateOnly } from "@/lib/apps/panel";
-import { solicitarAtivacao, consultarAtivacao, getAppativaApiKey, syncAppativaCredits } from "@/lib/integrations/appativa";
+import {
+  solicitarAtivacao,
+  consultarAtivacao,
+  getAppativaApiKey,
+  syncAppativaCredits,
+  APPATIVA_INITIAL_DELAY_MS,
+  APPATIVA_POLL_INTERVAL_MS,
+  APPATIVA_POLL_ATTEMPTS,
+} from "@/lib/integrations/appativa";
 import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
 import { renewDuplecastWithCode } from "@/lib/apps/duplecast-renewal";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
@@ -367,16 +375,22 @@ export async function markAppRenewalPaid(
                   prodLog("markAppRenewalPaid: sync de créditos falhou", { message: e?.message }),
                 );
                 try {
-                  const POLL_INTERVAL_MS = 5_000;
-                  const POLL_TOTAL_MS = 60_000;
-                  const attempts = Math.floor(POLL_TOTAL_MS / POLL_INTERVAL_MS);
+                  // ✅ Achado 26/08/2026 (Márcio, testando ativações reais):
+                  // a Appativa nunca confirma antes de uns 15s — checar logo
+                  // de cara só gastava uma tentativa à toa. Espera 15s antes
+                  // da 1ª checagem, depois 5 em 5s (mesmas constantes de
+                  // lib/integrations/appativa.ts, compartilhadas com a
+                  // ativação manual do admin).
+                  await new Promise((resolve) => setTimeout(resolve, APPATIVA_INITIAL_DELAY_MS));
                   let resolved = false;
-                  for (let i = 0; i < attempts; i++) {
-                    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+                  for (let i = 0; i < APPATIVA_POLL_ATTEMPTS; i++) {
                     const check = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
                     if (check.outcome === "done") {
                       resolved = true;
                       break;
+                    }
+                    if (i < APPATIVA_POLL_ATTEMPTS - 1) {
+                      await new Promise((resolve) => setTimeout(resolve, APPATIVA_POLL_INTERVAL_MS));
                     }
                   }
 
@@ -650,16 +664,18 @@ export async function markAppRenewalPaid(
                 prodLog("markAppRenewalPaid: sync de créditos falhou", { message: e?.message }),
               );
               try {
-                const POLL_INTERVAL_MS = 5_000;
-                const POLL_TOTAL_MS = 60_000;
-                const attempts = Math.floor(POLL_TOTAL_MS / POLL_INTERVAL_MS);
+                // ✅ Mesma janela 15s+5s do branch de Appativa acima (achado
+                // 26/08/2026) — constantes compartilhadas de lib/integrations/appativa.ts.
+                await new Promise((resolve) => setTimeout(resolve, APPATIVA_INITIAL_DELAY_MS));
                 let resolved = false;
-                for (let i = 0; i < attempts; i++) {
-                  await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+                for (let i = 0; i < APPATIVA_POLL_ATTEMPTS; i++) {
                   const check = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
                   if (check.outcome === "done") {
                     resolved = true;
                     break;
+                  }
+                  if (i < APPATIVA_POLL_ATTEMPTS - 1) {
+                    await new Promise((resolve) => setTimeout(resolve, APPATIVA_POLL_INTERVAL_MS));
                   }
                 }
                 if (!resolved) {

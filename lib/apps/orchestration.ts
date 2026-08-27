@@ -44,6 +44,10 @@ export type LoadedClientApp = {
   fieldsConfig: AppFieldConfig[];
   costType: string | null;
   isActive: boolean;
+  // ✅ Achado 26/08/2026 (pedido do Márcio: ativação manual via Appativa
+  // direto na tela do cliente) — de-para com o catálogo da Appativa, ver
+  // docs/sql/apps_appativa_mapping.sql. null quando o app não está mapeado.
+  appativaAppId: string | null;
 };
 
 // Resolve o handler pelo integration_type do catálogo e, se vazio/não
@@ -84,7 +88,7 @@ export async function loadClientApp(
   // app/api/admin/apps/check-validity/route.ts antes desta extração).
   let query = supabaseAdmin
     .from("client_apps")
-    .select("id, client_id, field_values, apps(name, integration_type, fields_config, cost_type, is_active)")
+    .select("id, client_id, field_values, apps(name, integration_type, fields_config, cost_type, is_active, appativa_app_id)")
     .eq("id", params.clientAppId);
   query = params.clientId ? query.eq("client_id", params.clientId) : query.eq("tenant_id", params.tenantId);
 
@@ -97,6 +101,7 @@ export async function loadClientApp(
     fields_config?: AppFieldConfig[];
     cost_type?: string | null;
     is_active?: boolean;
+    appativa_app_id?: string | null;
   } }).apps;
   return {
     id: row.id,
@@ -116,6 +121,7 @@ export async function loadClientApp(
     fieldsConfig: Array.isArray(apps?.fields_config) ? apps.fields_config : [],
     costType: apps?.cost_type ?? null,
     isActive: apps?.is_active !== false,
+    appativaAppId: apps?.appativa_app_id ? String(apps.appativa_app_id) : null,
   };
 }
 
@@ -151,7 +157,7 @@ export async function loadClientAppDraft(
 
   const { data: app, error } = await supabaseAdmin
     .from("apps")
-    .select("id, name, integration_type, fields_config, cost_type, is_active")
+    .select("id, name, integration_type, fields_config, cost_type, is_active, appativa_app_id")
     .eq("id", params.appId)
     .maybeSingle();
   if (error || !app) return null;
@@ -165,6 +171,7 @@ export async function loadClientAppDraft(
     fieldsConfig: Array.isArray(app.fields_config) ? app.fields_config : [],
     costType: app.cost_type ?? null,
     isActive: app.is_active !== false,
+    appativaAppId: app.appativa_app_id ? String(app.appativa_app_id) : null,
   };
 }
 

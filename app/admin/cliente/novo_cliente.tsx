@@ -2579,6 +2579,62 @@ export default function NovoCliente({
     }
   }
 
+  // ✅ "Ativar via Appativa" (achado 26/08/2026, pedido do Márcio: "ali eu
+  // também deveria chamar essa integração pra confirmar essa ativação dos
+  // aplicativos") — dispara a mesma ativação que o Portal já faz sozinho ao
+  // pagar, só que manualmente, pra qualquer app mapeado na Appativa (não só
+  // GPC Roku). Assíncrono: a confirmação roda em segundo plano por até 1
+  // min (lib/apps/appativa-client-activation.ts) — não devolve o vencimento
+  // na hora, só confirma que foi solicitado.
+  async function handleAtivarAppativa(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    if (!currentApp.client_app_id) {
+      addToast("warning", "Atenção", "Salve o cliente primeiro.");
+      return;
+    }
+
+    const macValue = getMacFromApp(currentApp);
+    if (!macValue || macValue.trim() === "") {
+      addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) antes de ativar.");
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Ativar via Appativa?",
+      subtitle: "Solicita a ativação/renovação da licença desse app direto na Appativa, usando o MAC/Device Key salvos.",
+      tone: "sky",
+      confirmText: "Sim, ativar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setLoading(true);
+    setLoadingStep("Solicitando ativação via Appativa...");
+    try {
+      const apiJson = await callAdminAppApi("/api/admin/apps/appativa/activate", {
+        client_app_id: currentApp.client_app_id,
+      });
+      setLoading(false);
+      setLoadingStep("");
+
+      if (apiJson?.ok) {
+        addToast(
+          "success",
+          "Ativação solicitada",
+          apiJson.message || "Confirmando automaticamente nos próximos ~1 min.",
+        );
+      } else {
+        addToast("error", "Não foi possível ativar", apiJson?.error || "Falha desconhecida.");
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setLoadingStep("");
+      addToast("error", "Não foi possível ativar", err.message || "Falha.");
+    }
+  }
+
   // ✅ ClouDDy (console.clouddy.online) — sem INTEGRATION_REGISTRY/rota de
   // API própria, tudo via extensão. Motivo:
   // Cloudflare Turnstile real no login — testado exaustivamente numa VM
@@ -6107,12 +6163,19 @@ export default function NovoCliente({
                               </div>
                             )}
 
-                            {hasInteg && catApp?.name !== "ClouDDy" && (
+                            {/* ✅ Achado 26/08/2026 (pedido do Márcio: "ativar via
+                                Appativa" pela tela do cliente) — antes só
+                                renderizava com hasInteg (app com painel próprio
+                                configurado, ex: GERENCIAAPP/DUPLECAST). Apps SÓ
+                                mapeados na Appativa (ex: SmartOne,
+                                integration_type null) também precisam aparecer
+                                aqui, mesmo sem nenhum painel automatizado. */}
+                            {(hasInteg || catApp?.appativa_app_id) && catApp?.name !== "ClouDDy" && (
                               <div className="bg-transparent border-0 mb-3 mt-2">
                                 {isEditing ? (
                                   <AppIntegrationActions
                                     isClouddy={false}
-                                    hasApiIntegration
+                                    hasApiIntegration={hasInteg}
                                     appLabel={appLabel}
                                     panelUrl={
                                       appIntegrations.find(
@@ -6127,6 +6190,11 @@ export default function NovoCliente({
                                     onMarkGpcRokuPaid={
                                       catApp?.name === "GPC Roku"
                                         ? () => handleMarkGpcRokuPaid(app.instanceId)
+                                        : undefined
+                                    }
+                                    onActivateAppativa={
+                                      catApp?.appativa_app_id
+                                        ? () => handleAtivarAppativa(app.instanceId)
                                         : undefined
                                     }
                                     onOpenPanel={() => {

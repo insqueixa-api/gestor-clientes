@@ -19,6 +19,18 @@ import { notify, resolveNotification } from "@/lib/notifications/notify";
 
 const APPATIVA_BASE_URL = "https://api.ativeapp.com";
 
+// ✅ Janela de checagem automática pós-solicitação (achado 26/08/2026,
+// pedido do Márcio — testando ativações reais, percebeu que a Appativa
+// nunca confirma antes de uns 15s, então checar antes disso só gasta uma
+// tentativa à toa). Compartilhado entre o fluxo de pagamento no Portal
+// (lib/client-portal/fulfillment.ts) e a ativação manual pelo admin
+// (lib/apps/appativa-client-activation.ts) — os dois usam a MESMA janela,
+// pra nunca ficarem dessincronizados de novo.
+export const APPATIVA_INITIAL_DELAY_MS = 15_000;
+export const APPATIVA_POLL_INTERVAL_MS = 5_000;
+export const APPATIVA_POLL_TOTAL_MS = 60_000;
+export const APPATIVA_POLL_ATTEMPTS = Math.floor(APPATIVA_POLL_TOTAL_MS / APPATIVA_POLL_INTERVAL_MS);
+
 type AppativaResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 async function appativaFetch<T>(

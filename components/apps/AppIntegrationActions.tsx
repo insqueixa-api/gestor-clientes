@@ -66,6 +66,14 @@ function IconMoney({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
   );
 }
 
+function IconZap({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  );
+}
+
 export type AppIntegrationActionsProps = {
   /** ClouDDy usa o fluxo via extensão do Chrome (3 botões), sem API própria. */
   isClouddy: boolean;
@@ -89,6 +97,14 @@ export type AppIntegrationActionsProps = {
    * quando o cliente paga por fora do Portal. Só aparece quando informado —
    * nenhum outro app da família GerenciaApp passa isso. */
   onMarkGpcRokuPaid?: () => void | Promise<void>;
+  /** Appativa (achado 26/08/2026, pedido do Márcio: "ali eu também deveria
+   * chamar essa integração pra confirmar essa ativação dos aplicativos") —
+   * botão extra "Ativar via Appativa" pra apps mapeados em
+   * apps.appativa_app_id, disparando a mesma ativação que o Portal já faz
+   * ao pagar. Diferente dos outros extras, aparece MESMO quando
+   * hasApiIntegration é false (ex: SmartOne, sem nenhum painel próprio,
+   * só Appativa). */
+  onActivateAppativa?: () => void | Promise<void>;
   /** ClouDDy também é uma automação — segue o mesmo seletor Principal/
    * Secundária das demais antes de mandar pra extensão. */
   onClouddyConfigure: (mode: ReconfigureMode) => void | Promise<void>;
@@ -109,6 +125,7 @@ export default function AppIntegrationActions({
   onCheck,
   onRemove,
   onMarkGpcRokuPaid,
+  onActivateAppativa,
   onClouddyConfigure,
   onClouddyCheck,
   onClouddyDelete,
@@ -177,12 +194,38 @@ export default function AppIntegrationActions({
     );
   }
 
-  if (!hasApiIntegration) return null;
+  if (!hasApiIntegration) {
+    // ✅ Achado 26/08/2026: apps mapeados SÓ na Appativa, sem nenhum painel
+    // próprio (ex: SmartOne, integration_type null) — sem este branch, o
+    // componente inteiro sumia (return null logo abaixo) e o botão de
+    // ativar nunca aparecia pra eles.
+    if (!onActivateAppativa) return null;
+    return (
+      <button
+        type="button"
+        onClick={() => onActivateAppativa()}
+        disabled={loading}
+        className="w-full h-10 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+        title="Solicita a ativação/renovação da licença via Appativa"
+      >
+        {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
+        Ativar via Appativa
+      </button>
+    );
+  }
 
   const showRemove = showRemoveButton && !!onRemove;
   const showMarkPaid = !!onMarkGpcRokuPaid;
-  const buttonCount = 2 + (showRemove ? 1 : 0) + (showMarkPaid ? 1 : 0);
-  const cols = buttonCount === 4 ? "grid-cols-4" : buttonCount === 3 ? "grid-cols-3" : "grid-cols-2";
+  const showActivateAppativa = !!onActivateAppativa;
+  const buttonCount = 2 + (showRemove ? 1 : 0) + (showMarkPaid ? 1 : 0) + (showActivateAppativa ? 1 : 0);
+  const cols =
+    buttonCount >= 5
+      ? "grid-cols-5"
+      : buttonCount === 4
+        ? "grid-cols-4"
+        : buttonCount === 3
+          ? "grid-cols-3"
+          : "grid-cols-2";
 
   return (
     <div className="bg-transparent border-0">
@@ -243,6 +286,19 @@ export default function AppIntegrationActions({
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
             <span className="hidden sm:inline">Marcar pago</span>
+          </button>
+        )}
+
+        {showActivateAppativa && (
+          <button
+            type="button"
+            onClick={() => onActivateAppativa!()}
+            disabled={loading}
+            className="h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            title="Solicita a ativação/renovação da licença via Appativa"
+          >
+            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
+            <span className="hidden sm:inline">Ativar Appativa</span>
           </button>
         )}
 
