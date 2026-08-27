@@ -23,13 +23,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // ✅ 27/08/2026: apaga qualquer x-admin-ctx que já venha no request antes
-  // de decidir se seta um de verdade — sem isso, um client malicioso
-  // poderia forjar esse header e o layout (que passa a confiar nele, ver
-  // lib/api/admin-ctx.ts) leria tenant/role errados sem bater no Supabase.
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.delete(ADMIN_CTX_HEADER);
-
   let cookiesToForward: { name: string; value: string; options?: Record<string, unknown> }[] = [];
 
   const supabase = createServerClient(
@@ -140,6 +133,19 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // ✅ 27/08/2026 (correção de bug introduzido nesta mesma rodada): o clone
+  // de headers só pode acontecer AQUI, depois de todo await ao Supabase já
+  // ter rodado — se clonar antes, perde qualquer cookie de sessão renovado
+  // pelo setAll() acima (refresh de JWT expirando), e o Server Component
+  // downstream herda um Cookie desatualizado: bate no Supabase com o JWT
+  // antigo (que o próprio Supabase acabou de invalidar) → erro de JWT/RLS,
+  // dado zerado, só resolvendo no F5 seguinte (aí o browser já manda o
+  // cookie novo). Também é aqui, e não antes, que apaga um x-admin-ctx que
+  // porventura já viesse no request — sem isso, um client malicioso
+  // poderia forjar esse header e o layout (que passa a confiar nele, ver
+  // lib/api/admin-ctx.ts) leria tenant/role errados sem bater no Supabase.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete(ADMIN_CTX_HEADER);
   if (resolvedCtx) {
     requestHeaders.set(ADMIN_CTX_HEADER, JSON.stringify(resolvedCtx));
   }
