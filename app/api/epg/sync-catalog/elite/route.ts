@@ -107,26 +107,14 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
-  // Sentry Cron Monitoring — só no disparo do pg_cron, pra alertar se a rota
-  // não terminar (achado no incidente do timeout de 26/08/2026, que morreu
-  // sem gerar nenhuma exceção no Sentry).
-  const checkInId = isCron
-    ? Sentry.captureCheckIn(
-        { monitorSlug: "sync-catalog-elite", status: "in_progress" },
-        {
-          schedule: { type: "crontab", value: "40 5 * * *" },
-          timezone: "UTC",
-          checkinMargin: 5,
-          maxRuntime: 6,
-        }
-      )
-    : null;
+  // ✅ 28/08/2026: Sentry Cron Monitor removido (cota grátis esgotada — só
+  // sync-jogos tem vaga real; este monitor ficava "disabled", nunca rodava
+  // de verdade). Substituído pelo vigia unificado (lib/cron-health.ts +
+  // app/api/cron/watchdog/route.ts), cota de Errors em vez de Cron
+  // Monitors. Roda pra QUALQUER chamada (cron ou rerun manual do Márcio),
+  // não só isCron, porque um rerun manual bem-sucedido também deve
+  // resolver o alerta aberto.
   const finishCheckIn = (status: "ok" | "error") => {
-    if (checkInId) Sentry.captureCheckIn({ checkInId, monitorSlug: "sync-catalog-elite", status });
-    // ✅ 28/08/2026: cota de Cron Monitor já esgotada (só sync-jogos ativo) —
-    // heartbeat próprio via cron_health, cota de Errors. Roda pra QUALQUER
-    // chamada (cron ou rerun manual do Márcio), não só isCron, porque um
-    // rerun manual bem-sucedido também deve resolver o alerta aberto.
     reportCronHealth("sync-catalog-elite", status, status === "error" ? log.erro : undefined).catch(() => {});
   };
 
