@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isCronRequest } from "@/lib/internal-auth";
+import { reportCronHealth } from "@/lib/cron-health";
 import {
   SERVIDORES_CATALOGO,
   type ServidorCatalogo,
@@ -67,5 +68,6 @@ export async function POST(req: NextRequest) {
 
   const orfaosRemovidos = await limparMasterOrfaos();
 
+  reportCronHealth("catalogo-limpar", "ok").catch(() => {});
   return NextResponse.json({ ok: true, resultado, orfaos_removidos: orfaosRemovidos });
 }

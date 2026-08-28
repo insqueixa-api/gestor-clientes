@@ -18,6 +18,7 @@ import { createClient }              from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { normalizarTituloBusca } from "@/lib/catalog/catalog-parser";
 import { isCronRequest } from "@/lib/internal-auth";
+import { reportCronHealth } from "@/lib/cron-health";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 60;
@@ -185,7 +186,10 @@ export async function POST(req: NextRequest) {
 
   const { data: titulos, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!titulos?.length) return NextResponse.json({ ok: true, processados: 0, msg: "Nada para processar" });
+  if (!titulos?.length) {
+    reportCronHealth("sync-tmdb", "ok").catch(() => {});
+    return NextResponse.json({ ok: true, processados: 0, msg: "Nada para processar" });
+  }
 
   const agora     = new Date().toISOString();
   let encontrados = 0;
@@ -244,6 +248,7 @@ export async function POST(req: NextRequest) {
     }));
   }
 
+  reportCronHealth("sync-tmdb", "ok").catch(() => {});
   return NextResponse.json({
     ok:              true,
     processados:     titulos.length,

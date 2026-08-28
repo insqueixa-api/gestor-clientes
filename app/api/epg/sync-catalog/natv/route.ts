@@ -14,6 +14,7 @@ import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
 import * as Sentry from "@sentry/nextjs";
 import { limparOrfaosAposSync } from "@/lib/catalogo/limpar-orfaos";
+import { reportCronHealth } from "@/lib/cron-health";
 import {
   parseM3U,
   statsDoparse,
@@ -113,6 +114,7 @@ export async function POST(req: NextRequest) {
     : null;
   const finishCheckIn = (status: "ok" | "error") => {
     if (checkInId) Sentry.captureCheckIn({ checkInId, monitorSlug: "sync-catalog-natv", status });
+    reportCronHealth("sync-catalog-natv", status, status === "error" ? log.erro : undefined).catch(() => {});
   };
 
   const log: Record<string, any> = {

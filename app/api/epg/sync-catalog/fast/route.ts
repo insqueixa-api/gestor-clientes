@@ -27,6 +27,7 @@ import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
 import * as Sentry from "@sentry/nextjs";
 import { limparOrfaosAposSync } from "@/lib/catalogo/limpar-orfaos";
+import { reportCronHealth } from "@/lib/cron-health";
 
 export const dynamic     = "force-dynamic";
 export const maxDuration = 300;
@@ -518,12 +519,14 @@ export async function POST(req: NextRequest) {
     // automática já tinha rodado de manhã sem ver isso.
     await limparOrfaosAposSync(SERVIDOR);
 
+    reportCronHealth("sync-catalog-fast", "ok").catch(() => {});
     return NextResponse.json({ ok: true, ...resultado });
   } catch (e: any) {
     log.erro = e.message;
     await salvarLog(log);
     console.error(`[CATALOG-FAST] Erro fatal:`, e.message);
     Sentry.captureException(e, { tags: { kind: "cron_error", where: "sync-catalog-fast" } });
+    reportCronHealth("sync-catalog-fast", "error", e.message).catch(() => {});
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

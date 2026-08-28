@@ -13,6 +13,7 @@ import { createClient }              from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
+import { reportCronHealth } from "@/lib/cron-health";
 import * as Sentry from "@sentry/nextjs";
 
 export const dynamic     = "force-dynamic";
@@ -321,6 +322,7 @@ programas: (programasDb || []).map(p => ({
     const duracao = Math.round((Date.now() - inicio) / 1000);
     console.log(`[EPG-CLARO] Concluído em ${duracao}s — ${programasParaUpsert.length} programas`);
 
+    reportCronHealth("sync-claro", "ok").catch(() => {});
     return NextResponse.json({
       ok:              true,
       duracao_s:       duracao,
@@ -332,6 +334,7 @@ programas: (programasDb || []).map(p => ({
   } catch (e: any) {
     console.error(`[EPG-CLARO] Erro fatal:`, e.message);
     Sentry.captureException(e, { tags: { kind: "cron_error", where: "sync-claro" } });
+    reportCronHealth("sync-claro", "error", e.message).catch(() => {});
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isCronRequest } from "@/lib/internal-auth";
+import { reportCronHealth } from "@/lib/cron-health";
 
 export const dynamic = "force-dynamic";
 
@@ -153,6 +154,7 @@ export async function POST(req: NextRequest) {
         results.push({ tenant_id: t.id, error: e.message });
       }
     }
+    reportCronHealth("fin-snapshot-previsao", "ok").catch(() => {});
     return NextResponse.json({ ok: true, ano_mes: anoMes, results });
   }
 
@@ -177,5 +179,6 @@ export async function POST(req: NextRequest) {
       results.push({ tenant_id: tid, error: e.message });
     }
   }
+  reportCronHealth("fin-snapshot-previsao", "ok").catch(() => {});
   return NextResponse.json({ ok: true, ano_mes: anoMes, results });
 }

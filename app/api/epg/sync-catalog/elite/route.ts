@@ -19,6 +19,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
 import { limparOrfaosAposSync } from "@/lib/catalogo/limpar-orfaos";
+import { reportCronHealth } from "@/lib/cron-health";
 import * as Sentry from "@sentry/nextjs";
 import {
   parseM3U,
@@ -122,6 +123,11 @@ export async function POST(req: NextRequest) {
     : null;
   const finishCheckIn = (status: "ok" | "error") => {
     if (checkInId) Sentry.captureCheckIn({ checkInId, monitorSlug: "sync-catalog-elite", status });
+    // ✅ 28/08/2026: cota de Cron Monitor já esgotada (só sync-jogos ativo) —
+    // heartbeat próprio via cron_health, cota de Errors. Roda pra QUALQUER
+    // chamada (cron ou rerun manual do Márcio), não só isCron, porque um
+    // rerun manual bem-sucedido também deve resolver o alerta aberto.
+    reportCronHealth("sync-catalog-elite", status, status === "error" ? log.erro : undefined).catch(() => {});
   };
 
   const log: Record<string, any> = {
