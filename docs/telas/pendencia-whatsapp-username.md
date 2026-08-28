@@ -40,9 +40,13 @@ Não existe, e pelas fontes consultadas (ver [portal-identidade-hibrida.md](port
 
 ## Como saber quando isso mudou
 
-- Acompanhar o repositório do Baileys: `@whiskeysockets/baileys` (versão hoje: `^6.17.16`, em `whatsapp-service/package.json`). A issue que perguntou exatamente isso aos mantenedores: [github.com/WhiskeySockets/Baileys/issues/2516](https://github.com/WhiskeySockets/Baileys/issues/2516) (aberta abr/2026, sem resposta na última checagem).
-- `docs.wa.me`/blog oficial do WhatsApp Business — rollout de usernames é gradual "nos próximos meses" (a partir de jun/2026), pode começar a aparecer em alguma API pública eventualmente.
-- Teste rápido pra saber se mudou: chamar `sock.onWhatsApp("algumusername")` (sem ser um número) na VM e ver se volta algo diferente de "não existe" — hoje simplesmente falha/retorna vazio.
+- Acompanhar o repositório do Baileys: `@whiskeysockets/baileys` (versão hoje: `^6.17.16`, em `whatsapp-service/package.json`). A issue que perguntou exatamente isso aos mantenedores: [github.com/WhiskeySockets/Baileys/issues/2516](https://github.com/WhiskeySockets/Baileys/issues/2516) — **fechada como "stale" em ago/2026, sem nenhuma resposta de mantenedor**.
+- `docs.wa.me`/blog oficial do WhatsApp Business — rollout de usernames é real e em andamento: reserva de username liberada globalmente a partir de jun/2026, uso de fato (mandar/receber sem expor telefone) em rollout gradual desde abr/2026, "ao longo dos próximos meses" — ainda não é 100% dos usuários (checado 27/08/2026).
+- **ATUALIZAÇÃO 27/08/2026** — achado: a partir da `v7.0.0-rc10` (6/mai/2026) o changelog do Baileys lista **"Username and Usync support"** ([release](https://github.com/WhiskeySockets/Baileys/releases/tag/v7.0.0-rc10)). Só que:
+  - Só existe na linha **7.0.0** (ainda RC — `rc14` em 29/jul/2026, sem stable publicada). A versão instalada aqui (`6.17.16`) é a última **estável**, e não tem esse suporte.
+  - **Sem documentação oficial** — a página de referência (`WhatsApp IDs`, mintlify) não menciona username em lugar nenhum ainda. É só uma linha no changelog, sem exemplo de uso, sem saber exatamente o que a função faz/expõe.
+  - Ver [[project_dependency_updates_pattern]] — decisão de não instalar RC em produção continua valendo aqui também; a barreira agora não é "não existe no Baileys", é "só existe em pré-lançamento não documentado".
+- Teste rápido pra saber se mudou de vez (stable): chamar `sock.onWhatsApp("algumusername")` (sem ser um número) na VM e ver se volta algo diferente de "não existe" — hoje simplesmente falha/retorna vazio.
 
 ## Se um dia isso for possível só via API oficial paga (Business Cloud API), não via Baileys
 
