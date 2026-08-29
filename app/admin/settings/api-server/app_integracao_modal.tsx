@@ -73,7 +73,7 @@ export default function AppIntegracaoModal({
   const isIptvPlayerio = appName === "IPTVPLAYERIO";
   const isDuplexTv = appName === "DUPLEXTV";
   const isClouddy = appName === "CLOUDDY";
-  const isNinjaPlayer = appName === "NINJAPLAYER";
+  const isNinjaPlus = appName === "NINJAPLUS";
   const needsPin =
     isDuplecast ||
     isIboPro ||
@@ -82,7 +82,10 @@ export default function AppIntegracaoModal({
     isBobPlayer ||
     isIboPlayer ||
     isIptvDuplex ||
-    isIptvPlayerio; // DUPLEXTV/CLOUDDY/NINJAPLAYER/IBOSOL ficam de fora — não usam PIN
+    isIptvPlayerio ||
+    isNinjaPlus; // ✅ 29/08/2026: NINJAPLUS (quickplayer.life) precisa de PIN
+  // no create/delete, ao contrário do NINJAPLAYER antigo — DUPLEXTV/
+  // CLOUDDY/IBOSOL continuam de fora, não usam PIN.
   const noCredentials =
     isIboPro ||
     isQuickPlayer ||
@@ -93,7 +96,7 @@ export default function AppIntegracaoModal({
     isIptvPlayerio ||
     isDuplexTv ||
     isClouddy ||
-    isNinjaPlayer; // ✅ NINJAPLAYER: login é por mac+device_key POR CLIENTE
+    isNinjaPlus; // ✅ NINJAPLUS: login é por mac+device_key POR CLIENTE
   // (client_apps.field_values), não um login/senha compartilhado pelo
   // tenant — mesma razão do CLOUDDY logo acima.
   // (client_apps.field_values), não um só compartilhado pelo tenant —
@@ -269,7 +272,7 @@ export default function AppIntegracaoModal({
                 <option value="IPTVPLAYERIO">IPTV Playerio</option>
                 <option value="DUPLEXTV">Duplex TV</option>
                 <option value="CLOUDDY">ClouDDy</option>
-                <option value="NINJAPLAYER">Ninja Player</option>
+                <option value="NINJAPLUS">Ninja Plus</option>
               </select>
             </div>
 
@@ -304,8 +307,8 @@ export default function AppIntegracaoModal({
                                       ? 'Ex: "Duplex TV"'
                                       : isClouddy
                                         ? 'Ex: "ClouDDy"'
-                                        : isNinjaPlayer
-                                          ? 'Ex: "Ninja Player"'
+                                        : isNinjaPlus
+                                          ? 'Ex: "Ninja Plus"'
                                           : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
@@ -343,8 +346,8 @@ export default function AppIntegracaoModal({
                                       ? "Ex: https://duplex24.com"
                                       : isClouddy
                                         ? "Ex: https://console.clouddy.online"
-                                        : isNinjaPlayer
-                                          ? "Ex: https://meta-player.app"
+                                        : isNinjaPlus
+                                          ? "Ex: https://quickplayer.life"
                                           : "Ex: https://gerenciaapp.top"
                 }
                 type="url"

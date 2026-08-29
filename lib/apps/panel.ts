@@ -26,11 +26,16 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // botão, que trata o "sem data" como caso normal (mantém o valor do
 // banco). GERENCIAAPP consulta a playlist pelo nome dentro da família
 // completa do MAC (ver app/api/integrations/apps/gerenciaapp/route.ts).
-// NINJAPLAYER (metaplayer.app) — login por mac+device_key devolve a página
-// autenticada com o vencimento real da assinatura (ver
-// app/api/integrations/apps/ninjaplayer/route.ts). Sem PIN — não entra em
-// PIN_HANDLERS.
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLAYER", "QUICKPLAYER"]);
+// NINJAPLUS (quickplayer.life) — 29/08/2026: substituiu o NINJAPLAYER
+// antigo (backend Laravel de meta-player.app) depois do Márcio descobrir
+// que o app real por trás do catálogo "Ninja Plus" é outro domínio da
+// família QuickPlayer (/api/public/customer/*), testado ao vivo. Mesmo
+// esquema de check do QUICKPLAYER (payed/expired/free_trial/
+// free_trial_expired via GET /me). PIN vai embutido direto no body do
+// create/delete dessa API (não em is_protected/pin/confirm_pin separados),
+// buscado server-side em app_integrations — não entra em PIN_HANDLERS
+// (mesmo padrão do QUICKPLAYER).
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER"]);
 
 // Alias de CHECK_VALIDITY_HANDLERS pro botão "Verificar vencimento" do
 // ADMIN (novo_cliente.tsx) — eram dois Sets com o mesmo conteúdo mantidos
@@ -62,7 +67,7 @@ export function resolveIntegrationTypeByName(appName: string): string {
   if (appNameStr === "GERENCIA MAX") return "GERENCIAAPP";
   if (appNameStr === "IBO REVENDA" || appNameStr === "GERENCIAAPP" || appNameStr === "GERENCIA APP") return "GERENCIAAPP";
   if (appNameStr === "DUPLECAST") return "DUPLECAST";
-  if (appNameStr === "NINJA PLAYER" || appNameStr === "NINJAPLAYER") return "NINJAPLAYER";
+  if (appNameStr === "NINJA PLUS" || appNameStr === "NINJAPLUS" || appNameStr === "NINJA PLAYER" || appNameStr === "NINJAPLAYER") return "NINJAPLUS";
   if (appNameStr === "IBO PRO" || appNameStr === "IBOPRO" || appNameStr === "IBO PRO PLAYER") return "IBOPRO";
   return "";
 }

@@ -10,7 +10,7 @@ import { IboPlayerIntegration } from "./iboplayer";
 import { IptvDuplexIntegration } from "./iptvduplex";
 import { DuplexTvIntegration } from "./duplextv";
 import { IptvPlayerioIntegration } from "./iptvplayerio";
-import { NinjaPlayerIntegration } from "./ninjaplayer";
+import { NinjaPlusIntegration } from "./ninjaplus";
 
 const INTEGRATION_REGISTRY: Record<string, IntegrationHandler> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
@@ -32,7 +32,7 @@ const INTEGRATION_REGISTRY: Record<string, IntegrationHandler> = {
     "IPTVDUPLEX":       IptvDuplexIntegration,
     "DUPLEXTV":         DuplexTvIntegration,
     "IPTVPLAYERIO":     IptvPlayerioIntegration,
-    "NINJAPLAYER":      NinjaPlayerIntegration,
+    "NINJAPLUS":        NinjaPlusIntegration,
     // ✅ CLOUDDY não entra aqui de propósito — igual o IBOSOL, é 100% via
     // extensão (Cloudflare Turnstile real bloqueia qualquer chamada
     // server-to-server). Ver "COMEÇO INTEGRAÇÃO: CLOUDDY" em
