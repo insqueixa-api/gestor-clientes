@@ -70,7 +70,7 @@ function normalizarNomeCanal(s: string): string {
 
 function canalBloqueado(nome: string): boolean {
   const n = normalizarNomeCanal(nome)
-  if (n.startsWith('youtube')) return true
+  if (n.includes('youtube')) return true
   return CANAIS_BLOQUEADOS.some((b) => n.includes(normalizarNomeCanal(b)))
 }
 
