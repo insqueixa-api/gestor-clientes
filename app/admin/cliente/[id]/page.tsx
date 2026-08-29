@@ -531,6 +531,14 @@ export default function ClientDetailsPage() {
         body: JSON.stringify({ phone: String(e164).replace(/\D+/g, "") }),
       });
       const vData = await vRes.json().catch(() => ({}));
+      if (vData?.disconnected) {
+        addToast(
+          "error",
+          "WhatsApp desconectado",
+          "Sessão do WhatsApp desconectada — não deu pra verificar o número agora.",
+        );
+        return;
+      }
       if (!vData?.exists || !vData?.jid) {
         addToast(
           "error",

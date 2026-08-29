@@ -685,6 +685,7 @@ export default function NovoCliente({
     loading: boolean;
     exists: boolean;
     jid?: string;
+    disconnected?: boolean;
   } | null;
   const [waValidation, setWaValidation] = useState<WaValidation>(null);
   const [secondaryWaValidation, setSecondaryWaValidation] =
@@ -759,7 +760,7 @@ export default function NovoCliente({
         body: JSON.stringify({ phone: digits }),
       });
       const json = await res.json().catch(() => ({}));
-      setter({ loading: false, exists: !!json.exists, jid: json.jid });
+      setter({ loading: false, exists: !!json.exists, jid: json.jid, disconnected: !!json.disconnected });
 
       // Resolve país pelo JID do WhatsApp se disponível
       if (json.exists && json.jid && countryLabelSetter) {
@@ -4963,13 +4964,15 @@ export default function NovoCliente({
                     </div>
                     {waValidation && (
                       <div
-                        className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
+                        className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.disconnected ? "text-amber-500" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                       >
                         {waValidation.loading ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin" />{" "}
                             Validando...
                           </>
+                        ) : waValidation.disconnected ? (
+                          <>⚠️ Sessão WhatsApp desconectada — não verificado</>
                         ) : waValidation.exists ? (
                           <>✅ WhatsApp ativo</>
                         ) : (
@@ -5095,13 +5098,15 @@ export default function NovoCliente({
                         </div>
                         {secondaryWaValidation && (
                           <div
-                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-muted-foreground" : secondaryWaValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
+                            className={`mt-1.5 flex items-center gap-1.5 text-[11px] font-medium ${secondaryWaValidation.loading ? "text-muted-foreground" : secondaryWaValidation.disconnected ? "text-amber-500" : secondaryWaValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                           >
                             {secondaryWaValidation.loading ? (
                               <>
                                 <Loader2 className="w-4 h-4 animate-spin" />{" "}
                                 Validando...
                               </>
+                            ) : secondaryWaValidation.disconnected ? (
+                              <>⚠️ Sessão WhatsApp desconectada — não verificado</>
                             ) : secondaryWaValidation.exists ? (
                               <>✅ WhatsApp ativo</>
                             ) : (

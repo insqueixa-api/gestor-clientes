@@ -353,6 +353,7 @@ export default function ProfileSettingsPage() {
     loading: boolean;
     exists: boolean;
     jid?: string;
+    disconnected?: boolean;
   } | null;
   const [waValidation, setWaValidation] = useState<WaValidation>(null);
   const waValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -472,7 +473,7 @@ export default function ProfileSettingsPage() {
         body: JSON.stringify({ phone: digits }),
       });
       const json = await res.json().catch(() => ({}));
-      setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid });
+      setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid, disconnected: !!json.disconnected });
       if (json.exists && json.jid) {
         const jidDigits = String(json.jid)
           .split("@")[0]
@@ -1382,12 +1383,14 @@ async function handleSave() {
                 </div>
                 {waValidation && (
                   <div
-                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
+                    className={`mt-1.5 flex items-center gap-1.5 text-[10px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.disconnected ? "text-amber-500" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                   >
                     {waValidation.loading ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" /> Checando...
                       </>
+                    ) : waValidation.disconnected ? (
+                      <>⚠️ Sessão desconectada</>
                     ) : waValidation.exists ? (
                       <>✅ WhatsApp ativo</>
                     ) : (

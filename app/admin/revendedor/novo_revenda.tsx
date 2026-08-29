@@ -233,6 +233,7 @@ export default function ResellerFormModal({
     loading: boolean;
     exists: boolean;
     jid?: string;
+    disconnected?: boolean;
   } | null;
   const [waValidation, setWaValidation] = useState<WaValidation>(null);
   const waValidateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -251,7 +252,7 @@ export default function ResellerFormModal({
         body: JSON.stringify({ phone: digits }),
       });
       const json = await res.json().catch(() => ({}));
-      setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid });
+      setWaValidation({ loading: false, exists: !!json.exists, jid: json.jid, disconnected: !!json.disconnected });
 
       // Resolve país pelo JID retornado pelo WhatsApp
       if (json.exists && json.jid) {
@@ -713,12 +714,14 @@ export default function ResellerFormModal({
               </div>
               {waValidation && (
                 <div
-                  className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
+                  className={`mt-1 flex items-center gap-1.5 text-[11px] font-medium ${waValidation.loading ? "text-muted-foreground" : waValidation.disconnected ? "text-amber-500" : waValidation.exists ? "text-emerald-500" : "text-rose-500"}`}
                 >
                   {waValidation.loading ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" /> Validando...
                     </>
+                  ) : waValidation.disconnected ? (
+                    <>⚠️ Sessão WhatsApp desconectada — não verificado</>
                   ) : waValidation.exists ? (
                     <>✅ WhatsApp ativo</>
                   ) : (

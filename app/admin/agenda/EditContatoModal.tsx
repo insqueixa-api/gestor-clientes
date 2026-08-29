@@ -34,6 +34,7 @@ type WaValidation = {
   loading?: boolean;
   exists?: boolean;
   jid?: string;
+  disconnected?: boolean;
   photoStatus?: "loading" | "synced" | "protected" | null;
   opLoading?: boolean;
   opName?: string;
@@ -148,6 +149,7 @@ export default function EditContatoModal({
           loading: false,
           exists: !!json.exists,
           jid: json.jid,
+          disconnected: !!json.disconnected,
         },
       }));
 
@@ -598,11 +600,13 @@ export default function EditContatoModal({
                       className={`px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-colors inline-flex items-center gap-1 ${
                         wa?.loading
                           ? "bg-transparent text-muted-foreground border-border"
-                          : wa?.exists
-                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                            : wa?.exists === false
-                              ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                              : "bg-transparent text-muted-foreground border-border hover:bg-muted"
+                          : wa?.disconnected
+                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                            : wa?.exists
+                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                              : wa?.exists === false
+                                ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                : "bg-transparent text-muted-foreground border-border hover:bg-muted"
                       }`}
                     >
                       {wa?.loading ? (
@@ -610,6 +614,8 @@ export default function EditContatoModal({
                           <Loader2 className="w-3 h-3 animate-spin" />{" "}
                           Validando...
                         </>
+                      ) : wa?.disconnected ? (
+                        <>⚠️ Sessão desconectada</>
                       ) : wa?.exists ? (
                         <>
                           <CheckCircle2 className="w-3 h-3" /> WhatsApp Ativo

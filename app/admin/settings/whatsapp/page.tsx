@@ -40,6 +40,7 @@ type AllowedRow = {
   raw: string;
   loading: boolean;
   exists: boolean | null;
+  disconnected?: boolean;
 };
 function parseAllowed(arr: string[]): AllowedRow[] {
   return arr.map((entry) => {
@@ -387,7 +388,9 @@ function WhatsAppSessionCard({
       const json = await res.json().catch(() => ({}));
       setAllowedList((p) =>
         p.map((r) =>
-          r.id === id ? { ...r, loading: false, exists: !!json.exists } : r,
+          r.id === id
+            ? { ...r, loading: false, exists: !!json.exists, disconnected: !!json.disconnected }
+            : r,
         ),
       );
     } catch {
@@ -629,6 +632,13 @@ function WhatsAppSessionCard({
                                     aviso. */}
                                 {row.loading ? (
                                   <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin text-muted-foreground" />
+                                ) : row.disconnected ? (
+                                  <span
+                                    className="text-amber-500 text-xs shrink-0"
+                                    title="Sessão do WhatsApp desconectada — não verificado"
+                                  >
+                                    ⚠️
+                                  </span>
                                 ) : row.exists === false && row.raw.trim() ? (
                                   <span
                                     className="text-rose-500 text-xs shrink-0"

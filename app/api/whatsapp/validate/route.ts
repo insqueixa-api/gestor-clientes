@@ -11,6 +11,21 @@ export async function POST(req: Request) {
   const { phone } = await req.json().catch(() => ({}));
   if (!phone) return NextResponse.json({ error: "phone obrigatório" }, { status: 400 });
 
+  // ✅ 29/08/2026, achado ao investigar por que "número não existe" às vezes
+  // era mentira: a VM devolve 503 (sem "exists" nenhum) quando a sessão
+  // está desconectada — igual acontece em /send. Todo caller deste endpoint
+  // fazia `exists: !!json.exists`, que trata um 503 exatamente igual a um
+  // "não encontrei o número de verdade" (exists:false) — mostrando "número
+  // inválido" pro admin quando na real ninguém conseguiu checar nada. Só
+  // reporta "disconnected" quando NENHUMA das duas sessões conseguiu
+  // responder de verdade — se uma respondeu (mesmo dizendo exists:false),
+  // esse resultado é confiável e não deve virar "desconectado".
+  const DISCONNECTED_RESULT = {
+    exists: false,
+    disconnected: true,
+    error: "Sessão do WhatsApp desconectada — não foi possível verificar o número.",
+  };
+
   try {
     // Tentativa 1: Sessão 1
     const r1 = await proxyVM(ctx1, "/validate", {
@@ -24,9 +39,14 @@ export async function POST(req: Request) {
     // antes de desistir, já que esse resultado pode variar entre contas.
     if (r1.ok && r1.json?.exists) return NextResponse.json(r1.json, { status: r1.status });
 
+    const r1Disconnected = r1.status === 503;
+
     // Fallback: Sessão 2
     const ctx2 = await getWAContext(2);
-    if (!ctx2) return NextResponse.json(r1.json, { status: r1.status });
+    if (!ctx2) {
+      if (r1Disconnected) return NextResponse.json(DISCONNECTED_RESULT, { status: 200 });
+      return NextResponse.json(r1.json, { status: r1.status });
+    }
 
     const r2 = await proxyVM(ctx2, "/validate", {
       method: "POST",
@@ -34,6 +54,11 @@ export async function POST(req: Request) {
     });
 
     if (r2.ok && r2.json?.exists) return NextResponse.json(r2.json, { status: r2.status });
+
+    const r2Disconnected = r2.status === 503;
+    if (r1Disconnected && r2Disconnected) {
+      return NextResponse.json(DISCONNECTED_RESULT, { status: 200 });
+    }
 
     // Nenhuma das duas confirmou — devolve a resposta mais informativa (a que respondeu com sucesso)
     return NextResponse.json(r1.ok ? r1.json : r2.json, { status: r1.ok ? r1.status : r2.status });
