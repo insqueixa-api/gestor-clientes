@@ -226,7 +226,12 @@ export default function LogsModal({
     } catch {}
   };
 
-  // Reenfileira: cria NOVOS jobs SCHEDULED (escadinha) e marca os antigos como CANCELLED
+  // Reenfileira via RPC (server-side) — cria NOVOS jobs SCHEDULED (escadinha)
+  // e marca os antigos como CANCELLED. Migrado do client-side (29/08/2026,
+  // incidente de mensagem duplicada) pra ganhar a trava de "já tem outro
+  // envio deste template hoje" — checagem atômica no banco, cobre até o
+  // caso de selecionar 2 falhas do MESMO cliente de uma vez (só a primeira
+  // reenvia de verdade; a outra é cancelada com o motivo explicado).
   const requeueIds = async (ids: string[]) => {
     if (ids.length === 0) return;
     setWorking(true);
@@ -234,54 +239,11 @@ export default function LogsModal({
       const tid = tenantId;
       if (!tid) throw new Error("Sessão inválida.");
 
-      // Puxa os dados originais EXATOS dos jobs (a view não traz image_url/template_id)
-      const { data: originals, error: origErr } = await supabaseBrowser
-        .from("client_message_jobs")
-        .select(
-          "id, client_id, reseller_id, message, image_url, message_template_id, whatsapp_session, automation_id",
-        )
-        .eq("tenant_id", tid)
-        .in("id", ids);
-
-      if (origErr) throw origErr;
-      if (!originals || originals.length === 0)
-        throw new Error("Jobs originais não encontrados.");
-
-      // Monta novos jobs em escadinha (T+10s, T+20s...) pra não floodar a VM
-      let currentSendAt = new Date();
-      const inserts = originals.map((o: any) => {
-        const delaySecs = Math.floor(Math.random() * 20) + 10; // 10–30s
-        currentSendAt = new Date(currentSendAt.getTime() + delaySecs * 1000);
-        const base: any = {
-          tenant_id: tid,
-          message: o.message,
-          image_url: o.image_url || null,
-          message_template_id: o.message_template_id || null,
-          automation_id: o.automation_id || null,
-          whatsapp_session: o.whatsapp_session || "default",
-          status: "SCHEDULED",
-          send_at: currentSendAt.toISOString(),
-        };
-        if (o.reseller_id) base.reseller_id = o.reseller_id;
-        else base.client_id = o.client_id;
-        return base;
+      const { error } = await supabaseBrowser.rpc("requeue_message_jobs", {
+        p_tenant_id: tid,
+        p_ids: ids,
       });
-
-      const { error: insErr } = await supabaseBrowser
-        .from("client_message_jobs")
-        .insert(inserts);
-      if (insErr) throw insErr;
-
-      // Marca os antigos como CANCELLED pra saírem do alerta de falhas
-      const { error: updErr } = await supabaseBrowser
-        .from("client_message_jobs")
-        .update({
-          status: "CANCELLED",
-          error_message: "Reenfileirado manualmente via Logs",
-        })
-        .eq("tenant_id", tid)
-        .in("id", ids);
-      if (updErr) throw updErr;
+      if (error) throw error;
 
       await fetchLogs();
       await resolveIfNoMoreFailures(tid);
