@@ -48,6 +48,26 @@ async function loginByMac(mac: string, key: string): Promise<string> {
   return loginJson.message as string;
 }
 
+// Compartilhado entre "check" e "create" — GET /api/device tem o vencimento
+// de verdade (achado 28/08/2026; /api/playlist só tem `expired_date`, que
+// fica sempre null). Best-effort: se falhar, quem chamou decide o que fazer
+// (create não pode falhar por causa disso, só fica sem a data).
+async function fetchDeviceExpiry(token: string): Promise<{ expireDate: string | null; isTrial: boolean } | null> {
+  const devRes = await fetch(`${API_BASE}/device`, {
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+  });
+  const devJson = await devRes.json().catch(() => null);
+  if (!devRes.ok || !devJson || devJson.error) return null;
+
+  const dev = devJson.message || {};
+  const payed = !!dev.payed;
+  const isTrial = !payed && !!dev.free_trial;
+  // Sem passar por new Date() — mesma regra do resto do projeto pra não
+  // arriscar vencimento um dia a mais/a menos por fuso horário.
+  const rawDate: string | null = payed ? dev.expired : dev.free_trial_expired;
+  return { expireDate: rawDate ? String(rawDate).slice(0, 10) : null, isTrial };
+}
+
 export async function POST(req: Request) {
   try {
     if (hasBadInternalHeader(req)) {
@@ -75,23 +95,14 @@ export async function POST(req: Request) {
       }
       try {
         const token = await loginByMac(mac, key);
-        const devRes = await fetch(`${API_BASE}/device`, {
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        });
-        const devJson = await devRes.json().catch(() => null);
-        if (!devRes.ok || !devJson || devJson.error) {
+        const expiry = await fetchDeviceExpiry(token);
+        if (!expiry) {
           return NextResponse.json(
-            { ok: false, error: devJson?.message || `Falha ao consultar o dispositivo (HTTP ${devRes.status}).` },
+            { ok: false, error: "Falha ao consultar o dispositivo." },
             { status: 400 }
           );
         }
-        const dev = devJson.message || {};
-        const payed = !!dev.payed;
-        const isTrial = !payed && !!dev.free_trial;
-        // Sem passar por new Date() — mesma regra do resto do projeto pra
-        // não arriscar vencimento um dia a mais/a menos por fuso horário.
-        const rawDate: string | null = payed ? dev.expired : dev.free_trial_expired;
-        const expireDate = rawDate ? String(rawDate).slice(0, 10) : null;
+        const { expireDate, isTrial } = expiry;
 
         return NextResponse.json({
           ok: true,
@@ -253,7 +264,19 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, message: "Playlist configurada com sucesso.", data: uploadJson.message });
+    // ✅ 29/08/2026, pedido do Márcio: vencimento tem que vir junto no
+    // create, não só depois de clicar "Verificar vencimento" à parte —
+    // best-effort (se essa chamada falhar, o create já funcionou, só não
+    // vem com data — nunca derruba a configuração por causa disso).
+    const expiry = await fetchDeviceExpiry(token).catch(() => null);
+
+    return NextResponse.json({
+      ok: true,
+      expireDate: expiry?.expireDate ?? null,
+      isTrial: expiry?.isTrial ?? false,
+      message: "Playlist configurada com sucesso.",
+      data: uploadJson.message,
+    });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Erro interno." }, { status: 500 });
   }

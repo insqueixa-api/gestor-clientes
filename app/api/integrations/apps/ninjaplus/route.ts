@@ -33,8 +33,11 @@ function buildM3uUrl(dnsHost: string, username: string, password: string): strin
   return `http://${cleanHost}/get.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&type=m3u_plus&output=ts`;
 }
 
-// Login por MAC + Device Key — devolve o token JWT ou lança erro.
-async function loginByMac(mac: string, deviceKey: string): Promise<string> {
+// Login por MAC + Device Key — a resposta de /auth já vem com o "device"
+// embutido (payed/expired/free_trial/free_trial_expired), então create e
+// check reaproveitam essa mesma chamada em vez de precisar de um GET /me
+// separado depois.
+async function authenticate(mac: string, deviceKey: string): Promise<{ token: string; device: any }> {
   const res = await fetch(`${API_BASE}/auth`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -44,7 +47,15 @@ async function loginByMac(mac: string, deviceKey: string): Promise<string> {
   if (!res.ok || !json || json.error || !json.data?.token) {
     throw new Error(json?.message || `Falha no login (HTTP ${res.status}). Confira o MAC e o Device Key.`);
   }
-  return json.data.token as string;
+  return { token: json.data.token as string, device: json.data.device || {} };
+}
+
+// Sem passar por new Date() — mesma regra do resto do projeto.
+function extractExpireFromDevice(dev: any): { expireDate: string | null; isTrial: boolean } {
+  const payed = !!dev?.payed;
+  const isTrial = !payed && !!dev?.free_trial;
+  const rawDate: string | null = payed ? dev?.expired : dev?.free_trial_expired;
+  return { expireDate: rawDate ? String(rawDate).slice(0, 10) : null, isTrial };
 }
 
 async function getPin(): Promise<string> {
@@ -79,23 +90,8 @@ export async function POST(req: Request) {
     // ── check ────────────────────────────────────────────────────────────
     if (action === "check") {
       try {
-        const token = await loginByMac(mac, key);
-        const res = await fetch(`${API_BASE}/me`, {
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        });
-        const json = await res.json().catch(() => null);
-        if (!res.ok || !json || json.error) {
-          return NextResponse.json(
-            { ok: false, error: json?.message || `Falha ao consultar o dispositivo (HTTP ${res.status}).` },
-            { status: 400 }
-          );
-        }
-        const dev = json.data || {};
-        const payed = !!dev.payed;
-        const isTrial = !payed && !!dev.free_trial;
-        // Sem passar por new Date() — mesma regra do resto do projeto.
-        const rawDate: string | null = payed ? dev.expired : dev.free_trial_expired;
-        const expireDate = rawDate ? String(rawDate).slice(0, 10) : null;
+        const { device } = await authenticate(mac, key);
+        const { expireDate, isTrial } = extractExpireFromDevice(device);
 
         return NextResponse.json({
           ok: true,
@@ -115,7 +111,7 @@ export async function POST(req: Request) {
     // ── delete ───────────────────────────────────────────────────────────
     if (action === "delete") {
       try {
-        const token = await loginByMac(mac, key);
+        const { token } = await authenticate(mac, key);
         const pin = await getPin();
 
         const listRes = await fetch(`${API_BASE}/playlists`, {
@@ -178,8 +174,9 @@ export async function POST(req: Request) {
     const pin = await getPin();
 
     let token: string;
+    let device: any;
     try {
-      token = await loginByMac(mac, key);
+      ({ token, device } = await authenticate(mac, key));
     } catch (e: any) {
       return NextResponse.json({ ok: false, error: e?.message }, { status: 400 });
     }
@@ -200,7 +197,18 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, message: "Playlist configurada com sucesso.", data: createJson.data });
+    // ✅ 29/08/2026, pedido do Márcio: vencimento tem que vir junto no
+    // create, não só depois de clicar "Verificar vencimento" à parte — o
+    // device já veio no login (authenticate), sem chamada extra.
+    const { expireDate, isTrial } = extractExpireFromDevice(device);
+
+    return NextResponse.json({
+      ok: true,
+      expireDate,
+      isTrial,
+      message: "Playlist configurada com sucesso.",
+      data: createJson.data,
+    });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Erro interno." }, { status: 500 });
   }
