@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
+import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,12 +94,18 @@ try {
   try { parsed = raw ? JSON.parse(raw) : null; } catch {}
 
   if (!res.ok || (parsed && (parsed.ok === false || !!parsed.error))) {
+    // ✅ 29/08/2026: 3ª rota que manda mensagem de verdade (achada ao
+    // revalidar envio_agora/envio_programado) — mesmo alerta de desconexão.
+    if (isWhatsAppDisconnectedResponse(res.status, raw)) {
+      await reportWhatsAppDisconnected(tenantId, whatsappSession, "envio_avulso");
+    }
     return NextResponse.json(
       { error: parsed?.error || raw || "Falha ao enviar" },
       { status: 502 },
     );
   }
 
+  await reportWhatsAppReconnected(tenantId, whatsappSession);
   return NextResponse.json({ ok: true, phone: digits });
 } catch (err: any) {
   const isTimeout = err?.name === "AbortError";

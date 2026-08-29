@@ -20,6 +20,7 @@ import {
   toolConsultarPrecosTexto,
 } from "@/lib/whatsapp/template-vars";
 import { notify } from "@/lib/notifications/notify";
+import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 import { getCouponPhraseForClient, getPendencyPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
 import {
   normalizeSecondaryContactDelay,
@@ -554,8 +555,15 @@ export async function POST(req: Request) {
 
           if (!res.ok) {
             lastError = await res.text();
+            // ✅ 29/08/2026: sinal de verdade (503 + status da VM) — só esse
+            // envio (o único do cron sem classificação de erro nenhuma até
+            // então) dispara o alerta de desconexão por e-mail.
+            if (isWhatsAppDisconnectedResponse(res.status, lastError)) {
+              await reportWhatsAppDisconnected(String(job.tenant_id), targetSession, "envio_programado");
+            }
           } else {
             successCount++;
+            await reportWhatsAppReconnected(String(job.tenant_id), targetSession);
           }
 
           // ✅ Delay entre telefone primário e secundário do mesmo cliente

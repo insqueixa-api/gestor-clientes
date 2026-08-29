@@ -6,6 +6,7 @@ type NotificationType =
   | "transfer_aguardando"
   | "manual_pending"
   | "whatsapp_falha"
+  | "whatsapp_desconectado"
   | "automacao_falha"
   | "fulfillment_error"
   | "saldo_baixo"

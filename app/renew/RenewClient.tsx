@@ -3656,6 +3656,20 @@ export default function RenewClient() {
                   </div>
                 )}
 
+                {/* ✅ 29/08/2026: cliente já tinha registrado essa mesma
+                    intenção antes (não resolvida ainda) — em vez de criar
+                    outro registro/notificação/e-mail, avisa que já está
+                    ciente, pra ele não achar que precisa insistir. */}
+                {paymentData.already_registered && (
+                  <div className="pt-2">
+                    <p className="text-xs font-medium text-sky-600 dark:text-sky-400 text-center bg-sky-500/10 p-3 rounded-lg border border-sky-500/20">
+                      ✅ Já registramos seu pedido de renovação. Só falta
+                      concluir a transferência e enviar o comprovante pelo
+                      WhatsApp do Suporte.
+                    </p>
+                  </div>
+                )}
+
                 {/* AVISO IMPORTANTE (Piscando) */}
                 <div className="pt-2 animate-pulse">
                   <p className="text-xs font-bold text-rose-500 uppercase text-center bg-rose-500/10 p-2 rounded-lg border border-rose-500/20">

@@ -459,6 +459,40 @@ if (coupon_code_raw) {
 
       if (!manual || manErr) return jsonError("Nenhum método de pagamento manual configurado", 503);
 
+      // ✅ 29/08/2026, pedido do Márcio: cliente registrou a mesma intenção
+      // de transferência 2x (2min de diferença) e cada clique gerava um
+      // registro + notificação + e-mail novos, mesmo sem o pedido anterior
+      // ter sido resolvido. Se já existe um "awaiting_transfer" em aberto
+      // pra esse cliente, não cria de novo — devolve o mesmo registro (o
+      // cliente ainda vê os dados da transferência) com uma flag pro front
+      // mostrar "já registramos seu pedido" em vez de repetir o aviso.
+      const { data: existingManual } = await supabaseAdmin
+        .from("client_portal_payments")
+        .select("id")
+        .eq("tenant_id", sess.tenant_id)
+        .eq("client_id", client_id)
+        .eq("payment_method", "manual")
+        .eq("fulfillment_status", "awaiting_transfer")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingManual) {
+        return NextResponse.json(
+          {
+            ok: true,
+            already_registered: true,
+            payment_method: "manual",
+            price_amount: computedPrice,
+            currency,
+            ...manual.config,
+            gateway_type: manual.type,
+            internal_payment_id: existingManual.id,
+          },
+          { status: 200, headers: NO_STORE_HEADERS }
+        );
+      }
+
       // ✅ NOVO: cria registro de auditoria para renovação manual escolhida pelo cliente
       const { data: inserted, error: insErr } = await supabaseAdmin
         .from("client_portal_payments")

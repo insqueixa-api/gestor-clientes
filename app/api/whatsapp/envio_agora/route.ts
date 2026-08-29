@@ -21,6 +21,7 @@ import {
   toBRDate,
 } from "@/lib/whatsapp/template-vars";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
+import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 
 function safeServerLog(...args: any[]) {
   console.error(...args);
@@ -434,6 +435,11 @@ export async function POST(req: Request) {
       if (!res.ok) {
         safeServerLog("[WA][vm_send] http_error", { status: res.status, to_suffix: contact.number.slice(-4) });
         results.push({ phone: contact.number, error: raw || "Falha ao enviar", status: 502 });
+        // ✅ 29/08/2026: sinal de verdade (503 + status da VM), não o regex
+        // solto abaixo — evita e-mail de desconexão em cima de erro genérico.
+        if (isWhatsAppDisconnectedResponse(res.status, raw)) {
+          await reportWhatsAppDisconnected(tenantId, targetSession, "envio_agora");
+        }
       } else if (
         (parsed && (parsed.ok === false || !!parsed.error)) ||
         /not\s*connected|disconnected|qr|invalid|blocked|logout|session/i.test(String(raw || ""))
@@ -446,6 +452,7 @@ export async function POST(req: Request) {
           wa_id: parsed?.id ?? parsed?.messageId ?? parsed?.msg_id ?? null,
         });
         results.push({ phone: contact.number, ok: true, status: 200 });
+        await reportWhatsAppReconnected(tenantId, targetSession);
       }
     } catch (err: any) {
       results.push({ phone: contact.number, error: err?.message, status: 500 });
