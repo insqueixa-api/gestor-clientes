@@ -13,6 +13,7 @@ type JobLogRow = {
   id: string;
   status: string;
   when_sp: string | null;
+  when_ts_utc: string;
   client_id: string | null;
   client_name: string | null;
   whatsapp_username: string | null;
@@ -52,25 +53,46 @@ export default function LogsModal({
       return;
     }
 
-    const { data, error } = await supabaseBrowser
-      .from("vw_client_message_jobs_queue_details")
-      .select(
-        "id, status, when_sp, when_ts_utc, client_id, client_name, whatsapp_username, template_name, message_preview, error_message, whatsapp_session",
-      )
-      .eq("tenant_id", tid)
-      .eq("automation_id", ruleId)
-      .in("status", ["FAILED", "SENT", "CANCELLED"])
-      .order("when_ts_utc", { ascending: false })
-      .limit(100);
+    const baseSelect =
+      "id, status, when_sp, when_ts_utc, client_id, client_name, whatsapp_username, template_name, message_preview, error_message, whatsapp_session";
 
-    if (error) {
+    // ✅ 29/08/2026, achado do Márcio: com só 1 query (100 mais recentes de
+    // qualquer status) uma automação com bastante volume enterra as FAILED
+    // antigas fora da janela assim que o envio volta ao normal — o sino
+    // fica ligado (a checagem de resolução não tem esse limite) mas o modal
+    // mostra "sem erro", parecendo que não tem nada pra fazer. FAILED busca
+    // à parte, sem limite de recência (o volume real de falha é sempre
+    // baixo — dezenas, não centenas), garante que toda falha apareça aqui
+    // sempre, e as duas listas se juntam pra exibição.
+    const [failedRes, recentRes] = await Promise.all([
+      supabaseBrowser
+        .from("vw_client_message_jobs_queue_details")
+        .select(baseSelect)
+        .eq("tenant_id", tid)
+        .eq("automation_id", ruleId)
+        .eq("status", "FAILED")
+        .order("when_ts_utc", { ascending: false }),
+      supabaseBrowser
+        .from("vw_client_message_jobs_queue_details")
+        .select(baseSelect)
+        .eq("tenant_id", tid)
+        .eq("automation_id", ruleId)
+        .in("status", ["SENT", "CANCELLED"])
+        .order("when_ts_utc", { ascending: false })
+        .limit(100),
+    ]);
+
+    if (failedRes.error || recentRes.error) {
       setLogs([]);
       setSelected(new Set());
       setLoading(false);
       return;
     }
 
-    const rows = (data as JobLogRow[]) || [];
+    const merged = [...((failedRes.data as JobLogRow[]) || []), ...((recentRes.data as JobLogRow[]) || [])];
+    const rows = Array.from(new Map(merged.map((r) => [r.id, r])).values()).sort(
+      (a, b) => new Date(b.when_ts_utc).getTime() - new Date(a.when_ts_utc).getTime(),
+    );
 
     // ✅ Enriquece com login (server_username) e nome do servidor, igual à Auditoria
     try {
