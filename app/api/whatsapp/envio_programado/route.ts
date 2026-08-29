@@ -3,7 +3,6 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { isCronRequest } from "@/lib/internal-auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
@@ -15,7 +14,6 @@ import {
   fetchManualPaymentVars,
   generatePortalLink,
   renderTemplate,
-  getSPParts,
   pickRandomDns,
   toolConsultarPrecosTexto,
 } from "@/lib/whatsapp/template-vars";
@@ -192,58 +190,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, skipped: "outra execução em andamento" });
     }
 
-    // ============================================================
-    // ✅ PASSO 0: ENFILEIRAR AUTOMAÇÕES — só nos ticks de 15 em 15min
-    // ============================================================
-    // Enfileirar automações futuras não precisa de mais frequência que essa
-    // (nada muda em 5min); rodar em todo tick de 5min do horário de pico só
-    // triplicava esse custo sem necessidade (achado em 04/08/2026).
-    const shouldEnqueueNow = new Date().getMinutes() % 15 === 0;
-    if (shouldEnqueueNow) {
-      try {
-        const p = getSPParts(new Date());
-        const fireDate = `${p.year}-${p.month}-${p.day}`; // YYYY-MM-DD (SP)
-
-        const { data: tenants, error: tenantsErr } = await sb
-          .from("billing_automations")
-          .select("tenant_id")
-          .eq("is_active", true)
-          .eq("is_automatic", true)
-          .eq("execution_status", "RUNNING");
-
-        if (tenantsErr) {
-          safeServerLog("[BILLING][get_tenants] erro:", tenantsErr.message);
-        }
-
-        const uniqueTenants = [...new Set((tenants || []).map((t) => t.tenant_id))];
-
-        safeServerLog("[BILLING][enqueue] processando", uniqueTenants.length, "tenants no dia", fireDate);
-
-        let totalJobsCreated = 0;
-        for (const tenantId of uniqueTenants) {
-          const { data: enqData, error: enqErr } = await sb.rpc("billing_enqueue_scheduled", {
-            p_tenant_id: tenantId,
-            p_fire_date: fireDate,
-          });
-
-          const jobsCreated = enqData ?? 0;
-          totalJobsCreated += jobsCreated;
-
-          safeServerLog("[BILLING][enqueue_scheduled]", {
-            tenantId,
-            fireDate,
-            ok: !enqErr,
-            enqErr: enqErr?.message ?? null,
-            jobsCreated,
-          });
-        }
-
-        safeServerLog("[BILLING][enqueue] ✅ CONCLUÍDO:", totalJobsCreated, "jobs criados no total");
-      } catch (e: any) {
-        safeServerLog("[BILLING][enqueue_scheduled] exception", e?.message ?? e);
-        Sentry.captureException(e, { tags: { kind: "cron_error", where: "billing_enqueue_scheduled" } });
-      }
-    }
+    // ✅ 29/08/2026: enfileiramento saiu daqui — quem decide o que entra na
+    // fila agora é o pg_cron billing_enqueue_daily (6h/7h/12h SP), direto em
+    // SQL, sem passar por esta rota. Ver docs/sql/billing_native_cron_migration.sql.
 
     // ✅ SELF-HEALING: revive jobs travados em SENDING (crash/restart)
     await sb

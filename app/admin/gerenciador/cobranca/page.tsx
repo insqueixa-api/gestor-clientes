@@ -111,52 +111,53 @@ function getExpectedRunDateSP(baseDateStr: string, daysDiff: number) {
   return isoDateInSaoPaulo(dTarget);
 }
 
-// ✅ Weekday (0=Dom..6=Sáb, igual schedule_days) + minutos desde 00:00, sempre
-// em horário de São Paulo — usado pra saber se o poll da fila deve rodar
-// agora ou esperar (billing_enqueue_scheduled_campaign_window só enfileira
-// dentro dessa janela; fora dela nunca existe nada novo pra pegar).
-function nowPartsSP(): { weekday: number; minutesOfDay: number } {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: BILLING_TZ,
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-  const map: Record<string, string> = {};
-  for (const p of parts) map[p.type] = p.value;
-  const WEEKDAY_MAP: Record<string, number> = {
-    Sun: 0,
-    Mon: 1,
-    Tue: 2,
-    Wed: 3,
-    Thu: 4,
-    Fri: 5,
-    Sat: 6,
-  };
-  const weekday = WEEKDAY_MAP[map.weekday] ?? new Date().getDay();
-  const hour = parseInt(map.hour, 10) || 0;
-  const minute = parseInt(map.minute, 10) || 0;
-  return { weekday, minutesOfDay: hour * 60 + minute };
-}
-
-function parseHHMMToMinutes(hhmmss?: string | null): number | null {
-  if (!hhmmss) return null;
-  const [h, m] = hhmmss.split(":").map((x) => parseInt(x, 10));
-  if (Number.isNaN(h) || Number.isNaN(m)) return null;
-  return h * 60 + m;
-}
 
 // ============================================================================
 // PÁGINA PRINCIPAL
 // ============================================================================
 
 // ============================================================================
-// ✅ MONITOR GLOBAL DE FILA (CORRIGIDO: SEM JOIN QUEBRADO)
+// ✅ FILA + HISTÓRICO DO DIA (29/08/2026 — substitui o polling automático)
 // ============================================================================
+// Antes ficava consultando o banco em loop (a cada 1-2min, o dia inteiro) só
+// pra manter uma barra sempre visível atualizada. Desde que o disparo virou
+// pg_cron nativo (docs/sql/billing_native_cron_migration.sql), o Cron 2 já
+// não roda mais rápido que 2 em 2min — então continuar consultando mais
+// rápido que isso nunca trazia nada novo mesmo. Agora: zero chamada em
+// segundo plano; busca só quando o admin abre o painel, e só continua
+// atualizando (a cada 2min, mesma cadência do cron) enquanto ele está aberto.
+type QueueRow = {
+  id: string;
+  status: string;
+  when_sp: string | null;
+  when_ts_utc: string;
+  origem: string | null;
+  client_id: string | null;
+  client_name: string | null;
+  whatsapp_username: string | null;
+  automation_id: string | null;
+  template_name: string | null;
+  message_preview: string | null;
+  error_message: string | null;
+};
+
+const QUEUE_ROW_SELECT =
+  "id,status,when_sp,when_ts_utc,origem,client_id,client_name,whatsapp_username,automation_id,template_name,message_preview,message_full,whatsapp_session,error_message";
+
+function todaySPBoundsUtc() {
+  const todaySp = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const startUtc = new Date(`${todaySp}T00:00:00-03:00`);
+  const endUtc = new Date(startUtc.getTime() + 24 * 60 * 60 * 1000);
+  return { startUtc: startUtc.toISOString(), endUtc: endUtc.toISOString() };
+}
+
 function GlobalQueueMonitor({
   addToast,
-  windowConfigVersion,
 }: {
   addToast: (
     type: "success" | "error",
@@ -164,172 +165,65 @@ function GlobalQueueMonitor({
     msg?: string,
     durationMs?: number,
   ) => void;
-  windowConfigVersion?: number;
 }) {
   const tenantId = useTenantId();
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"fila" | "historico">("fila");
   const [loading, setLoading] = useState(false);
-  const [queueData, setQueueData] = useState<any[]>([]);
-  const [showModal, setShowModal] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
+  const [working, setWorking] = useState(false);
+  const [queueData, setQueueData] = useState<QueueRow[]>([]);
+  const [historyData, setHistoryData] = useState<QueueRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  // 1. Polling: Busca a fila (Simplificado para não falhar)
-  // ✅ Poll preso na janela de agendamento (14/08/2026, ajustado a pedido do
-  // Márcio): o enfileiramento (billing_enqueue_scheduled_campaign_window)
-  // só roda dentro de [window_start_min, window_start_max] de
-  // billing_campaign_settings — fora dela nunca existe nada novo pra
-  // aparecer aqui, então nem bate no banco (só reavalia o relógio, de graça,
-  // a cada 2min). Dentro da janela: 1min (era 30s — cron real roda a cada
-  // 1min, não precisa ser mais rápido que isso). Uma vez que a fila esvazia
-  // E já passou window_start_max, marca o dia como concluído e para de
-  // consultar até amanhã (o disparo em si pode continuar depois de
-  // window_start_max com muitos clientes — delay_min/max_secs entre
-  // mensagens —, por isso só declara "concluído" quando some da fila).
-  useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let cancelled = false;
-    const POLL_ACTIVE_MS = 60000;
-    const LOCAL_CHECK_MS = 2 * 60000;
-    let doneForDateSP: string | null = null;
+  const fetchAll = async () => {
+    const tid = tenantId;
+    if (!tid) return;
+    setLoading(true);
 
-    const fetchWindowConfig = async () => {
-      const tid = tenantId;
-      if (!tid) return null;
-      const { data } = await supabaseBrowser
-        .from("billing_campaign_settings")
-        .select("window_start_min, window_start_max, schedule_days, is_active")
-        .eq("tenant_id", tid)
-        .maybeSingle();
-      if (!data) return null;
-      return {
-        startMin: parseHHMMToMinutes(data.window_start_min) ?? 0,
-        startMax: parseHHMMToMinutes(data.window_start_max) ?? 24 * 60,
-        scheduleDays: Array.isArray(data.schedule_days)
-          ? (data.schedule_days as number[])
-          : [0, 1, 2, 3, 4, 5, 6],
-        isActive: data.is_active !== false,
-      };
-    };
+    const { startUtc, endUtc } = todaySPBoundsUtc();
 
-    const fetchQueue = async () => {
-      const tid = tenantId;
-      if (!tid) return [];
-
-      // ✅ BLINDAGEM: garante que o usuário logado pertence ao tenant
-      {
-        const { data: u } = await supabaseBrowser.auth.getUser();
-        const userId = u?.user?.id;
-
-        if (!userId) {
-          addToast("error", "Sessão inválida", "Faça login novamente.");
-          return [];
-        }
-
-        const { data: mem, error: memErr } = await supabaseBrowser
-          .from("tenant_members")
-          .select("tenant_id")
-          .eq("tenant_id", tid)
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (memErr || !mem) {
-          addToast(
-            "error",
-            "Acesso negado",
-            "Você não tem permissão neste tenant.",
-          );
-          return [];
-        }
-      }
-
-      const statuses = ["SCHEDULED", "QUEUED", "PAUSED", "SENDING"];
-
-      const { data, error } = await supabaseBrowser
+    const [pendingRes, historyRes] = await Promise.all([
+      supabaseBrowser
         .from("vw_client_message_jobs_queue_details")
-        .select(
-          "id,status,when_sp,when_ts_utc,origem,client_id,client_name,whatsapp_username,automation_id,template_name,message_preview,message_full,whatsapp_session,error_message",
-        )
+        .select(QUEUE_ROW_SELECT)
         .eq("tenant_id", tid)
-        .in("status", statuses)
-        .order("when_ts_utc", { ascending: true });
+        .in("status", ["SCHEDULED", "QUEUED", "PAUSED", "SENDING"])
+        .order("when_ts_utc", { ascending: true }),
+      supabaseBrowser
+        .from("vw_client_message_jobs_queue_details")
+        .select(QUEUE_ROW_SELECT)
+        .eq("tenant_id", tid)
+        .in("status", ["SENT", "FAILED", "CANCELLED"])
+        .gte("when_ts_utc", startUtc)
+        .lt("when_ts_utc", endUtc)
+        .order("when_ts_utc", { ascending: true }),
+    ]);
 
-      if (error) {
-        setQueueData([]);
-        return [];
-      }
+    setQueueData((pendingRes.data as QueueRow[]) || []);
+    setHistoryData((historyRes.data as QueueRow[]) || []);
+    setSelected(new Set());
+    setLastUpdate(new Date());
+    setLoading(false);
+  };
 
-      const rows = (data ?? []) as any[];
+  // Carrega 1x no mount (só pra mostrar a contagem no botão, sem repetir).
+  useEffect(() => {
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId]);
 
-      setQueueData(rows);
-      setLastUpdate(new Date());
-      return rows;
-    };
+  // Enquanto o painel está aberto, atualiza a cada 2min — mesma cadência do
+  // Cron 2 (billing_dispatch_check); mais rápido que isso nunca mostraria
+  // nada novo. Fecha o painel, para de consultar.
+  useEffect(() => {
+    if (!open) return;
+    fetchAll();
+    const id = setInterval(fetchAll, 2 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, tenantId]);
 
-    (async () => {
-      const cfg = await fetchWindowConfig();
-      if (cancelled) return;
-
-      const tick = async () => {
-        if (cancelled) return;
-        const { weekday, minutesOfDay } = nowPartsSP();
-        const todaySP = isoDateInSaoPaulo(new Date());
-
-        if (cfg && doneForDateSP === todaySP) {
-          // ✅ "Concluído" não significa "nunca mais vai ter nada hoje" — Envio
-          // Manual (handleManualRun), Reenviar (LogsModal) e o retry do Plano B
-          // do WhatsApp (lib/client-portal/fulfillment.ts) podem inserir jobs
-          // novos a qualquer hora, fora da janela de agendamento automático.
-          // Antes, uma vez marcado como concluído, o poll parava de consultar
-          // o banco pelo resto do dia — esses jobs ficavam invisíveis na barra
-          // de progresso e nos botões Pausar/Cancelar até um F5. Continua
-          // consultando, só que numa cadência mais lenta (2min); se aparecer
-          // algo, sai do modo "concluído" e volta pro poll rápido.
-          const rows = await fetchQueue();
-          if (cancelled) return;
-          if (rows.length > 0) {
-            doneForDateSP = null;
-            timeoutId = setTimeout(tick, POLL_ACTIVE_MS);
-            return;
-          }
-          timeoutId = setTimeout(tick, LOCAL_CHECK_MS);
-          return;
-        }
-
-        if (cfg) {
-          const activeDay = cfg.isActive && cfg.scheduleDays.includes(weekday);
-          if (!activeDay || minutesOfDay < cfg.startMin) {
-            // fora da janela de hoje (ou dia não agendado) — nada pra buscar ainda
-            timeoutId = setTimeout(tick, LOCAL_CHECK_MS);
-            return;
-          }
-        }
-
-        const rows = await fetchQueue();
-        if (cancelled) return;
-
-        if (cfg && rows.length === 0 && minutesOfDay > cfg.startMax) {
-          // janela de enfileiramento já fechou e não sobrou nada rodando —
-          // acabou por hoje, só volta a consultar amanhã
-          doneForDateSP = todaySP;
-          timeoutId = setTimeout(tick, LOCAL_CHECK_MS);
-          return;
-        }
-
-        timeoutId = setTimeout(tick, POLL_ACTIVE_MS);
-      };
-
-      tick();
-    })();
-
-    return () => {
-      cancelled = true;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-    // ✅ windowConfigVersion muda quando o admin salva a janela/dias em
-    // CampaignWindowCard — reinicia o efeito pra buscar a config nova na
-    // hora, em vez de continuar rodando com os limites antigos até um F5.
-  }, [tenantId, windowConfigVersion]);
-
-  // 2. Ação: PAUSAR TUDO
   const handleGlobalPause = async () => {
     setLoading(true);
     const tid = tenantId;
@@ -337,207 +231,242 @@ function GlobalQueueMonitor({
       setLoading(false);
       return;
     }
-
     await supabaseBrowser
       .from("client_message_jobs")
       .update({ status: "PAUSED" })
       .eq("tenant_id", tid)
       .in("status", ["SCHEDULED", "QUEUED", "SENDING"]);
-
-    setLoading(false);
+    await fetchAll();
   };
 
-  // 3. Ação: RETOMAR TUDO
   const handleGlobalResume = async () => {
     setLoading(true);
     const tid = tenantId;
-    if (!tid) return;
-
-    // ✅ Segurança extra: garante que só afeta o tenant
+    if (!tid) {
+      setLoading(false);
+      return;
+    }
     await supabaseBrowser
       .from("client_message_jobs")
       .update({ status: "QUEUED" })
       .eq("tenant_id", tid)
       .eq("status", "PAUSED");
-
-    setLoading(false);
+    await fetchAll();
   };
 
-  // 4. Ação: CANCELAR TUDO
   const handleNukeQueue = async () => {
     if (queueData.length === 0) return;
-
     setLoading(true);
     try {
       const tid = tenantId;
       if (!tid) return;
-
-      // ✅ Segurança: Atualiza APENAS os jobs filtrados no cache local (queueData) que pertencem a este tenant
       const jobIdsToCancel = queueData.map((j) => j.id).filter(Boolean);
-
-      if (jobIdsToCancel.length === 0) {
-        setShowModal(false);
-        return;
-      }
+      if (jobIdsToCancel.length === 0) return;
 
       const { error } = await supabaseBrowser
         .from("client_message_jobs")
-        .update({
-          status: "CANCELLED",
-          error_message: "Cancelado via Monitor Global",
-        })
+        .update({ status: "CANCELLED", error_message: "Cancelado via Monitor Global" })
         .eq("tenant_id", tid)
-        .in("id", jobIdsToCancel); // ✅ Proteção Ativa
-
-      if (error) {
-        return;
-      }
-
-      setShowModal(false);
+        .in("id", jobIdsToCancel);
+      if (error) throw error;
+      await fetchAll();
+    } catch (e: any) {
+      addToast("error", "Erro ao cancelar", e.message);
     } finally {
       setLoading(false);
     }
   };
 
-  if (queueData.length === 0) return null;
+  // Resolve o sino de "automacao_falha" pras automações que não têm mais
+  // nenhuma falha pendente depois do reenvio/limpeza — igual ao LogsModal,
+  // só que aqui pode cobrir várias automações de uma vez (painel consolidado).
+  const resolveFailuresForAutomations = async (tid: string, automationIds: (string | null)[]) => {
+    const unique = [...new Set(automationIds.filter(Boolean))] as string[];
+    for (const autoId of unique) {
+      try {
+        const { count } = await supabaseBrowser
+          .from("client_message_jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", tid)
+          .eq("automation_id", autoId)
+          .eq("status", "FAILED");
+        if (!count || count === 0) {
+          await supabaseBrowser.rpc("resolve_notification", {
+            p_tenant_id: tid,
+            p_type: "automacao_falha",
+            p_source_id: autoId,
+          });
+        }
+      } catch {}
+    }
+  };
 
-  const activeCount = queueData.filter((j) =>
-    ["SCHEDULED", "QUEUED", "SENDING"].includes(j.status),
-  ).length;
+  const requeueIds = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setWorking(true);
+    try {
+      const tid = tenantId;
+      if (!tid) throw new Error("Sessão inválida.");
+      const affectedAutomationIds = historyData.filter((r) => ids.includes(r.id)).map((r) => r.automation_id);
+
+      const { error } = await supabaseBrowser.rpc("requeue_message_jobs", {
+        p_tenant_id: tid,
+        p_ids: ids,
+      });
+      if (error) throw error;
+
+      addToast("success", "Reenviado", `${ids.length} mensagem(ns) reenfileirada(s).`);
+      await fetchAll();
+      await resolveFailuresForAutomations(tid, affectedAutomationIds);
+    } catch (e: any) {
+      addToast("error", "Erro ao reenviar", e.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const cancelIds = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setWorking(true);
+    try {
+      const tid = tenantId;
+      if (!tid) throw new Error("Sessão inválida.");
+      const affectedAutomationIds = historyData.filter((r) => ids.includes(r.id)).map((r) => r.automation_id);
+
+      const { error } = await supabaseBrowser
+        .from("client_message_jobs")
+        .update({ status: "CANCELLED", error_message: "Marcado como recebido manualmente" })
+        .eq("tenant_id", tid)
+        .in("id", ids);
+      if (error) throw error;
+
+      await fetchAll();
+      await resolveFailuresForAutomations(tid, affectedAutomationIds);
+    } catch (e: any) {
+      addToast("error", "Erro", e.message);
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const activeCount = queueData.filter((j) => ["SCHEDULED", "QUEUED", "SENDING"].includes(j.status)).length;
   const pausedCount = queueData.filter((j) => j.status === "PAUSED").length;
-  const isGlobalPaused = activeCount === 0 && pausedCount > 0;
+  const failedRows = historyData.filter((r) => r.status === "FAILED");
+  const selectedArr = Array.from(selected);
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllFailed = () => {
+    if (selected.size === failedRows.length && failedRows.length > 0) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(failedRows.map((r) => r.id)));
+    }
+  };
 
   return (
     <>
-      {/* 🟢 BARRA DE MONITORAMENTO */}
-      <div
-        onClick={() => setShowModal(true)}
-        className={`mb-4 border rounded-xl p-3 flex items-center justify-between cursor-pointer hover:shadow-md transition-all
-    ${isGlobalPaused ? "bg-amber-500/20 border-amber-500/30" : "bg-emerald-500/10 border-emerald-500/20"}`}
+      <button
+        onClick={() => setOpen(true)}
+        className="h-9 md:h-10 px-3 md:px-4 rounded-lg border border-border bg-card text-foreground hover:bg-muted font-medium text-xs md:text-sm transition-all flex items-center gap-2 whitespace-nowrap"
       >
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center w-5 h-5">
-            {isGlobalPaused ? (
-              <div className="w-2.5 h-2.5 bg-amber-500 rounded-full shadow-sm"></div>
-            ) : (
-              <>
-                <div className="absolute w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping opacity-75"></div>
-                <div className="relative w-2.5 h-2.5 bg-emerald-500 rounded-full"></div>
-              </>
-            )}
-          </div>
-          <div>
-            <h3
-              className={`font-medium text-xs uppercase tracking-wide ${isGlobalPaused ? "text-amber-500" : "text-emerald-500"}`}
-            >
-              {isGlobalPaused ? "⏸️ PAUSADA" : "🚀 ENVIANDO"}
-            </h3>
-            <p
-              className={`text-[10px] mt-0.5 ${isGlobalPaused ? "text-amber-500" : "text-emerald-500"}`}
-            >
-              {queueData.length} na fila
-            </p>
-          </div>
-        </div>
-        <button className="px-3 py-1.5 bg-foreground text-background rounded-lg text-xs font-medium uppercase hover:bg-foreground/90 transition-colors">
-          Abrir
-        </button>
-      </div>
+        Ver Fila
+        {queueData.length > 0 && (
+          <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-emerald-500/15 text-emerald-600 text-[11px] font-semibold">
+            {queueData.length}
+          </span>
+        )}
+      </button>
 
-      {/* 🔴 MODAL RAIO-X */}
-      {showModal && (
-        <Modal onClose={() => setShowModal(false)} maxWidth="max-w-3xl">
-          <ModalHeader onClose={() => setShowModal(false)}>
-            <h3 className="font-medium text-lg text-foreground">
-              Gerenciador de Fila
-            </h3>
+      {open && (
+        <Modal onClose={() => setOpen(false)} maxWidth="max-w-4xl">
+          <ModalHeader onClose={() => setOpen(false)}>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h3 className="font-medium text-lg text-foreground">Fila e Histórico de Envio</h3>
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/50 p-0.5">
+                <button
+                  onClick={() => setTab("fila")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "fila" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Fila ({queueData.length})
+                </button>
+                <button
+                  onClick={() => setTab("historico")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${tab === "historico" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Histórico de hoje ({historyData.length})
+                </button>
+              </div>
+              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+              {lastUpdate && (
+                <span className="text-[10px] text-muted-foreground">
+                  Atualizado {lastUpdate.toLocaleTimeString("pt-BR")}
+                </span>
+              )}
+            </div>
           </ModalHeader>
 
+          {tab === "fila" ? (
+            <>
               <ModalBody className="p-0">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-muted/40 text-muted-foreground font-medium text-xs uppercase sticky top-0">
-                    <tr>
-                      <th className="p-4">Quando</th>
-                      <th className="p-4">Origem</th>
-                      <th className="p-4">Cliente</th>
-                      <th className="p-4">WhatsApp</th>
-                      <th className="p-4">Mensagem</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4 text-right">ID</th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-border">
-                    {queueData.map((job) => (
-                      <tr key={job.id} className="hover:bg-muted/30 align-top">
-                        {/* QUANDO */}
-                        <td className="p-4 text-muted-foreground whitespace-nowrap">
-                          {job.when_sp || "--"}
-                        </td>
-
-                        {/* ORIGEM */}
-                        <td className="p-4 font-medium text-foreground whitespace-nowrap">
-                          {job.origem === "AUTOMACAO"
-                            ? "Automação"
-                            : "Envio Manual"}
-                        </td>
-
-                        {/* CLIENTE */}
-                        <td className="p-4 font-medium text-foreground">
-                          {job.client_name || (
-                            <span className="text-muted-foreground font-medium">
-                              (cliente não encontrado)
-                            </span>
-                          )}
-                        </td>
-
-                        {/* WHATSAPP */}
-                        <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">
-                          {job.whatsapp_username || "--"}
-                        </td>
-
-                        {/* MENSAGEM */}
-                        <td className="p-4">
-                          {job.template_name ? (
-                            <div className="flex flex-col">
-                              <span className="font-medium text-foreground">
-                                {job.template_name}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                Template
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col">
-                              <span className="font-medium text-foreground">
-                                Personalizada
-                              </span>
-                              <span className="text-[11px] text-muted-foreground/70 line-clamp-2">
-                                {job.message_preview || "--"}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-
-                        {/* STATUS */}
-                        <td className="p-4 whitespace-nowrap">
-                          <span
-                            className={`gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm ${job.status === "PAUSED" ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-500"}`}
-                          >
-                            {job.status}
-                          </span>
-                        </td>
-
-                        {/* ID */}
-                        <td className="p-4 text-right text-xs text-muted-foreground/70 whitespace-nowrap">
-                          {job.id.slice(0, 8)}
-                        </td>
+                {queueData.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground text-sm">Fila vazia no momento.</div>
+                ) : (
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-muted/40 text-muted-foreground font-medium text-xs uppercase sticky top-0">
+                      <tr>
+                        <th className="p-4">Quando</th>
+                        <th className="p-4">Origem</th>
+                        <th className="p-4">Cliente</th>
+                        <th className="p-4">WhatsApp</th>
+                        <th className="p-4">Mensagem</th>
+                        <th className="p-4">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {queueData.map((job) => (
+                        <tr key={job.id} className="hover:bg-muted/30 align-top">
+                          <td className="p-4 text-muted-foreground whitespace-nowrap">{job.when_sp || "--"}</td>
+                          <td className="p-4 font-medium text-foreground whitespace-nowrap">
+                            {job.origem === "AUTOMACAO" ? "Automação" : "Envio Manual"}
+                          </td>
+                          <td className="p-4 font-medium text-foreground">
+                            {job.client_name || <span className="text-muted-foreground font-medium">(cliente não encontrado)</span>}
+                          </td>
+                          <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">{job.whatsapp_username || "--"}</td>
+                          <td className="p-4">
+                            {job.template_name ? (
+                              <div className="flex flex-col">
+                                <span className="font-medium text-foreground">{job.template_name}</span>
+                                <span className="text-[10px] text-muted-foreground">Template</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col">
+                                <span className="font-medium text-foreground">Personalizada</span>
+                                <span className="text-[11px] text-muted-foreground/70 line-clamp-2">{job.message_preview || "--"}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-4 whitespace-nowrap">
+                            <span
+                              className={`gap-1 px-2 py-1 rounded-lg text-xs font-medium tracking-tight shadow-sm ${job.status === "PAUSED" ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-500"}`}
+                            >
+                              {job.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </ModalBody>
-
               <ModalFooter className="flex gap-2 justify-end flex-wrap">
                 {activeCount > 0 ? (
                   <button
@@ -545,12 +474,7 @@ function GlobalQueueMonitor({
                     disabled={loading}
                     className="px-4 py-2 bg-amber-500 text-white rounded-lg font-medium text-xs hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    {loading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      "⏸️"
-                    )}{" "}
-                    PAUSAR TUDO
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "⏸️"} PAUSAR TUDO
                   </button>
                 ) : (
                   <button
@@ -558,27 +482,111 @@ function GlobalQueueMonitor({
                     disabled={loading || pausedCount === 0}
                     className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium text-xs hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1.5"
                   >
-                    {loading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      "▶️"
-                    )}{" "}
-                    RETOMAR
+                    {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "▶️"} RETOMAR
                   </button>
                 )}
                 <button
                   onClick={handleNukeQueue}
-                  disabled={loading}
+                  disabled={loading || queueData.length === 0}
                   className="px-4 py-2 bg-rose-600 text-white rounded-lg font-medium text-xs hover:bg-rose-700 disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  {loading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    "🚨"
-                  )}{" "}
-                  CANCELAR TUDO
+                  {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "🚨"} CANCELAR TUDO
                 </button>
               </ModalFooter>
+            </>
+          ) : (
+            <>
+              <ModalBody className="p-0">
+                {historyData.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground text-sm">Nada enviado hoje ainda.</div>
+                ) : (
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-muted/40 text-muted-foreground font-medium text-xs uppercase sticky top-0">
+                      <tr>
+                        <th className="p-2 w-8">
+                          {failedRows.length > 0 && (
+                            <input
+                              type="checkbox"
+                              checked={selected.size === failedRows.length && failedRows.length > 0}
+                              onChange={toggleAllFailed}
+                              title="Selecionar todas as falhas"
+                            />
+                          )}
+                        </th>
+                        <th className="p-2">Quando</th>
+                        <th className="p-2">Cliente</th>
+                        <th className="p-2">WhatsApp</th>
+                        <th className="p-2">Mensagem</th>
+                        <th className="p-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {historyData.map((log) => {
+                        const isFailed = log.status === "FAILED";
+                        return (
+                          <tr key={log.id} className="hover:bg-muted/30 align-top">
+                            <td className="p-2">
+                              {isFailed && (
+                                <input type="checkbox" checked={selected.has(log.id)} onChange={() => toggleOne(log.id)} />
+                              )}
+                            </td>
+                            <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">{log.when_sp || "--"}</td>
+                            <td className="p-2 font-medium text-foreground/90">
+                              {log.client_name || <span className="text-muted-foreground italic">(sem nome)</span>}
+                            </td>
+                            <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">{log.whatsapp_username || "--"}</td>
+                            <td className="p-2 text-xs text-muted-foreground">{log.template_name || "Personalizada"}</td>
+                            <td className="p-2">
+                              <span
+                                className={`gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm uppercase ${
+                                  log.status === "SENT"
+                                    ? "bg-emerald-500/10 text-emerald-500"
+                                    : log.status === "FAILED"
+                                      ? "bg-rose-500/10 text-rose-500"
+                                      : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {log.status === "SENT" ? "Enviado" : log.status === "FAILED" ? "Falhou" : "Resolvido"}
+                              </span>
+                              {log.error_message && isFailed && (
+                                <div className="text-[10px] text-rose-500 mt-1 max-w-[220px] truncate" title={log.error_message}>
+                                  {log.error_message}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </ModalBody>
+              <ModalFooter className="flex gap-2 justify-end flex-wrap">
+                <button
+                  onClick={() => requeueIds(selectedArr)}
+                  disabled={working || selectedArr.length === 0}
+                  className="px-4 py-2 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 font-medium text-xs uppercase hover:bg-sky-500/20 transition disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {working && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Reenviar selecionados ({selectedArr.length})
+                </button>
+                <button
+                  onClick={() => requeueIds(failedRows.map((r) => r.id))}
+                  disabled={working || failedRows.length === 0}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium text-xs uppercase hover:bg-emerald-500 transition disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {working && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Reenviar todas as falhas ({failedRows.length})
+                </button>
+                <button
+                  onClick={() => cancelIds(selectedArr)}
+                  disabled={working || selectedArr.length === 0}
+                  title="Cliente já recebeu — remove da lista de falhas sem reenviar"
+                  className="px-4 py-2 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs uppercase hover:bg-rose-500/20 transition disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {working && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Limpar selecionados
+                </button>
+              </ModalFooter>
+            </>
+          )}
         </Modal>
       )}
     </>
@@ -1027,11 +1035,6 @@ export default function BillingPage() {
   const [collapsedSections, setCollapsedSections] = useState<
     Record<string, boolean>
   >({});
-  // ✅ Bump depois de salvar a janela/dias em CampaignWindowCard — sem isso,
-  // o GlobalQueueMonitor buscava a config da janela só 1x no mount e
-  // continuava usando os limites antigos até um F5, mesmo com a nova janela
-  // já salva no banco.
-  const [windowConfigVersion, setWindowConfigVersion] = useState(0);
   const { confirm } = useConfirm();
 
   // ✅ MODAIS (Atualizado para suportar Edição e Logs)
@@ -1623,13 +1626,6 @@ export default function BillingPage() {
 
   return (
     <div className="space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
-      {/* Monitor da fila (com padding padrão e SEM z alto) */}
-      <div className="px-3 sm:px-0 md:px-4">
-        <GlobalQueueMonitor
-          addToast={addToast}
-          windowConfigVersion={windowConfigVersion}
-        />
-      </div>
       {/* Topo (padrão admin) */}
       <div className="flex items-center justify-between gap-2 mb-2 px-3 sm:px-0">
         <div className="min-w-0 text-left">
@@ -1641,6 +1637,7 @@ export default function BillingPage() {
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
+          <GlobalQueueMonitor addToast={addToast} />
           <button
             onClick={() => setWizardState({ show: true, editingRule: null })}
             className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 font-medium text-xs md:text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2 whitespace-nowrap"
@@ -1651,10 +1648,7 @@ export default function BillingPage() {
         </div>
       </div>
       {/* Início do disparo compartilhado (janela única entre as regras) */}
-      <CampaignWindowCard
-        addToast={addToast}
-        onSaved={() => setWindowConfigVersion((v) => v + 1)}
-      />
+      <CampaignWindowCard addToast={addToast} />
       {/* LISTA AGRUPADA POR TIPO */}
       {loading ? (
         <div className="text-center py-10 text-muted-foreground animate-pulse">
