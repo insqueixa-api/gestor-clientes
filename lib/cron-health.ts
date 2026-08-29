@@ -70,6 +70,9 @@ export const JOBS: JobConfig[] = [
   { name: "force_eternal_tokens_daily", kind: "sql", maxAgeHours: 30 },
   { name: "limpeza_diaria_tokens_portal", kind: "sql", maxAgeHours: 30 },
   { name: "cleanup_old_message_jobs_daily", kind: "sql", maxAgeHours: 30 },
+  // ✅ 29/08/2026: substituem o cron-job.org externo (ver docs/sql/billing_native_cron_migration.sql).
+  { name: "billing_enqueue_daily", kind: "sql", maxAgeHours: 30 },
+  { name: "billing_dispatch_check", kind: "sql", maxAgeHours: 30 },
   { name: "vacuum_catalog_episodes_weekly", kind: "sql", maxAgeHours: 24 * 8.5 },
   { name: "vacuum_catalog_master_weekly", kind: "sql", maxAgeHours: 24 * 8.5 },
   { name: "vacuum_catalog_availability_weekly", kind: "sql", maxAgeHours: 24 * 8.5 },

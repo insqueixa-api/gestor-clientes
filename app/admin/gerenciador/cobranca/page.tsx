@@ -600,6 +600,7 @@ function CampaignWindowCard({
   const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [runningNow, setRunningNow] = useState(false);
   const [settings, setSettings] = useState({
     window_start_min: DEFAULT_WINDOW_START_MIN,
     window_start_max: DEFAULT_WINDOW_START_MAX,
@@ -745,6 +746,40 @@ function CampaignWindowCard({
     }
   };
 
+  // ✅ "Rodar agora" — dispara o enfileirador (billing_enqueue_scheduled) na
+  // hora, sem esperar os horários fixos (6h/7h/12h). Pensado pra emergência
+  // (ex: automação virou RUNNING fora desses horários e não dá pra esperar
+  // o próximo).
+  const handleRunNow = async () => {
+    setRunningNow(true);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Sessão inválida — faça login novamente.");
+
+      const res = await fetch("/api/whatsapp/billing-enqueue-now", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Falha ao rodar o enfileirador.");
+
+      const created = Number(json?.created ?? 0);
+      addToast(
+        "success",
+        "Enfileirador rodou",
+        created > 0
+          ? `${created} mensage${created === 1 ? "m" : "ns"} enfileirada${created === 1 ? "" : "s"}.`
+          : "Nenhuma mensagem nova — tudo que era elegível hoje já está na fila.",
+      );
+      onSaved?.();
+    } catch (e: any) {
+      addToast("error", "Erro ao rodar agora", e.message);
+    } finally {
+      setRunningNow(false);
+    }
+  };
+
   if (loading) return null;
 
   const activeDays = settings.schedule_days.length;
@@ -797,6 +832,14 @@ function CampaignWindowCard({
                   className={`relative h-2.5 w-2.5 rounded-full ${settings.is_active ? "bg-emerald-500" : "bg-muted-foreground"}`}
                 />
                 {settings.is_active ? "Ativo" : "Inativo"}
+              </button>
+              <button
+                onClick={handleRunNow}
+                disabled={runningNow}
+                title="Enfileira agora, sem esperar o próximo horário fixo (6h/7h/12h)"
+                className="inline-flex items-center justify-center rounded-xl border border-border bg-muted px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-foreground transition-colors hover:bg-muted/70 disabled:opacity-50"
+              >
+                {runningNow ? "Rodando..." : "Rodar agora"}
               </button>
               <button
                 onClick={handleSave}
