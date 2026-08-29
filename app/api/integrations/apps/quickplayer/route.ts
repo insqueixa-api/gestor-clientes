@@ -5,6 +5,10 @@
 //   1. POST /api/login_by_mac {mac, key}         → token JWT
 //   2. POST /api/playlist_with_mac (FormData!)   → adiciona a playlist
 //      campos: name, mac, url, is_protected (+ pin/confirm_pin se protegido)
+//   3. GET  /api/device (check)                  → vencimento real
+//      (payed/expired/free_trial/free_trial_expired — achado 28/08/2026,
+//      testado ao vivo; /api/playlist tem um `expired_date` mas fica
+//      sempre null, não usar)
 //
 // A URL m3u NUNCA reaproveita o m3u_url já salvo no cliente — é montada aqui
 // com o DNS #1 cadastrado no servidor (servers.dns[0]) + usuário/senha do
@@ -58,6 +62,51 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const { action, mac, deviceKey, device_key, username, password, server_id, playlist_name } = body;
     const key = deviceKey || device_key; // aceita os dois formatos (o modal injeta "deviceKey")
+
+    // ✅ 28/08/2026: achado ao vivo (Márcio testou com MAC real) — GET
+    // /api/device tem o vencimento de verdade (/api/playlist só tem
+    // `expired_date`, que fica sempre null). `payed:true` → usa `expired`;
+    // senão, se `free_trial` estiver ativo, usa `free_trial_expired`
+    // (isTrial:true) — trial tem data real aqui, diferente de outras
+    // integrações (DUPLECAST etc.) que só sinalizam "modo teste" sem data.
+    if (action === "check") {
+      if (!mac || !key) {
+        return NextResponse.json({ ok: false, error: "mac e deviceKey são obrigatórios." }, { status: 400 });
+      }
+      try {
+        const token = await loginByMac(mac, key);
+        const devRes = await fetch(`${API_BASE}/device`, {
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        const devJson = await devRes.json().catch(() => null);
+        if (!devRes.ok || !devJson || devJson.error) {
+          return NextResponse.json(
+            { ok: false, error: devJson?.message || `Falha ao consultar o dispositivo (HTTP ${devRes.status}).` },
+            { status: 400 }
+          );
+        }
+        const dev = devJson.message || {};
+        const payed = !!dev.payed;
+        const isTrial = !payed && !!dev.free_trial;
+        // Sem passar por new Date() — mesma regra do resto do projeto pra
+        // não arriscar vencimento um dia a mais/a menos por fuso horário.
+        const rawDate: string | null = payed ? dev.expired : dev.free_trial_expired;
+        const expireDate = rawDate ? String(rawDate).slice(0, 10) : null;
+
+        return NextResponse.json({
+          ok: true,
+          expireDate,
+          isTrial,
+          message: expireDate
+            ? isTrial
+              ? "Ainda em teste gratuito — vencimento do trial atualizado."
+              : "Vencimento atualizado."
+            : "Login ok, mas não encontrei vencimento nem trial pra esse dispositivo.",
+        });
+      } catch (e: any) {
+        return NextResponse.json({ ok: false, error: e?.message || "Falha ao verificar vencimento." }, { status: 400 });
+      }
+    }
 
     if (action === "delete") {
       if (!mac || !key) {
@@ -138,7 +187,7 @@ export async function POST(req: Request) {
     }
 
     if (action !== "create") {
-      return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "action inválida. Use: check | create | delete" }, { status: 400 });
     }
     if (!mac || !key || !username || !server_id) {
       return NextResponse.json({ ok: false, error: "mac, deviceKey, username e server_id são obrigatórios." }, { status: 400 });

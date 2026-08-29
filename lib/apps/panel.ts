@@ -8,8 +8,12 @@
 export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO"]);
 
 // Handlers cuja rota de integração já implementa action:"check" (consulta
-// só leitura do vencimento real, sem criar/alterar nada). QuickPlayer não
-// rastreia vencimento no painel (o campo "date" é preenchido manualmente).
+// só leitura do vencimento real, sem criar/alterar nada).
+// QUICKPLAYER — achado 28/08/2026 (o Márcio testou ao vivo com um MAC real
+// e achou o campo certo): GET /api/device (não /api/playlist, que só tem
+// `expired_date` sempre null) devolve `payed`/`expired`/`free_trial`/
+// `free_trial_expired` — dá pra saber se está pago (usa `expired`) ou ainda
+// em trial gratuito (usa `free_trial_expired`, com isTrial:true).
 // DUPLECAST faz login por dispositivo (mac+device_key,
 // /plugin/duplecast/device_login/), que devolve "Expire on" de verdade.
 // MESSITV/BOBPLAYER/IBOPLAYER/IPTVDUPLEX/IPTVPLAYERIO seguem o mesmo padrão
@@ -26,7 +30,7 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // autenticada com o vencimento real da assinatura (ver
 // app/api/integrations/apps/ninjaplayer/route.ts). Sem PIN — não entra em
 // PIN_HANDLERS.
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLAYER"]);
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLAYER", "QUICKPLAYER"]);
 
 // Alias de CHECK_VALIDITY_HANDLERS pro botão "Verificar vencimento" do
 // ADMIN (novo_cliente.tsx) — eram dois Sets com o mesmo conteúdo mantidos
