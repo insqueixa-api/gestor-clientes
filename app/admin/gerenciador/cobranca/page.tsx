@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronUp,
+  X,
 } from "lucide-react";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -175,6 +176,7 @@ function GlobalQueueMonitor({
   const [historyData, setHistoryData] = useState<QueueRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [search, setSearch] = useState("");
 
   const fetchAll = async () => {
     const tid = tenantId;
@@ -209,18 +211,12 @@ function GlobalQueueMonitor({
     setLoading(false);
   };
 
-  // ✅ Sem fetch no mount de propósito — pedido do Márcio, 29/08/2026: zero
-  // chamada automática enquanto o painel não é aberto, nem para mostrar
-  // contagem no botão. Só busca quando ele clica.
-  //
-  // Enquanto o painel está aberto, atualiza a cada 2min — mesma cadência do
-  // Cron 2 (billing_dispatch_check); mais rápido que isso nunca mostraria
-  // nada novo. Fecha o painel, para de consultar.
+  // ✅ Sem fetch automático nenhum — nem no mount, nem em intervalo enquanto
+  // aberto (pedido do Márcio, 29/08/2026: virou "sync" manual). Busca só ao
+  // abrir e ao clicar em "Atualizar".
   useEffect(() => {
     if (!open) return;
     fetchAll();
-    const id = setInterval(fetchAll, 2 * 60 * 1000);
-    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tenantId]);
 
@@ -351,7 +347,16 @@ function GlobalQueueMonitor({
 
   const activeCount = queueData.filter((j) => ["SCHEDULED", "QUEUED", "SENDING"].includes(j.status)).length;
   const pausedCount = queueData.filter((j) => j.status === "PAUSED").length;
-  const failedRows = historyData.filter((r) => r.status === "FAILED");
+
+  const matchesSearch = (row: QueueRow) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const hay = [row.client_name, row.whatsapp_username].filter(Boolean).join(" ").toLowerCase();
+    return hay.includes(q);
+  };
+  const filteredQueueData = queueData.filter(matchesSearch);
+  const filteredHistoryData = historyData.filter(matchesSearch);
+  const failedRows = filteredHistoryData.filter((r) => r.status === "FAILED");
   const selectedArr = Array.from(selected);
 
   const toggleOne = (id: string) => {
@@ -404,23 +409,52 @@ function GlobalQueueMonitor({
                   Histórico de hoje ({historyData.length})
                 </button>
               </div>
-              {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
-              {lastUpdate && (
-                <span className="text-[10px] text-muted-foreground">
-                  Atualizado {lastUpdate.toLocaleTimeString("pt-BR")}
-                </span>
-              )}
             </div>
           </ModalHeader>
+
+          {/* ✅ Toolbar: busca + sync manual (sem polling — pedido do Márcio, 29/08/2026) */}
+          <div className="px-6 py-2.5 border-b border-border flex items-center gap-2 flex-wrap shrink-0">
+            <div className="flex-1 min-w-[160px] relative">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar cliente ou WhatsApp..."
+                className="w-full h-9 px-3 pr-8 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-rose-500"
+                  title="Limpar busca"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={fetchAll}
+              disabled={loading}
+              className="h-9 px-3 rounded-lg border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "↻"} Atualizar
+            </button>
+            {lastUpdate && (
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                Atualizado {lastUpdate.toLocaleTimeString("pt-BR")}
+              </span>
+            )}
+          </div>
 
           {tab === "fila" ? (
             <>
               <ModalBody className="p-0">
-                {queueData.length === 0 ? (
-                  <div className="text-center py-10 text-muted-foreground text-sm">Fila vazia no momento.</div>
+                {filteredQueueData.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground text-sm">
+                    {queueData.length === 0 ? "Fila vazia no momento." : "Nenhum resultado para a busca."}
+                  </div>
                 ) : (
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-muted/40 text-muted-foreground font-medium text-xs uppercase sticky top-0">
+                    <thead className="bg-muted text-muted-foreground font-medium text-xs uppercase sticky top-0 z-10 shadow-sm">
                       <tr>
                         <th className="p-4">Quando</th>
                         <th className="p-4">Origem</th>
@@ -431,7 +465,7 @@ function GlobalQueueMonitor({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {queueData.map((job) => (
+                      {filteredQueueData.map((job) => (
                         <tr key={job.id} className="hover:bg-muted/30 align-top">
                           <td className="p-4 text-muted-foreground whitespace-nowrap">{job.when_sp || "--"}</td>
                           <td className="p-4 font-medium text-foreground whitespace-nowrap">
@@ -497,11 +531,13 @@ function GlobalQueueMonitor({
           ) : (
             <>
               <ModalBody className="p-0">
-                {historyData.length === 0 ? (
-                  <div className="text-center py-10 text-muted-foreground text-sm">Nada enviado hoje ainda.</div>
+                {filteredHistoryData.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground text-sm">
+                    {historyData.length === 0 ? "Nada enviado hoje ainda." : "Nenhum resultado para a busca."}
+                  </div>
                 ) : (
                   <table className="w-full text-left text-sm">
-                    <thead className="bg-muted/40 text-muted-foreground font-medium text-xs uppercase sticky top-0">
+                    <thead className="bg-muted text-muted-foreground font-medium text-xs uppercase sticky top-0 z-10 shadow-sm">
                       <tr>
                         <th className="p-2 w-8">
                           {failedRows.length > 0 && (
@@ -521,7 +557,7 @@ function GlobalQueueMonitor({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {historyData.map((log) => {
+                      {filteredHistoryData.map((log) => {
                         const isFailed = log.status === "FAILED";
                         return (
                           <tr key={log.id} className="hover:bg-muted/30 align-top">
