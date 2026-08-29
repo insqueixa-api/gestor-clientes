@@ -197,7 +197,9 @@ function GlobalQueueMonitor({
         .in("status", ["SENT", "FAILED", "CANCELLED"])
         .gte("when_ts_utc", startUtc)
         .lt("when_ts_utc", endUtc)
-        .order("when_ts_utc", { ascending: true }),
+        // ✅ Mais recente primeiro — quem acabou de enviar/testar quer ver
+        // no topo, sem rolar a lista (achado ao vivo, 29/08/2026).
+        .order("when_ts_utc", { ascending: false }),
     ]);
 
     setQueueData((pendingRes.data as QueueRow[]) || []);
