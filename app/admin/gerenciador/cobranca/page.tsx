@@ -207,12 +207,10 @@ function GlobalQueueMonitor({
     setLoading(false);
   };
 
-  // Carrega 1x no mount (só pra mostrar a contagem no botão, sem repetir).
-  useEffect(() => {
-    fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tenantId]);
-
+  // ✅ Sem fetch no mount de propósito — pedido do Márcio, 29/08/2026: zero
+  // chamada automática enquanto o painel não é aberto, nem para mostrar
+  // contagem no botão. Só busca quando ele clica.
+  //
   // Enquanto o painel está aberto, atualiza a cada 2min — mesma cadência do
   // Cron 2 (billing_dispatch_check); mais rápido que isso nunca mostraria
   // nada novo. Fecha o painel, para de consultar.
