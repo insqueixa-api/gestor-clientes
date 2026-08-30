@@ -1012,7 +1012,7 @@ export default function AdminShell({
         >
           <div className="space-y-4">
             <div className="flex items-center gap-2 w-full">
-              <div className="flex-1 grid grid-cols-2 gap-2">
+              <div className="flex-1 grid grid-cols-3 gap-2">
                 <Link
                   href="/admin/auditoria"
                   onClick={() => setShowNotificationsModal(false)}
@@ -1022,6 +1022,15 @@ export default function AdminShell({
                 >
                   <ScrollText className="w-3.5 h-3.5 text-emerald-500" /> Log do
                   Portal
+                </Link>
+                <Link
+                  href="/admin/cron-status"
+                  onClick={() => setShowNotificationsModal(false)}
+                  prefetch={false}
+                  className="px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  title="Ver se os crons rodaram certinho"
+                >
+                  <ScrollText className="w-3.5 h-3.5 text-sky-500" /> Crons
                 </Link>
                 <button
                   onClick={handleSync}

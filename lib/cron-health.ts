@@ -78,7 +78,7 @@ export const JOBS: JobConfig[] = [
   { name: "vacuum_catalog_availability_weekly", kind: "sql", maxAgeHours: 24 * 8.5 },
 ];
 
-async function getLastOk(job: JobConfig): Promise<string | null> {
+export async function getLastOk(job: JobConfig): Promise<string | null> {
   if (job.kind === "sql") {
     const { data, error } = await supabaseAdmin.rpc("get_cron_last_success", { p_jobname: job.name });
     if (error) {
