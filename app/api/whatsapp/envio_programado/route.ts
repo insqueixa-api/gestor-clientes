@@ -34,7 +34,13 @@ export const dynamic = "force-dynamic";
 // ✅ Rede de segurança contra invocação presa (achado em 04/08/2026: sem
 // isso, a função herdava o timeout padrão da Vercel e podia ficar pendurada
 // indefinidamente se algo travasse no meio do processamento).
-export const maxDuration = 120;
+// ✅ 30/08/2026: 120s → 300s. O checkpoint de SENT (ver loop abaixo) já
+// elimina o risco de DUPLICAR mensagem se a função for morta pelo timeout
+// — mas com só 120s, o delay entre contato principal/secundário (até 120s,
+// configurável) sozinho já quase estourava o orçamento, fazendo o contato
+// secundário frequentemente nem ser tentado. Mais fôlego reduz isso sem
+// reintroduzir risco de duplicar (esse risco já não existe mais).
+export const maxDuration = 300;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -287,6 +293,10 @@ export async function POST(req: Request) {
     }
 
     for (const job of jobs) {
+      // ✅ Declarado FORA do try — precisa ser visível no catch também (ver
+      // uso lá embaixo: um erro depois do checkpoint não pode sobrescrever
+      // o SENT já gravado).
+      let checkpointed = false;
       try {
         // ✅ LOCK ANTI DUPLICAÇÃO (CRON SAFE)
         const { data: locked, error: lockErr } = await sb
@@ -436,6 +446,45 @@ export async function POST(req: Request) {
           }
         }
 
+        // ✅ 30/08/2026, CRÍTICO — achado real (Erick/João Batista receberam
+        // a mesma cobrança 2x): o delay entre contato principal/secundário
+        // (configurável, hoje até 120s) rodava ANTES do job ser gravado
+        // como SENT. Como maxDuration é 120s, a função podia ser matada
+        // pela Vercel bem no meio desse sleep — o job ficava preso em
+        // SENDING, a auto-recuperação de 5min devolvia pra fila, e o
+        // PRÓXIMO tick reenviava tudo de novo (mensagem duplicada de
+        // verdade, já entregue nas duas vezes). Agora: assim que o
+        // PRIMEIRO envio bem-sucedido acontece, o job já é gravado como
+        // SENT ali mesmo, antes de qualquer sleep — mesmo que a função
+        // morra depois disso (tentando o contato seguinte), o job nunca
+        // mais é repescado (nem pela seleção normal nem pela
+        // auto-recuperação). Pior caso possível agora: o contato seguinte
+        // não recebe naquela rodada — nunca mais um duplicado.
+        async function writeSentCheckpoint() {
+          const nowIso = new Date().toISOString();
+          const bookkeepingWrites: PromiseLike<any>[] = [
+            sb.from("client_message_jobs").update({ status: "SENT", sent_at: nowIso, error_message: null }).eq("id", job.id),
+          ];
+          if ((job as any).automation_id) {
+            const cName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
+            bookkeepingWrites.push(
+              sb.from("billing_logs").insert({
+                tenant_id: job.tenant_id,
+                automation_id: (job as any).automation_id,
+                client_id: job.client_id || null,
+                client_name: cName,
+                client_whatsapp: wa.phones.map((p: any) => p.number).join(", "),
+                status: "SENT",
+                sent_at: nowIso,
+              }),
+              sb.from("billing_automations").update({ last_run_at: nowIso }).eq("id", (job as any).automation_id),
+            );
+          }
+          await Promise.all(bookkeepingWrites);
+          checkpointed = true;
+          processed++;
+        }
+
         // ✅ Loop de envios para os contatos vinculados à conta
         for (let i = 0; i < wa.phones.length; i++) {
           const contact = wa.phones[i];
@@ -515,6 +564,12 @@ export async function POST(req: Request) {
             await reportWhatsAppReconnected(String(job.tenant_id), targetSession);
           }
 
+          // ✅ Checkpoint no PRIMEIRO sucesso — ver comentário grande acima
+          // do loop. Precisa acontecer ANTES do sleep abaixo.
+          if (successCount === 1 && !checkpointed) {
+            await writeSentCheckpoint();
+          }
+
           // ✅ Delay entre telefone primário e secundário do mesmo cliente
           // (só aplica se houver mais um contato depois deste), sorteado
           // dentro da faixa configurada em billing_campaign_settings.
@@ -525,7 +580,9 @@ export async function POST(req: Request) {
           }
         }
 
-        if (successCount === 0) {
+        if (!checkpointed) {
+          // ninguém teve sucesso — nenhum checkpoint rodou, job segue como
+          // FAILED de verdade (nada foi entregue).
           await sb.from("client_message_jobs").update({ status: "FAILED", error_message: String(lastError).slice(0, 500) }).eq("id", job.id);
 
           // ✅ NOVO: notifica o sino AGORA, na hora, não espera cron nenhum
@@ -535,33 +592,6 @@ export async function POST(req: Request) {
 
           continue;
         }
-
-        // ✅ Grava o resultado do disparo — 3 escritas independentes entre
-        // si, antes rodavam em sequência (await uma, depois a outra).
-        const nowIso = new Date().toISOString();
-        const bookkeepingWrites: PromiseLike<any>[] = [
-          sb.from("client_message_jobs").update({ status: "SENT", sent_at: nowIso, error_message: null }).eq("id", job.id),
-        ];
-
-        if ((job as any).automation_id) {
-          const cName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
-          bookkeepingWrites.push(
-            sb.from("billing_logs").insert({
-              tenant_id: job.tenant_id,
-              automation_id: (job as any).automation_id,
-              client_id: job.client_id || null,
-              client_name: cName,
-              client_whatsapp: wa.phones.map((p: any) => p.number).join(", "),
-              status: "SENT",
-              sent_at: nowIso,
-            }),
-            sb.from("billing_automations").update({ last_run_at: nowIso }).eq("id", (job as any).automation_id),
-          );
-        }
-
-        await Promise.all(bookkeepingWrites);
-
-        processed++;
 
         // ✅ delay curto entre envios do MESMO tick, sorteado (era 1-3min
         // fixo) — reduzido em 04/08/2026: com o cron agora de 5 em 5min e o
@@ -576,6 +606,16 @@ export async function POST(req: Request) {
         }
       } catch (e: any) {
         const errorMsg = e?.message || "Falha ao processar job";
+
+        // ✅ 30/08/2026: se o checkpoint (envio ao 1º contato) já rodou, o
+        // job já está corretamente SENT — um erro tentando o contato
+        // seguinte (ou qualquer coisa depois) NÃO pode sobrescrever isso
+        // pra FAILED, senão o cliente que JÁ recebeu a mensagem apareceria
+        // como falha (e ainda dispararia notificação de falha indevida).
+        if (checkpointed) {
+          safeServerLog("[BILLING] job já tinha checkpoint SENT, erro depois disso (contato seguinte?):", errorMsg);
+          continue;
+        }
 
         await sb
           .from("client_message_jobs")
