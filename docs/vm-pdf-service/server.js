@@ -50,7 +50,30 @@ async function gerarPdf(payload, nomeArquivo) {
     const page = await browser.newPage();
     const largura = 794; // ~210mm a 96dpi (A4)
     await page.setViewport({ width: largura, height: 1123 });
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 30_000 });
+    // ✅ 30/08/2026, achado do Márcio (timeout ao gerar PDF, 3-4x seguidas):
+    // "networkidle0" exige ZERO atividade de rede por 500ms — QUALQUER foto
+    // do R2 lenta ou travada (comum quando a Ação tem várias) já estourava
+    // o timeout de 30s e derrubava a geração inteira (log real da VM:
+    // "TimeoutError: Navigation timeout of 30000 ms exceeded"). Troca:
+    // espera só o HTML/CSS (domcontentloaded, quase instantâneo) e depois
+    // espera cada <img> terminar (carregar OU falhar) — timeout PRÓPRIO de
+    // 20s por imagem, em paralelo, não em série. Uma foto lenta/quebrada
+    // não trava mais as outras nem a geração inteira.
+    await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await page.evaluate(() => {
+      const imgs = Array.from(document.images);
+      return Promise.all(
+        imgs.map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            const done = () => resolve();
+            img.addEventListener("load", done, { once: true });
+            img.addEventListener("error", done, { once: true });
+            setTimeout(done, 20000);
+          });
+        }),
+      );
+    });
     const altura = await page.evaluate(() => document.documentElement.scrollHeight);
     const pdf = await page.pdf({
       width: largura,
