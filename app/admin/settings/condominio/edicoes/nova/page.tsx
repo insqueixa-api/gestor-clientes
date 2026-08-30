@@ -45,7 +45,12 @@ type ItemSelecionado = {
   categoria: string;
   texto: string | null;
   status: StatusAcao;
-  fotos: { url: string; legenda: string }[];
+  // ✅ posY incluído (30/08/2026) — antes o tipo omitia esse campo mesmo ele
+  // passando por baixo (spread de AcaoRow.fotos, que já tem posY) até o PDF;
+  // TS não pegava, mas um refactor futuro que confiasse nesse tipo pra
+  // reconstruir o array (ex: `.map(f => ({url, legenda}))`) apagaria o
+  // posY sem erro nenhum. Tipo agora reflete o que de fato trafega.
+  fotos: { url: string; legenda: string; posY?: number }[];
 };
 
 type Grupo = { status: StatusAcao; itens: ItemSelecionado[] };
