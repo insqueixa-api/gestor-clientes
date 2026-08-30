@@ -517,6 +517,15 @@ export default function NovaEdicaoPage() {
             acoesPreSelecionadasParam.split(",").filter(Boolean),
           );
           setGrupos(construirGrupos(acoes, null, idsPreSelecionados));
+          // ✅ 30/08/2026, achado real: "Criar Edição com essas" SEMPRE
+          // selecionava certo (confirmado pela URL: só o id marcado ia no
+          // acoes=), mas a tela abria no modo "escolher" — mostrando TODAS
+          // as ações disponíveis (com só a certa marcada) em vez de mostrar
+          // só o que foi escolhido. Parecia "trazer tudo" mesmo estando
+          // certo por baixo. Agora entra direto filtrado, só com o que veio
+          // selecionado — "Editar" (voltar ao modo escolher) continua ali
+          // pra adicionar mais se quiser.
+          setSoSelecionados(true);
         } else {
           setGrupos(construirGrupos(acoes, null, null));
         }
