@@ -42,7 +42,8 @@ export async function proxy(request: NextRequest) {
   // ✅ Mesmo esquema de lib/api/auth-server.ts: tentativa barata primeiro
   // (getSession, leitura local do cookie, sem round-trip) — só escala pra
   // getUser() (que bate no servidor de Auth) quando o cache admin_ctx não
-  // existe ou passou de 24h. Único usuário do sistema, não precisa
+  // existe ou passou de 7 dias (ADMIN_CTX_REVALIDATE_MS). Único usuário do
+  // sistema, não precisa
   // reconfirmar a sessão em toda navegação pro /admin.
   const { data: sessionData } = await supabase.auth.getSession();
   let user = sessionData?.session?.user ?? null;

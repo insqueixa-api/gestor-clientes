@@ -27,7 +27,8 @@ export type AdminTenantDenied = {
 // do sistema, não precisa reconsultar tenant_members/tenants/profiles em
 // toda navegação, só quando a sessão trocar de usuário ou for renovada.
 // ✅ 05/08/2026: o cookie também guarda `verifiedAt` — enquanto estiver
-// dentro de ADMIN_CTX_REVALIDATE_MS (24h), getAdminTenantContext nem chama
+// dentro de ADMIN_CTX_REVALIDATE_MS (7 dias, ampliado de 24h em 30/08/2026),
+// getAdminTenantContext nem chama
 // auth.getUser() (que bate no servidor de Auth do Supabase a cada request,
 // inclusive em prefetch de <Link>); usa só supabase.auth.getSession(), que
 // é leitura local do cookie de sessão, sem round-trip. A autorização de
