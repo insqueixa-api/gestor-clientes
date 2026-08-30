@@ -204,6 +204,21 @@ export default function CondominioPage() {
     });
   }
 
+  // ✅ 30/08/2026, pedido do Márcio (mais de uma vez): selecionar de uma vez
+  // só todas as ações de um status (ex: todos os "Concluído") pra montar a
+  // Edição — checkbox ao lado do badge do status, ver JSX abaixo.
+  function toggleGrupoTodos(itens: AcaoRow[]) {
+    const todasMarcadas = itens.length > 0 && itens.every((a) => selecionadas.has(a.id));
+    setSelecionadas((prev) => {
+      const novo = new Set(prev);
+      itens.forEach((a) => {
+        if (todasMarcadas) novo.delete(a.id);
+        else novo.add(a.id);
+      });
+      return novo;
+    });
+  }
+
   function toggleGrupoColapsado(status: StatusAcao) {
     setGruposColapsados((prev) => {
       const novo = new Set(prev);
@@ -508,6 +523,13 @@ export default function CondominioPage() {
             <div key={grupo.status} className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={grupo.itens.every((a) => selecionadas.has(a.id))}
+                    onChange={() => toggleGrupoTodos(grupo.itens)}
+                    title="Selecionar todos deste status"
+                    className="shrink-0"
+                  />
                   <span
                     className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
                   >

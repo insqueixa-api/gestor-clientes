@@ -441,7 +441,15 @@ export default function NovaEdicaoPage() {
         setLoading(false);
       }
     })();
-  }, [tenantId, condominioId]);
+    // ✅ Bug real achado 30/08/2026 (Márcio: "seleciono no botão 'Criar
+    // Edição com essas' e traz o que não pedi") — faltavam edicaoIdParam e
+    // acoesPreSelecionadasParam aqui. Sem eles, clicar em "Criar Edição com
+    // essas" de novo com uma seleção nova, estando essa mesma rota já
+    // montada (Next.js App Router reaproveita o componente quando só o
+    // querystring muda), não recarregava nada — a seleção antiga (de uma
+    // visita anterior a essa mesma página) ficava presa em vez de pegar a
+    // nova.
+  }, [tenantId, condominioId, edicaoIdParam, acoesPreSelecionadasParam]);
 
   function toggleSelecionada(status: StatusAcao, acaoId: string) {
     setGrupos((prev) =>
