@@ -2,7 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { flagSuspiciousAccess } from "@/lib/observability";
-import { ADMIN_CTX_COOKIE, extractCookieValue, parseAdminCtxCookie } from "@/lib/api/admin-ctx";
+import { ADMIN_CTX_COOKIE, extractCookieValue, parseAdminCtxCookie, parseAdminCtxCookieIfFresh } from "@/lib/api/admin-ctx";
 
 export function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
@@ -48,6 +48,19 @@ export async function requireAdminTenant(req: Request) {
   const token = getBearerToken(req);
 
   if (!token) return { ok: false as const, res: unauthorized("token bearer ausente") };
+
+  // ✅ 30/08/2026: mesmo padrão de proxy.ts/getAdminTenantContext — confia
+  // no cookie admin_ctx (httpOnly, só o nosso servidor grava, sempre após
+  // uma verificação real) por até 7 dias, sem bater no Supabase Auth
+  // (getUser) em toda chamada de API. Antes disso, TODA chamada de API do
+  // admin (29 rotas, incluindo pagamento/cupom) pagava 1 round-trip de rede
+  // obrigatório mesmo logo depois de a mesma sessão já ter sido verificada
+  // na navegação da página — achado investigando TTFB "Poor" em
+  // /admin/cron-status no Speed Insights.
+  const trustedCookie = parseAdminCtxCookieIfFresh(extractCookieValue(req.headers.get("cookie"), ADMIN_CTX_COOKIE));
+  if (trustedCookie) {
+    return { ok: true as const, supabase, tenant_id: trustedCookie.tenantId, user_id: trustedCookie.userId, role: trustedCookie.role };
+  }
 
   const { data: authUser, error: authErr } = await supabase.auth.getUser(token);
   if (authErr || !authUser?.user?.id) return { ok: false as const, res: unauthorized("sessão inválida") };

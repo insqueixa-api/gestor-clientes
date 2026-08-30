@@ -38,6 +38,26 @@ export function parseAdminCtxCookie(raw: string | undefined | null, userId: stri
   }
 }
 
+// ✅ 30/08/2026: mesma ideia de parseAdminCtxCookie, mas SEM precisar de um
+// userId já verificado de antemão — usado em requireAdminTenant (rotas de
+// API com Bearer token) pra confiar direto no cookie httpOnly (só o nosso
+// servidor grava esse cookie, sempre depois de uma verificação real) e
+// pular o round-trip de supabase.auth.getUser() em toda chamada, mesma
+// janela de 7 dias já aprovada pra navegação de página. Quem chama ainda
+// exige o Bearer token presente (getBearerToken) — o cookie só substitui a
+// necessidade de VALIDAR esse token contra o servidor de Auth a cada vez.
+export function parseAdminCtxCookieIfFresh(raw: string | undefined | null): AdminCtxCookiePayload | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as AdminCtxCookiePayload;
+    if (!parsed.userId || !parsed.tenantId || !parsed.role || typeof parsed.verifiedAt !== "number") return null;
+    if (Date.now() - parsed.verifiedAt >= ADMIN_CTX_REVALIDATE_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 // ✅ 27/08/2026: header interno pra proxy.ts (Edge, já resolveu tenant/role
 // nesse mesmo request) repassar o contexto pronto pra dentro do Server
 // Component (Node, app/admin/layout.tsx) sem ele precisar reconsultar
