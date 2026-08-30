@@ -12,7 +12,8 @@ type NotificationType =
   | "saldo_baixo"
   | "sugestao_conteudo"
   | "app_setup_pending"
-  | "app_removal_pending";
+  | "app_removal_pending"
+  | "cron_falha";
 
 type NotifyParams = {
   tenantId: string;

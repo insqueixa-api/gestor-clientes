@@ -135,6 +135,8 @@ function getNotifEmoji(type: string): string {
       return "🪫";
     case "sugestao_conteudo":
       return "🍿";
+    case "cron_falha":
+      return "⏰";
     default:
       return "🔔";
   }
