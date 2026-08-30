@@ -1,12 +1,13 @@
 "use client";
 // app/admin/settings/condominio/edicoes/nova/page.tsx
-// ✅ 30/08/2026, 2ª rodada da refatoração grande pedida pelo Márcio: essa
+// ✅ 30/08/2026, 3ª rodada da refatoração grande pedida pelo Márcio: essa
 // tela É a "página principal" (formato do jornal) — os cards ficam
-// idênticos aos da lista de Ações (foto, título, categoria, texto), só sem
-// os botões de editar/ajustar/publicar/arquivar (aqui é só escolher +
-// reordenar pra montar a edição). Fixo em 2 por linha no computador, 1 no
-// celular. Arrasta pra reordenar dentro do próprio status (@dnd-kit) — a
-// ordem inicial é por categoria, mas o Márcio pode sobrescrever arrastando.
+// idênticos aos da lista de Ações (foto, título, categoria, texto), com os
+// MESMOS botões de editar/ajustar capa (pra corrigir posição da foto, trocar
+// foto ou texto sem ter que voltar pra lista de Ações e perder a seleção).
+// Fixo em 2 por linha no computador, 1 no celular. Arrasta pra reordenar
+// dentro do próprio status (@dnd-kit) — a ordem inicial é por categoria, mas
+// o Márcio pode sobrescrever arrastando.
 // "Pré-visualizar" NÃO troca de tela — só oculta (não remove) as ações não
 // marcadas, mantendo o mesmo layout: é literalmente a prévia do que vai
 // pro PDF. O PDF em si (chamada à VM) só roda ao clicar em "Baixar PDF" —
@@ -14,7 +15,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { GripVertical, ChevronDown, Images, Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
+import { GripVertical, ChevronDown, Images, Loader2, Pencil, Move } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -43,6 +45,9 @@ import {
   type CondominioRow,
   type StatusAcao,
 } from "../../shared";
+
+const ModalAcao = dynamic(() => import("../../ModalAcao"), { ssr: false });
+const CapaEditorModal = dynamic(() => import("../../CapaEditorModal"), { ssr: false });
 
 type ItemSelecionado = {
   acaoId: string;
@@ -104,6 +109,36 @@ function construirGrupos(
   }).filter((g) => g.itens.length > 0);
 }
 
+// ✅ Depois de editar uma Ação (ou ajustar a capa) direto nessa tela, busca
+// os dados frescos e reconstrói `grupos` reaproveitando a ordem/seleção
+// atual (não é um reload da página) — se o status mudou no ModalAcao, o
+// item migra pro grupo novo sozinho (mesma lógica de ordenação por posição
+// prévia + categoria do construirGrupos acima).
+function mesclarAcoesAtualizadas(acoesNovas: AcaoRow[], gruposAtuais: Grupo[]): Grupo[] {
+  const posMap = new Map<string, number>();
+  const selMap = new Map<string, boolean>();
+  let idx = 0;
+  gruposAtuais.forEach((g) =>
+    g.itens.forEach((i) => {
+      posMap.set(i.acao.id, idx++);
+      selMap.set(i.acao.id, i.selecionada);
+    }),
+  );
+  return STATUS_ORDEM.map((status) => {
+    const doStatus = acoesNovas.filter((a) => a.status === status);
+    doStatus.sort((a, b) => {
+      const pa = posMap.has(a.id) ? (posMap.get(a.id) as number) : Infinity;
+      const pb = posMap.has(b.id) ? (posMap.get(b.id) as number) : Infinity;
+      if (pa !== pb) return pa - pb;
+      return a.categoria.localeCompare(b.categoria, "pt-BR");
+    });
+    return {
+      status,
+      itens: doStatus.map((acao) => ({ acao, selecionada: selMap.get(acao.id) ?? false })),
+    };
+  }).filter((g) => g.itens.length > 0);
+}
+
 function calcPeriodoChave(tipo: "semanal" | "mensal", dataISO: string): string {
   const d = new Date(`${dataISO}T12:00:00`);
   if (tipo === "mensal") {
@@ -126,15 +161,21 @@ function hojeISO() {
 }
 
 // ✅ Card idêntico ao da lista de Ações (page.tsx: foto, checkbox+título,
-// categoria, contagem de fotos, texto) — só sem os botões de editar/
-// ajustar/publicar/arquivar (aqui é só escolher/reordenar) e com a alça de
-// arrastar no lugar deles.
+// categoria, contagem de fotos, texto) — inclusive os botões de Editar e
+// Ajustar capa (pedido do Márcio: corrigir posição da foto/foto/texto sem
+// ter que voltar pra lista de Ações e perder a seleção/ordem daqui). Só o
+// Publicar/Arquivar da Ação (que é outra coisa, própria da Ação) fica de
+// fora — não faz sentido aqui.
 function GrupoCard({
   item,
   onToggle,
+  onEditar,
+  onAjustarCapa,
 }: {
   item: ItemGrupo;
   onToggle: () => void;
+  onEditar: () => void;
+  onAjustarCapa: () => void;
 }) {
   const { acao } = item;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -181,15 +222,35 @@ function GrupoCard({
               {acao.titulo}
             </h2>
           </label>
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            title="Arrastar para reordenar"
-            className="shrink-0 w-7 h-7 rounded-lg text-muted-foreground hover:bg-muted cursor-grab active:cursor-grabbing touch-none flex items-center justify-center transition-colors"
-          >
-            <GripVertical className="w-4 h-4" />
-          </button>
+          <div className="flex gap-1 shrink-0">
+            <button
+              type="button"
+              title="Editar"
+              onClick={onEditar}
+              className="w-7 h-7 rounded-lg border border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 flex items-center justify-center transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            {acao.fotos?.length > 0 && (
+              <button
+                type="button"
+                title="Ajustar capa"
+                onClick={onAjustarCapa}
+                className="w-7 h-7 rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-500 hover:bg-sky-500/20 flex items-center justify-center transition-colors"
+              >
+                <Move className="w-3.5 h-3.5" />
+              </button>
+            )}
+            <button
+              type="button"
+              {...attributes}
+              {...listeners}
+              title="Arrastar para reordenar"
+              className="w-7 h-7 rounded-lg text-muted-foreground hover:bg-muted cursor-grab active:cursor-grabbing touch-none flex items-center justify-center transition-colors"
+            >
+              <GripVertical className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -223,6 +284,8 @@ function GrupoSecao({
   onToggleTodos,
   onToggleItem,
   onDragEnd,
+  onEditar,
+  onAjustarCapa,
 }: {
   grupo: Grupo;
   soSelecionados: boolean;
@@ -233,6 +296,8 @@ function GrupoSecao({
   onToggleTodos: () => void;
   onToggleItem: (acaoId: string) => void;
   onDragEnd: (event: DragEndEvent) => void;
+  onEditar: (acao: AcaoRow) => void;
+  onAjustarCapa: (acao: AcaoRow) => void;
 }) {
   const termo = busca.trim().toLowerCase();
   const visiveis = grupo.itens.filter((i) => {
@@ -284,6 +349,8 @@ function GrupoSecao({
                   key={item.acao.id}
                   item={item}
                   onToggle={() => onToggleItem(item.acao.id)}
+                  onEditar={() => onEditar(item.acao)}
+                  onAjustarCapa={() => onAjustarCapa(item.acao)}
                 />
               ))}
             </div>
@@ -347,6 +414,11 @@ export default function NovaEdicaoPage() {
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [colapsados, setColapsados] = useState<Set<StatusAcao>>(new Set());
+
+  const [editingAcao, setEditingAcao] = useState<AcaoRow | null>(null);
+  const [isModalAcaoOpen, setIsModalAcaoOpen] = useState(false);
+  // ✅ "Ajustar capa" (mesmo componente da lista de Ações — CapaEditorModal).
+  const [editingCapaFor, setEditingCapaFor] = useState<AcaoRow | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -450,6 +522,25 @@ export default function NovaEdicaoPage() {
     // visita anterior a essa mesma página) ficava presa em vez de pegar a
     // nova.
   }, [tenantId, condominioId, edicaoIdParam, acoesPreSelecionadasParam]);
+
+  // ✅ Usado depois de editar uma Ação ou ajustar a capa direto nessa tela
+  // (ModalAcao/CapaEditorModal abaixo) — busca os dados frescos e reaplica
+  // em `grupos` via mesclarAcoesAtualizadas, sem perder seleção/ordem.
+  async function recarregarAcoes() {
+    if (!tenantId || !condominioId) return;
+    const { data, error } = await supabaseBrowser
+      .from("condominio_acoes")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("condominio_id", condominioId)
+      .eq("arquivada", false)
+      .order("created_at", { ascending: false });
+    if (error) {
+      addToast("error", "Erro ao recarregar ações", error.message);
+      return;
+    }
+    setGrupos((prev) => mesclarAcoesAtualizadas(data || [], prev));
+  }
 
   function toggleSelecionada(status: StatusAcao, acaoId: string) {
     setGrupos((prev) =>
@@ -884,6 +975,11 @@ export default function NovaEdicaoPage() {
                 onToggleTodos={() => toggleGrupoTodos(grupo.status)}
                 onToggleItem={(id) => toggleSelecionada(grupo.status, id)}
                 onDragEnd={(e) => handleDragEnd(grupo.status, e)}
+                onEditar={(acao) => {
+                  setEditingAcao(acao);
+                  setIsModalAcaoOpen(true);
+                }}
+                onAjustarCapa={(acao) => setEditingCapaFor(acao)}
               />
             ))}
             {soSelecionados && totalSelecionadas === 0 && (
@@ -1032,6 +1128,34 @@ export default function NovaEdicaoPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {isModalAcaoOpen && condominioId && (
+        <ModalAcao
+          acao={editingAcao}
+          condominioId={condominioId}
+          condominioNome={condominio?.nome || ""}
+          onClose={() => setIsModalAcaoOpen(false)}
+          onSuccess={() => {
+            setIsModalAcaoOpen(false);
+            recarregarAcoes();
+            addToast("success", "Ação atualizada", editingAcao?.titulo);
+          }}
+          onError={(msg) => addToast("error", "Erro ao salvar", msg)}
+        />
+      )}
+
+      {editingCapaFor && tenantId && (
+        <CapaEditorModal
+          acao={editingCapaFor}
+          tenantId={tenantId}
+          onClose={() => setEditingCapaFor(null)}
+          onSaved={() => {
+            setEditingCapaFor(null);
+            addToast("success", "Capa atualizada", editingCapaFor.titulo);
+            recarregarAcoes();
+          }}
+        />
       )}
 
       <div className="relative z-[999999]">

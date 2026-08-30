@@ -464,12 +464,18 @@ export default function CondominioPage() {
             </button>
           )}
           {!showArchived && (
-            <Link
+            // ✅ 30/08/2026, bug real achado pelo Márcio: com <Link> (navegação
+            // client-side), voltar do navegador pra essa página e clicar de
+            // novo aqui podia reaproveitar a tela de Nova Edição já montada
+            // (React Router/bfcache) com a seleção antiga ainda em memória,
+            // em vez de recarregar do zero com a seleção nova. <a> normal
+            // força um carregamento de página cheio, sem essa ambiguidade.
+            <a
               href={`/admin/settings/condominio/edicoes/nova?condominio=${selectedCondominioId}&acoes=${Array.from(selecionadas).join(",")}`}
               className="h-8 px-3 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-xs font-bold hover:bg-sky-500/20 transition-colors flex items-center gap-1.5"
             >
               <Newspaper className="w-3.5 h-3.5" /> Criar Edição com essas
-            </Link>
+            </a>
           )}
           <button
             type="button"
