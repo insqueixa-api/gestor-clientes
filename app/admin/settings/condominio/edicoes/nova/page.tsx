@@ -432,6 +432,19 @@ export default function NovaEdicaoPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   }
 
+  // ✅ 30/08/2026 — mesma proteção contra bfcache do lado da lista de Ações:
+  // se essa tela for restaurada do cache do navegador (botão Voltar/Avançar
+  // depois de sair pra outra página), força um reload completo em vez de
+  // reaproveitar seleção/versão/pdfUrl antigos que podem já não bater mais
+  // com o banco.
+  useEffect(() => {
+    function handlePageShow(e: PageTransitionEvent) {
+      if (e.persisted) window.location.reload();
+    }
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   useEffect(() => {
     if (!tenantId || !condominioId) return;
     (async () => {

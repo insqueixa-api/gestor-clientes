@@ -149,6 +149,22 @@ export default function CondominioPage() {
     setSelecionadas(new Set());
   }, [selectedCondominioId, showArchived]);
 
+  // ✅ 30/08/2026, bug real achado pelo Márcio: ir pra "Nova Edição" e voltar
+  // com o botão Voltar do navegador restaura essa página do bfcache (bfcache
+  // = memória do navegador, não roda nenhum código React de novo) — os
+  // checkboxes ficavam com a marcação de ANTES de sair da página, escondida
+  // (a lista pode ter rolado), e um clique em "Criar Edição com essas" sem
+  // reparar nisso reenviava ids que o Márcio achava que não tinha marcado.
+  // "pageshow" com persisted:true é o único jeito de saber que a página
+  // voltou do bfcache, pra aí sim zerar a seleção.
+  useEffect(() => {
+    function handlePageShow(e: PageTransitionEvent) {
+      if (e.persisted) setSelecionadas(new Set());
+    }
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   function handleSelectCondominio(id: string) {
     if (typeof window !== "undefined") {
       localStorage.setItem(LOCALSTORAGE_KEY, id);
