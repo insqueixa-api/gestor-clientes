@@ -116,7 +116,9 @@ export default function ModalAcao({
   const [categoria, setCategoria] = useState("outro");
   const [categoriaOutra, setCategoriaOutra] = useState("");
   const [categoriasExtras, setCategoriasExtras] = useState<string[]>([]);
-  const [status, setStatus] = useState<StatusAcao>("planejado");
+  // ✅ 30/08/2026, pedido do Márcio: ação nova já nasce como "Concluído" —
+  // no fluxo dele, a ação normalmente já foi feita quando ele registra.
+  const [status, setStatus] = useState<StatusAcao>("concluido");
   const [texto, setTexto] = useState("");
   const [fotos, setFotos] = useState<Foto[]>([]);
   const [uploadingFoto, setUploadingFoto] = useState(false);
