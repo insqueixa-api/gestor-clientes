@@ -75,14 +75,30 @@ function montarHtml({ condominio, edicao, itens }) {
   const nomeArquivo = nomeArquivoPdf(condominio.nome, edicao.tipo, edicao.versao);
   const grupos = agruparPorStatus(itens);
 
+  // ✅ 30/08/2026, achado do Márcio: mesma regra de titulo_pagina
+  // ("logo_nome" | "logo" | "nome") usada no admin (app/admin/settings/
+  // condominio/page.tsx) — o PDF sempre mostrava logo+nome juntos, sem
+  // olhar pra essa configuração. Sem logo cadastrada, "logo" cai pra
+  // "nome" (nunca mostra o cabeçalho vazio).
+  const temLogo = !!condominio.logo_url;
+  const tituloPaginaModo = condominio.titulo_pagina || "logo_nome";
+  const tituloPaginaEfetivo = tituloPaginaModo === "logo" && !temLogo ? "nome" : tituloPaginaModo;
+  const exibirLogo = tituloPaginaEfetivo !== "nome" && temLogo;
+  const exibirNomeCondominio = tituloPaginaEfetivo !== "logo";
+
   const cardsHtml = (itensGrupo) =>
     itensGrupo
       .map((item) => {
         const capa = item.fotos && item.fotos[0];
         const extras = (item.fotos || []).slice(1);
+        // ✅ 30/08/2026, achado do Márcio: mesmo posY (0-100, "center Y%")
+        // ajustado no CapaEditorModal.tsx não estava chegando no PDF — a
+        // capa sempre saía com o enquadramento padrão do CSS, ignorando o
+        // que foi arrastado na tela. Mesmo padrão/fallback (20%) do admin.
+        const capaPosY = capa?.posY ?? 20;
         return `
         <div class="card">
-          ${capa ? `<img class="capa" src="${esc(capa.url)}" />` : ""}
+          ${capa ? `<img class="capa" style="object-position:center ${capaPosY}%" src="${esc(capa.url)}" />` : ""}
           <div class="card-body">
             <h3>${esc(item.titulo)}</h3>
             ${item.texto ? `<p class="texto">${nl2br(item.texto)}</p>` : ""}
@@ -143,8 +159,8 @@ function montarHtml({ condominio, edicao, itens }) {
 <body>
   <div class="header">
     <div class="logo-wrap">
-      ${condominio.logo_url ? `<img src="${esc(condominio.logo_url)}" />` : ""}
-      <span class="nome">${esc(condominio.nome)}</span>
+      ${exibirLogo ? `<img src="${esc(condominio.logo_url)}" />` : ""}
+      ${exibirNomeCondominio ? `<span class="nome">${esc(condominio.nome)}</span>` : ""}
     </div>
     <div class="edicao-box">
       <div class="tipo">Informativo ${tipoLabel}</div>

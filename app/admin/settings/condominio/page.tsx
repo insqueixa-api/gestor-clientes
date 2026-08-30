@@ -20,6 +20,7 @@ import {
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
 import CondominioFilterDropdown from "./CondominioFilterDropdown";
 import {
   LOCALSTORAGE_KEY,
@@ -47,6 +48,7 @@ const STATUS_FILTROS: { valor: StatusAcao | "Todos"; label: string }[] = [
 
 export default function CondominioPage() {
   const tenantId = useTenantId();
+  const { confirm } = useConfirm();
 
   const [condominios, setCondominios] = useState<CondominioRow[]>([]);
   const [loadingCondominios, setLoadingCondominios] = useState(true);
@@ -82,6 +84,7 @@ export default function CondominioPage() {
     new Set(),
   );
   const [arquivandoLote, setArquivandoLote] = useState(false);
+  const [arquivandoPublicados, setArquivandoPublicados] = useState(false);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   function addToast(type: "success" | "error", title: string, message?: string) {
@@ -236,6 +239,62 @@ export default function CondominioPage() {
     }
   }
 
+  // ✅ 30/08/2026, pedido do Márcio: "Publicar" (na tela de Edições) fica só
+  // publicando — arquivar é uma ação à parte, aqui, e só pega Ações
+  // "Concluído" que JÁ apareceram em alguma edição publicada (não arquiva
+  // concluído que ainda nem foi publicado nenhuma vez).
+  async function handleArquivarPublicados() {
+    if (!selectedCondominioId || !tenantId) return;
+    setArquivandoPublicados(true);
+    try {
+      const { data: edicoesPublicadas, error: edErr } = await supabaseBrowser
+        .from("condominio_edicoes")
+        .select("itens")
+        .eq("tenant_id", tenantId)
+        .eq("condominio_id", selectedCondominioId)
+        .eq("status", "publicado");
+      if (edErr) throw edErr;
+
+      const idsPublicados = new Set<string>();
+      for (const edicao of edicoesPublicadas || []) {
+        for (const item of (edicao.itens as { acaoId?: string }[]) || []) {
+          if (item.acaoId) idsPublicados.add(item.acaoId);
+        }
+      }
+
+      const alvo = acoesTodas.filter(
+        (a) => !a.arquivada && a.status === "concluido" && idsPublicados.has(a.id),
+      );
+
+      if (alvo.length === 0) {
+        addToast("success", "Nada pra arquivar", "Nenhuma ação concluída já publicada está pendente.");
+        return;
+      }
+
+      const ok = await confirm({
+        title: "Arquivar ações publicadas?",
+        subtitle: `${alvo.length} ação(ões) concluída(s) já apareceu(ram) numa edição publicada — arquivar tira elas da lista de disponíveis pra novas edições.`,
+        tone: "amber",
+        confirmText: "Arquivar",
+        cancelText: "Cancelar",
+      });
+      if (!ok) return;
+
+      const { error } = await supabaseBrowser
+        .from("condominio_acoes")
+        .update({ arquivada: true })
+        .in("id", alvo.map((a) => a.id));
+      if (error) throw error;
+
+      addToast("success", `${alvo.length} ação(ões) arquivada(s)`);
+      fetchBundle(selectedCondominioId);
+    } catch (e: any) {
+      addToast("error", "Erro ao arquivar publicados", e.message);
+    } finally {
+      setArquivandoPublicados(false);
+    }
+  }
+
   const selectedCondominio = condominios.find(
     (c) => c.id === selectedCondominioId,
   );
@@ -354,6 +413,17 @@ export default function CondominioPage() {
         >
           {showArchived ? "🗄 Vendo arquivadas" : "🗄 Ver arquivadas"}
         </button>
+
+        {!showArchived && (
+          <button
+            onClick={handleArquivarPublicados}
+            disabled={arquivandoPublicados || !selectedCondominioId}
+            title="Arquiva as Ações concluídas que já saíram numa edição publicada"
+            className="h-10 px-3 rounded-lg border border-border bg-transparent text-muted-foreground text-xs font-medium hover:bg-muted transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            {arquivandoPublicados ? "Arquivando..." : "🗄 Arquivar publicados"}
+          </button>
+        )}
       </div>
 
       {selecionadas.size > 0 && (
