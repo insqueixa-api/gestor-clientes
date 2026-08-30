@@ -15,7 +15,10 @@ export const dynamic = "force-dynamic";
 // menor que os 60s que já damos pro AbortController abaixo) antes da VM
 // terminar o Puppeteer — mesmo padrão usado nas outras rotas que fazem
 // proxy pra VM (ex: app/api/integrations/apps/*).
-export const maxDuration = 65;
+// ✅ 30/08/2026: 65s → 160s, pedido do Márcio depois dos timeouts de hoje —
+// a causa raiz (networkidle0 na VM) já foi corrigida, isso aqui é margem
+// extra pra edições com muitas fotos/ações não flertarem com o limite.
+export const maxDuration = 160;
 
 export async function POST(req: Request) {
   const auth = await requireAdminTenant(req);
@@ -42,7 +45,8 @@ export async function POST(req: Request) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
+  // ✅ 150s (era 60s) — folga abaixo do maxDuration (160s) da própria rota.
+  const timeout = setTimeout(() => controller.abort(), 150_000);
 
   try {
     const vmRes = await fetch(`${baseUrl}/gerar-pdf`, {

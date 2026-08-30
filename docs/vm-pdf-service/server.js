@@ -57,7 +57,8 @@ async function gerarPdf(payload, nomeArquivo) {
     // "TimeoutError: Navigation timeout of 30000 ms exceeded"). Troca:
     // espera só o HTML/CSS (domcontentloaded, quase instantâneo) e depois
     // espera cada <img> terminar (carregar OU falhar) — timeout PRÓPRIO de
-    // 20s por imagem, em paralelo, não em série. Uma foto lenta/quebrada
+    // 40s por imagem (30/08/2026: era 20s, ampliado a pedido do Márcio pra
+    // dar mais margem), em paralelo, não em série. Uma foto lenta/quebrada
     // não trava mais as outras nem a geração inteira.
     await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 30_000 });
     await page.evaluate(() => {
@@ -69,7 +70,7 @@ async function gerarPdf(payload, nomeArquivo) {
             const done = () => resolve();
             img.addEventListener("load", done, { once: true });
             img.addEventListener("error", done, { once: true });
-            setTimeout(done, 20000);
+            setTimeout(done, 40000);
           });
         }),
       );
