@@ -389,8 +389,7 @@ export default function LogsModal({
                   </th>
                   <th className="p-2">Data/Hora</th>
                   <th className="p-2">Cliente</th>
-                  <th className="p-2">Login / Servidor</th>
-                  <th className="p-2">WhatsApp</th>
+                  <th className="p-2">Servidor</th>
                   <th className="p-2">Status</th>
                 </tr>
               </thead>
@@ -414,12 +413,19 @@ export default function LogsModal({
                       <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">
                         {log.when_sp || "--"}
                       </td>
-                      <td className="p-2 font-medium text-foreground/90">
-                        {log.client_name || (
-                          <span className="text-muted-foreground italic">
-                            (sem nome)
+                      <td className="p-2">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-foreground/90">
+                            {log.client_name || (
+                              <span className="text-muted-foreground italic">
+                                (sem nome)
+                              </span>
+                            )}
                           </span>
-                        )}
+                          <span className="text-[10px] text-muted-foreground">
+                            {log.whatsapp_username || "--"}
+                          </span>
+                        </div>
                       </td>
                       <td className="p-2">
                         <div className="flex flex-col">
@@ -430,9 +436,6 @@ export default function LogsModal({
                             {log.server_name || "--"}
                           </span>
                         </div>
-                      </td>
-                      <td className="p-2 text-muted-foreground">
-                        {log.whatsapp_username || "--"}
                       </td>
                       <td className="p-2">
                         <span

@@ -140,6 +140,10 @@ type QueueRow = {
   template_name: string | null;
   message_preview: string | null;
   error_message: string | null;
+  // ✅ Preenchidos depois via enriquecimento (clients/servers) — quem
+  // recebeu de fato (login) e em qual servidor, não vem na view.
+  server_username?: string | null;
+  server_name?: string | null;
 };
 
 const QUEUE_ROW_SELECT =
@@ -204,8 +208,36 @@ function GlobalQueueMonitor({
         .order("when_ts_utc", { ascending: false }),
     ]);
 
-    setQueueData((pendingRes.data as QueueRow[]) || []);
-    setHistoryData((historyRes.data as QueueRow[]) || []);
+    const pendingRows = (pendingRes.data as QueueRow[]) || [];
+    const historyRows = (historyRes.data as QueueRow[]) || [];
+
+    // ✅ Enriquece com login (server_username) e nome do servidor — mesmo
+    // padrão do LogsModal — pra saber QUAL conta do cliente recebeu, não só
+    // o nome dele (um cliente pode ter várias contas/servidores).
+    try {
+      const clientIds = [...new Set([...pendingRows, ...historyRows].map((r) => r.client_id).filter(Boolean))] as string[];
+      if (clientIds.length > 0) {
+        const [{ data: clientsData }, { data: serversData }] = await Promise.all([
+          supabaseBrowser.from("clients").select("id, server_username, server_id").eq("tenant_id", tid).in("id", clientIds),
+          supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
+        ]);
+        const clientsMap: Record<string, any> = {};
+        (clientsData || []).forEach((c: any) => (clientsMap[c.id] = c));
+        const serversMap: Record<string, string> = {};
+        (serversData || []).forEach((s: any) => (serversMap[s.id] = s.name));
+
+        for (const row of [...pendingRows, ...historyRows]) {
+          const c = row.client_id ? clientsMap[row.client_id] : null;
+          row.server_username = c?.server_username || null;
+          row.server_name = c?.server_id ? serversMap[c.server_id] || null : null;
+        }
+      }
+    } catch {
+      // enriquecimento é só um extra visual — falhar aqui não pode derrubar a fila
+    }
+
+    setQueueData(pendingRows);
+    setHistoryData(historyRows);
     setSelected(new Set());
     setLastUpdate(new Date());
     setLoading(false);
@@ -351,7 +383,10 @@ function GlobalQueueMonitor({
   const matchesSearch = (row: QueueRow) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
-    const hay = [row.client_name, row.whatsapp_username].filter(Boolean).join(" ").toLowerCase();
+    const hay = [row.client_name, row.whatsapp_username, row.server_username, row.server_name]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
     return hay.includes(q);
   };
   const filteredQueueData = queueData.filter(matchesSearch);
@@ -459,7 +494,7 @@ function GlobalQueueMonitor({
                         <th className="p-4">Quando</th>
                         <th className="p-4">Origem</th>
                         <th className="p-4">Cliente</th>
-                        <th className="p-4">WhatsApp</th>
+                        <th className="p-4">Servidor</th>
                         <th className="p-4">Mensagem</th>
                         <th className="p-4">Status</th>
                       </tr>
@@ -471,10 +506,20 @@ function GlobalQueueMonitor({
                           <td className="p-4 font-medium text-foreground whitespace-nowrap">
                             {job.origem === "AUTOMACAO" ? "Automação" : "Envio Manual"}
                           </td>
-                          <td className="p-4 font-medium text-foreground">
-                            {job.client_name || <span className="text-muted-foreground font-medium">(cliente não encontrado)</span>}
+                          <td className="p-4">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-foreground">
+                                {job.client_name || <span className="text-muted-foreground font-medium">(cliente não encontrado)</span>}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground">{job.whatsapp_username || "--"}</span>
+                            </div>
                           </td>
-                          <td className="p-4 text-xs text-muted-foreground whitespace-nowrap">{job.whatsapp_username || "--"}</td>
+                          <td className="p-4">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-foreground/90 text-xs">{job.server_username || "--"}</span>
+                              <span className="text-[10px] text-muted-foreground">{job.server_name || "--"}</span>
+                            </div>
+                          </td>
                           <td className="p-4">
                             {job.template_name ? (
                               <div className="flex flex-col">
@@ -551,7 +596,7 @@ function GlobalQueueMonitor({
                         </th>
                         <th className="p-2">Quando</th>
                         <th className="p-2">Cliente</th>
-                        <th className="p-2">WhatsApp</th>
+                        <th className="p-2">Servidor</th>
                         <th className="p-2">Mensagem</th>
                         <th className="p-2">Status</th>
                       </tr>
@@ -567,10 +612,20 @@ function GlobalQueueMonitor({
                               )}
                             </td>
                             <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">{log.when_sp || "--"}</td>
-                            <td className="p-2 font-medium text-foreground/90">
-                              {log.client_name || <span className="text-muted-foreground italic">(sem nome)</span>}
+                            <td className="p-2">
+                              <div className="flex flex-col">
+                                <span className="font-medium text-foreground/90">
+                                  {log.client_name || <span className="text-muted-foreground italic">(sem nome)</span>}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">{log.whatsapp_username || "--"}</span>
+                              </div>
                             </td>
-                            <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">{log.whatsapp_username || "--"}</td>
+                            <td className="p-2">
+                              <div className="flex flex-col">
+                                <span className="font-medium text-foreground/90 text-xs">{log.server_username || "--"}</span>
+                                <span className="text-[10px] text-muted-foreground">{log.server_name || "--"}</span>
+                              </div>
+                            </td>
                             <td className="p-2 text-xs text-muted-foreground">{log.template_name || "Personalizada"}</td>
                             <td className="p-2">
                               <span
