@@ -1,20 +1,36 @@
 "use client";
 // app/admin/settings/condominio/edicoes/nova/page.tsx
-// ✅ 30/08/2026, refatoração grande pedida pelo Márcio: a tela deixou de ter
-// duas colunas (escolher | reordenar) — agora é uma única grade 2-por-linha
-// (mesmo layout do PDF, ordenada por status e depois categoria, sem
-// destacar a categoria visualmente) usada tanto pra ESCOLHER as ações
-// (clique marca/desmarca) quanto pra PRÉVIA (clique abre o ModalAcao pra
-// edição rápida ali mesmo). A ordem agora é 100% determinística (status →
-// categoria), então @dnd-kit saiu — não tem mais nada pra arrastar.
-// "Pré-visualizar" só monta a grade e salva o rascunho (sem chamar a VM);
-// o PDF só é gerado (e sobe pro R2) quando clica em "Baixar PDF" — e só de
-// novo se o conteúdo mudou desde a última vez (mesmo dirty-check de antes).
+// ✅ 30/08/2026, 2ª rodada da refatoração grande pedida pelo Márcio: essa
+// tela É a "página principal" (formato do jornal) — os cards ficam
+// idênticos aos da lista de Ações (foto, título, categoria, texto), só sem
+// os botões de editar/ajustar/publicar/arquivar (aqui é só escolher +
+// reordenar pra montar a edição). Fixo em 2 por linha no computador, 1 no
+// celular. Arrasta pra reordenar dentro do próprio status (@dnd-kit) — a
+// ordem inicial é por categoria, mas o Márcio pode sobrescrever arrastando.
+// "Pré-visualizar" NÃO troca de tela — só oculta (não remove) as ações não
+// marcadas, mantendo o mesmo layout: é literalmente a prévia do que vai
+// pro PDF. O PDF em si (chamada à VM) só roda ao clicar em "Baixar PDF" —
+// e só de novo se o conteúdo mudou desde a última vez.
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { GripVertical, ChevronDown, Images, Loader2 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
@@ -27,8 +43,6 @@ import {
   type CondominioRow,
   type StatusAcao,
 } from "../../shared";
-
-const ModalAcao = dynamic(() => import("../../ModalAcao"), { ssr: false });
 
 type ItemSelecionado = {
   acaoId: string;
@@ -44,6 +58,12 @@ type ItemSelecionado = {
   fotos: { url: string; legenda: string; posY?: number }[];
 };
 
+// ✅ Cada grupo (status) guarda TODAS as ações desse status, marcadas ou
+// não — a ordem do array É a ordem de exibição (arrastável), e "prévia" só
+// filtra visualmente por `selecionada`, nunca mexe na ordem/estrutura.
+type ItemGrupo = { acao: AcaoRow; selecionada: boolean };
+type Grupo = { status: StatusAcao; itens: ItemGrupo[] };
+
 function toItemSelecionado(a: AcaoRow): ItemSelecionado {
   return {
     acaoId: a.id,
@@ -55,17 +75,33 @@ function toItemSelecionado(a: AcaoRow): ItemSelecionado {
   };
 }
 
-// ✅ Mesma ordem usada no PDF (template.js): status primeiro (ver
-// STATUS_ORDEM), categoria em ordem alfabética dentro do status — sem
-// separar visualmente por categoria, só agrupa quem é vizinho.
-function agruparPorStatus(lista: AcaoRow[]) {
-  return STATUS_ORDEM.map((status) => ({
-    status,
-    itens: lista
-      .filter((a) => a.status === status)
-      .slice()
-      .sort((a, b) => a.categoria.localeCompare(b.categoria, "pt-BR")),
-  })).filter((g) => g.itens.length > 0);
+// ✅ Ordem inicial: se é uma edição já salva, respeita a ordem que já
+// estava lá (o Márcio pode ter arrastado antes); ações novas (fora do
+// itensSalvos) entram ordenadas por categoria, no fim do respectivo status.
+// Edição nova (sem itensSalvos): tudo ordenado por categoria, marcado
+// conforme `preSelecionados` (ponte vinda da tela de Ações) se houver.
+function construirGrupos(
+  acoes: AcaoRow[],
+  itensSalvos: ItemSelecionado[] | null,
+  preSelecionados?: Set<string> | null,
+): Grupo[] {
+  const idsOrdem = itensSalvos ? itensSalvos.map((i) => i.acaoId) : [];
+  const posSalva = new Map(idsOrdem.map((id, idx) => [id, idx]));
+  const selecionadoSet = itensSalvos ? new Set(idsOrdem) : preSelecionados || new Set<string>();
+
+  return STATUS_ORDEM.map((status) => {
+    const doStatus = acoes.filter((a) => a.status === status);
+    doStatus.sort((a, b) => {
+      const pa = posSalva.has(a.id) ? (posSalva.get(a.id) as number) : Infinity;
+      const pb = posSalva.has(b.id) ? (posSalva.get(b.id) as number) : Infinity;
+      if (pa !== pb) return pa - pb;
+      return a.categoria.localeCompare(b.categoria, "pt-BR");
+    });
+    return {
+      status,
+      itens: doStatus.map((acao) => ({ acao, selecionada: selecionadoSet.has(acao.id) })),
+    };
+  }).filter((g) => g.itens.length > 0);
 }
 
 function calcPeriodoChave(tipo: "semanal" | "mensal", dataISO: string): string {
@@ -89,114 +125,171 @@ function hojeISO() {
   return new Date().toISOString().split("T")[0];
 }
 
-// ✅ Card compacto, 2 por linha — mesmo espírito visual do card no PDF
-// (template.js: foto + título + categoria). Usado tanto no modo "escolher"
-// (clique marca/desmarca, com checkbox) quanto no "previa" (clique abre o
-// ModalAcao pra edição rápida).
-function GrupoGrid({
-  grupos,
-  modo,
-  selecionadosIds,
-  colapsados,
-  onToggleColapsado,
-  onToggleAcao,
-  onEditarAcao,
+// ✅ Card idêntico ao da lista de Ações (page.tsx: foto, checkbox+título,
+// categoria, contagem de fotos, texto) — só sem os botões de editar/
+// ajustar/publicar/arquivar (aqui é só escolher/reordenar) e com a alça de
+// arrastar no lugar deles.
+function GrupoCard({
+  item,
+  onToggle,
 }: {
-  grupos: { status: StatusAcao; itens: AcaoRow[] }[];
-  modo: "escolher" | "previa";
-  selecionadosIds: Set<string>;
-  colapsados: Set<StatusAcao>;
-  onToggleColapsado: (status: StatusAcao) => void;
-  onToggleAcao: (acao: AcaoRow) => void;
-  onEditarAcao: (acao: AcaoRow) => void;
+  item: ItemGrupo;
+  onToggle: () => void;
 }) {
-  if (grupos.length === 0) {
-    return (
-      <div className="p-6 text-center text-xs text-muted-foreground bg-card rounded-xl border border-dashed border-border">
-        {modo === "escolher" ? "Nenhuma ação encontrada." : "Marque ações acima pra montar a edição."}
-      </div>
-    );
-  }
+  const { acao } = item;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: acao.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  const capa = acao.fotos?.[0];
   return (
-    <div className="space-y-3">
-      {grupos.map((grupo) => {
-        const cor = STATUS_COR[grupo.status];
-        const colapsado = colapsados.has(grupo.status);
-        return (
-          <div key={grupo.status} className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
-                >
-                  {cor.label}
-                </span>
-                <span className="text-[10px] text-muted-foreground">{grupo.itens.length}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => onToggleColapsado(grupo.status)}
-                className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {colapsado ? "Mostrar" : "Ocultar"}
-                <ChevronDown
-                  className={`w-3 h-3 transition-transform duration-200 ${colapsado ? "-rotate-90" : ""}`}
-                />
-              </button>
-            </div>
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`rounded-xl overflow-hidden shadow-sm border bg-card transition-colors ${
+        item.selecionada
+          ? "border-emerald-500/50 ring-1 ring-emerald-500/30"
+          : "border-border"
+      }`}
+    >
+      {capa ? (
+        <img
+          src={capa.url}
+          alt={acao.titulo}
+          className="w-full h-36 object-cover"
+          style={{ objectPosition: `center ${capa.posY ?? 20}%` }}
+        />
+      ) : (
+        <div className="w-full h-36 bg-muted" />
+      )}
+      <div className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <label className="flex items-start gap-2 min-w-0 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={item.selecionada}
+              onChange={onToggle}
+              className="mt-0.5 shrink-0"
+            />
+            <h2
+              className="text-sm font-medium text-foreground/90 tracking-tight line-clamp-2"
+              title={acao.titulo}
+            >
+              {acao.titulo}
+            </h2>
+          </label>
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            title="Arrastar para reordenar"
+            className="shrink-0 w-7 h-7 rounded-lg text-muted-foreground hover:bg-muted cursor-grab active:cursor-grabbing touch-none flex items-center justify-center transition-colors"
+          >
+            <GripVertical className="w-4 h-4" />
+          </button>
+        </div>
 
-            {!colapsado && (
-              <div className="grid grid-cols-2 gap-2">
-                {grupo.itens.map((a) => {
-                  const marcada = selecionadosIds.has(a.id);
-                  const capa = a.fotos?.[0];
-                  return (
-                    <div
-                      key={a.id}
-                      onClick={() => (modo === "escolher" ? onToggleAcao(a) : onEditarAcao(a))}
-                      title={modo === "previa" ? "Clique para editar" : undefined}
-                      className={`rounded-lg border overflow-hidden cursor-pointer transition-colors bg-card ${
-                        modo === "escolher" && marcada
-                          ? "border-emerald-500/40 ring-1 ring-emerald-500/30"
-                          : "border-border hover:border-emerald-500/30"
-                      }`}
-                    >
-                      {capa ? (
-                        <img
-                          src={capa.url}
-                          alt=""
-                          className="w-full h-20 object-cover"
-                          style={{ objectPosition: `center ${capa.posY ?? 20}%` }}
-                        />
-                      ) : (
-                        <div className="w-full h-20 bg-muted" />
-                      )}
-                      <div className="p-2 flex items-start gap-1.5">
-                        {modo === "escolher" && (
-                          <input
-                            type="checkbox"
-                            checked={marcada}
-                            readOnly
-                            className="mt-0.5 shrink-0 pointer-events-none"
-                          />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-medium text-foreground/90 leading-tight line-clamp-2">
-                            {a.titulo}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground capitalize truncate">
-                            {a.categoria}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-muted-foreground capitalize">
+            {acao.categoria}
+          </span>
+          {acao.fotos?.length > 1 && (
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Images className="w-3 h-3" /> {acao.fotos.length}
+            </span>
+          )}
+        </div>
+
+        {acao.texto && (
+          <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
+            {acao.texto}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GrupoSecao({
+  grupo,
+  soSelecionados,
+  busca,
+  colapsado,
+  sensors,
+  onToggleColapsado,
+  onToggleTodos,
+  onToggleItem,
+  onDragEnd,
+}: {
+  grupo: Grupo;
+  soSelecionados: boolean;
+  busca: string;
+  colapsado: boolean;
+  sensors: ReturnType<typeof useSensors>;
+  onToggleColapsado: () => void;
+  onToggleTodos: () => void;
+  onToggleItem: (acaoId: string) => void;
+  onDragEnd: (event: DragEndEvent) => void;
+}) {
+  const termo = busca.trim().toLowerCase();
+  const visiveis = grupo.itens.filter((i) => {
+    if (soSelecionados && !i.selecionada) return false;
+    if (termo && !i.acao.titulo.toLowerCase().includes(termo)) return false;
+    return true;
+  });
+  if (visiveis.length === 0) return null;
+
+  const cor = STATUS_COR[grupo.status];
+  const todasMarcadas = grupo.itens.every((i) => i.selecionada);
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={todasMarcadas}
+            onChange={onToggleTodos}
+            title="Selecionar todos deste status"
+            className="shrink-0"
+          />
+          <span
+            className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
+          >
+            {cor.label}
+          </span>
+          <span className="text-xs text-muted-foreground">{visiveis.length}</span>
+        </div>
+        <button
+          type="button"
+          onClick={onToggleColapsado}
+          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {colapsado ? "Mostrar mais" : "Ocultar"}
+          <ChevronDown
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${colapsado ? "-rotate-90" : ""}`}
+          />
+        </button>
+      </div>
+
+      {!colapsado && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={visiveis.map((i) => i.acao.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-5">
+              {visiveis.map((item) => (
+                <GrupoCard
+                  key={item.acao.id}
+                  item={item}
+                  onToggle={() => onToggleItem(item.acao.id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
     </div>
   );
 }
@@ -213,7 +306,6 @@ export default function NovaEdicaoPage() {
   const acoesPreSelecionadasParam = searchParams.get("acoes");
 
   const [condominio, setCondominio] = useState<CondominioRow | null>(null);
-  const [acoesDisponiveis, setAcoesDisponiveis] = useState<AcaoRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busca, setBusca] = useState("");
 
@@ -233,50 +325,39 @@ export default function NovaEdicaoPage() {
   const [edicoesExistentes, setEdicoesExistentes] = useState<
     { id: string; periodo_chave: string; versao: number }[]
   >([]);
-  // ✅ 30/08/2026: o PDF só é gerado (e sobe pro R2) quando clica em "Baixar
-  // PDF" — não mais em "Pré-visualizar" (que agora só monta a grade na
-  // página, sem chamar a VM). Gerar de novo (depois de editar) troca o
-  // arquivo: apaga o antigo do R2 antes de subir o novo.
+  // ✅ O PDF só é gerado (e sobe pro R2) quando clica em "Baixar PDF" — não
+  // mais em "Pré-visualizar" (que agora só oculta as não marcadas, sem
+  // chamar a VM). Gerar de novo (depois de editar) troca o arquivo: apaga o
+  // antigo do R2 antes de subir o novo.
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   // ✅ "Foto" do conteúdo no momento em que pdfUrl foi gerado — compara com
-  // o conteúdo atual pra saber se a prévia ficou desatualizada (editou algo
-  // depois de gerar o PDF) sem precisar de efeito/ordem de render nenhuma,
-  // só um valor calculado direto no render.
+  // o conteúdo atual pra saber se ficou desatualizado (editou/reordenou
+  // algo depois de gerar o PDF) sem precisar de efeito/ordem de render
+  // nenhuma, só um valor calculado direto no render.
   const [pdfSnapshot, setPdfSnapshot] = useState<string | null>(null);
   const [introducao, setIntroducao] = useState("");
   const [revisando, setRevisando] = useState(false);
   const [sugestaoIA, setSugestaoIA] = useState<string | null>(null);
 
-  const [selecionadosIds, setSelecionadosIds] = useState<Set<string>>(new Set());
-  // ✅ "escolher" = grade com todas as ações disponíveis, clique marca/
-  // desmarca. "previa" = grade só com as selecionadas, na ordem final do
-  // PDF, clique abre o ModalAcao pra editar rápido ali mesmo.
-  const [modo, setModo] = useState<"escolher" | "previa">(edicaoIdParam ? "previa" : "escolher");
+  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  // ✅ "Prévia" não é uma tela diferente — só oculta (via CSS/filtro, não
+  // remove) as ações não marcadas, mantendo o mesmo layout de 2 por linha.
+  const [soSelecionados, setSoSelecionados] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [publicando, setPublicando] = useState(false);
   const [colapsados, setColapsados] = useState<Set<StatusAcao>>(new Set());
 
-  const [editingAcao, setEditingAcao] = useState<AcaoRow | null>(null);
-  const [isModalAcaoOpen, setIsModalAcaoOpen] = useState(false);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+  );
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   function addToast(type: "success" | "error", title: string, message?: string) {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, type, title, message }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
-  }
-
-  async function carregarAcoes() {
-    if (!tenantId || !condominioId) return;
-    const { data, error } = await supabaseBrowser
-      .from("condominio_acoes")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .eq("condominio_id", condominioId)
-      .eq("arquivada", false)
-      .order("created_at", { ascending: false });
-    if (!error) setAcoesDisponiveis(data || []);
   }
 
   useEffect(() => {
@@ -312,8 +393,8 @@ export default function NovaEdicaoPage() {
         if (resAcoes.error) throw resAcoes.error;
         if (resEdicoes.error) throw resEdicoes.error;
         setCondominio(resCond.data);
-        setAcoesDisponiveis(resAcoes.data || []);
         setEdicoesExistentes(resEdicoes.data || []);
+        const acoes: AcaoRow[] = resAcoes.data || [];
 
         const edicaoData = edicaoIdParam
           ? (resEdicoes.data || []).find((e: any) => e.id === edicaoIdParam)
@@ -327,7 +408,7 @@ export default function NovaEdicaoPage() {
           setVersaoExistente(edicaoData.versao || 1);
           setPdfUrl(edicaoData.pdf_url || null);
           const itensSalvos: ItemSelecionado[] = edicaoData.itens || [];
-          setSelecionadosIds(new Set(itensSalvos.map((i) => i.acaoId)));
+          setGrupos(construirGrupos(acoes, itensSalvos));
           if (edicaoData.pdf_url) {
             setPdfSnapshot(
               JSON.stringify({
@@ -338,9 +419,7 @@ export default function NovaEdicaoPage() {
                 itensFinais: itensSalvos,
               }),
             );
-            setModo("previa");
-          } else {
-            setModo("escolher");
+            setSoSelecionados(true);
           }
         } else if (edicaoIdParam) {
           // edicaoIdParam foi passado mas não achamos a linha (id errado,
@@ -352,7 +431,9 @@ export default function NovaEdicaoPage() {
           const idsPreSelecionados = new Set(
             acoesPreSelecionadasParam.split(",").filter(Boolean),
           );
-          setSelecionadosIds(idsPreSelecionados);
+          setGrupos(construirGrupos(acoes, null, idsPreSelecionados));
+        } else {
+          setGrupos(construirGrupos(acoes, null, null));
         }
       } catch (e: any) {
         addToast("error", "Erro ao carregar", e.message);
@@ -362,13 +443,43 @@ export default function NovaEdicaoPage() {
     })();
   }, [tenantId, condominioId]);
 
-  function toggleAcao(acao: AcaoRow) {
-    setSelecionadosIds((prev) => {
-      const novo = new Set(prev);
-      if (novo.has(acao.id)) novo.delete(acao.id);
-      else novo.add(acao.id);
-      return novo;
-    });
+  function toggleSelecionada(status: StatusAcao, acaoId: string) {
+    setGrupos((prev) =>
+      prev.map((g) =>
+        g.status !== status
+          ? g
+          : {
+              ...g,
+              itens: g.itens.map((i) =>
+                i.acao.id === acaoId ? { ...i, selecionada: !i.selecionada } : i,
+              ),
+            },
+      ),
+    );
+  }
+
+  function toggleGrupoTodos(status: StatusAcao) {
+    setGrupos((prev) =>
+      prev.map((g) => {
+        if (g.status !== status) return g;
+        const todasMarcadas = g.itens.every((i) => i.selecionada);
+        return { ...g, itens: g.itens.map((i) => ({ ...i, selecionada: !todasMarcadas })) };
+      }),
+    );
+  }
+
+  function handleDragEnd(status: StatusAcao, event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setGrupos((prev) =>
+      prev.map((g) => {
+        if (g.status !== status) return g;
+        const oldIndex = g.itens.findIndex((i) => i.acao.id === active.id);
+        const newIndex = g.itens.findIndex((i) => i.acao.id === over.id);
+        if (oldIndex === -1 || newIndex === -1) return g;
+        return { ...g, itens: arrayMove(g.itens, oldIndex, newIndex) };
+      }),
+    );
   }
 
   function toggleColapsado(status: StatusAcao) {
@@ -380,18 +491,43 @@ export default function NovaEdicaoPage() {
     });
   }
 
+  const totalSelecionadas = useMemo(
+    () => grupos.reduce((n, g) => n + g.itens.filter((i) => i.selecionada).length, 0),
+    [grupos],
+  );
+
+  const idsFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    const ids = new Set<string>();
+    grupos.forEach((g) =>
+      g.itens.forEach((i) => {
+        if (!termo || i.acao.titulo.toLowerCase().includes(termo)) ids.add(i.acao.id);
+      }),
+    );
+    return ids;
+  }, [grupos, busca]);
+
+  const todasFiltradasMarcadas = useMemo(() => {
+    let algumaVisivel = false;
+    for (const g of grupos) {
+      for (const i of g.itens) {
+        if (!idsFiltrados.has(i.acao.id)) continue;
+        algumaVisivel = true;
+        if (!i.selecionada) return false;
+      }
+    }
+    return algumaVisivel;
+  }, [grupos, idsFiltrados]);
+
   function toggleSelecionarTodasVisiveis() {
-    const todasMarcadas =
-      acoesFiltradas.length > 0 &&
-      acoesFiltradas.every((a) => selecionadosIds.has(a.id));
-    setSelecionadosIds((prev) => {
-      const novo = new Set(prev);
-      acoesFiltradas.forEach((a) => {
-        if (todasMarcadas) novo.delete(a.id);
-        else novo.add(a.id);
-      });
-      return novo;
-    });
+    setGrupos((prev) =>
+      prev.map((g) => ({
+        ...g,
+        itens: g.itens.map((i) =>
+          idsFiltrados.has(i.acao.id) ? { ...i, selecionada: !todasFiltradasMarcadas } : i,
+        ),
+      })),
+    );
   }
 
   async function handleRevisarIA() {
@@ -427,24 +563,22 @@ export default function NovaEdicaoPage() {
     }
   }
 
-  const acoesSelecionadas = useMemo(
-    () => acoesDisponiveis.filter((a) => selecionadosIds.has(a.id)),
-    [acoesDisponiveis, selecionadosIds],
-  );
-  const gruposSelecionados = useMemo(
-    () => agruparPorStatus(acoesSelecionadas),
-    [acoesSelecionadas],
-  );
+  // ✅ Ordem final = a ordem em que os itens aparecem dentro de cada grupo
+  // (respeitando arrasto manual), filtrando só os marcados. Mesma ordem
+  // usada tanto na tela quanto no PDF.
   const itensFinais: ItemSelecionado[] = useMemo(
-    () => gruposSelecionados.flatMap((g) => g.itens).map(toItemSelecionado),
-    [gruposSelecionados],
+    () =>
+      grupos.flatMap((g) =>
+        g.itens.filter((i) => i.selecionada).map((i) => toItemSelecionado(i.acao)),
+      ),
+    [grupos],
   );
   const periodoChave = calcPeriodoChave(tipo, dataReferencia);
 
   // ✅ true quando o conteúdo mudou depois do último PDF gerado — o
   // Publicar (e o reaproveitamento do "Baixar PDF") ficam bloqueados nesse
   // caso, pra nunca publicar/baixar um PDF que não bate mais com o que está
-  // selecionado (inclui edição rápida feita direto na prévia).
+  // selecionado (inclui reordenar arrastando).
   const contentSnapshotAtual = JSON.stringify({
     titulo,
     tipo,
@@ -526,10 +660,15 @@ export default function NovaEdicaoPage() {
     return nova.id;
   }
 
-  // ✅ "Pré-visualizar" agora só monta a grade nessa mesma página (no
-  // formato do PDF) e salva o rascunho — sem chamar a VM. O PDF em si só é
-  // gerado quando clica em "Baixar PDF" (handleBaixarPdf).
-  async function handleIrParaPrevia() {
+  // ✅ "Pré-visualizar" só oculta as não marcadas (soSelecionados=true) —
+  // sem trocar de tela nem chamar a VM. Salva o rascunho junto, pra não
+  // perder a seleção/ordem se sair da página. "Voltar a editar" é só o
+  // inverso, sem precisar salvar de novo.
+  async function handleTogglePrevia() {
+    if (soSelecionados) {
+      setSoSelecionados(false);
+      return;
+    }
     if (!titulo.trim()) {
       addToast("error", "Título é obrigatório");
       return;
@@ -541,7 +680,7 @@ export default function NovaEdicaoPage() {
     setSalvando(true);
     try {
       await salvarRascunho(pdfUrl);
-      setModo("previa");
+      setSoSelecionados(true);
     } catch (e: any) {
       addToast("error", "Erro ao salvar", e.message);
     } finally {
@@ -669,13 +808,6 @@ export default function NovaEdicaoPage() {
     }
   }
 
-  const acoesFiltradas = acoesDisponiveis.filter((a) =>
-    busca.trim()
-      ? a.titulo.toLowerCase().includes(busca.trim().toLowerCase())
-      : true,
-  );
-  const gruposDisponiveis = useMemo(() => agruparPorStatus(acoesFiltradas), [acoesFiltradas]);
-
   if (!condominioId) {
     return (
       <div className="p-12 text-center text-muted-foreground">
@@ -707,25 +839,8 @@ export default function NovaEdicaoPage() {
           Carregando...
         </div>
       ) : (
-        <div className="max-w-3xl mx-auto space-y-4">
-          {modo === "previa" && (
-            <div className="p-3 rounded-xl border border-border bg-card flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <p className="text-sm font-bold text-foreground/90">{titulo}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {condominio?.nome} · {tipo === "mensal" ? "Mensal" : "Semanal"} ·{" "}
-                  {dataReferencia} · v{String(versao).padStart(3, "0")}
-                </p>
-              </div>
-              {pdfUrl && (
-                <p className={`text-[11px] font-medium ${previaDesatualizada ? "text-amber-500" : "text-emerald-500"}`}>
-                  {previaDesatualizada ? "⚠️ Desatualizada" : "✓ PDF salvo"}
-                </p>
-              )}
-            </div>
-          )}
-
-          {modo === "escolher" && (
+        <div className="max-w-5xl mx-auto space-y-4">
+          {!soSelecionados && (
             <div className="flex items-center gap-2">
               <input
                 value={busca}
@@ -733,195 +848,182 @@ export default function NovaEdicaoPage() {
                 placeholder="Buscar ações..."
                 className="flex-1 h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
               />
-              <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
-                {selecionadosIds.size} selecionada{selecionadosIds.size === 1 ? "" : "s"}
+              <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                {totalSelecionadas} selecionada{totalSelecionadas === 1 ? "" : "s"}
               </span>
-              {acoesFiltradas.length > 0 && (
+              {idsFiltrados.size > 0 && (
                 <button
                   type="button"
                   onClick={toggleSelecionarTodasVisiveis}
                   className="h-10 px-3 rounded-lg border border-border bg-transparent text-xs font-medium text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap shrink-0"
                 >
-                  {acoesFiltradas.every((a) => selecionadosIds.has(a.id))
-                    ? "Desmarcar todas"
-                    : "Selecionar todas"}
+                  {todasFiltradasMarcadas ? "Desmarcar todas" : "Selecionar todas"}
                 </button>
               )}
             </div>
           )}
 
-          <div className="max-h-[65vh] overflow-y-auto overscroll-contain custom-scrollbar pr-1">
-            <GrupoGrid
-              grupos={modo === "escolher" ? gruposDisponiveis : gruposSelecionados}
-              modo={modo}
-              selecionadosIds={selecionadosIds}
-              colapsados={colapsados}
-              onToggleColapsado={toggleColapsado}
-              onToggleAcao={toggleAcao}
-              onEditarAcao={(a) => {
-                setEditingAcao(a);
-                setIsModalAcaoOpen(true);
-              }}
-            />
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto overscroll-contain custom-scrollbar pr-1">
+            {grupos.map((grupo) => (
+              <GrupoSecao
+                key={grupo.status}
+                grupo={grupo}
+                soSelecionados={soSelecionados}
+                busca={busca}
+                colapsado={colapsados.has(grupo.status)}
+                sensors={sensors}
+                onToggleColapsado={() => toggleColapsado(grupo.status)}
+                onToggleTodos={() => toggleGrupoTodos(grupo.status)}
+                onToggleItem={(id) => toggleSelecionada(grupo.status, id)}
+                onDragEnd={(e) => handleDragEnd(grupo.status, e)}
+              />
+            ))}
+            {soSelecionados && totalSelecionadas === 0 && (
+              <div className="p-6 text-center text-xs text-muted-foreground bg-card rounded-xl border border-dashed border-border">
+                Nenhuma ação selecionada.
+              </div>
+            )}
           </div>
 
-          {modo === "escolher" ? (
-            <div className="p-4 rounded-xl border border-border bg-card space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                    Tipo
-                  </label>
-                  <select
-                    value={tipo}
-                    onChange={(e) => setTipo(e.target.value as "semanal" | "mensal")}
-                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
-                  >
-                    <option value="semanal">Semanal</option>
-                    <option value="mensal">Mensal</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                    Data de referência
-                  </label>
-                  <input
-                    type="date"
-                    value={dataReferencia}
-                    onChange={(e) => setDataReferencia(e.target.value)}
-                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
-                  />
-                </div>
-              </div>
-
+          <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                  Título
+                  Tipo
+                </label>
+                <select
+                  value={tipo}
+                  onChange={(e) => setTipo(e.target.value as "semanal" | "mensal")}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
+                >
+                  <option value="semanal">Semanal</option>
+                  <option value="mensal">Mensal</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                  Data de referência
                 </label>
                 <input
-                  value={titulo}
-                  onChange={(e) => setTitulo(e.target.value)}
+                  type="date"
+                  value={dataReferencia}
+                  onChange={(e) => setDataReferencia(e.target.value)}
                   className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
                 />
               </div>
+            </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Introdução (opcional)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleRevisarIA}
-                    disabled={revisando || !introducao.trim()}
-                    className="text-[11px] font-medium text-emerald-500 hover:text-emerald-400 disabled:opacity-50 transition-colors"
-                  >
-                    {revisando ? "Revisando..." : "✨ Revisar com IA"}
-                  </button>
-                </div>
-                <textarea
-                  value={introducao}
-                  onChange={(e) => setIntroducao(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-y"
-                />
-                {sugestaoIA && (
-                  <div className="mt-2 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
-                    <p className="text-sm text-foreground/90 whitespace-pre-wrap">
-                      {sugestaoIA}
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIntroducao(sugestaoIA);
-                          setSugestaoIA(null);
-                        }}
-                        className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
-                      >
-                        Usar este texto
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSugestaoIA(null)}
-                        className="h-8 px-3 rounded-lg border border-border text-muted-foreground text-xs font-medium hover:bg-muted transition-colors"
-                      >
-                        Descartar
-                      </button>
-                    </div>
-                  </div>
-                )}
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                Título
+              </label>
+              <input
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Introdução (opcional)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRevisarIA}
+                  disabled={revisando || !introducao.trim()}
+                  className="text-[11px] font-medium text-emerald-500 hover:text-emerald-400 disabled:opacity-50 transition-colors"
+                >
+                  {revisando ? "Revisando..." : "✨ Revisar com IA"}
+                </button>
               </div>
+              <textarea
+                value={introducao}
+                onChange={(e) => setIntroducao(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-y"
+              />
+              {sugestaoIA && (
+                <div className="mt-2 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                  <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+                    {sugestaoIA}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIntroducao(sugestaoIA);
+                        setSugestaoIA(null);
+                      }}
+                      className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
+                    >
+                      Usar este texto
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSugestaoIA(null)}
+                      className="h-8 px-3 rounded-lg border border-border text-muted-foreground text-xs font-medium hover:bg-muted transition-colors"
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
+            {pdfUrl && (
+              <p className={`text-[11px] ${previaDesatualizada ? "text-amber-500" : "text-emerald-500"}`}>
+                {previaDesatualizada
+                  ? "⚠️ Prévia desatualizada — gere de novo antes de publicar."
+                  : "✓ PDF salvo — pronto pra publicar."}
+              </p>
+            )}
+            <div className="flex gap-2 pt-1">
               <button
                 type="button"
-                onClick={handleIrParaPrevia}
-                disabled={salvando || itensFinais.length === 0}
-                className="w-full h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                onClick={handleTogglePrevia}
+                disabled={salvando || (!soSelecionados && itensFinais.length === 0)}
+                className="flex-1 h-10 rounded-lg border border-border text-foreground/90 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {salvando ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
                   </>
+                ) : soSelecionados ? (
+                  "✎ Voltar a editar"
                 ) : (
                   "👁 Pré-visualizar"
                 )}
               </button>
+              <button
+                type="button"
+                onClick={handleBaixarPdf}
+                disabled={gerandoPdf || itensFinais.length === 0}
+                className="flex-1 h-10 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-sm font-medium hover:bg-sky-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {gerandoPdf ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
+                  </>
+                ) : pdfUrl && !previaDesatualizada ? (
+                  "⬇ Baixar PDF"
+                ) : (
+                  "📄 Gerar PDF"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handlePublicar}
+                disabled={publicando || !pdfUrl || previaDesatualizada}
+                title={!pdfUrl ? "Gere o PDF antes de publicar" : previaDesatualizada ? "Prévia desatualizada — gere de novo" : "Publicar"}
+                className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors disabled:opacity-50"
+              >
+                {publicando ? "Publicando..." : "✅ Publicar"}
+              </button>
             </div>
-          ) : (
-            <div className="p-4 rounded-xl border border-border bg-card space-y-3">
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setModo("escolher")}
-                  className="h-10 px-4 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-muted transition-colors whitespace-nowrap"
-                >
-                  ✎ Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBaixarPdf}
-                  disabled={gerandoPdf || itensFinais.length === 0}
-                  className="flex-1 h-10 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-sm font-medium hover:bg-sky-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {gerandoPdf ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
-                    </>
-                  ) : pdfUrl && !previaDesatualizada ? (
-                    "⬇ Baixar PDF"
-                  ) : (
-                    "📄 Gerar PDF"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePublicar}
-                  disabled={publicando || !pdfUrl || previaDesatualizada}
-                  title={!pdfUrl ? "Gere o PDF antes de publicar" : previaDesatualizada ? "Prévia desatualizada — gere de novo" : "Publicar"}
-                  className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors disabled:opacity-50"
-                >
-                  {publicando ? "Publicando..." : "✅ Publicar"}
-                </button>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-      )}
-
-      {isModalAcaoOpen && condominioId && (
-        <ModalAcao
-          acao={editingAcao}
-          condominioId={condominioId}
-          condominioNome={condominio?.nome || ""}
-          onClose={() => setIsModalAcaoOpen(false)}
-          onSuccess={() => {
-            setIsModalAcaoOpen(false);
-            carregarAcoes();
-            addToast("success", "Ação atualizada", editingAcao?.titulo);
-          }}
-          onError={(msg) => addToast("error", "Erro ao salvar", msg)}
-        />
       )}
 
       <div className="relative z-[999999]">
