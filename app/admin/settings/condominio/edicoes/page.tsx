@@ -172,30 +172,36 @@ export default function EdicoesPage() {
 
     setBaixandoId(edicao.id);
     try {
-      // Gera o PDF final e sobe pro R2 — só a partir daqui um PDF vira
-      // "permanente" (pré-visualização continua descartável).
-      const blob = await gerarPdfBlob(edicao);
-      const nomeArquivo = nomeArquivoPdf(
-        condominioSelecionado.nome,
-        edicao.tipo,
-        edicao.versao,
-      );
+      // ✅ 30/08/2026: se já tem pdf_url (a tela de edição já gera + sobe
+      // pro R2 na pré-visualização), reaproveita em vez de rodar o
+      // Puppeteer de novo — só gera aqui como fallback pra rascunho antigo
+      // que nunca passou pela prévia nova.
+      let publicUrl = edicao.pdf_url;
+      if (!publicUrl) {
+        const blob = await gerarPdfBlob(edicao);
+        const nomeArquivo = nomeArquivoPdf(
+          condominioSelecionado.nome,
+          edicao.tipo,
+          edicao.versao,
+        );
 
-      const presignRes = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: nomeArquivo,
-          contentType: "application/pdf",
-          folder: "condominio-pdfs",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await presignRes.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: blob,
-        headers: { "Content-Type": "application/pdf" },
-      });
+        const presignRes = await fetch("/api/upload/presign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: nomeArquivo,
+            contentType: "application/pdf",
+            folder: "condominio-pdfs",
+          }),
+        });
+        const presignJson = await presignRes.json();
+        publicUrl = presignJson.publicUrl;
+        await fetch(presignJson.presignedUrl, {
+          method: "PUT",
+          body: blob,
+          headers: { "Content-Type": "application/pdf" },
+        });
+      }
 
       const { error } = await supabaseBrowser
         .from("condominio_edicoes")

@@ -29,9 +29,11 @@ import { CSS } from "@dnd-kit/utilities";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
 import {
   STATUS_COR,
   STATUS_ORDEM,
+  nomeArquivoPdf,
   type AcaoRow,
   type CondominioRow,
   type StatusAcao,
@@ -111,6 +113,7 @@ function SortableItem({ item }: { item: ItemSelecionado }) {
 export default function NovaEdicaoPage() {
   const tenantId = useTenantId();
   const router = useRouter();
+  const { confirm } = useConfirm();
   const searchParams = useSearchParams();
   const condominioId = searchParams.get("condominio");
   const edicaoIdParam = searchParams.get("edicao");
@@ -139,6 +142,18 @@ export default function NovaEdicaoPage() {
   const [edicoesExistentes, setEdicoesExistentes] = useState<
     { id: string; periodo_chave: string; versao: number }[]
   >([]);
+  // ✅ 30/08/2026, pedido do Márcio: "Pré-visualizar" passou a gerar +
+  // subir o PDF pro R2 na hora (não é mais descartável) e salvar o
+  // rascunho junto — ganha performance porque "Publicar" não precisa mais
+  // gerar o PDF de novo, só reaproveita esse pdfUrl. Gerar de novo (depois
+  // de editar) troca o arquivo: apaga o antigo do R2 antes de subir o novo,
+  // pra não acumular lixo.
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  // ✅ "Foto" do conteúdo no momento em que pdfUrl foi gerado — compara com
+  // o conteúdo atual pra saber se a prévia ficou desatualizada (editou algo
+  // depois de pré-visualizar) sem precisar de efeito/ordem de render
+  // nenhuma, só um valor calculado direto no render.
+  const [pdfSnapshot, setPdfSnapshot] = useState<string | null>(null);
   const [introducao, setIntroducao] = useState("");
   const [revisando, setRevisando] = useState(false);
   const [sugestaoIA, setSugestaoIA] = useState<string | null>(null);
@@ -146,6 +161,7 @@ export default function NovaEdicaoPage() {
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
+  const [publicando, setPublicando] = useState(false);
   // ✅ Coluna esquerda (escolher ações) agrupada por status, igual à página
   // de Ações — abre sempre tudo expandido.
   const [pickerColapsados, setPickerColapsados] = useState<Set<StatusAcao>>(
@@ -195,7 +211,7 @@ export default function NovaEdicaoPage() {
             .order("created_at", { ascending: false }),
           supabaseBrowser
             .from("condominio_edicoes")
-            .select("id, periodo_chave, versao, titulo, tipo, data_referencia, introducao, itens")
+            .select("id, periodo_chave, versao, titulo, tipo, data_referencia, introducao, itens, pdf_url")
             .eq("tenant_id", tenantId)
             .eq("condominio_id", condominioId),
         ]);
@@ -216,7 +232,19 @@ export default function NovaEdicaoPage() {
           setDataReferencia(edicaoData.data_referencia);
           setIntroducao(edicaoData.introducao || "");
           setVersaoExistente(edicaoData.versao || 1);
+          setPdfUrl(edicaoData.pdf_url || null);
           const itensSalvos: ItemSelecionado[] = edicaoData.itens || [];
+          if (edicaoData.pdf_url) {
+            setPdfSnapshot(
+              JSON.stringify({
+                titulo: edicaoData.titulo,
+                tipo: edicaoData.tipo,
+                dataReferencia: edicaoData.data_referencia,
+                introducao: edicaoData.introducao || "",
+                itensFinais: itensSalvos,
+              }),
+            );
+          }
           const gruposReconstruidos: Grupo[] = [];
           for (const item of itensSalvos) {
             const ultimo = gruposReconstruidos[gruposReconstruidos.length - 1];
@@ -383,6 +411,18 @@ export default function NovaEdicaoPage() {
   const itensFinais = grupos.flatMap((g) => g.itens);
   const periodoChave = calcPeriodoChave(tipo, dataReferencia);
 
+  // ✅ true quando o conteúdo mudou depois da última prévia gerada — o
+  // Publicar fica bloqueado nesse caso, pra nunca publicar um PDF que não
+  // bate mais com o que está selecionado.
+  const contentSnapshotAtual = JSON.stringify({
+    titulo,
+    tipo,
+    dataReferencia,
+    introducao,
+    itensFinais,
+  });
+  const previaDesatualizada = pdfUrl != null && pdfSnapshot !== contentSnapshotAtual;
+
   // ✅ Versão real pro nome do PDF (achado 26/08/2026, virou contador ÚNICO
   // em 30/08/2026 — antes reiniciava v001 a cada período/semana, o Márcio
   // queria uma sequência crescente pra sempre, tipo v001, v002, v003...
@@ -397,7 +437,89 @@ export default function NovaEdicaoPage() {
     return maxVersao + 1;
   }, [versaoExistente, edicoesExistentes]);
 
+  // ✅ Salva/atualiza o rascunho no banco — extraído pra função à parte
+  // (30/08/2026) porque agora TANTO "Pré-visualizar" (com o pdf_url novo)
+  // QUANTO qualquer outro ponto que precise persistir o conteúdo chamam a
+  // mesma lógica. Devolve o id da edição salva.
+  async function salvarRascunho(pdfUrlParaSalvar: string | null): Promise<string> {
+    const payloadComum = {
+      titulo: titulo.trim(),
+      tipo,
+      data_referencia: dataReferencia,
+      periodo_chave: periodoChave,
+      introducao: introducao.trim() || null,
+      itens: itensFinais,
+      pdf_url: pdfUrlParaSalvar,
+    };
+
+    if (edicaoId) {
+      const { error } = await supabaseBrowser
+        .from("condominio_edicoes")
+        .update(payloadComum)
+        .eq("id", edicaoId)
+        .eq("tenant_id", tenantId);
+      if (error) throw error;
+      return edicaoId;
+    }
+
+    // Já existe rascunho aberto pra esse período? Sobrescreve (igual
+    // protótipo). Senão, cria um novo com a próxima versão global.
+    const { data: rascunhoExistente } = await supabaseBrowser
+      .from("condominio_edicoes")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("condominio_id", condominioId)
+      .eq("periodo_chave", periodoChave)
+      .eq("status", "rascunho")
+      .maybeSingle();
+
+    if (rascunhoExistente) {
+      const { error } = await supabaseBrowser
+        .from("condominio_edicoes")
+        .update(payloadComum)
+        .eq("id", rascunhoExistente.id);
+      if (error) throw error;
+      setEdicaoId(rascunhoExistente.id);
+      return rascunhoExistente.id;
+    }
+
+    // ✅ Versão global do condomínio (30/08/2026) — não filtra mais por
+    // período, é a mesma sequência crescente pra qualquer semana.
+    const { data: versoesExistentes } = await supabaseBrowser
+      .from("condominio_edicoes")
+      .select("versao")
+      .eq("tenant_id", tenantId)
+      .eq("condominio_id", condominioId)
+      .order("versao", { ascending: false })
+      .limit(1);
+    const proximaVersao = (versoesExistentes?.[0]?.versao || 0) + 1;
+
+    const { data: nova, error } = await supabaseBrowser
+      .from("condominio_edicoes")
+      .insert({
+        tenant_id: tenantId,
+        condominio_id: condominioId,
+        versao: proximaVersao,
+        status: "rascunho",
+        ...payloadComum,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    setEdicaoId(nova.id);
+    return nova.id;
+  }
+
+  // ✅ 30/08/2026, pedido do Márcio: "Pré-visualizar" virou "gerar + subir
+  // pro R2 + salvar rascunho" — não é mais descartável. Isso faz "Publicar"
+  // (handlePublicar abaixo) ficar instantâneo, sem precisar rodar o
+  // Puppeteer de novo. Gerar de novo (depois de editar) troca o arquivo no
+  // R2 em vez de acumular um novo a cada clique.
   async function handlePreVisualizar() {
+    if (!titulo.trim()) {
+      addToast("error", "Título é obrigatório");
+      return;
+    }
     if (!condominio || itensFinais.length === 0) {
       addToast("error", "Selecione pelo menos uma ação antes de pré-visualizar.");
       return;
@@ -423,8 +545,42 @@ export default function NovaEdicaoPage() {
         throw new Error(json?.error || "Falha ao gerar PDF.");
       }
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+
+      const nomeArquivo = nomeArquivoPdf(condominio.nome, tipo, versao);
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: nomeArquivo,
+          contentType: "application/pdf",
+          folder: "condominio-pdfs",
+        }),
+      });
+      const { presignedUrl, publicUrl } = await presignRes.json();
+      await fetch(presignedUrl, {
+        method: "PUT",
+        body: blob,
+        headers: { "Content-Type": "application/pdf" },
+      });
+
+      const pdfUrlAntigo = pdfUrl;
+
+      await salvarRascunho(publicUrl);
+      setPdfUrl(publicUrl);
+      setPdfSnapshot(contentSnapshotAtual);
+
+      // Troca (não acumula): apaga do R2 o arquivo da prévia anterior —
+      // best-effort, não trava o fluxo se falhar.
+      if (pdfUrlAntigo && pdfUrlAntigo !== publicUrl) {
+        fetch("/api/upload", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: pdfUrlAntigo }),
+        }).catch(() => {});
+      }
+
+      window.open(publicUrl, "_blank");
+      addToast("success", "Prévia gerada e salva", titulo);
     } catch (e: any) {
       addToast("error", "Erro ao pré-visualizar", e.message);
     } finally {
@@ -432,86 +588,41 @@ export default function NovaEdicaoPage() {
     }
   }
 
-  async function handleSalvarRascunho() {
-    if (!titulo.trim()) {
-      addToast("error", "Título é obrigatório");
+  // ✅ Publicar não gera PDF de novo — só registra, reaproveitando o
+  // pdf_url que "Pré-visualizar" já deixou salvo no R2.
+  async function handlePublicar() {
+    if (!pdfUrl) {
+      addToast("error", "Gere a prévia antes de publicar.");
       return;
     }
-    if (itensFinais.length === 0) {
-      addToast("error", "Selecione pelo menos uma ação.");
+    if (previaDesatualizada) {
+      addToast("error", "Prévia desatualizada", "Você editou algo depois da última prévia — gere de novo antes de publicar.");
       return;
     }
-    setSalvando(true);
+    const ok = await confirm({
+      title: "Publicar edição?",
+      subtitle: `"${titulo}" — depois de publicada, o conteúdo fica congelado (não dá mais pra editar os itens).`,
+      tone: "emerald",
+      confirmText: "Publicar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+
+    setPublicando(true);
     try {
-      const payloadComum = {
-        titulo: titulo.trim(),
-        tipo,
-        data_referencia: dataReferencia,
-        periodo_chave: periodoChave,
-        introducao: introducao.trim() || null,
-        itens: itensFinais,
-      };
-
-      if (edicaoId) {
-        const { error } = await supabaseBrowser
-          .from("condominio_edicoes")
-          .update(payloadComum)
-          .eq("id", edicaoId)
-          .eq("tenant_id", tenantId);
-        if (error) throw error;
-      } else {
-        // Já existe rascunho aberto pra esse período? Sobrescreve (igual
-        // protótipo). Senão, cria um novo com a próxima versão do período.
-        const { data: rascunhoExistente } = await supabaseBrowser
-          .from("condominio_edicoes")
-          .select("id")
-          .eq("tenant_id", tenantId)
-          .eq("condominio_id", condominioId)
-          .eq("periodo_chave", periodoChave)
-          .eq("status", "rascunho")
-          .maybeSingle();
-
-        if (rascunhoExistente) {
-          const { error } = await supabaseBrowser
-            .from("condominio_edicoes")
-            .update(payloadComum)
-            .eq("id", rascunhoExistente.id);
-          if (error) throw error;
-          setEdicaoId(rascunhoExistente.id);
-        } else {
-          // ✅ Versão global do condomínio (30/08/2026) — não filtra mais
-          // por período, é a mesma sequência crescente pra qualquer semana.
-          const { data: versoesExistentes } = await supabaseBrowser
-            .from("condominio_edicoes")
-            .select("versao")
-            .eq("tenant_id", tenantId)
-            .eq("condominio_id", condominioId)
-            .order("versao", { ascending: false })
-            .limit(1);
-          const proximaVersao = (versoesExistentes?.[0]?.versao || 0) + 1;
-
-          const { data: nova, error } = await supabaseBrowser
-            .from("condominio_edicoes")
-            .insert({
-              tenant_id: tenantId,
-              condominio_id: condominioId,
-              versao: proximaVersao,
-              status: "rascunho",
-              ...payloadComum,
-            })
-            .select("id")
-            .single();
-          if (error) throw error;
-          setEdicaoId(nova.id);
-        }
-      }
-
-      addToast("success", "Rascunho salvo", titulo);
+      const id = await salvarRascunho(pdfUrl);
+      const { error } = await supabaseBrowser
+        .from("condominio_edicoes")
+        .update({ status: "publicado", published_at: new Date().toISOString() })
+        .eq("id", id)
+        .eq("tenant_id", tenantId);
+      if (error) throw error;
+      addToast("success", "Edição publicada", titulo);
       router.push("/admin/settings/condominio/edicoes");
     } catch (e: any) {
-      addToast("error", "Erro ao salvar", e.message);
+      addToast("error", "Erro ao publicar", e.message);
     } finally {
-      setSalvando(false);
+      setPublicando(false);
     }
   }
 
@@ -795,6 +906,13 @@ export default function NovaEdicaoPage() {
                 )}
               </div>
 
+              {pdfUrl && (
+                <p className={`text-[11px] ${previaDesatualizada ? "text-amber-500" : "text-emerald-500"}`}>
+                  {previaDesatualizada
+                    ? "⚠️ Prévia desatualizada — gere de novo antes de publicar."
+                    : "✓ Prévia salva — pronta pra publicar."}
+                </p>
+              )}
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
@@ -806,17 +924,20 @@ export default function NovaEdicaoPage() {
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
                     </>
+                  ) : pdfUrl ? (
+                    "🔄 Atualizar prévia"
                   ) : (
                     "👁 Pré-visualizar PDF"
                   )}
                 </button>
                 <button
                   type="button"
-                  onClick={handleSalvarRascunho}
-                  disabled={salvando || itensFinais.length === 0}
+                  onClick={handlePublicar}
+                  disabled={publicando || !pdfUrl || previaDesatualizada}
+                  title={!pdfUrl ? "Gere a prévia antes de publicar" : previaDesatualizada ? "Prévia desatualizada — gere de novo" : "Publicar"}
                   className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors disabled:opacity-50"
                 >
-                  {salvando ? "Salvando..." : "Salvar rascunho"}
+                  {publicando ? "Publicando..." : "✅ Publicar"}
                 </button>
               </div>
             </div>
