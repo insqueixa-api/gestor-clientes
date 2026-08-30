@@ -29,7 +29,13 @@ export async function POST(req: NextRequest) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
-    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, ""); 
+    // ✅ mesma correção do presign (achado 30/08/2026) — normaliza NFKD e
+    // tira só a marca diacrítica antes de filtrar, senão letra acentuada
+    // sumia inteira do nome ("Vidamérica" virava "Vidamrica").
+    const safeName = file.name
+      .normalize("NFKD")
+      .replace(/\p{Mark}/gu, "")
+      .replace(/[^a-zA-Z0-9.-]/g, "");
     const filename = `${folder}/${uniqueSuffix}-${safeName}`;
 
     const bucketName = isPrivate 

@@ -447,6 +447,13 @@ export default function NovaEdicaoPage() {
   // QUANTO qualquer outro ponto que precise persistir o conteúdo chamam a
   // mesma lógica. Devolve o id da edição salva.
   async function salvarRascunho(pdfUrlParaSalvar: string | null): Promise<string> {
+    // ✅ 30/08/2026, achado do Márcio: a coluna `versao` nunca era regravada
+    // nos 2 caminhos de UPDATE — só o pdf_url mudava. Se o rascunho existia
+    // desde ANTES da versão virar sequência global (achado anterior no
+    // mesmo dia), o nome do PDF já saía certo (v002, calculado ao vivo),
+    // mas a coluna ficava presa no valor antigo (v001) — painel e arquivo
+    // discordando. `versao` aqui é a MESMA variável (useMemo acima) usada
+    // pra gerar o PDF, então sempre bate com o que está no nome do arquivo.
     const payloadComum = {
       titulo: titulo.trim(),
       tipo,
@@ -455,6 +462,7 @@ export default function NovaEdicaoPage() {
       introducao: introducao.trim() || null,
       itens: itensFinais,
       pdf_url: pdfUrlParaSalvar,
+      versao,
     };
 
     if (edicaoId) {
@@ -468,7 +476,7 @@ export default function NovaEdicaoPage() {
     }
 
     // Já existe rascunho aberto pra esse período? Sobrescreve (igual
-    // protótipo). Senão, cria um novo com a próxima versão global.
+    // protótipo). Senão, cria um novo.
     const { data: rascunhoExistente } = await supabaseBrowser
       .from("condominio_edicoes")
       .select("id")
@@ -488,23 +496,11 @@ export default function NovaEdicaoPage() {
       return rascunhoExistente.id;
     }
 
-    // ✅ Versão global do condomínio (30/08/2026) — não filtra mais por
-    // período, é a mesma sequência crescente pra qualquer semana.
-    const { data: versoesExistentes } = await supabaseBrowser
-      .from("condominio_edicoes")
-      .select("versao")
-      .eq("tenant_id", tenantId)
-      .eq("condominio_id", condominioId)
-      .order("versao", { ascending: false })
-      .limit(1);
-    const proximaVersao = (versoesExistentes?.[0]?.versao || 0) + 1;
-
     const { data: nova, error } = await supabaseBrowser
       .from("condominio_edicoes")
       .insert({
         tenant_id: tenantId,
         condominio_id: condominioId,
-        versao: proximaVersao,
         status: "rascunho",
         ...payloadComum,
       })

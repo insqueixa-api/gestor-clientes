@@ -26,7 +26,14 @@ export async function POST(req: NextRequest) {
     }
 
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
-    const safeName = fileName.replace(/[^a-zA-Z0-9.-]/g, "");
+    // ✅ 30/08/2026, achado do Márcio: apagar tudo fora de a-zA-Z0-9.- direto
+    // apagava a LETRA inteira de acento (ex: "é" sumia, "Vidamérica" virava
+    // "Vidamrica") — normaliza NFKD e tira só a marca diacrítica antes,
+    // mesma receita já usada no serviço de PDF (docs/vm-pdf-service/server.js).
+    const safeName = fileName
+      .normalize("NFKD")
+      .replace(/\p{Mark}/gu, "")
+      .replace(/[^a-zA-Z0-9.-]/g, "");
     const key = `${folder || "geral"}/${uniqueSuffix}-${safeName}`;
     const bucketName = process.env.R2_BUCKET_NAME || "unigestor-media";
 
