@@ -11,7 +11,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminTenant } from "@/lib/api/auth";
-import { JOBS, getLastOk } from "@/lib/cron-health";
+import { JOBS } from "@/lib/cron-health";
 
 export const dynamic = "force-dynamic";
 
@@ -94,32 +94,41 @@ export async function GET(req: Request) {
   }
   const sb = createClient(supabaseUrl, serviceKey);
 
-  const [pgcronRes, healthRes] = await Promise.all([
-    sb.rpc("admin_list_pgcron_status"),
-    sb.from("cron_health").select("job_name, last_ok_at, last_error, last_error_at"),
-  ]);
-
-  if (pgcronRes.error) {
-    return NextResponse.json({ error: pgcronRes.error.message }, { status: 500 });
+  // ✅ 1 chamada só (pedido do Márcio, 30/08/2026) — a função devolve
+  // pg_cron + cron_health já combinados num único jsonb, em vez de 2
+  // queries em paralelo. O mapeamento de nomes/rótulos/grupos continua só
+  // aqui no TS de propósito: é a mesma "fonte única" que o vigia diário
+  // usa (lib/cron-health.ts) — duplicar isso em SQL criaria 2 lugares pra
+  // manter sincronizados toda vez que um cron novo entrar.
+  const dashRes = await sb.rpc("admin_cron_dashboard_raw");
+  if (dashRes.error) {
+    return NextResponse.json({ error: dashRes.error.message }, { status: 500 });
   }
+  const pgcronRows: any[] = dashRes.data?.pgcron || [];
+  const healthRows: any[] = dashRes.data?.health || [];
 
-  const healthMap = new Map((healthRes.data || []).map((h) => [h.job_name, h]));
+  const healthMap = new Map(healthRows.map((h) => [h.job_name, h]));
   const appJobByName = new Map(JOBS.map((j) => [j.name, j]));
-  const pgcronJobNames = new Set((pgcronRes.data || []).map((r) => r.jobname));
+  const pgcronJobNames = new Set(pgcronRows.map((r) => r.jobname));
   const merged: MergedJob[] = [];
   const consumedAppNames = new Set<string>();
 
-  for (const row of pgcronRes.data || []) {
+  for (const row of pgcronRows) {
     const appName = PGCRON_TO_APP_NAME[row.jobname];
     const meta = JOB_META[row.jobname] || { label: row.jobname, group: "sistema" as const };
 
     if (appName && appJobByName.has(appName)) {
       // ✅ Job existe nas 2 fontes — usa o sinal de app (mais confiável pra
-      // jobs que disparam HTTP), mas mantém agenda/ativo do pg_cron.
+      // jobs que disparam HTTP), mas mantém agenda/ativo do pg_cron. Todo
+      // job "matched" é kind:"http" (os "sql" têm nome igual ao pg_cron e
+      // caem no branch de baixo), então o dado já está em healthMap — sem
+      // isso, cada job disparava 1 query extra em série (N+1, achado numa
+      // sessão real de Speed Insights, 30/08/2026: rota levava a página
+      // inteira pra "Poor").
       const appJob = appJobByName.get(appName)!;
-      const lastOkAt = await getLastOk(appJob);
-      const staleMs = appJob.maxAgeHours * 60 * 60 * 1000;
       const h = healthMap.get(appName);
+      const lastOkAt = h?.last_ok_at ?? null;
+      const staleMs = appJob.maxAgeHours * 60 * 60 * 1000;
       consumedAppNames.add(appName);
       merged.push({
         key: row.jobname,
@@ -164,9 +173,9 @@ export async function GET(req: Request) {
     // 2x na tela.
     if (pgcronJobNames.has(job.name)) continue;
     const meta = JOB_META[job.name] || { label: job.name, group: "sistema" as const };
-    const lastOkAt = await getLastOk(job);
-    const staleMs = job.maxAgeHours * 60 * 60 * 1000;
     const h = healthMap.get(job.name);
+    const lastOkAt = h?.last_ok_at ?? null;
+    const staleMs = job.maxAgeHours * 60 * 60 * 1000;
     merged.push({
       key: job.name,
       label: meta.label,

@@ -50,5 +50,37 @@ $function$;
 REVOKE ALL ON FUNCTION public.admin_list_pgcron_status() FROM public;
 GRANT EXECUTE ON FUNCTION public.admin_list_pgcron_status() TO service_role;
 
+-- ============================================================
+-- 30/08/2026: wrapper que devolve pg_cron + cron_health numa ÚNICA chamada
+-- (pedido do Márcio, achado via Speed Insights: a rota fazia 1 chamada por
+-- job em série antes disso — corrigido pra 2 em paralelo, e agora pra 1 só).
+-- O mapeamento de nomes/rótulos/grupos continua só no TypeScript
+-- (app/api/cron/status/route.ts) de propósito — é a mesma "fonte única" do
+-- vigia diário (lib/cron-health.ts); duplicar em SQL criaria 2 lugares pra
+-- manter sincronizados a cada cron novo.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.admin_cron_dashboard_raw()
+ RETURNS jsonb
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select jsonb_build_object(
+    'pgcron', coalesce((select jsonb_agg(p) from admin_list_pgcron_status() p), '[]'::jsonb),
+    'health', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'job_name', job_name,
+        'last_ok_at', last_ok_at,
+        'last_error', last_error,
+        'last_error_at', last_error_at
+      ))
+      from cron_health
+    ), '[]'::jsonb)
+  );
+$function$;
+
+REVOKE ALL ON FUNCTION public.admin_cron_dashboard_raw() FROM public;
+GRANT EXECUTE ON FUNCTION public.admin_cron_dashboard_raw() TO service_role;
+
 -- Conferir depois de rodar:
---   select * from admin_list_pgcron_status();
+--   select admin_cron_dashboard_raw();
