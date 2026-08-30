@@ -173,9 +173,9 @@ function montarHtml({ condominio, edicao, itens }) {
   ${secoesHtml}
 
   <div class="footer">
-    <div class="linha1">Administração ${esc(condominio.nome)}</div>
+    <div class="linha1">${esc(condominio.slogan1 || condominio.nome)}</div>
     <div>${esc(condominio.gestao || "")}</div>
-    <div>${esc(condominio.slogan1 || "")} ${condominio.slogan2 ? " · " + esc(condominio.slogan2) : ""}</div>
+    <div>${esc(condominio.slogan2 || "")}</div>
   </div>
 </body>
 </html>`;
