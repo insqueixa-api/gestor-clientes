@@ -1,31 +1,20 @@
 "use client";
 // app/admin/settings/condominio/edicoes/nova/page.tsx
-// Monta uma Edição: escolhe Ações, agrupadas automaticamente por status
-// (concluído primeiro, igual protótipo local), reordena os GRUPOS com
-// setas ▲▼ (lista curta, arrastar não compensa) e os ITENS dentro de cada
-// grupo com drag-and-drop (@dnd-kit — pedido do Márcio, "não quero ficar
-// clicando em cada seta"). Pré-visualiza/gera PDF via VM (serviço
-// Puppeteer) e salva como rascunho em condominio_edicoes.
+// ✅ 30/08/2026, refatoração grande pedida pelo Márcio: a tela deixou de ter
+// duas colunas (escolher | reordenar) — agora é uma única grade 2-por-linha
+// (mesmo layout do PDF, ordenada por status e depois categoria, sem
+// destacar a categoria visualmente) usada tanto pra ESCOLHER as ações
+// (clique marca/desmarca) quanto pra PRÉVIA (clique abre o ModalAcao pra
+// edição rápida ali mesmo). A ordem agora é 100% determinística (status →
+// categoria), então @dnd-kit saiu — não tem mais nada pra arrastar.
+// "Pré-visualizar" só monta a grade e salva o rascunho (sem chamar a VM);
+// o PDF só é gerado (e sobe pro R2) quando clica em "Baixar PDF" — e só de
+// novo se o conteúdo mudou desde a última vez (mesmo dirty-check de antes).
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
-import { GripVertical, ChevronUp, ChevronDown, Loader2 } from "lucide-react";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
@@ -38,6 +27,8 @@ import {
   type CondominioRow,
   type StatusAcao,
 } from "../../shared";
+
+const ModalAcao = dynamic(() => import("../../ModalAcao"), { ssr: false });
 
 type ItemSelecionado = {
   acaoId: string;
@@ -53,8 +44,6 @@ type ItemSelecionado = {
   fotos: { url: string; legenda: string; posY?: number }[];
 };
 
-type Grupo = { status: StatusAcao; itens: ItemSelecionado[] };
-
 function toItemSelecionado(a: AcaoRow): ItemSelecionado {
   return {
     acaoId: a.id,
@@ -64,6 +53,19 @@ function toItemSelecionado(a: AcaoRow): ItemSelecionado {
     status: a.status,
     fotos: a.fotos || [],
   };
+}
+
+// ✅ Mesma ordem usada no PDF (template.js): status primeiro (ver
+// STATUS_ORDEM), categoria em ordem alfabética dentro do status — sem
+// separar visualmente por categoria, só agrupa quem é vizinho.
+function agruparPorStatus(lista: AcaoRow[]) {
+  return STATUS_ORDEM.map((status) => ({
+    status,
+    itens: lista
+      .filter((a) => a.status === status)
+      .slice()
+      .sort((a, b) => a.categoria.localeCompare(b.categoria, "pt-BR")),
+  })).filter((g) => g.itens.length > 0);
 }
 
 function calcPeriodoChave(tipo: "semanal" | "mensal", dataISO: string): string {
@@ -87,30 +89,114 @@ function hojeISO() {
   return new Date().toISOString().split("T")[0];
 }
 
-function SortableItem({ item }: { item: ItemSelecionado }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.acaoId });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+// ✅ Card compacto, 2 por linha — mesmo espírito visual do card no PDF
+// (template.js: foto + título + categoria). Usado tanto no modo "escolher"
+// (clique marca/desmarca, com checkbox) quanto no "previa" (clique abre o
+// ModalAcao pra edição rápida).
+function GrupoGrid({
+  grupos,
+  modo,
+  selecionadosIds,
+  colapsados,
+  onToggleColapsado,
+  onToggleAcao,
+  onEditarAcao,
+}: {
+  grupos: { status: StatusAcao; itens: AcaoRow[] }[];
+  modo: "escolher" | "previa";
+  selecionadosIds: Set<string>;
+  colapsados: Set<StatusAcao>;
+  onToggleColapsado: (status: StatusAcao) => void;
+  onToggleAcao: (acao: AcaoRow) => void;
+  onEditarAcao: (acao: AcaoRow) => void;
+}) {
+  if (grupos.length === 0) {
+    return (
+      <div className="p-6 text-center text-xs text-muted-foreground bg-card rounded-xl border border-dashed border-border">
+        {modo === "escolher" ? "Nenhuma ação encontrada." : "Marque ações acima pra montar a edição."}
+      </div>
+    );
+  }
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-lg"
-    >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="shrink-0 text-muted-foreground cursor-grab active:cursor-grabbing touch-none"
-        title="Arrastar para reordenar"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
-      <span className="text-sm text-foreground/90 truncate">{item.titulo}</span>
+    <div className="space-y-3">
+      {grupos.map((grupo) => {
+        const cor = STATUS_COR[grupo.status];
+        const colapsado = colapsados.has(grupo.status);
+        return (
+          <div key={grupo.status} className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
+                >
+                  {cor.label}
+                </span>
+                <span className="text-[10px] text-muted-foreground">{grupo.itens.length}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onToggleColapsado(grupo.status)}
+                className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {colapsado ? "Mostrar" : "Ocultar"}
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform duration-200 ${colapsado ? "-rotate-90" : ""}`}
+                />
+              </button>
+            </div>
+
+            {!colapsado && (
+              <div className="grid grid-cols-2 gap-2">
+                {grupo.itens.map((a) => {
+                  const marcada = selecionadosIds.has(a.id);
+                  const capa = a.fotos?.[0];
+                  return (
+                    <div
+                      key={a.id}
+                      onClick={() => (modo === "escolher" ? onToggleAcao(a) : onEditarAcao(a))}
+                      title={modo === "previa" ? "Clique para editar" : undefined}
+                      className={`rounded-lg border overflow-hidden cursor-pointer transition-colors bg-card ${
+                        modo === "escolher" && marcada
+                          ? "border-emerald-500/40 ring-1 ring-emerald-500/30"
+                          : "border-border hover:border-emerald-500/30"
+                      }`}
+                    >
+                      {capa ? (
+                        <img
+                          src={capa.url}
+                          alt=""
+                          className="w-full h-20 object-cover"
+                          style={{ objectPosition: `center ${capa.posY ?? 20}%` }}
+                        />
+                      ) : (
+                        <div className="w-full h-20 bg-muted" />
+                      )}
+                      <div className="p-2 flex items-start gap-1.5">
+                        {modo === "escolher" && (
+                          <input
+                            type="checkbox"
+                            checked={marcada}
+                            readOnly
+                            className="mt-0.5 shrink-0 pointer-events-none"
+                          />
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-medium text-foreground/90 leading-tight line-clamp-2">
+                            {a.titulo}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground capitalize truncate">
+                            {a.categoria}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -147,31 +233,32 @@ export default function NovaEdicaoPage() {
   const [edicoesExistentes, setEdicoesExistentes] = useState<
     { id: string; periodo_chave: string; versao: number }[]
   >([]);
-  // ✅ 30/08/2026, pedido do Márcio: "Pré-visualizar" passou a gerar +
-  // subir o PDF pro R2 na hora (não é mais descartável) e salvar o
-  // rascunho junto — ganha performance porque "Publicar" não precisa mais
-  // gerar o PDF de novo, só reaproveita esse pdfUrl. Gerar de novo (depois
-  // de editar) troca o arquivo: apaga o antigo do R2 antes de subir o novo,
-  // pra não acumular lixo.
+  // ✅ 30/08/2026: o PDF só é gerado (e sobe pro R2) quando clica em "Baixar
+  // PDF" — não mais em "Pré-visualizar" (que agora só monta a grade na
+  // página, sem chamar a VM). Gerar de novo (depois de editar) troca o
+  // arquivo: apaga o antigo do R2 antes de subir o novo.
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   // ✅ "Foto" do conteúdo no momento em que pdfUrl foi gerado — compara com
   // o conteúdo atual pra saber se a prévia ficou desatualizada (editou algo
-  // depois de pré-visualizar) sem precisar de efeito/ordem de render
-  // nenhuma, só um valor calculado direto no render.
+  // depois de gerar o PDF) sem precisar de efeito/ordem de render nenhuma,
+  // só um valor calculado direto no render.
   const [pdfSnapshot, setPdfSnapshot] = useState<string | null>(null);
   const [introducao, setIntroducao] = useState("");
   const [revisando, setRevisando] = useState(false);
   const [sugestaoIA, setSugestaoIA] = useState<string | null>(null);
 
-  const [grupos, setGrupos] = useState<Grupo[]>([]);
+  const [selecionadosIds, setSelecionadosIds] = useState<Set<string>>(new Set());
+  // ✅ "escolher" = grade com todas as ações disponíveis, clique marca/
+  // desmarca. "previa" = grade só com as selecionadas, na ordem final do
+  // PDF, clique abre o ModalAcao pra editar rápido ali mesmo.
+  const [modo, setModo] = useState<"escolher" | "previa">(edicaoIdParam ? "previa" : "escolher");
   const [salvando, setSalvando] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
   const [publicando, setPublicando] = useState(false);
-  // ✅ Coluna esquerda (escolher ações) agrupada por status, igual à página
-  // de Ações — abre sempre tudo expandido.
-  const [pickerColapsados, setPickerColapsados] = useState<Set<StatusAcao>>(
-    new Set(),
-  );
+  const [colapsados, setColapsados] = useState<Set<StatusAcao>>(new Set());
+
+  const [editingAcao, setEditingAcao] = useState<AcaoRow | null>(null);
+  const [isModalAcaoOpen, setIsModalAcaoOpen] = useState(false);
 
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   function addToast(type: "success" | "error", title: string, message?: string) {
@@ -180,10 +267,17 @@ export default function NovaEdicaoPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
   }
 
-  const selectedIds = useMemo(
-    () => new Set(grupos.flatMap((g) => g.itens.map((i) => i.acaoId))),
-    [grupos],
-  );
+  async function carregarAcoes() {
+    if (!tenantId || !condominioId) return;
+    const { data, error } = await supabaseBrowser
+      .from("condominio_acoes")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("condominio_id", condominioId)
+      .eq("arquivada", false)
+      .order("created_at", { ascending: false });
+    if (!error) setAcoesDisponiveis(data || []);
+  }
 
   useEffect(() => {
     if (!tenantId || !condominioId) return;
@@ -194,12 +288,6 @@ export default function NovaEdicaoPage() {
         // ao Supabase com tudo de uma vez") — as 3 consultas que essa tela
         // sempre precisou (condomínio, ações disponíveis, TODAS as edições
         // já existentes desse condomínio) viram uma única leva paralela.
-        // "Todas as edições" (não só a do período atual) serve dois
-        // propósitos ao mesmo tempo: (1) achar a edição sendo editada
-        // (edicaoIdParam) sem uma 2ª query — filtra na hora, em memória —
-        // e (2) calcular a próxima versão de QUALQUER período (tipo/data
-        // podem mudar depois, sem precisar consultar de novo — ver
-        // `versao` mais abaixo, useMemo).
         const [resCond, resAcoes, resEdicoes] = await Promise.all([
           supabaseBrowser
             .from("condominios")
@@ -239,6 +327,7 @@ export default function NovaEdicaoPage() {
           setVersaoExistente(edicaoData.versao || 1);
           setPdfUrl(edicaoData.pdf_url || null);
           const itensSalvos: ItemSelecionado[] = edicaoData.itens || [];
+          setSelecionadosIds(new Set(itensSalvos.map((i) => i.acaoId)));
           if (edicaoData.pdf_url) {
             setPdfSnapshot(
               JSON.stringify({
@@ -249,17 +338,10 @@ export default function NovaEdicaoPage() {
                 itensFinais: itensSalvos,
               }),
             );
+            setModo("previa");
+          } else {
+            setModo("escolher");
           }
-          const gruposReconstruidos: Grupo[] = [];
-          for (const item of itensSalvos) {
-            const ultimo = gruposReconstruidos[gruposReconstruidos.length - 1];
-            if (ultimo && ultimo.status === item.status) {
-              ultimo.itens.push(item);
-            } else {
-              gruposReconstruidos.push({ status: item.status, itens: [item] });
-            }
-          }
-          setGrupos(gruposReconstruidos);
         } else if (edicaoIdParam) {
           // edicaoIdParam foi passado mas não achamos a linha (id errado,
           // ou de outro condomínio) — mesmo erro que a query antiga
@@ -270,19 +352,7 @@ export default function NovaEdicaoPage() {
           const idsPreSelecionados = new Set(
             acoesPreSelecionadasParam.split(",").filter(Boolean),
           );
-          const acoesEncontradas = (resAcoes.data || []).filter((a) =>
-            idsPreSelecionados.has(a.id),
-          );
-          const gruposIniciais: Grupo[] = [];
-          for (const status of STATUS_ORDEM) {
-            const itensDoStatus = acoesEncontradas
-              .filter((a) => a.status === status)
-              .map(toItemSelecionado);
-            if (itensDoStatus.length > 0) {
-              gruposIniciais.push({ status, itens: itensDoStatus });
-            }
-          }
-          setGrupos(gruposIniciais);
+          setSelecionadosIds(idsPreSelecionados);
         }
       } catch (e: any) {
         addToast("error", "Erro ao carregar", e.message);
@@ -293,46 +363,16 @@ export default function NovaEdicaoPage() {
   }, [tenantId, condominioId]);
 
   function toggleAcao(acao: AcaoRow) {
-    setGrupos((prev) => {
-      const jaSelecionada = prev.some((g) => g.itens.some((i) => i.acaoId === acao.id));
-      if (jaSelecionada) {
-        return prev
-          .map((g) => ({ ...g, itens: g.itens.filter((i) => i.acaoId !== acao.id) }))
-          .filter((g) => g.itens.length > 0);
-      }
-      const item = toItemSelecionado(acao);
-      const idxExistente = prev.findIndex((g) => g.status === item.status);
-      if (idxExistente >= 0) {
-        const novo = [...prev];
-        novo[idxExistente] = {
-          ...novo[idxExistente],
-          itens: [...novo[idxExistente].itens, item],
-        };
-        return novo;
-      }
-      // Novo grupo — insere na posição certa da ordem padrão de status.
-      const novoGrupo: Grupo = { status: item.status, itens: [item] };
-      const posDesejada = STATUS_ORDEM.indexOf(item.status);
-      const copia = [...prev, novoGrupo];
-      copia.sort(
-        (a, b) => STATUS_ORDEM.indexOf(a.status) - STATUS_ORDEM.indexOf(b.status),
-      );
-      // Mantém a ordem já customizada pelo usuário pros grupos existentes,
-      // só encaixa o novo na posição padrão relativa (evita reordenar tudo
-      // de novo toda vez que uma ação é marcada).
-      const semNovo = prev;
-      const antesDoNovo = semNovo.filter(
-        (g) => STATUS_ORDEM.indexOf(g.status) < posDesejada,
-      );
-      const depoisDoNovo = semNovo.filter(
-        (g) => STATUS_ORDEM.indexOf(g.status) > posDesejada,
-      );
-      return [...antesDoNovo, novoGrupo, ...depoisDoNovo];
+    setSelecionadosIds((prev) => {
+      const novo = new Set(prev);
+      if (novo.has(acao.id)) novo.delete(acao.id);
+      else novo.add(acao.id);
+      return novo;
     });
   }
 
-  function togglePickerColapsado(status: StatusAcao) {
-    setPickerColapsados((prev) => {
+  function toggleColapsado(status: StatusAcao) {
+    setColapsados((prev) => {
       const novo = new Set(prev);
       if (novo.has(status)) novo.delete(status);
       else novo.add(status);
@@ -343,41 +383,15 @@ export default function NovaEdicaoPage() {
   function toggleSelecionarTodasVisiveis() {
     const todasMarcadas =
       acoesFiltradas.length > 0 &&
-      acoesFiltradas.every((a) => selectedIds.has(a.id));
-    acoesFiltradas.forEach((a) => {
-      const marcada = selectedIds.has(a.id);
-      if (todasMarcadas && marcada) toggleAcao(a);
-      if (!todasMarcadas && !marcada) toggleAcao(a);
+      acoesFiltradas.every((a) => selecionadosIds.has(a.id));
+    setSelecionadosIds((prev) => {
+      const novo = new Set(prev);
+      acoesFiltradas.forEach((a) => {
+        if (todasMarcadas) novo.delete(a.id);
+        else novo.add(a.id);
+      });
+      return novo;
     });
-  }
-
-  function moverGrupo(idx: number, direcao: -1 | 1) {
-    setGrupos((prev) => {
-      const alvo = idx + direcao;
-      if (alvo < 0 || alvo >= prev.length) return prev;
-      const copia = [...prev];
-      [copia[idx], copia[alvo]] = [copia[alvo], copia[idx]];
-      return copia;
-    });
-  }
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
-  );
-
-  function handleDragEnd(event: DragEndEvent) {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    setGrupos((prev) =>
-      prev.map((g) => {
-        const oldIndex = g.itens.findIndex((i) => i.acaoId === active.id);
-        if (oldIndex === -1) return g;
-        const newIndex = g.itens.findIndex((i) => i.acaoId === over.id);
-        if (newIndex === -1) return g;
-        return { ...g, itens: arrayMove(g.itens, oldIndex, newIndex) };
-      }),
-    );
   }
 
   async function handleRevisarIA() {
@@ -413,12 +427,24 @@ export default function NovaEdicaoPage() {
     }
   }
 
-  const itensFinais = grupos.flatMap((g) => g.itens);
+  const acoesSelecionadas = useMemo(
+    () => acoesDisponiveis.filter((a) => selecionadosIds.has(a.id)),
+    [acoesDisponiveis, selecionadosIds],
+  );
+  const gruposSelecionados = useMemo(
+    () => agruparPorStatus(acoesSelecionadas),
+    [acoesSelecionadas],
+  );
+  const itensFinais: ItemSelecionado[] = useMemo(
+    () => gruposSelecionados.flatMap((g) => g.itens).map(toItemSelecionado),
+    [gruposSelecionados],
+  );
   const periodoChave = calcPeriodoChave(tipo, dataReferencia);
 
-  // ✅ true quando o conteúdo mudou depois da última prévia gerada — o
-  // Publicar fica bloqueado nesse caso, pra nunca publicar um PDF que não
-  // bate mais com o que está selecionado.
+  // ✅ true quando o conteúdo mudou depois do último PDF gerado — o
+  // Publicar (e o reaproveitamento do "Baixar PDF") ficam bloqueados nesse
+  // caso, pra nunca publicar/baixar um PDF que não bate mais com o que está
+  // selecionado (inclui edição rápida feita direto na prévia).
   const contentSnapshotAtual = JSON.stringify({
     titulo,
     tipo,
@@ -433,27 +459,16 @@ export default function NovaEdicaoPage() {
   // queria uma sequência crescente pra sempre, tipo v001, v002, v003...
   // independente da semana) — puramente derivada de `edicoesExistentes`
   // (já carregada 1x, junto com condomínio/ações, no useEffect inicial),
-  // sem round-trip nenhum ao Supabase. Editando uma edição existente,
-  // `versaoExistente` já veio fixa de lá; criando uma nova, é sempre
-  // MAX(versão de QUALQUER edição deste condomínio) + 1.
+  // sem round-trip nenhum ao Supabase.
   const versao = useMemo(() => {
     if (versaoExistente != null) return versaoExistente;
     const maxVersao = edicoesExistentes.reduce((max, e) => Math.max(max, e.versao), 0);
     return maxVersao + 1;
   }, [versaoExistente, edicoesExistentes]);
 
-  // ✅ Salva/atualiza o rascunho no banco — extraído pra função à parte
-  // (30/08/2026) porque agora TANTO "Pré-visualizar" (com o pdf_url novo)
-  // QUANTO qualquer outro ponto que precise persistir o conteúdo chamam a
-  // mesma lógica. Devolve o id da edição salva.
+  // ✅ Salva/atualiza o rascunho no banco — chamada tanto ao ir pra prévia
+  // quanto depois de gerar/regenerar o PDF. Devolve o id da edição salva.
   async function salvarRascunho(pdfUrlParaSalvar: string | null): Promise<string> {
-    // ✅ 30/08/2026, achado do Márcio: a coluna `versao` nunca era regravada
-    // nos 2 caminhos de UPDATE — só o pdf_url mudava. Se o rascunho existia
-    // desde ANTES da versão virar sequência global (achado anterior no
-    // mesmo dia), o nome do PDF já saía certo (v002, calculado ao vivo),
-    // mas a coluna ficava presa no valor antigo (v001) — painel e arquivo
-    // discordando. `versao` aqui é a MESMA variável (useMemo acima) usada
-    // pra gerar o PDF, então sempre bate com o que está no nome do arquivo.
     const payloadComum = {
       titulo: titulo.trim(),
       tipo,
@@ -511,18 +526,45 @@ export default function NovaEdicaoPage() {
     return nova.id;
   }
 
-  // ✅ 30/08/2026, pedido do Márcio: "Pré-visualizar" virou "gerar + subir
-  // pro R2 + salvar rascunho" — não é mais descartável. Isso faz "Publicar"
-  // (handlePublicar abaixo) ficar instantâneo, sem precisar rodar o
-  // Puppeteer de novo. Gerar de novo (depois de editar) troca o arquivo no
-  // R2 em vez de acumular um novo a cada clique.
-  async function handlePreVisualizar() {
+  // ✅ "Pré-visualizar" agora só monta a grade nessa mesma página (no
+  // formato do PDF) e salva o rascunho — sem chamar a VM. O PDF em si só é
+  // gerado quando clica em "Baixar PDF" (handleBaixarPdf).
+  async function handleIrParaPrevia() {
+    if (!titulo.trim()) {
+      addToast("error", "Título é obrigatório");
+      return;
+    }
+    if (itensFinais.length === 0) {
+      addToast("error", "Selecione pelo menos uma ação antes de pré-visualizar.");
+      return;
+    }
+    setSalvando(true);
+    try {
+      await salvarRascunho(pdfUrl);
+      setModo("previa");
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e.message);
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  // ✅ 30/08/2026, pedido do Márcio: só gera (chama a VM) + sobe pro R2 se
+  // ainda não existe pdfUrl OU se o conteúdo mudou desde o último gerado
+  // (previaDesatualizada) — clicando de novo sem ter alterado nada, só abre
+  // o arquivo que já está no R2, sem reprocessar. Gerar de novo troca o
+  // arquivo no R2 em vez de acumular um novo a cada clique.
+  async function handleBaixarPdf() {
+    if (pdfUrl && !previaDesatualizada) {
+      window.open(pdfUrl, "_blank");
+      return;
+    }
     if (!titulo.trim()) {
       addToast("error", "Título é obrigatório");
       return;
     }
     if (!condominio || itensFinais.length === 0) {
-      addToast("error", "Selecione pelo menos uma ação antes de pré-visualizar.");
+      addToast("error", "Selecione pelo menos uma ação.");
       return;
     }
     setGerandoPdf(true);
@@ -570,8 +612,8 @@ export default function NovaEdicaoPage() {
       setPdfUrl(publicUrl);
       setPdfSnapshot(contentSnapshotAtual);
 
-      // Troca (não acumula): apaga do R2 o arquivo da prévia anterior —
-      // best-effort, não trava o fluxo se falhar.
+      // Troca (não acumula): apaga do R2 o arquivo anterior — best-effort,
+      // não trava o fluxo se falhar.
       if (pdfUrlAntigo && pdfUrlAntigo !== publicUrl) {
         fetch("/api/upload", {
           method: "DELETE",
@@ -581,23 +623,23 @@ export default function NovaEdicaoPage() {
       }
 
       window.open(publicUrl, "_blank");
-      addToast("success", "Prévia gerada e salva", titulo);
+      addToast("success", "PDF gerado e salvo", titulo);
     } catch (e: any) {
-      addToast("error", "Erro ao pré-visualizar", e.message);
+      addToast("error", "Erro ao gerar PDF", e.message);
     } finally {
       setGerandoPdf(false);
     }
   }
 
   // ✅ Publicar não gera PDF de novo — só registra, reaproveitando o
-  // pdf_url que "Pré-visualizar" já deixou salvo no R2.
+  // pdf_url que "Baixar PDF" já deixou salvo no R2.
   async function handlePublicar() {
     if (!pdfUrl) {
-      addToast("error", "Gere a prévia antes de publicar.");
+      addToast("error", "Gere o PDF antes de publicar.");
       return;
     }
     if (previaDesatualizada) {
-      addToast("error", "Prévia desatualizada", "Você editou algo depois da última prévia — gere de novo antes de publicar.");
+      addToast("error", "Prévia desatualizada", "Você editou algo depois do último PDF gerado — gere de novo antes de publicar.");
       return;
     }
     const ok = await confirm({
@@ -632,12 +674,7 @@ export default function NovaEdicaoPage() {
       ? a.titulo.toLowerCase().includes(busca.trim().toLowerCase())
       : true,
   );
-
-  // ✅ Mesmo agrupamento por status usado na página de Ações.
-  const gruposDisponiveis = STATUS_ORDEM.map((status) => ({
-    status,
-    itens: acoesFiltradas.filter((a) => a.status === status),
-  })).filter((g) => g.itens.length > 0);
+  const gruposDisponiveis = useMemo(() => agruparPorStatus(acoesFiltradas), [acoesFiltradas]);
 
   if (!condominioId) {
     return (
@@ -670,9 +707,25 @@ export default function NovaEdicaoPage() {
           Carregando...
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Coluna esquerda: escolher ações */}
-          <div className="space-y-2">
+        <div className="max-w-3xl mx-auto space-y-4">
+          {modo === "previa" && (
+            <div className="p-3 rounded-xl border border-border bg-card flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <p className="text-sm font-bold text-foreground/90">{titulo}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {condominio?.nome} · {tipo === "mensal" ? "Mensal" : "Semanal"} ·{" "}
+                  {dataReferencia} · v{String(versao).padStart(3, "0")}
+                </p>
+              </div>
+              {pdfUrl && (
+                <p className={`text-[11px] font-medium ${previaDesatualizada ? "text-amber-500" : "text-emerald-500"}`}>
+                  {previaDesatualizada ? "⚠️ Desatualizada" : "✓ PDF salvo"}
+                </p>
+              )}
+            </div>
+          )}
+
+          {modo === "escolher" && (
             <div className="flex items-center gap-2">
               <input
                 value={busca}
@@ -680,146 +733,39 @@ export default function NovaEdicaoPage() {
                 placeholder="Buscar ações..."
                 className="flex-1 h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
               />
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap shrink-0">
+                {selecionadosIds.size} selecionada{selecionadosIds.size === 1 ? "" : "s"}
+              </span>
               {acoesFiltradas.length > 0 && (
                 <button
                   type="button"
                   onClick={toggleSelecionarTodasVisiveis}
                   className="h-10 px-3 rounded-lg border border-border bg-transparent text-xs font-medium text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap shrink-0"
                 >
-                  {acoesFiltradas.every((a) => selectedIds.has(a.id))
+                  {acoesFiltradas.every((a) => selecionadosIds.has(a.id))
                     ? "Desmarcar todas"
                     : "Selecionar todas"}
                 </button>
               )}
             </div>
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto overscroll-contain custom-scrollbar pr-1">
-              {gruposDisponiveis.map((grupo) => {
-                const cor = STATUS_COR[grupo.status];
-                const colapsado = pickerColapsados.has(grupo.status);
-                return (
-                  <div key={grupo.status} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
-                        >
-                          {cor.label}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          {grupo.itens.length}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => togglePickerColapsado(grupo.status)}
-                        className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {colapsado ? "Mostrar mais" : "Ocultar"}
-                        <ChevronDown
-                          className={`w-3 h-3 transition-transform duration-200 ${colapsado ? "-rotate-90" : ""}`}
-                        />
-                      </button>
-                    </div>
+          )}
 
-                    {!colapsado && (
-                      <div className="space-y-1.5">
-                        {grupo.itens.map((a) => {
-                          const marcada = selectedIds.has(a.id);
-                          return (
-                            <label
-                              key={a.id}
-                              className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
-                                marcada
-                                  ? "border-emerald-500/40 bg-emerald-500/5"
-                                  : "border-border hover:bg-muted"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={marcada}
-                                onChange={() => toggleAcao(a)}
-                                className="shrink-0"
-                              />
-                              <span className="flex-1 text-sm text-foreground/90 truncate">
-                                {a.titulo}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-              {acoesFiltradas.length === 0 && (
-                <div className="text-xs text-muted-foreground text-center py-6">
-                  Nenhuma ação encontrada.
-                </div>
-              )}
-            </div>
+          <div className="max-h-[65vh] overflow-y-auto overscroll-contain custom-scrollbar pr-1">
+            <GrupoGrid
+              grupos={modo === "escolher" ? gruposDisponiveis : gruposSelecionados}
+              modo={modo}
+              selecionadosIds={selecionadosIds}
+              colapsados={colapsados}
+              onToggleColapsado={toggleColapsado}
+              onToggleAcao={toggleAcao}
+              onEditarAcao={(a) => {
+                setEditingAcao(a);
+                setIsModalAcaoOpen(true);
+              }}
+            />
           </div>
 
-          {/* Coluna direita: ordem final + dados da edição */}
-          <div className="space-y-4">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <div className="space-y-3">
-                {grupos.length === 0 && (
-                  <div className="p-6 text-center text-xs text-muted-foreground bg-card rounded-xl border border-dashed border-border">
-                    Marque ações à esquerda pra montar a edição.
-                  </div>
-                )}
-                {grupos.map((g, idx) => {
-                  const cor = STATUS_COR[g.status];
-                  return (
-                    <div
-                      key={g.status}
-                      className="p-3 rounded-xl border border-border bg-card"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span
-                          className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border ${cor.bg} ${cor.text} ${cor.border}`}
-                        >
-                          {cor.label}
-                        </span>
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => moverGrupo(idx, -1)}
-                            disabled={idx === 0}
-                            className="w-6 h-6 rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-30 flex items-center justify-center"
-                          >
-                            <ChevronUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moverGrupo(idx, 1)}
-                            disabled={idx === grupos.length - 1}
-                            className="w-6 h-6 rounded-md border border-border text-muted-foreground hover:bg-muted disabled:opacity-30 flex items-center justify-center"
-                          >
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                      <SortableContext
-                        items={g.itens.map((i) => i.acaoId)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="space-y-1.5">
-                          {g.itens.map((item) => (
-                            <SortableItem key={item.acaoId} item={item} />
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </div>
-                  );
-                })}
-              </div>
-            </DndContext>
-
+          {modo === "escolher" ? (
             <div className="p-4 rounded-xl border border-border bg-card space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -907,17 +853,34 @@ export default function NovaEdicaoPage() {
                 )}
               </div>
 
-              {pdfUrl && (
-                <p className={`text-[11px] ${previaDesatualizada ? "text-amber-500" : "text-emerald-500"}`}>
-                  {previaDesatualizada
-                    ? "⚠️ Prévia desatualizada — gere de novo antes de publicar."
-                    : "✓ Prévia salva — pronta pra publicar."}
-                </p>
-              )}
-              <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleIrParaPrevia}
+                disabled={salvando || itensFinais.length === 0}
+                className="w-full h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {salvando ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Salvando...
+                  </>
+                ) : (
+                  "👁 Pré-visualizar"
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl border border-border bg-card space-y-3">
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={handlePreVisualizar}
+                  onClick={() => setModo("escolher")}
+                  className="h-10 px-4 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-muted transition-colors whitespace-nowrap"
+                >
+                  ✎ Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBaixarPdf}
                   disabled={gerandoPdf || itensFinais.length === 0}
                   className="flex-1 h-10 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-sm font-medium hover:bg-sky-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                 >
@@ -925,25 +888,40 @@ export default function NovaEdicaoPage() {
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" /> Gerando...
                     </>
-                  ) : pdfUrl ? (
-                    "🔄 Atualizar prévia"
+                  ) : pdfUrl && !previaDesatualizada ? (
+                    "⬇ Baixar PDF"
                   ) : (
-                    "👁 Pré-visualizar PDF"
+                    "📄 Gerar PDF"
                   )}
                 </button>
                 <button
                   type="button"
                   onClick={handlePublicar}
                   disabled={publicando || !pdfUrl || previaDesatualizada}
-                  title={!pdfUrl ? "Gere a prévia antes de publicar" : previaDesatualizada ? "Prévia desatualizada — gere de novo" : "Publicar"}
+                  title={!pdfUrl ? "Gere o PDF antes de publicar" : previaDesatualizada ? "Prévia desatualizada — gere de novo" : "Publicar"}
                   className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors disabled:opacity-50"
                 >
                   {publicando ? "Publicando..." : "✅ Publicar"}
                 </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
+      )}
+
+      {isModalAcaoOpen && condominioId && (
+        <ModalAcao
+          acao={editingAcao}
+          condominioId={condominioId}
+          condominioNome={condominio?.nome || ""}
+          onClose={() => setIsModalAcaoOpen(false)}
+          onSuccess={() => {
+            setIsModalAcaoOpen(false);
+            carregarAcoes();
+            addToast("success", "Ação atualizada", editingAcao?.titulo);
+          }}
+          onError={(msg) => addToast("error", "Erro ao salvar", msg)}
+        />
       )}
 
       <div className="relative z-[999999]">
