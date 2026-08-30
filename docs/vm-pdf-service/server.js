@@ -5,6 +5,7 @@
 // (poucos segundos por request) e fecha em seguida — não fica residente.
 const http = require("http");
 const puppeteer = require("puppeteer");
+const { PDFDocument } = require("pdf-lib");
 const { montarHtml, nomeArquivoPdf } = require("./template");
 
 function contentDispositionPdf(nomeArquivo) {
@@ -33,7 +34,13 @@ function readBody(req) {
   });
 }
 
-async function gerarPdf(payload) {
+// ✅ 30/08/2026, achado do Márcio: a pré-visualização (aberta via blob: no
+// front) não carrega o header Content-Disposition — blob: URL descarta
+// TODOS os headers HTTP. Nesse caso o Chrome sugere o nome pra salvar a
+// partir do metadado /Title do PDF em si — e o page.pdf() do Puppeteer NÃO
+// copia o <title> do HTML pra esse metadado sozinho (por isso vinha um ID
+// aleatório). pdf-lib seta o /Title de verdade, depois de gerado.
+async function gerarPdf(payload, nomeArquivo) {
   const html = montarHtml(payload);
   const browser = await puppeteer.launch({
     headless: true,
@@ -51,7 +58,10 @@ async function gerarPdf(payload) {
       printBackground: true,
       margin: { top: "0", bottom: "0", left: "0", right: "0" },
     });
-    return pdf;
+
+    const pdfDoc = await PDFDocument.load(pdf);
+    pdfDoc.setTitle(nomeArquivo);
+    return Buffer.from(await pdfDoc.save());
   } finally {
     await browser.close();
   }
@@ -87,12 +97,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const pdf = await gerarPdf(payload);
     const nomeArquivo = nomeArquivoPdf(
       payload.condominio.nome,
       payload.edicao?.tipo,
       payload.edicao?.versao,
     );
+    const pdf = await gerarPdf(payload, nomeArquivo);
     res.writeHead(200, {
       "Content-Type": "application/pdf",
       "Content-Disposition": contentDispositionPdf(nomeArquivo),

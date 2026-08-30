@@ -383,20 +383,19 @@ export default function NovaEdicaoPage() {
   const itensFinais = grupos.flatMap((g) => g.itens);
   const periodoChave = calcPeriodoChave(tipo, dataReferencia);
 
-  // ✅ Versão real pro nome do PDF (achado 26/08/2026) — puramente derivada
-  // de `edicoesExistentes` (já carregada 1x, junto com condomínio/ações, no
-  // useEffect inicial) + `periodoChave` (muda na hora, sem round-trip
-  // nenhum ao Supabase). Editando uma edição existente, `versaoExistente`
-  // já veio fixa de lá; criando uma nova, é sempre MAX(versão do mesmo
-  // período) + 1 — mesma regra de handleSalvarRascunho mais abaixo (se já
-  // tem v001 publicada, a próxima é v002).
+  // ✅ Versão real pro nome do PDF (achado 26/08/2026, virou contador ÚNICO
+  // em 30/08/2026 — antes reiniciava v001 a cada período/semana, o Márcio
+  // queria uma sequência crescente pra sempre, tipo v001, v002, v003...
+  // independente da semana) — puramente derivada de `edicoesExistentes`
+  // (já carregada 1x, junto com condomínio/ações, no useEffect inicial),
+  // sem round-trip nenhum ao Supabase. Editando uma edição existente,
+  // `versaoExistente` já veio fixa de lá; criando uma nova, é sempre
+  // MAX(versão de QUALQUER edição deste condomínio) + 1.
   const versao = useMemo(() => {
     if (versaoExistente != null) return versaoExistente;
-    const maxVersaoDoPeriodo = edicoesExistentes
-      .filter((e) => e.periodo_chave === periodoChave)
-      .reduce((max, e) => Math.max(max, e.versao), 0);
-    return maxVersaoDoPeriodo + 1;
-  }, [versaoExistente, edicoesExistentes, periodoChave]);
+    const maxVersao = edicoesExistentes.reduce((max, e) => Math.max(max, e.versao), 0);
+    return maxVersao + 1;
+  }, [versaoExistente, edicoesExistentes]);
 
   async function handlePreVisualizar() {
     if (!condominio || itensFinais.length === 0) {
@@ -480,12 +479,13 @@ export default function NovaEdicaoPage() {
           if (error) throw error;
           setEdicaoId(rascunhoExistente.id);
         } else {
+          // ✅ Versão global do condomínio (30/08/2026) — não filtra mais
+          // por período, é a mesma sequência crescente pra qualquer semana.
           const { data: versoesExistentes } = await supabaseBrowser
             .from("condominio_edicoes")
             .select("versao")
             .eq("tenant_id", tenantId)
             .eq("condominio_id", condominioId)
-            .eq("periodo_chave", periodoChave)
             .order("versao", { ascending: false })
             .limit(1);
           const proximaVersao = (versoesExistentes?.[0]?.versao || 0) + 1;

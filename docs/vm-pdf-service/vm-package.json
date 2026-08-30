@@ -4,6 +4,7 @@
   "private": true,
   "main": "server.js",
   "dependencies": {
-    "puppeteer": "25.9.0"
+    "puppeteer": "25.9.0",
+    "pdf-lib": "1.17.1"
   }
 }
