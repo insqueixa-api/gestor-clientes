@@ -1,12 +1,15 @@
 "use client";
 // app/admin/cron-status/page.tsx
-// ✅ 30/08/2026: redesenhado a pedido do Márcio — a versão anterior (2
-// tabelas, 24+ linhas soltas) era ilegível. Agora agrupa por categoria
-// (Catálogo/EPG, Cobrança, Manutenção, Financeiro, Sistema), cada grupo
-// mostra 1 status resumido e vem colapsado — só expande quem quer ver o
-// detalhe de cada job.
+// ✅ 31/08/2026, pedido do Márcio depois do incidente da ProxyBR: virou o
+// painel "Sistema" — reflete TUDO que é externo/infraestrutura, não só os
+// cron jobs. 3 seções novas no topo (WhatsApp, Infraestrutura, Serviços
+// externos) vêm de app/api/system-health/route.ts, que só LÊ o cache
+// (system_health_checks) — nenhuma chamada externa acontece só por abrir
+// essa página, não importa quantas vezes por dia. Quem atualiza o cache é
+// um pg_cron a cada 5min (docs/sql/system_health_checks.sql); o botão
+// "Sincronizar agora" força uma rodada nova na hora, sob demanda.
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCcw, CheckCircle2, XCircle, Clock3, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, RefreshCcw, CheckCircle2, XCircle, AlertTriangle, Clock3, ChevronDown, ChevronRight } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type JobRow = {
@@ -28,6 +31,22 @@ type GroupRow = {
   label: string;
   jobs: JobRow[];
   status: "ok" | "failed" | "pending";
+};
+
+type HealthItem = {
+  check_key: string;
+  label: string;
+  group_key: string;
+  status: "ok" | "warn" | "fail";
+  detail: string | null;
+  checked_at: string;
+};
+
+type HealthGroup = {
+  key: string;
+  label: string;
+  items: HealthItem[];
+  status: "ok" | "warn" | "fail" | "empty";
 };
 
 function fmtDateTime(iso: string | null): string {
@@ -59,9 +78,56 @@ function GroupBadge({ status }: { status: GroupRow["status"] }) {
   );
 }
 
+function HealthGroupBadge({ status }: { status: HealthGroup["status"] }) {
+  if (status === "fail") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-rose-500/10 text-rose-500">
+        <XCircle className="w-3.5 h-3.5" /> Falha
+      </span>
+    );
+  }
+  if (status === "warn") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-500">
+        <AlertTriangle className="w-3.5 h-3.5" /> Atenção
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-500">
+      <CheckCircle2 className="w-3.5 h-3.5" /> Tudo OK
+    </span>
+  );
+}
+
+function HealthItemBadge({ status }: { status: HealthItem["status"] }) {
+  if (status === "fail") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-rose-500/10 text-rose-500">
+        <XCircle className="w-3.5 h-3.5" /> Falha
+      </span>
+    );
+  }
+  if (status === "warn") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-500">
+        <AlertTriangle className="w-3.5 h-3.5" /> Atenção
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-500">
+      <CheckCircle2 className="w-3.5 h-3.5" /> OK
+    </span>
+  );
+}
+
 export default function CronStatusPage() {
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [healthGroups, setHealthGroups] = useState<HealthGroup[]>([]);
+  const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -74,14 +140,19 @@ export default function CronStatusPage() {
       const token = sess.session?.access_token;
       if (!token) throw new Error("Sessão inválida — faça login novamente.");
 
-      const res = await fetch("/api/cron/status", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || "Falha ao carregar status dos crons.");
+      const [resCron, resHealth] = await Promise.all([
+        fetch("/api/cron/status", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/system-health", { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      const jsonCron = await resCron.json().catch(() => ({}));
+      const jsonHealth = await resHealth.json().catch(() => ({}));
+      if (!resCron.ok) throw new Error(jsonCron?.error || "Falha ao carregar status dos crons.");
+      if (!resHealth.ok) throw new Error(jsonHealth?.error || "Falha ao carregar status do sistema.");
 
-      const gs: GroupRow[] = json.groups || [];
+      const gs: GroupRow[] = jsonCron.groups || [];
       setGroups(gs);
+      setHealthGroups(jsonHealth.groups || []);
+      setHealthCheckedAt(jsonHealth.lastCheckedAt || null);
       // ✅ Abre automaticamente só os grupos com problema — o resto fica
       // fechado, pra não repetir a mesma parede de texto de antes.
       setExpanded(new Set(gs.filter((g) => g.status !== "ok").map((g) => g.key)));
@@ -97,6 +168,28 @@ export default function CronStatusPage() {
     load();
   }, [load]);
 
+  const sync = useCallback(async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Sessão inválida — faça login novamente.");
+
+      const res = await fetch("/api/cron/system-health-check", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Falha ao sincronizar.");
+      await load();
+    } catch (e: any) {
+      setError(e.message || "Erro desconhecido");
+    } finally {
+      setSyncing(false);
+    }
+  }, [load]);
+
   const toggle = (key: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -110,32 +203,90 @@ export default function CronStatusPage() {
     <div className="space-y-6 pb-10 px-3 sm:px-0 md:px-4">
       <div className="flex items-center justify-between gap-2 flex-wrap pt-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-medium tracking-tight text-foreground">Histórico de Crons</h1>
+          <h1 className="text-xl sm:text-2xl font-medium tracking-tight text-foreground">Sistema</h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Confira se tudo que roda de madrugada (e o resto do dia) disparou certinho.
+            WhatsApp, VMs, proxy, serviços externos e tudo que roda de madrugada — tudo num lugar só.
           </p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="h-9 px-3 rounded-lg border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50 flex items-center gap-1.5"
-        >
-          {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />} Atualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={sync}
+            disabled={syncing || loading}
+            className="h-9 px-3 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-500 text-xs font-medium hover:bg-sky-500/20 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {syncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />} Sincronizar agora
+          </button>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="h-9 px-3 rounded-lg border border-border bg-card text-foreground text-xs font-medium hover:bg-muted transition-colors disabled:opacity-50 flex items-center gap-1.5"
+          >
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />} Atualizar
+          </button>
+        </div>
       </div>
 
       {lastFetch && (
-        <p className="text-[10px] text-muted-foreground -mt-4">Atualizado {lastFetch.toLocaleTimeString("pt-BR")}</p>
+        <p className="text-[10px] text-muted-foreground -mt-4">
+          Tela atualizada {lastFetch.toLocaleTimeString("pt-BR")}
+          {healthCheckedAt && ` · última checagem do sistema: ${fmtDateTime(healthCheckedAt)}`}
+        </p>
       )}
 
       {error && (
         <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm p-3">{error}</div>
       )}
 
-      {loading && groups.length === 0 ? (
+      {loading && healthGroups.length === 0 && groups.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground animate-pulse">Carregando...</div>
       ) : (
         <div className="space-y-3">
+          {healthGroups.map((g) => {
+            const isOpen = expanded.has(`health_${g.key}`);
+            return (
+              <div key={`health_${g.key}`} className="rounded-2xl border border-border bg-card/95 shadow-sm overflow-hidden">
+                <button
+                  onClick={() => toggle(`health_${g.key}`)}
+                  className="w-full px-4 py-3 flex items-center justify-between gap-2 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {isOpen ? (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                    )}
+                    <span className="text-sm font-semibold text-foreground">{g.label}</span>
+                    <span className="text-[11px] text-muted-foreground">({g.items.length})</span>
+                  </div>
+                  <HealthGroupBadge status={g.status} />
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-border divide-y divide-border">
+                    {g.items.map((item) => (
+                      <div key={item.check_key} className="p-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{item.label}</p>
+                          {item.detail && (
+                            <p className="text-[11px] text-muted-foreground truncate" title={item.detail}>
+                              {item.detail}
+                            </p>
+                          )}
+                        </div>
+                        <HealthItemBadge status={item.status} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {healthGroups.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+              Nenhuma checagem de sistema ainda — clique em "Sincronizar agora".
+            </div>
+          )}
+
           {groups.map((g) => {
             const isOpen = expanded.has(g.key);
             return (

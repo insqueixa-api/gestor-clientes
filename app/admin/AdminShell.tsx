@@ -1030,9 +1030,9 @@ export default function AdminShell({
                   onClick={() => setShowNotificationsModal(false)}
                   prefetch={false}
                   className="px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
-                  title="Ver se os crons rodaram certinho"
+                  title="WhatsApp, VMs, proxy, serviços externos e crons — tudo num lugar"
                 >
-                  <ScrollText className="w-3.5 h-3.5 text-sky-500" /> Crons
+                  <ScrollText className="w-3.5 h-3.5 text-sky-500" /> Sistema
                 </Link>
                 <button
                   onClick={handleSync}
