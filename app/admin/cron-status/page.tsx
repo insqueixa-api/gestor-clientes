@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCcw, CheckCircle2, XCircle, AlertTriangle, Clock3, ChevronDown, ChevronRight } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useConfirm } from "@/hooks/useConfirm";
 
 type JobRow = {
   key: string;
@@ -128,11 +129,9 @@ export default function CronStatusPage() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [healthGroups, setHealthGroups] = useState<HealthGroup[]>([]);
   const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null);
-  const [proxyExpiresAt, setProxyExpiresAt] = useState<string | null>(null);
-  const [editingProxyDate, setEditingProxyDate] = useState(false);
-  const [proxyDateDraft, setProxyDateDraft] = useState("");
-  const [savingProxyDate, setSavingProxyDate] = useState(false);
+  const [renewingProxy, setRenewingProxy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { confirm } = useConfirm();
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -157,7 +156,6 @@ export default function CronStatusPage() {
       setGroups(gs);
       setHealthGroups(jsonHealth.groups || []);
       setHealthCheckedAt(jsonHealth.lastCheckedAt || null);
-      setProxyExpiresAt(jsonHealth.proxyExpiresAt || null);
       // ✅ Abre automaticamente só os grupos com problema — o resto fica
       // fechado, pra não repetir a mesma parede de texto de antes.
       setExpanded(new Set(gs.filter((g) => g.status !== "ok").map((g) => g.key)));
@@ -195,29 +193,37 @@ export default function CronStatusPage() {
     }
   }, [load]);
 
-  const saveProxyDate = useCallback(async () => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(proxyDateDraft)) return;
-    setSavingProxyDate(true);
+  // ✅ Renovação de verdade via API da ProxyBR — DEBITA do saldo da conta
+  // deles, por isso pede confirmação antes.
+  const renewProxy = useCallback(async () => {
+    const ok = await confirm({
+      title: "Renovar o proxy dedicado agora?",
+      subtitle: "Isso debita do saldo da conta na ProxyBR (custo do plano atual) e estende a validade — use só se realmente precisar renovar antes do vencimento normal.",
+      tone: "amber",
+      confirmText: "Renovar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setRenewingProxy(true);
     try {
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess.session?.access_token;
       if (!token) throw new Error("Sessão inválida — faça login novamente.");
 
-      const res = await fetch("/api/system-health/proxy-expires", {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ expiresAt: proxyDateDraft }),
+      const res = await fetch("/api/system-health/proxy-renew", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || "Falha ao salvar a validade.");
-      setEditingProxyDate(false);
+      if (!res.ok) throw new Error(json?.error || "Falha ao renovar.");
       await sync();
     } catch (e: any) {
       setError(e.message || "Erro desconhecido");
     } finally {
-      setSavingProxyDate(false);
+      setRenewingProxy(false);
     }
-  }, [proxyDateDraft, sync]);
+  }, [confirm, sync]);
 
   const toggle = (key: string) => {
     setExpanded((prev) => {
@@ -302,43 +308,14 @@ export default function CronStatusPage() {
                             </p>
                           )}
                           {item.check_key === "proxy" && (
-                            editingProxyDate ? (
-                              <div className="flex items-center gap-1.5 mt-1.5">
-                                <input
-                                  type="date"
-                                  value={proxyDateDraft}
-                                  onChange={(e) => setProxyDateDraft(e.target.value)}
-                                  className="h-7 px-2 bg-transparent border border-border rounded-md text-xs text-foreground/90 outline-none focus:border-sky-500/50"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={saveProxyDate}
-                                  disabled={savingProxyDate}
-                                  className="h-7 px-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-medium disabled:opacity-50"
-                                >
-                                  {savingProxyDate ? "Salvando..." : "Salvar"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingProxyDate(false)}
-                                  disabled={savingProxyDate}
-                                  className="h-7 px-2 rounded-md border border-border text-muted-foreground text-[11px] font-medium hover:bg-muted"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setProxyDateDraft(proxyExpiresAt || "");
-                                  setEditingProxyDate(true);
-                                }}
-                                className="text-[11px] text-sky-500 hover:text-sky-400 font-medium mt-0.5"
-                              >
-                                ✎ Atualizar validade{proxyExpiresAt ? ` (hoje: ${proxyExpiresAt})` : ""}
-                              </button>
-                            )
+                            <button
+                              type="button"
+                              onClick={renewProxy}
+                              disabled={renewingProxy}
+                              className="text-[11px] text-sky-500 hover:text-sky-400 font-medium mt-0.5 disabled:opacity-50"
+                            >
+                              {renewingProxy ? "Renovando..." : "🔄 Renovar agora (debita saldo ProxyBR)"}
+                            </button>
                           )}
                         </div>
                         <HealthItemBadge status={item.status} />
