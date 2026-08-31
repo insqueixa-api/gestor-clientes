@@ -28,12 +28,15 @@ export async function GET(req: Request) {
   }
   const sb = createClient(supabaseUrl, serviceKey);
 
-  const { data, error } = await sb
-    .from("system_health_checks")
-    .select("check_key, label, group_key, status, detail, checked_at");
+  const [healthRes, configRes] = await Promise.all([
+    sb.from("system_health_checks").select("check_key, label, group_key, status, detail, checked_at"),
+    sb.from("system_config").select("config_value").eq("config_key", "proxy_expires_at").maybeSingle<{ config_value: string | null }>(),
+  ]);
+  const { data, error } = healthRes;
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  const proxyExpiresAt = configRes.data?.config_value || null;
 
   const groups = GROUP_ORDER.map((key) => {
     const items = (data || [])
@@ -54,5 +57,5 @@ export async function GET(req: Request) {
     return !max || r.checked_at > max ? r.checked_at : max;
   }, null);
 
-  return NextResponse.json({ groups, lastCheckedAt });
+  return NextResponse.json({ groups, lastCheckedAt, proxyExpiresAt });
 }

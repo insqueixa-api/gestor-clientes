@@ -97,13 +97,28 @@ async function checkGemini(key: string, label: string, apiKey: string | undefine
 // Márcio: "não é só se caiu, quero saber se não é caso de vencido" — dá
 // pra estar OK agora e vencer em 2 dias sem aviso nenhum se só checar
 // conectividade.
+// ✅ 31/08/2026, pedido do Márcio: a validade do proxy NÃO é env var — ele
+// vai renovando periodicamente e um env var ficaria obsoleto (precisaria de
+// mim pra atualizar + redeploy toda vez). Fica em system_config, editável
+// direto na tela "Sistema" (PATCH /api/system-health/proxy-expires). A
+// ProxyBR não tem API pública de conta/assinatura pra consultar isso
+// sozinho (confirmado, só existe uma API de scraping, sem relação).
+async function getProxyExpiresAt(): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("system_config")
+    .select("config_value")
+    .eq("config_key", "proxy_expires_at")
+    .maybeSingle<{ config_value: string | null }>();
+  return data?.config_value || null;
+}
+
 async function checkProxy(): Promise<CheckResult> {
   // ✅ Roda na Vercel, então lê GERENCIAAPP_PROXY_URL (a que de propósito
   // ESTÁ configurada lá) — não WHATSAPP_PROXY_URL, que fica só na VM por
   // decisão deliberada antiga (ver .env.local). Mesmo valor hoje, mesmo
   // proxy dedicado — só a variável certa pro ambiente certo.
   const proxyUrl = String(process.env.GERENCIAAPP_PROXY_URL || "").trim();
-  const expiresAt = String(process.env.WHATSAPP_PROXY_EXPIRES_AT || "").trim();
+  const expiresAt = (await getProxyExpiresAt()) || "";
 
   const diasRestantes = expiresAt
     ? Math.ceil((new Date(`${expiresAt}T23:59:59-03:00`).getTime() - Date.now()) / 86_400_000)

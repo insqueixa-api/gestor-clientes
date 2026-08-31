@@ -128,6 +128,10 @@ export default function CronStatusPage() {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [healthGroups, setHealthGroups] = useState<HealthGroup[]>([]);
   const [healthCheckedAt, setHealthCheckedAt] = useState<string | null>(null);
+  const [proxyExpiresAt, setProxyExpiresAt] = useState<string | null>(null);
+  const [editingProxyDate, setEditingProxyDate] = useState(false);
+  const [proxyDateDraft, setProxyDateDraft] = useState("");
+  const [savingProxyDate, setSavingProxyDate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -153,6 +157,7 @@ export default function CronStatusPage() {
       setGroups(gs);
       setHealthGroups(jsonHealth.groups || []);
       setHealthCheckedAt(jsonHealth.lastCheckedAt || null);
+      setProxyExpiresAt(jsonHealth.proxyExpiresAt || null);
       // ✅ Abre automaticamente só os grupos com problema — o resto fica
       // fechado, pra não repetir a mesma parede de texto de antes.
       setExpanded(new Set(gs.filter((g) => g.status !== "ok").map((g) => g.key)));
@@ -189,6 +194,30 @@ export default function CronStatusPage() {
       setSyncing(false);
     }
   }, [load]);
+
+  const saveProxyDate = useCallback(async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(proxyDateDraft)) return;
+    setSavingProxyDate(true);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Sessão inválida — faça login novamente.");
+
+      const res = await fetch("/api/system-health/proxy-expires", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresAt: proxyDateDraft }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Falha ao salvar a validade.");
+      setEditingProxyDate(false);
+      await sync();
+    } catch (e: any) {
+      setError(e.message || "Erro desconhecido");
+    } finally {
+      setSavingProxyDate(false);
+    }
+  }, [proxyDateDraft, sync]);
 
   const toggle = (key: string) => {
     setExpanded((prev) => {
@@ -265,12 +294,51 @@ export default function CronStatusPage() {
                   <div className="border-t border-border divide-y divide-border">
                     {g.items.map((item) => (
                       <div key={item.check_key} className="p-3 flex items-center justify-between gap-3">
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-foreground truncate">{item.label}</p>
                           {item.detail && (
                             <p className="text-[11px] text-muted-foreground truncate" title={item.detail}>
                               {item.detail}
                             </p>
+                          )}
+                          {item.check_key === "proxy" && (
+                            editingProxyDate ? (
+                              <div className="flex items-center gap-1.5 mt-1.5">
+                                <input
+                                  type="date"
+                                  value={proxyDateDraft}
+                                  onChange={(e) => setProxyDateDraft(e.target.value)}
+                                  className="h-7 px-2 bg-transparent border border-border rounded-md text-xs text-foreground/90 outline-none focus:border-sky-500/50"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={saveProxyDate}
+                                  disabled={savingProxyDate}
+                                  className="h-7 px-2 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-medium disabled:opacity-50"
+                                >
+                                  {savingProxyDate ? "Salvando..." : "Salvar"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingProxyDate(false)}
+                                  disabled={savingProxyDate}
+                                  className="h-7 px-2 rounded-md border border-border text-muted-foreground text-[11px] font-medium hover:bg-muted"
+                                >
+                                  Cancelar
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProxyDateDraft(proxyExpiresAt || "");
+                                  setEditingProxyDate(true);
+                                }}
+                                className="text-[11px] text-sky-500 hover:text-sky-400 font-medium mt-0.5"
+                              >
+                                ✎ Atualizar validade{proxyExpiresAt ? ` (hoje: ${proxyExpiresAt})` : ""}
+                              </button>
+                            )
                           )}
                         </div>
                         <HealthItemBadge status={item.status} />

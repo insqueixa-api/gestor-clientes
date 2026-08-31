@@ -23,6 +23,25 @@ CREATE TABLE IF NOT EXISTS system_health_checks (
 ALTER TABLE system_health_checks ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
+-- Config key/value genérico (só 1 chave por enquanto: validade do proxy
+-- dedicado ProxyBR). NÃO é env var de propósito — o proxy vai sendo
+-- renovado periodicamente e um env var ficaria obsoleto (exigiria mim +
+-- redeploy toda vez). Editável direto na tela "Sistema"
+-- (PATCH /api/system-health/proxy-expires) — a ProxyBR não tem API pública
+-- de conta/assinatura pra consultar isso sozinho (confirmado 31/08/2026).
+-- ============================================================
+CREATE TABLE IF NOT EXISTS system_config (
+  config_key   text PRIMARY KEY,
+  config_value text,
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE system_config ENABLE ROW LEVEL SECURITY;
+
+INSERT INTO system_config (config_key, config_value)
+VALUES ('proxy_expires_at', '2026-08-31')
+ON CONFLICT (config_key) DO NOTHING;
+
+-- ============================================================
 -- pg_cron: dispara a rota de checagem a cada 5min, o tempo todo (não é
 -- pesado — 1 chamada HTTP curta pra Vercel a cada 5min, que por sua vez
 -- faz ~9 checagens EXTERNAS curtas em paralelo, timeouts de 6-8s cada).
