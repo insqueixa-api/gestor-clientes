@@ -239,7 +239,7 @@ export default function CronStatusPage() {
       const res = await fetch("/api/system-health/explain", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ label: item.label, status: item.status, detail: item.detail }),
+        body: JSON.stringify({ checkKey: item.check_key, label: item.label, status: item.status, detail: item.detail }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || "Falha ao consultar a IA.");
