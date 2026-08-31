@@ -9,7 +9,7 @@
 // um pg_cron a cada 5min (docs/sql/system_health_checks.sql); o botão
 // "Sincronizar agora" força uma rodada nova na hora, sob demanda.
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCcw, CheckCircle2, XCircle, AlertTriangle, Clock3, ChevronDown, ChevronRight } from "lucide-react";
+import { Loader2, RefreshCcw, CheckCircle2, XCircle, AlertTriangle, Clock3, ChevronDown, ChevronRight, Sparkles } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 
@@ -132,6 +132,10 @@ export default function CronStatusPage() {
   const [renewingProxy, setRenewingProxy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { confirm } = useConfirm();
+
+  // ✅ "Explique com IA" — 1 estado por item (chave = check_key), pra não
+  // misturar loading/resposta de itens diferentes.
+  const [aiExplain, setAiExplain] = useState<Record<string, { loading: boolean; text?: string; error?: string }>>({});
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -225,6 +229,26 @@ export default function CronStatusPage() {
     }
   }, [confirm, sync]);
 
+  const explainWithAI = useCallback(async (item: HealthItem) => {
+    setAiExplain((prev) => ({ ...prev, [item.check_key]: { loading: true } }));
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Sessão inválida — faça login novamente.");
+
+      const res = await fetch("/api/system-health/explain", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ label: item.label, status: item.status, detail: item.detail }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Falha ao consultar a IA.");
+      setAiExplain((prev) => ({ ...prev, [item.check_key]: { loading: false, text: json.explanation } }));
+    } catch (e: any) {
+      setAiExplain((prev) => ({ ...prev, [item.check_key]: { loading: false, error: e.message || "Erro desconhecido" } }));
+    }
+  }, []);
+
   const toggle = (key: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -298,29 +322,55 @@ export default function CronStatusPage() {
 
                 {isOpen && (
                   <div className="border-t border-border divide-y divide-border">
-                    {g.items.map((item) => (
-                      <div key={item.check_key} className="p-3 flex items-center justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-foreground truncate">{item.label}</p>
-                          {item.detail && (
-                            <p className="text-[11px] text-muted-foreground truncate" title={item.detail}>
-                              {item.detail}
-                            </p>
-                          )}
-                          {item.check_key === "proxy" && (
+                    {g.items.map((item) => {
+                      const ai = aiExplain[item.check_key];
+                      return (
+                        <div key={item.check_key} className="p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-medium text-foreground truncate">{item.label}</p>
+                              {item.detail && (
+                                <p className="text-[11px] text-muted-foreground truncate" title={item.detail}>
+                                  {item.detail}
+                                </p>
+                              )}
+                            </div>
+                            <HealthItemBadge status={item.status} />
+                          </div>
+
+                          <div className="flex items-center gap-3 mt-1.5">
+                            {item.check_key === "proxy" && (
+                              <button
+                                type="button"
+                                onClick={renewProxy}
+                                disabled={renewingProxy}
+                                className="text-[11px] text-sky-500 hover:text-sky-400 font-medium disabled:opacity-50"
+                              >
+                                {renewingProxy ? "Renovando..." : "🔄 Renovar agora (debita saldo ProxyBR)"}
+                              </button>
+                            )}
                             <button
                               type="button"
-                              onClick={renewProxy}
-                              disabled={renewingProxy}
-                              className="text-[11px] text-sky-500 hover:text-sky-400 font-medium mt-0.5 disabled:opacity-50"
+                              onClick={() => explainWithAI(item)}
+                              disabled={ai?.loading}
+                              className="flex items-center gap-1 text-[11px] text-violet-500 hover:text-violet-400 font-medium disabled:opacity-50"
                             >
-                              {renewingProxy ? "Renovando..." : "🔄 Renovar agora (debita saldo ProxyBR)"}
+                              <Sparkles className="w-3 h-3" />
+                              {ai?.loading ? "Perguntando pra IA..." : ai?.text ? "Perguntar de novo" : "Explique com IA"}
                             </button>
+                          </div>
+
+                          {ai?.text && (
+                            <p className="text-[12px] text-foreground/80 mt-2 p-2.5 rounded-lg bg-violet-500/5 border border-violet-500/15 whitespace-pre-wrap">
+                              {ai.text}
+                            </p>
+                          )}
+                          {ai?.error && (
+                            <p className="text-[11px] text-rose-500 mt-2">{ai.error}</p>
                           )}
                         </div>
-                        <HealthItemBadge status={item.status} />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

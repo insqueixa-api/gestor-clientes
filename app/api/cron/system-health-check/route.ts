@@ -56,16 +56,24 @@ async function checkHttpOk(key: string, label: string, group: CheckResult["group
   }
 }
 
+// ✅ statuspage.io sempre manda `description` em inglês, atrelado 1:1 ao
+// `indicator` — traduzido aqui em vez de repassar cru (pedido do Márcio).
+const INDICATOR_PT: Record<string, string> = {
+  none: "Operacional",
+  minor: "Instabilidade pontual (impacto leve)",
+  major: "Interrupção parcial do serviço",
+  critical: "Interrupção grave do serviço",
+};
+
 // Providers usam o mesmo formato de status page (statuspage.io).
 async function checkStatusPage(key: string, label: string, url: string): Promise<CheckResult> {
   try {
     const res = await fetchWithTimeout(url, 6000);
     if (!res.ok) return { key, label, group: "externos", status: "warn", detail: `HTTP ${res.status} ao consultar status` };
     const json: any = await res.json();
-    const indicator = json?.status?.indicator || "none";
-    const description = json?.status?.description || "Operacional";
+    const indicator = String(json?.status?.indicator || "none");
     const status: CheckStatus = indicator === "none" ? "ok" : indicator === "minor" ? "warn" : "fail";
-    return { key, label, group: "externos", status, detail: description };
+    return { key, label, group: "externos", status, detail: INDICATOR_PT[indicator] || json?.status?.description || "Operacional" };
   } catch (e: any) {
     return { key, label, group: "externos", status: "warn", detail: "Falha ao consultar status page" };
   }
