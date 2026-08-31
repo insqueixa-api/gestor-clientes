@@ -164,6 +164,39 @@ async function checkProxy(): Promise<CheckResult> {
   return { key: "proxy", label: "Proxy dedicado (ProxyBR)", group: "infra", status: "ok", detail: validadeTxt };
 }
 
+// ✅ 31/08/2026, achado do Márcio: o cron "Despachar cobranças" mostrava
+// Tudo OK mesmo com envios reais falhando (WhatsApp desconectado) — porque
+// o cron_health só sabe se a ROTA rodou sem exceção, não se as mensagens
+// de fato saíram. Isso aqui checa o resultado de verdade (client_message_
+// jobs) nas últimas 6h — sintoma direto, complementar ao status da sessão
+// WhatsApp acima (que já mostra a causa raiz mais comum).
+async function checkBillingSends(): Promise<CheckResult> {
+  const seisHorasAtras = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from("client_message_jobs")
+    .select("error_message")
+    .eq("status", "FAILED")
+    .gte("updated_at", seisHorasAtras)
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    return { key: "billing_sends", label: "Envios de cobrança (últimas 6h)", group: "whatsapp", status: "warn", detail: `Falha ao consultar: ${error.message}` };
+  }
+  const total = data?.length || 0;
+  if (total === 0) {
+    return { key: "billing_sends", label: "Envios de cobrança (últimas 6h)", group: "whatsapp", status: "ok", detail: "" };
+  }
+  const exemplo = data?.[0]?.error_message || "";
+  return {
+    key: "billing_sends",
+    label: "Envios de cobrança (últimas 6h)",
+    group: "whatsapp",
+    status: "fail",
+    detail: `${total} falha(s)${exemplo ? ` — ex: ${exemplo}` : ""}`,
+  };
+}
+
 // ✅ 428/408 no log do WhatsApp reconectam sozinhos na maioria das vezes —
 // só "connected" ou "connecting" (no meio de uma reconexão, ainda não
 // esgotou tentativas) contam como saudável; qualquer outra coisa (incluindo
@@ -202,6 +235,7 @@ async function runAllChecks(req: Request): Promise<CheckResult[]> {
   const checks = await Promise.all([
     checkWhatsAppSession(req, 1),
     checkWhatsAppSession(req, 2),
+    checkBillingSends(),
     waBase
       ? checkHttpOk("vm_hetzner", "VM Hetzner (WhatsApp)", "infra", `${waBase}/health`)
       : Promise.resolve<CheckResult>({ key: "vm_hetzner", label: "VM Hetzner (WhatsApp)", group: "infra", status: "fail", detail: "UNIGESTOR_WA_BASE_URL não configurada" }),
