@@ -21,7 +21,6 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.112.4",
     "@vercel/functions": "^3.9.5",
-    "@vercel/speed-insights": "^2.0.0",
     "aws4fetch": "^1.0.20",
     "bcryptjs": "^3.0.3",
     "browser-image-compression": "^2.0.2",
