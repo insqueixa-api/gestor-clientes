@@ -11,6 +11,98 @@
 // dispositivo e lê "Expire on ..." de volta.
 import { SupabaseClient } from "@supabase/supabase-js";
 import { findFieldByType } from "@/lib/apps/panel";
+import { notify, resolveNotification } from "@/lib/notifications/notify";
+
+// ✅ Mesmo limiar do parceiro Appativa (lib/integrations/appativa.ts).
+const LOW_CREDITS_THRESHOLD = 5;
+
+// ✅ 01/09/2026, achado do Márcio: renovação de verdade não estava
+// atualizando o saldo mostrado em Configurações > Parceiros — só o
+// decremento local (best-effort, dentro de renewDuplecastWithCode abaixo)
+// rodava, e sendo best-effort ele pode falhar em silêncio (drift). Mesmo
+// padrão de lib/integrations/appativa.ts:syncAppativaCredits — busca o
+// saldo REAL na VM (list_codes) em vez de confiar em aritmética local, e
+// é chamada depois de toda renovação bem-sucedida (fulfillment.ts, via
+// after(), não bloqueia a resposta do pagamento). Fail-soft — nunca
+// lança, nunca deve derrubar o fluxo que a chamou.
+export async function syncDuplecastCredits(
+  supabaseAdmin: any,
+  tenantId: string,
+): Promise<{ ok: boolean; credits?: number; error?: string }> {
+  const { data: integ } = await supabaseAdmin
+    .from("api_integrations")
+    .select("id, label, login_email, login_password, api_url")
+    .eq("tenant_id", tenantId)
+    .eq("provider", "DUPLECAST")
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!integ?.login_email || !integ?.login_password || !integ?.api_url) {
+    return { ok: false, error: "Parceiro Duplecast sem credenciais configuradas." };
+  }
+
+  const vmBaseUrl = process.env.UNIGESTOR_WA_BASE_URL;
+  const vmToken = process.env.UNIGESTOR_WA_TOKEN;
+  if (!vmBaseUrl || !vmToken) {
+    return { ok: false, error: "VM não configurada." };
+  }
+
+  let vmJson: any;
+  try {
+    const siteRoot = new URL(integ.api_url).origin;
+    const vmRes = await fetch(`${vmBaseUrl.replace(/\/$/, "")}/duplecast/action`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${vmToken}` },
+      body: JSON.stringify({
+        action: "list_codes",
+        baseUrl: siteRoot,
+        username: integ.login_email,
+        password: integ.login_password,
+      }),
+      signal: AbortSignal.timeout(58000),
+    });
+    vmJson = await vmRes.json().catch(() => ({} as any));
+    if (!vmRes.ok || !vmJson?.ok) {
+      return { ok: false, error: vmJson?.error || `Falha na VM (HTTP ${vmRes.status}).` };
+    }
+  } catch (e: any) {
+    return { ok: false, error: e?.message || "Falha ao conectar com a VM." };
+  }
+
+  const credits = Number(vmJson.unused);
+  if (!Number.isFinite(credits)) {
+    return { ok: false, error: "A VM não devolveu um número de códigos disponíveis." };
+  }
+
+  await supabaseAdmin
+    .from("api_integrations")
+    .update({ credits_available: credits, credits_last_sync_at: new Date().toISOString() })
+    .eq("id", integ.id)
+    .eq("tenant_id", tenantId);
+
+  if (credits < LOW_CREDITS_THRESHOLD) {
+    try {
+      await notify({
+        tenantId,
+        type: "saldo_baixo",
+        title: "🪫 Saldo Baixo — Parceiro",
+        message: `O parceiro "${integ.label}" está com apenas ${credits} código(s) disponível(is). Recarregue para evitar interrupção nas ativações.`,
+        link: "/admin/settings/api-server",
+        sourceId: integ.id,
+      });
+    } catch {
+      // não bloqueia o sync por falha na notificação
+    }
+  } else {
+    try {
+      await resolveNotification(tenantId, "saldo_baixo", integ.id);
+    } catch {
+      // não bloqueia o sync por falha ao resolver a notificação
+    }
+  }
+
+  return { ok: true, credits };
+}
 
 export async function renewDuplecastWithCode(
   supabaseAdmin: SupabaseClient,

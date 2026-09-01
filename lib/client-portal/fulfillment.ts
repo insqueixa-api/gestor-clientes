@@ -15,7 +15,7 @@ import {
   APPATIVA_POLL_ATTEMPTS,
 } from "@/lib/integrations/appativa";
 import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
-import { renewDuplecastWithCode } from "@/lib/apps/duplecast-renewal";
+import { renewDuplecastWithCode, syncDuplecastCredits } from "@/lib/apps/duplecast-renewal";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
 
 // ============================================================
@@ -613,6 +613,19 @@ export async function markAppRenewalPaid(
               .select("id");
 
             deferManualPendingNotify = true;
+
+            // ✅ 01/09/2026, achado do Márcio: o decremento local (best-
+            // effort, dentro de renewDuplecastWithCode) pode falhar em
+            // silêncio e o saldo mostrado em Configurações > Parceiros
+            // ficava desatualizado até alguém clicar "Sincronizar" na mão.
+            // Mesmo padrão da Appativa (syncAppativaCredits) — busca o
+            // saldo REAL na VM depois de toda renovação bem-sucedida, via
+            // after() pra não atrasar a resposta do pagamento.
+            after(async () => {
+              await syncDuplecastCredits(supabaseAdmin, tenantId).catch((e: any) =>
+                prodLog("duplecast_renew.sync_credits_falhou", { message: e?.message }),
+              );
+            });
 
             if (claimedRows && claimedRows.length > 0) {
               await resolveNotification(tenantId, "manual_pending", paymentRowId);
