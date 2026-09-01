@@ -42,9 +42,14 @@ export async function GET(req: Request) {
     const items = (data || [])
       .filter((r) => r.group_key === key)
       .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
-    const status = items.some((i) => i.status === "fail")
+    // ✅ 01/09/2026, pedido do Márcio: WhatsApp Secundário desconectado é
+    // intencional (nem toda conta usa 2 sessões) — não deve "puxar" o grupo
+    // inteiro pra Atenção. O item em si continua mostrando seu próprio
+    // aviso normalmente, só não conta pro status agregado do grupo.
+    const rollupItems = items.filter((i) => i.check_key !== "whatsapp_2");
+    const status = rollupItems.some((i) => i.status === "fail")
       ? "fail"
-      : items.some((i) => i.status === "warn")
+      : rollupItems.some((i) => i.status === "warn")
         ? "warn"
         : items.length > 0
           ? "ok"
