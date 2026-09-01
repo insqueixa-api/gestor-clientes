@@ -628,6 +628,46 @@ if (connection === "open") {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ✅ 01/09/2026, bug real achado: sess.socket.logout()/.end() (e também
+// WebSocketClient.close() da própria Baileys) acabam chamando close()/
+// terminate() no socket cru ('ws') — se ele ainda estiver no meio do
+// handshake (isConnecting — ex: proxy lento/travado numa conexão que
+// nunca termina de abrir), o PACOTE 'ws' aborta via
+// `process.nextTick(emitErrorAndClose, ...)` (ws/lib/websocket.js,
+// abortHandshake): um evento 'error' ASSÍNCRONO, não uma exceção síncrona
+// — por isso o try/catch normal em volta do await NUNCA pegava (não é uma
+// rejection da Promise, é um 'error' emitido depois, em outro tick) e
+// virava uncaughtException no processo, abortando o resto da função de
+// limpeza no meio do caminho — a sessão nunca terminava de ser derrubada
+// direito, travando a próxima tentativa de gerar QR. terminate() tem
+// exatamente o mesmo comportamento que close() nesse caso (mesmo trecho
+// de código no pacote 'ws'), então trocar um pelo outro não resolve —
+// o fix é garantir um listener de 'error' ANTES de abortar, pra esse
+// evento assíncrono ter pra onde ir.
+async function safeCloseSocket(sess) {
+  const wrapper = sess?.socket?.ws; // instância WebSocketClient da Baileys
+  if (!sess?.socket) return;
+
+  const rawWs = wrapper?.socket; // socket cru ('ws') guardado dentro da wrapper
+  if (rawWs && typeof rawWs.once === "function") {
+    rawWs.once("error", () => {});
+  }
+
+  if (wrapper?.isOpen === true) {
+    try {
+      await sess.socket.logout();
+    } catch {}
+  }
+
+  try {
+    if (rawWs && typeof rawWs.terminate === "function") {
+      rawWs.terminate();
+    } else if (wrapper && typeof wrapper.close === "function") {
+      wrapper.close();
+    }
+  } catch {}
+}
+
 async function disconnectSession(sessionKey) {
   const sess = sessions.get(sessionKey);
   if (!sess) return false;
@@ -640,9 +680,7 @@ async function disconnectSession(sessionKey) {
   if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
   if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
 
-  try {
-    await sess.socket?.logout();
-  } catch {}
+  await safeCloseSocket(sess);
 
   sess.status = "disconnected";
   sessions.delete(sessionKey);
@@ -664,15 +702,7 @@ async function hardResetSession(sessionKey) {
     if (sess.nameTracker) clearInterval(sess.nameTracker);
     if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
     if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
-    try {
-      await sess.socket?.logout();
-    } catch {}
-    try {
-      sess.socket?.end();
-    } catch {}
-    try {
-      sess.socket?.ws?.close();
-    } catch {}
+    await safeCloseSocket(sess);
   }
 
   sessions.delete(sessionKey);
@@ -688,8 +718,7 @@ async function reconnectSession(sessionKey) {
     if (sess.nameTracker) clearInterval(sess.nameTracker);
     if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
     if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
-    try { sess.socket?.end(); } catch {}
-    try { sess.socket?.ws?.close(); } catch {}
+    await safeCloseSocket(sess);
     sessions.delete(sessionKey);
     console.log(`[WA][${sessionKey.slice(0, 8)}] 🔄 Sessão encerrada para reconexão`);
   }
