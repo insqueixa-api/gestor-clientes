@@ -147,7 +147,16 @@ async function checkProxy(): Promise<CheckResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const res = await (undiciFetch("https://api.ipify.org?format=json", {
+      // ✅ 01/09/2026, bug real achado: testava contra api.ipify.org, que
+      // esse (e provavelmente qualquer) proxy de datacenter/residencial não
+      // consegue alcançar — serviços de "qual é meu IP" costumam bloquear
+      // faixas de proxy de propósito. Testado manualmente: api.ipify.org e
+      // httpbin.org falhavam SEMPRE através deste proxy, enquanto
+      // web.whatsapp.com (o destino que de fato importa, já que esse proxy
+      // só existe pro WhatsApp/GerenciaApp) respondia OK de forma
+      // consistente. Painel mostrava "Falha" com o WhatsApp genuinamente
+      // conectado e funcionando — falso negativo.
+      const res = await (undiciFetch("https://web.whatsapp.com", {
         dispatcher,
         signal: controller.signal,
       }) as unknown as Promise<Response>);
@@ -179,9 +188,9 @@ async function checkProxy(): Promise<CheckResult> {
 // WhatsApp acima (que já mostra a causa raiz mais comum).
 async function checkBillingSends(): Promise<CheckResult> {
   const seisHorasAtras = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await supabaseAdmin
+  const { data: failed, error } = await supabaseAdmin
     .from("client_message_jobs")
-    .select("error_message")
+    .select("client_id, reseller_id, error_message, updated_at")
     .eq("status", "FAILED")
     .gte("updated_at", seisHorasAtras)
     .order("updated_at", { ascending: false })
@@ -190,17 +199,47 @@ async function checkBillingSends(): Promise<CheckResult> {
   if (error) {
     return { key: "billing_sends", label: "Envios de cobrança (últimas 6h)", group: "whatsapp", status: "warn", detail: `Falha ao consultar: ${error.message}` };
   }
-  const total = data?.length || 0;
-  if (total === 0) {
+  if (!failed?.length) {
     return { key: "billing_sends", label: "Envios de cobrança (últimas 6h)", group: "whatsapp", status: "ok", detail: "" };
   }
-  const exemplo = data?.[0]?.error_message || "";
+
+  // ✅ 01/09/2026, achado do Márcio: um envio que falhou mas foi recuperado
+  // pelo retry automático (ex: "Plano B" de fulfillment.ts, +2min depois)
+  // já não é mais um problema em aberto — o cliente recebeu a mensagem, só
+  // mais tarde. Sem isso, 1 falha pontual já resolvida ficava marcada
+  // "Falha" no painel por até 6h à toa. Só conta quem NÃO tem um SENT mais
+  // recente que a própria falha pro mesmo destinatário.
+  const { data: sent } = await supabaseAdmin
+    .from("client_message_jobs")
+    .select("client_id, reseller_id, updated_at")
+    .eq("status", "SENT")
+    .gte("updated_at", seisHorasAtras)
+    .limit(200);
+
+  const latestSentByRecipient = new Map<string, string>();
+  for (const s of sent || []) {
+    const key = `${s.client_id || ""}:${s.reseller_id || ""}`;
+    const prev = latestSentByRecipient.get(key);
+    if (!prev || s.updated_at > prev) latestSentByRecipient.set(key, s.updated_at);
+  }
+
+  const unresolved = failed.filter((f: any) => {
+    const key = `${f.client_id || ""}:${f.reseller_id || ""}`;
+    const latestSent = latestSentByRecipient.get(key);
+    return !latestSent || latestSent < f.updated_at;
+  });
+
+  if (unresolved.length === 0) {
+    return { key: "billing_sends", label: "Envios de cobrança (últimas 6h)", group: "whatsapp", status: "ok", detail: "" };
+  }
+
+  const exemplo = unresolved[0]?.error_message || "";
   return {
     key: "billing_sends",
     label: "Envios de cobrança (últimas 6h)",
     group: "whatsapp",
     status: "fail",
-    detail: `${total} falha(s)${exemplo ? ` — ex: ${exemplo}` : ""}`,
+    detail: `${unresolved.length} falha(s) sem recuperação${exemplo ? ` — ex: ${exemplo}` : ""}`,
   };
 }
 
