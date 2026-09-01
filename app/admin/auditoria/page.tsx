@@ -946,6 +946,32 @@ function AuditoriaPageContent() {
     });
   };
 
+  // ✅ 01/09/2026, pedido do Márcio: resolver a pendência aqui (Auditoria)
+  // só atualizava client_portal_payments + a notificação do sino — a linha
+  // de client_message_jobs que o envio_agora grava (a que aparece em Fila e
+  // Histórico de Envio, com o botão "Reenviar todas as falhas") não tem
+  // nenhuma referência direta ao pagamento (sem payment_id na tabela), então
+  // continuava "FALHOU" pra sempre mesmo depois de resolvido aqui. Casa por
+  // client_id + FAILED + criado perto do created_at do pagamento (o envio
+  // acontece segundos depois da confirmação, na prática sempre <1min de
+  // diferença — janela de 5min pra folga sem risco de pegar outro envio).
+  const resolveMatchingMessageJob = async (log: LogRow) => {
+    if (!tenantId) return;
+    try {
+      const anchor = new Date(log.created_at).getTime();
+      const from = new Date(anchor - 5 * 60 * 1000).toISOString();
+      const to = new Date(anchor + 5 * 60 * 1000).toISOString();
+      await supabaseBrowser
+        .from("client_message_jobs")
+        .update({ status: "CANCELLED", error_message: "Resolvido via Auditoria (comprovante confirmado)" })
+        .eq("tenant_id", tenantId)
+        .eq("client_id", log.client_id)
+        .eq("status", "FAILED")
+        .gte("created_at", from)
+        .lte("created_at", to);
+    } catch {}
+  };
+
   // ✅ NOVA FUNÇÃO: Reenvia apenas o WhatsApp direto, sem abrir o modal
   const handleReenviarWhatsapp = async (log: LogRow) => {
     if (!tenantId) return;
@@ -1026,6 +1052,8 @@ function AuditoriaPageContent() {
         });
       } catch {}
 
+      await resolveMatchingMessageJob(log);
+
       addToast(
         "success",
         "Mensagem enviada",
@@ -1079,6 +1107,8 @@ function AuditoriaPageContent() {
           p_source_id: log.id,
         });
       } catch {}
+
+      await resolveMatchingMessageJob(log);
 
       addToast(
         "success",
