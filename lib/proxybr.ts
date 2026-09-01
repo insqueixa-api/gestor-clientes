@@ -39,17 +39,22 @@ async function proxyBrFetch(path: string, token: string, init: RequestInit = {})
   }
 }
 
-// ✅ Conta tem hoje só 1 assinatura de proxy — pega a que ainda não foi
-// cancelada com o vencimento mais próximo. Se um dia tiver mais de uma,
-// segue funcionando (pega a mais urgente).
+// ✅ 31/08/2026, bug real achado: com 2 pedidos na conta (1 antigo EXPIRADO
+// de verdade + 1 novo ativo), a ordenação por data mais próxima pegava o
+// EXPIRADO primeiro (data no passado = "mais próxima" numa ordenação
+// crescente) — o painel mostraria o pedido errado. Agora prioriza pedidos
+// active/pending_renewal; só cai pros demais (expired/etc) se não houver
+// nenhum pedido de verdade em uso.
 export async function getActiveProxyOrder(token: string): Promise<{ order: ProxyBrOrder | null; balance: number | null }> {
   const [ordersRes, balanceRes] = await Promise.all([
     proxyBrFetch("/orders?limit=10", token),
     proxyBrFetch("/balance", token).catch(() => null),
   ]);
   const orders: ProxyBrOrder[] = (ordersRes?.data || []).filter((o: ProxyBrOrder) => o.status !== "cancelled");
-  orders.sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
-  return { order: orders[0] || null, balance: balanceRes?.data?.balance ?? null };
+  const emUso = orders.filter((o) => o.status === "active" || o.status === "pending_renewal");
+  const pool = emUso.length > 0 ? emUso : orders;
+  pool.sort((a, b) => new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime());
+  return { order: pool[0] || null, balance: balanceRes?.data?.balance ?? null };
 }
 
 export async function renewProxyOrder(token: string, orderUuid: string): Promise<any> {
