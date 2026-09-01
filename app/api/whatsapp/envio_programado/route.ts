@@ -105,6 +105,24 @@ function normalizeSendAtToUtcISOString(sendAtRaw: string): string {
   return d.toISOString();
 }
 
+// ✅ Mesma conversão fixa UTC-3 usada em normalizeSendAtToUtcISOString acima
+// (Brasil não tem mais horário de verão desde 2019) — replica em JS o
+// `(timezone('America/Sao_Paulo', x))::date` usado no SQL de enfileiramento,
+// pra comparar datas de referência sem depender de biblioteca de timezone.
+function toSpDateOnlyKey(isoOrDate: string | Date): string {
+  const d = new Date(isoOrDate);
+  const spMs = d.getTime() - 3 * 60 * 60 * 1000;
+  const sp = new Date(spMs);
+  return `${sp.getUTCFullYear()}-${String(sp.getUTCMonth() + 1).padStart(2, "0")}-${String(sp.getUTCDate()).padStart(2, "0")}`;
+}
+
+function addDaysToDateKey(dateKey: string, days: number): string {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
 // ✅ NOVO: notifica o sino IMEDIATAMENTE quando um job de automação falha.
 // Recalcula a contagem real de falhas ainda pendentes pra essa automação,
 // pra mensagem sempre refletir o total atual (não duplica notificação —
@@ -218,8 +236,9 @@ export async function POST(req: Request) {
       reseller_id,
       whatsapp_session,
       message,
-      image_url, 
+      image_url,
       send_at,
+      created_at,
       created_by,
       automation_id,
       billing_automations (
@@ -228,7 +247,9 @@ export async function POST(req: Request) {
         is_automatic,
         execution_status,
         schedule_time,
-        target_status
+        target_status,
+        rule_date_field,
+        rule_days_diff
       )
     `
       )
@@ -365,35 +386,63 @@ export async function POST(req: Request) {
         }
 
         // ✅ Recheca elegibilidade AGORA, na hora do envio — o enfileiramento
-        // de manhã (billing_enqueue_scheduled) só sabe o status do cliente
-        // NAQUELE instante; se ele pagar depois de entrar na fila mas antes
-        // do send_at chegar, a mensagem não é mais cabível. Mesma fórmula de
-        // status usada em vw_clients_list_active. Só se aplica a jobs
-        // automáticos (têm automation_id) mirando cliente — reseller não tem
-        // vencimento/target_status.
+        // de manhã (billing_enqueue_scheduled) só sabe o status/vencimento do
+        // cliente NAQUELE instante. 2 formas de ficar inelegível depois:
+        // (a) status muda de categoria (ex: OVERDUE paga -> ACTIVE, sai da
+        //     lista de status alvo da automação);
+        // (b) status continua o MESMO (ex: automação "Vence Hoje" mira
+        //     ACTIVE) mas o cliente renovou adiantado — vencimento moveu pra
+        //     frente, então a condição de data que o enfileirou hoje
+        //     (base_date_sp + rule_days_diff = dia do disparo) não bate mais.
+        // Replica a MESMA fórmula do CTE `impacted` de billing_enqueue_
+        // scheduled (docs/sql/), usando dado fresco em vez do snapshot de
+        // manhã. Só se aplica a jobs automáticos mirando cliente — reseller
+        // não tem vencimento/target_status.
         if ((job as any).automation_id && automationConfig && recipientType === "client") {
           const targetStatus: string[] = Array.isArray(automationConfig.target_status) ? automationConfig.target_status : [];
-          if (targetStatus.length > 0) {
-            const { data: freshClient } = await sb
-              .from("clients")
-              .select("vencimento, is_archived, is_trial")
-              .eq("id", recipientId)
-              .maybeSingle();
+          const ruleDateField = String(automationConfig.rule_date_field || "").toLowerCase();
+          const ruleDaysDiff = Number(automationConfig.rule_days_diff ?? 0);
 
-            const currentStatus = !freshClient
-              ? "ARCHIVED"
-              : freshClient.is_archived
-                ? "ARCHIVED"
-                : freshClient.is_trial
-                  ? "TRIAL"
-                  : freshClient.vencimento && new Date(freshClient.vencimento) < new Date()
-                    ? "OVERDUE"
-                    : "ACTIVE";
+          const { data: freshClient } = await sb
+            .from("clients")
+            .select("vencimento, created_at, is_archived, is_trial")
+            .eq("id", recipientId)
+            .maybeSingle();
 
-            if (!targetStatus.includes(currentStatus)) {
+          if (!freshClient || freshClient.is_archived) {
+            await sb
+              .from("client_message_jobs")
+              .update({ status: "CANCELLED", error_message: "Cliente arquivado/removido antes do envio" })
+              .eq("id", job.id);
+            continue;
+          }
+
+          const currentStatus = freshClient.is_trial
+            ? "TRIAL"
+            : freshClient.vencimento && new Date(freshClient.vencimento) < new Date()
+              ? "OVERDUE"
+              : "ACTIVE";
+
+          if (targetStatus.length > 0 && !targetStatus.includes(currentStatus)) {
+            await sb
+              .from("client_message_jobs")
+              .update({ status: "CANCELLED", error_message: `Cliente não é mais elegível (status atual: ${currentStatus})` })
+              .eq("id", job.id);
+            continue;
+          }
+
+          // ✅ mesma fórmula do CASE de base_date_sp no enfileiramento: só
+          // usa vencimento se rule_date_field for literalmente "vencimento",
+          // qualquer outro valor (created_at/cadastro/vazio) cai pra created_at.
+          const baseDateField = ruleDateField === "vencimento" ? freshClient.vencimento : freshClient.created_at;
+          if (baseDateField) {
+            const baseDateSp = toSpDateOnlyKey(baseDateField);
+            const recomputedFireDateSp = addDaysToDateKey(baseDateSp, ruleDaysDiff);
+            const jobFireDateSp = toSpDateOnlyKey((job as any).created_at || job.send_at);
+            if (recomputedFireDateSp !== jobFireDateSp) {
               await sb
                 .from("client_message_jobs")
-                .update({ status: "CANCELLED", error_message: `Cliente não é mais elegível (status atual: ${currentStatus})` })
+                .update({ status: "CANCELLED", error_message: "Cliente não é mais elegível (data de referência mudou — provável renovação)" })
                 .eq("id", job.id);
               continue;
             }
