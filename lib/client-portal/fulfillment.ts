@@ -857,6 +857,9 @@ async function sendAppRenewalWhatsapp(
         whatsapp_session: params.whatsappSession,
         app_nome: params.appName,
         app_vencimento: params.appVencimento,
+        // ✅ 01/09/2026: NÃO passa skip_failure_notify — este caminho nunca
+        // notificava o sino em falha (só gravava whatsapp_status="error" na
+        // auditoria), diferente do fluxo de renovação de assinatura abaixo.
       }),
     });
     const json = await res.json().catch(() => ({} as any));
@@ -1763,6 +1766,7 @@ credits_used: months * qtyScreens,
         image_url: imageToSend, // ✅ ENVIA A IMAGEM NO ENVIO IMEDIATO
         message_template_id: templateIdToSend, // ✅ OPCIONAL: Envia o ID para constar no histórico
         whatsapp_session: targetSession,
+        skip_failure_notify: true, // já notifica no catch abaixo (tipo "whatsapp_falha", 1 por pagamento)
       }),
     });
 

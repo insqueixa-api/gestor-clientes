@@ -22,9 +22,38 @@ import {
 } from "@/lib/whatsapp/template-vars";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
+import { notify, formatClientLabel } from "@/lib/notifications/notify";
 
 function safeServerLog(...args: any[]) {
   console.error(...args);
+}
+
+// ✅ 01/09/2026, pedido do Márcio: checagem PROATIVA antes de tentar
+// enviar — antes só era reativa (tentava /send e só descobria a
+// desconexão pela resposta 503). Cobre de uma vez todos os pontos do
+// sistema que chamam esta rota (criação de teste/cliente, renovação,
+// recarga de revenda, renovação de app, confirmação de pagamento) já que
+// todos passam por aqui. Best-effort: se a própria checagem falhar (VM
+// fora do ar, timeout), trata como desconectado — não faz sentido tentar
+// /send se nem /status responde.
+async function isSessionConnected(baseUrl: string, waToken: string, sessionKey: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetch(`${baseUrl}/status`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${waToken}`, "x-session-key": sessionKey, Accept: "application/json" },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => ({}));
+    const status = json?.status as string | undefined;
+    return status === "connected" || status === "connecting";
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export const runtime = "nodejs";
@@ -273,6 +302,14 @@ export async function POST(req: Request) {
   // ✅ NOVO: Lê a sessão requisitada do body e gera a chave correspondente
   const targetSession = String((body as any).whatsapp_session || "default");
   const sessionKey = makeSessionKey(tenantId, authedUserId, targetSession === "session2" ? 2 : 1);
+  const skipFailureNotify = (body as any).skip_failure_notify === true;
+
+  // ✅ checagem proativa (1x por request, mesma sessão pra todos os
+  // contatos do destinatário) — se não estiver no ar, nem tenta /send.
+  const sessionConnected = await isSessionConnected(baseUrl, waToken, sessionKey);
+  if (!sessionConnected) {
+    await reportWhatsAppDisconnected(tenantId, targetSession, "envio_agora");
+  }
 
   safeServerLog("[WA][send_now]", {
     tenantId,
@@ -358,6 +395,13 @@ export async function POST(req: Request) {
   // ==========================================
   for (let i = 0; i < wa.phones.length; i++) {
     const contact = wa.phones[i];
+
+    // ✅ sessão fora do ar — nem monta a mensagem (evita gerar link de
+    // portal etc. à toa pra um envio que já sabemos que vai falhar).
+    if (!sessionConnected) {
+      results.push({ phone: contact.number, error: "Sessão do WhatsApp desconectada", status: 503 });
+      continue;
+    }
 
     // ✅ Delay entre contatos do mesmo cliente (principal → secundário)
     if (i > 0) {
@@ -487,6 +531,33 @@ export async function POST(req: Request) {
   } catch (err) {
     safeServerLog("[WA][send_now] falha ao gravar log em client_message_jobs", err);
     Sentry.captureException(err, { tags: { kind: "data_loss_risk", where: "client_message_jobs_insert" } });
+  }
+
+  // ✅ 01/09/2026, pedido do Márcio: antes só a confirmação de pagamento
+  // deixava rastro no sino quando o envio falhava (os outros ~9 pontos que
+  // chamam esta rota só mostravam um toast na tela, que some se ninguém
+  // estiver olhando). Agora TODO envio que falha aqui (menos os que o
+  // próprio caller já notifica, ex: fulfillment.ts) deixa uma notificação —
+  // sourceId único por tentativa (evento real, não polling), então cada
+  // falha fica visível, não só a primeira.
+  if (allFailed && !skipFailureNotify) {
+    try {
+      const label =
+        recipientType === "reseller"
+          ? formatClientLabel(wa.row?.display_name || wa.row?.name, wa.row?.server_username)
+          : formatClientLabel(wa.row?.display_name || wa.row?.client_name, wa.row?.server_username);
+      const reason = !sessionConnected ? "sessão desconectada" : "erro ao enviar";
+      await notify({
+        tenantId,
+        type: "whatsapp_falha",
+        title: "💬 Envio de WhatsApp falhou",
+        message: `Envio para ${label} não foi entregue (${reason}). Verifique em Configurações > WhatsApp ou reenvie pela Auditoria.`,
+        link: "/admin/settings/whatsapp",
+        sourceId: `envio_agora:${recipientType}:${recipientId}:${Date.now()}`,
+      });
+    } catch (e: any) {
+      safeServerLog("[WA][send_now] falha ao notificar sino", e?.message);
+    }
   }
 
   if (allFailed) {

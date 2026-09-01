@@ -44,6 +44,13 @@ export function formatClientLabel(
  * Cria ou atualiza uma notificação.
  * Se já existir uma notificação do mesmo (tenant, type, source_id),
  * atualiza o conteúdo em vez de duplicar.
+ *
+ * ✅ 01/09/2026, bug real achado: o upsert não tocava em resolved_at/
+ * is_read, então um alerta que já tinha sido resolvido (ex: WhatsApp caiu,
+ * reconectou sozinho) e depois volta a acontecer (cai de novo) ficava
+ * "invisível" — o registro reaberto continuava marcado como resolvido/lido
+ * da vez anterior. notify() só é chamado pra sinalizar um problema ATIVO
+ * (resolver é sempre via resolveNotification), então sempre reabre.
  */
 export async function notify(params: NotifyParams) {
   const { tenantId, type, title, message, link, sourceId } = params;
@@ -59,6 +66,8 @@ export async function notify(params: NotifyParams) {
         message,
         link: link || null,
         source_id: sourceId,
+        resolved_at: null,
+        is_read: false,
       },
       { onConflict: "tenant_id,type,source_id" },
     );
