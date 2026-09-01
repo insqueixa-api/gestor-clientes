@@ -227,7 +227,8 @@ export async function POST(req: Request) {
         is_active,
         is_automatic,
         execution_status,
-        schedule_time
+        schedule_time,
+        target_status
       )
     `
       )
@@ -361,6 +362,42 @@ export async function POST(req: Request) {
             .update({ status: "FAILED", error_message: "Job sem destino (client_id/reseller_id ausente)" })
             .eq("id", job.id);
           continue;
+        }
+
+        // ✅ Recheca elegibilidade AGORA, na hora do envio — o enfileiramento
+        // de manhã (billing_enqueue_scheduled) só sabe o status do cliente
+        // NAQUELE instante; se ele pagar depois de entrar na fila mas antes
+        // do send_at chegar, a mensagem não é mais cabível. Mesma fórmula de
+        // status usada em vw_clients_list_active. Só se aplica a jobs
+        // automáticos (têm automation_id) mirando cliente — reseller não tem
+        // vencimento/target_status.
+        if ((job as any).automation_id && automationConfig && recipientType === "client") {
+          const targetStatus: string[] = Array.isArray(automationConfig.target_status) ? automationConfig.target_status : [];
+          if (targetStatus.length > 0) {
+            const { data: freshClient } = await sb
+              .from("clients")
+              .select("vencimento, is_archived, is_trial")
+              .eq("id", recipientId)
+              .maybeSingle();
+
+            const currentStatus = !freshClient
+              ? "ARCHIVED"
+              : freshClient.is_archived
+                ? "ARCHIVED"
+                : freshClient.is_trial
+                  ? "TRIAL"
+                  : freshClient.vencimento && new Date(freshClient.vencimento) < new Date()
+                    ? "OVERDUE"
+                    : "ACTIVE";
+
+            if (!targetStatus.includes(currentStatus)) {
+              await sb
+                .from("client_message_jobs")
+                .update({ status: "CANCELLED", error_message: `Cliente não é mais elegível (status atual: ${currentStatus})` })
+                .eq("id", job.id);
+              continue;
+            }
+          }
         }
 
         // ✅ pega WhatsApp e linha pra tags
