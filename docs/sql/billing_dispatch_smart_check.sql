@@ -13,15 +13,20 @@
 --    a) tem job de cobrança pronto pra disparar agora? se não, morre aqui
 --       (nem olha WhatsApp, nem bate em lugar nenhum).
 --    b) WhatsApp das sessões necessárias está conectado? usa cache de
---       10min; se venceu, chama /api/cron/whatsapp-status-check (só as
---       sessões necessárias) e ESPERA a resposta antes de decidir (pg_net
---       síncrono via net.http_collect_response). Se confirmado down pra
---       todas as sessões necessárias, morre aqui.
+--       10min; se venceu, DISPARA (sem esperar resposta) uma atualização
+--       via /api/cron/whatsapp-status-check e decide com o cache que tem
+--       agora (fail-open). Testado net.http_collect_response síncrono
+--       (async:=false) pra esperar a resposta antes de decidir — travou/
+--       deu erro nesse ambiente gerenciado, arriscado demais pro cron que
+--       dispara toda cobrança a cada 2min, então foi abandonado em favor
+--       do mesmo padrão "dispara e não espera" que todos os outros crons
+--       deste sistema já usam. Pior caso: até 1 tick (2min) com dado
+--       levemente velho antes do cache se atualizar sozinho.
 --    c) só então bate em /api/whatsapp/envio_programado — que já foi
 --       alterado (ver git) pra reconferir a elegibilidade de CADA cliente
 --       bem antes de mandar a mensagem dele.
 
-select cron.unschedule(55); -- system_health_check_5min
+-- select cron.unschedule(55); -- system_health_check_5min — já removido, deixado comentado pra referência
 
 CREATE OR REPLACE FUNCTION public.billing_dispatch_check()
  RETURNS void
@@ -35,7 +40,6 @@ declare
   v_needed_sessions text[];
   v_stale_sessions text[];
   v_all_confirmed_down boolean;
-  v_request_id bigint;
 begin
   -- 1) tem job pronto pra disparar agora?
   select array_agg(distinct case when whatsapp_session = 'session2' then 'whatsapp_2' else 'whatsapp_1' end)
@@ -49,7 +53,8 @@ begin
   end if;
 
   -- 2) cache de 10min do status do WhatsApp — se alguma sessão necessária
-  -- estiver sem dado fresco, atualiza agora (síncrono) antes de decidir.
+  -- estiver sem dado fresco, dispara a atualização (sem esperar) antes de
+  -- decidir com o cache que tem agora.
   select array_agg(s) into v_stale_sessions
   from unnest(v_needed_sessions) as s
   where not exists (
@@ -64,19 +69,19 @@ begin
       where name = 'cron_control_secret';
 
       if v_control_secret is not null then
-        select net.http_post(
+        -- fire-and-forget (mesmo padrão dos outros crons) — não espera a
+        -- resposta; decide com o cache que tem AGORA logo abaixo (fail-open).
+        perform net.http_post(
           url := 'https://unigestor.net.br/api/cron/whatsapp-status-check',
           headers := jsonb_build_object('x-cron-secret', v_control_secret, 'Content-Type', 'application/json'),
           body := jsonb_build_object('sessions', to_jsonb(
             array(select case when s = 'whatsapp_2' then 2 else 1 end from unnest(v_stale_sessions) as s)
           )),
           timeout_milliseconds := 15000
-        ) into v_request_id;
-
-        perform net.http_collect_response(v_request_id, async := false);
+        );
       end if;
     exception when others then
-      raise warning '[billing_dispatch_check] falha ao atualizar cache do WhatsApp: %', sqlerrm;
+      raise warning '[billing_dispatch_check] falha ao disparar refresh do WhatsApp: %', sqlerrm;
     end;
   end if;
 
