@@ -66,6 +66,12 @@ const INDICATOR_PT: Record<string, string> = {
 };
 
 // Providers usam o mesmo formato de status page (statuspage.io).
+// ✅ 01/09/2026, pedido do Márcio: "warn" só com "Instabilidade pontual
+// (impacto leve)" não dizia NADA do que é — tinha que perguntar pra IA (e
+// mesmo assim ela não sabia o incidente real). Agora busca também o nome
+// do incidente aberto de verdade (mesmo statuspage.io, endpoint
+// /incidents/unresolved.json) e mostra direto no painel, sem precisar de
+// IA nenhuma pra saber O QUE está instável.
 async function checkStatusPage(key: string, label: string, url: string): Promise<CheckResult> {
   try {
     const res = await fetchWithTimeout(url, 6000);
@@ -73,7 +79,29 @@ async function checkStatusPage(key: string, label: string, url: string): Promise
     const json: any = await res.json();
     const indicator = String(json?.status?.indicator || "none");
     const status: CheckStatus = indicator === "none" ? "ok" : indicator === "minor" ? "warn" : "fail";
-    return { key, label, group: "externos", status, detail: INDICATOR_PT[indicator] || json?.status?.description || "Operacional" };
+
+    if (indicator === "none") {
+      return { key, label, group: "externos", status, detail: "" };
+    }
+
+    let incidentName = "";
+    try {
+      const incidentsUrl = url.replace(/status\.json$/, "incidents/unresolved.json");
+      const incRes = await fetchWithTimeout(incidentsUrl, 6000);
+      if (incRes.ok) {
+        const incJson: any = await incRes.json();
+        const incidents = Array.isArray(incJson?.incidents) ? incJson.incidents : [];
+        // pega o de maior impacto (critical > major > minor > none)
+        const rank: Record<string, number> = { critical: 3, major: 2, minor: 1, none: 0 };
+        const top = incidents.sort((a: any, b: any) => (rank[b?.impact] || 0) - (rank[a?.impact] || 0))[0];
+        incidentName = top?.name || "";
+      }
+    } catch {
+      // segue sem o nome do incidente — detail genérico ainda é melhor que quebrar o check
+    }
+
+    const base = INDICATOR_PT[indicator] || json?.status?.description || "Operacional";
+    return { key, label, group: "externos", status, detail: incidentName ? `${base} — ${incidentName}` : base };
   } catch (e: any) {
     return { key, label, group: "externos", status: "warn", detail: "Falha ao consultar status page" };
   }
