@@ -33,17 +33,20 @@ import { normalizeMacInput } from "@/lib/apps/field-types";
 const PAYMENT_POLL_SCHEDULE_SECS = [10, 10, 9, 9, 8, 8, 7, 7, 6, 6];
 
 // ✅ Depois do fim da rampa acima, o "piso" não é mais fixo — alarga com o
-// tempo total decorrido (pedido do Márcio, 02/09/2026): o Pix do Mercado
-// Pago vale 30min de verdade (date_of_expiration, ver create-payment/
-// route.ts e apps/renew-payment/route.ts) e a tela NÃO tem prazo próprio
-// de desistência — só fica menos frequente com o tempo, nunca para
-// sozinha (só quando o pagamento confirma, dá erro, ou a pessoa sai).
+// tempo total decorrido: 5s até 5min, 10s até 10min, 15s dali em diante.
 function paymentPollFloorSecs(elapsedMs: number): number {
   const elapsedMin = elapsedMs / 60000;
   if (elapsedMin < 5) return 5;
   if (elapsedMin < 10) return 10;
   return 15;
 }
+
+// ✅ Pedido do Márcio, 02/09/2026: mesmo prazo que o Pix REALMENTE vale no
+// Mercado Pago (date_of_expiration = 30min, ver create-payment/route.ts e
+// apps/renew-payment/route.ts) — igual banco faz com Pix, o código morre
+// de verdade nesse prazo, então o polling para de bater no servidor à toa
+// depois disso (o código já não é mais pagável de qualquer forma).
+const PAYMENT_POLL_HARD_STOP_MS = 30 * 60 * 1000;
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -446,6 +449,9 @@ export default function RenewClient() {
     null,
   );
   const [renewPaymentDone, setRenewPaymentDone] = useState(false);
+  // ✅ Pix expirado (30min, mesmo prazo real do Mercado Pago) — polling
+  // desiste sozinho, mostra aviso em vez de ficar "Aguardando..." parado.
+  const [renewPaymentExpired, setRenewPaymentExpired] = useState(false);
   const [copiedAppPixCode, setCopiedAppPixCode] = useState(false);
   // ✅ "Tentar novamente" — ativação via Appativa que falhou (achado
   // 25/08/2026), cliente já corrigiu o campo (ex: MAC) e reenvia.
@@ -484,6 +490,7 @@ export default function RenewClient() {
   function startPollingAppPayment(paymentId: string) {
     if (!session) return;
     if (renewPollInterval) clearInterval(renewPollInterval);
+    setRenewPaymentExpired(false);
 
     // ✅ Polling progressivo (pedido do Márcio, 04/08/2026): a pessoa acabou
     // de gerar o PIX e precisa abrir o banco antes de pagar, então a
@@ -495,11 +502,19 @@ export default function RenewClient() {
     let scheduleIndex = 0;
 
     const interval = setInterval(async () => {
+      const elapsedMs = Date.now() - pollStartedAt;
+      if (elapsedMs >= PAYMENT_POLL_HARD_STOP_MS) {
+        clearInterval(interval);
+        setRenewPollInterval(null);
+        setRenewPaymentExpired(true);
+        return;
+      }
+
       secondsUntilNextPoll -= 1;
       if (secondsUntilNextPoll > 0) return;
       scheduleIndex++;
       secondsUntilNextPoll =
-        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? paymentPollFloorSecs(Date.now() - pollStartedAt);
+        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? paymentPollFloorSecs(elapsedMs);
 
       try {
         const res = await fetch("/api/client-portal/payment-status", {
@@ -839,7 +854,7 @@ export default function RenewClient() {
 
   // ✅ NOVO: fases do fluxo (UI mais clara)
   const [paymentPhase, setPaymentPhase] = useState<
-    "awaiting_payment" | "renewing" | "done" | "error"
+    "awaiting_payment" | "renewing" | "done" | "error" | "expired"
   >("awaiting_payment");
 
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(
@@ -1655,6 +1670,7 @@ export default function RenewClient() {
 
     // Limpar intervalo anterior se existir
     if (pollingInterval) clearInterval(pollingInterval);
+    setPaymentPhase("awaiting_payment");
 
     // ✅ Polling progressivo (pedido do Márcio, 04/08/2026) — mesma ideia de
     // startPollingAppPayment: primeira consulta só depois de 10s, depois
@@ -1666,11 +1682,19 @@ export default function RenewClient() {
     let scheduleIndex = 0;
 
     const interval = setInterval(async () => {
+      const elapsedMs = Date.now() - pollStartedAt;
+      if (elapsedMs >= PAYMENT_POLL_HARD_STOP_MS) {
+        clearInterval(interval);
+        setPollingInterval(null);
+        setPaymentPhase("expired");
+        return;
+      }
+
       secondsUntilNextPoll -= 1;
       if (secondsUntilNextPoll > 0) return;
       scheduleIndex++;
       secondsUntilNextPoll =
-        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? paymentPollFloorSecs(Date.now() - pollStartedAt);
+        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? paymentPollFloorSecs(elapsedMs);
 
       try {
         const res = await fetch("/api/client-portal/payment-status", {
@@ -2907,18 +2931,40 @@ export default function RenewClient() {
                 )}
 
                 {/* Status */}
-                <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 flex items-center gap-3">
-                  <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                <div
+                  className={`p-3 rounded-xl border flex items-center gap-3 ${
+                    paymentPhase === "expired"
+                      ? "bg-rose-500/10 border-rose-500/20"
+                      : "bg-sky-500/10 border-sky-500/20"
+                  }`}
+                >
+                  {paymentPhase === "expired" ? (
+                    <div className="w-6 h-6 flex items-center justify-center text-lg shrink-0">⏱️</div>
+                  ) : (
+                    <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                  )}
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-sky-500">
+                    <p
+                      className={`text-sm font-bold ${
+                        paymentPhase === "expired" ? "text-rose-500" : "text-sky-500"
+                      }`}
+                    >
                       {paymentPhase === "renewing"
                         ? "Processando renovação..."
-                        : "Aguardando pagamento..."}
+                        : paymentPhase === "expired"
+                          ? "Código Pix expirado"
+                          : "Aguardando pagamento..."}
                     </p>
-                    <p className="text-xs text-sky-500/80">
+                    <p
+                      className={`text-xs ${
+                        paymentPhase === "expired" ? "text-rose-500/80" : "text-sky-500/80"
+                      }`}
+                    >
                       {paymentPhase === "renewing"
                         ? "Estamos atualizando sua assinatura agora. Pode levar alguns segundos."
-                        : "Assim que o pagamento for confirmado, esta tela avança sozinha."}
+                        : paymentPhase === "expired"
+                          ? "Esse código não vale mais. Feche e comece o pagamento de novo."
+                          : "Assim que o pagamento for confirmado, esta tela avança sozinha."}
                     </p>
                   </div>
                 </div>
@@ -5167,14 +5213,34 @@ export default function RenewClient() {
                               </div>
                             )}
 
-                            <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 flex items-center gap-3">
-                              <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin" />
+                            <div
+                              className={`p-3 rounded-xl border flex items-center gap-3 ${
+                                renewPaymentExpired
+                                  ? "bg-rose-500/10 border-rose-500/20"
+                                  : "bg-sky-500/10 border-sky-500/20"
+                              }`}
+                            >
+                              {renewPaymentExpired ? (
+                                <div className="w-6 h-6 flex items-center justify-center text-lg shrink-0">⏱️</div>
+                              ) : (
+                                <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                              )}
                               <div className="flex-1">
-                                <p className="text-sm font-bold text-sky-500">
-                                  Aguardando pagamento...
+                                <p
+                                  className={`text-sm font-bold ${
+                                    renewPaymentExpired ? "text-rose-500" : "text-sky-500"
+                                  }`}
+                                >
+                                  {renewPaymentExpired ? "Código Pix expirado" : "Aguardando pagamento..."}
                                 </p>
-                                <p className="text-xs text-sky-500/80">
-                                  Detectaremos automaticamente quando você pagar
+                                <p
+                                  className={`text-xs ${
+                                    renewPaymentExpired ? "text-rose-500/80" : "text-sky-500/80"
+                                  }`}
+                                >
+                                  {renewPaymentExpired
+                                    ? "Esse código não vale mais. Feche e comece o pagamento de novo."
+                                    : "Detectaremos automaticamente quando você pagar"}
                                 </p>
                               </div>
                             </div>
