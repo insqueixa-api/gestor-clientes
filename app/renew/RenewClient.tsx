@@ -25,8 +25,14 @@ import { normalizeMacInput } from "@/lib/apps/field-types";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
 // consulta espera mais (a pessoa ainda precisa abrir o banco e pagar),
-// depois aperta o intervalo até fixar no piso — pedido do Márcio, 04/08/2026.
-const PAYMENT_POLL_SCHEDULE_SECS = [10, 9, 8, 7, 6];
+// depois aperta o intervalo até fixar no piso — pedido do Márcio,
+// 04/08/2026. Cada degrau repete 2x antes de apertar pro próximo (pedido
+// do Márcio, 02/09/2026: "ninguém paga em 10 segundos, até abrir banco e
+// tal") — dá mais fôlego no começo, quando ainda não tem chance real de
+// já ter pago. Depois do fim da lista, fixa no piso (5s) SEM limite de
+// tempo — continua consultando até o pagamento confirmar, dar erro, ou a
+// pessoa sair da tela.
+const PAYMENT_POLL_SCHEDULE_SECS = [10, 10, 9, 9, 8, 8, 7, 7, 6, 6];
 const PAYMENT_POLL_FLOOR_SECS = 5;
 
 // ========= TYPES =========
