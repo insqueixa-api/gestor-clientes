@@ -227,6 +227,14 @@ export async function POST(req: NextRequest) {
           masterIdMap.set(buscaKeys[j], id);
           paraUpdate.push({
             id,
+            // ✅ 02/09/2026, bug real achado: .upsert() gera um INSERT ...
+            // ON CONFLICT DO UPDATE por baixo dos panos — o Postgres valida
+            // o NOT NULL de titulo_normalizado na parte do INSERT ANTES de
+            // resolver o conflito, mesmo a linha já existindo de verdade.
+            // Sem esse campo aqui, TODO update falhava (violava a
+            // constraint), mesmo não mudando esse valor — só reafirma o
+            // mesmo título já parseado, sem efeito colateral real.
+            titulo_normalizado: e.titulo_normalizado,
             ...(e.cover_url ? { cover_url: e.cover_url } : {}),
             ano:           e.ano ?? null,
             atualizado_em: agora,
