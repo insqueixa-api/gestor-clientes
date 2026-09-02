@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
-        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name)")
+        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id)")
         .eq("client_id", client_id),
       // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
       // configuração"/"Exclusão solicitada" quando já existe um pedido
@@ -341,6 +341,13 @@ export async function POST(req: NextRequest) {
         // nada — bug real em produção, corrigido junto com a feature de
         // validade por MAC.
         is_gerenciaapp_family: integrationType === "GERENCIAAPP" && row.apps?.cost_type === "free",
+        // ✅ 01/09/2026, pedido do Márcio: limiar de "vencendo" (portal)
+        // passa a ser diferente por parceiro — Appativa (regra deles)
+        // continua em 7 dias, todo o resto (GerenciaApp família, Duplecast,
+        // GPC Roku) sobe pra 30. appativa_app_id preenchido = app roteia
+        // (ao menos como opção) pela Appativa — ver lib/client-portal/
+        // fulfillment.ts (tryAppativaQueue).
+        is_appativa: !!row.apps?.appativa_app_id,
       };
     }));
 

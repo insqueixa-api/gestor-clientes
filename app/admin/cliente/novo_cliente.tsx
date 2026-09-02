@@ -15,6 +15,7 @@ import { brPhoneTailCandidates } from "@/lib/phone-tail";
 import {
   ADMIN_CHECK_HANDLERS,
   resolveIntegrationTypeByName,
+  extractDateOnly,
 } from "@/lib/apps/panel";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import { dispatchIbosolAction } from "@/lib/apps/ibosol-extension";
@@ -2087,6 +2088,27 @@ export default function NovoCliente({
     return macValue;
   }
 
+  // ✅ Extrai o vencimento (campo type="date") de qualquer app — usado pra
+  // decidir quando mostrar "Renovar Grátis" (pedido do Márcio, 01/09/2026).
+  function getExpirationDateFromApp(appInstance?: SelectedAppInstance): string | null {
+    if (!appInstance) return null;
+    const dateField = appInstance.fields_config?.find(
+      (f: any) => String(f?.type || "").toLowerCase() === "date",
+    );
+    if (!dateField) return null;
+    const key = String(dateField.id || dateField.label || "").trim();
+    return extractDateOnly(appInstance.values[key]);
+  }
+
+  // ✅ Mesmo padrão de app/renew/RenewClient.tsx (meio-dia SP dos dois
+  // lados, evita fração de dia por causa da hora atual).
+  function daysUntilSP(dateOnly: string): number {
+    const todaySP = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+    const d1 = new Date(`${todaySP}T12:00:00`);
+    const d2 = new Date(`${dateOnly}T12:00:00`);
+    return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
   // Mesma lógica de extractFieldByType(..., "device_key") em lib/apps/panel.ts —
   // usado pelo "Renovar Duplecast" pra validar antes de chamar a API.
   function getDeviceKeyFromApp(appInstance?: SelectedAppInstance) {
@@ -2680,6 +2702,67 @@ export default function NovoCliente({
         addToast(
           "success",
           "Duplecast renovado",
+          `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
+        );
+      } else {
+        addToast("error", "Não foi possível renovar", apiJson?.error || "Falha desconhecida.");
+      }
+    } catch (err: any) {
+      setLoading(false);
+      setLoadingStep("");
+      addToast("error", "Não foi possível renovar", err.message || "Falha.");
+    }
+  }
+
+  // ✅ "Renovar Grátis" (pedido do Márcio, 01/09/2026) — família GerenciaApp
+  // GRÁTIS (IBO Revenda, Zone X, VU Revenda, Facilita, Uni Revenda, GPC
+  // Android/LG/Pro), equivalente admin do botão que já existe no Portal.
+  // Mesma ação "renew" sem data explícita (+1 ano a partir do vencimento
+  // atual/hoje) — NUNCA pro GPC Roku (é pago, usa handleMarkGpcRokuPaid).
+  async function handleFreeRenewGerenciaApp(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+
+    if (!currentApp.client_app_id) {
+      addToast("warning", "Atenção", "Salve o cliente primeiro.");
+      return;
+    }
+
+    const macValue = getMacFromApp(currentApp);
+    if (!macValue || macValue.trim() === "") {
+      addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) antes de renovar.");
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Renovar gratuitamente?",
+      subtitle: "Estende o vencimento em +1 ano no painel do parceiro, sem cobrar nada do cliente.",
+      tone: "emerald",
+      confirmText: "Sim, renovar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setLoading(true);
+    setLoadingStep("Renovando gratuitamente...");
+    try {
+      const apiJson = await callAdminAppApi("/api/admin/apps/gerenciaapp/renew-free", {
+        client_app_id: currentApp.client_app_id,
+      });
+      setLoading(false);
+      setLoadingStep("");
+
+      if (apiJson?.ok && apiJson.expireDate) {
+        const dateField = currentApp?.fields_config?.find(
+          (f: any) => String(f?.type || "").toLowerCase() === "date",
+        );
+        if (dateField) {
+          const fieldKey = dateField.id || dateField.label;
+          updateAppFieldValue(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
+        }
+        addToast(
+          "success",
+          "Renovado gratuitamente",
           `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
         );
       } else {
@@ -6378,6 +6461,21 @@ export default function NovoCliente({
                                         ? () => handleRenewDuplecast(app.instanceId)
                                         : undefined
                                     }
+                                    onFreeRenewGerenciaApp={(() => {
+                                      // ✅ Pedido do Márcio, 01/09/2026: família
+                                      // GerenciaApp GRÁTIS (cost_type "free")
+                                      // vencendo em <=30 dias (ou já vencido, ou
+                                      // sem data ainda) — GPC Roku é a mesma
+                                      // integração mas cost_type "paid", nunca
+                                      // cai aqui.
+                                      if (integrationType !== "GERENCIAAPP" || catApp?.cost_type !== "free") {
+                                        return undefined;
+                                      }
+                                      const expDate = getExpirationDateFromApp(app);
+                                      const diffDays = expDate ? daysUntilSP(expDate) : null;
+                                      const withinWindow = diffDays === null || diffDays <= 30;
+                                      return withinWindow ? () => handleFreeRenewGerenciaApp(app.instanceId) : undefined;
+                                    })()}
                                     onActivateAppativa={
                                       catApp?.appativa_app_id
                                         ? () => handleAtivarAppativa(app.instanceId)

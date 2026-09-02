@@ -378,6 +378,7 @@ export default function RenewClient() {
     is_active: boolean;
     discontinued_replacement_name: string | null;
     is_gerenciaapp_family: boolean;
+    is_appativa: boolean;
   };
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
   // ✅ Instruções de configuração — pedido do Márcio (25/07/2026): substitui
@@ -4330,25 +4331,25 @@ export default function RenewClient() {
                   ? String(app.expiration).split("T")[0]
                   : "";
                 // ✅ 3 estados (pedido do Marcio, 25/07/2026): já vencido
-                // fica vermelho ("Vencido"), vencendo em menos de 7 dias
-                // fica âmbar ("Vencendo"), resto fica neutro ("Validade").
-                // Baixado de 30→7 em 26/08/2026 (mesmo achado do alerta
-                // acima, expiringAppsForAlert) — deixado de propósito
-                // diferente do limiar do admin em cliente/[id]/page.tsx, que
-                // continua em 30 (visão do admin, não amarrada ao processo
-                // de ativação de nenhum parceiro específico).
+                // fica vermelho ("Vencido"), vencendo fica âmbar
+                // ("Vencendo"), resto fica neutro ("Validade"). Limiar
+                // baixado de 30→7 em 26/08/2026, depois DIFERENCIADO por
+                // parceiro em 01/09/2026 (pedido do Márcio): Appativa
+                // mantém 7 dias (regra deles), todo o resto (GerenciaApp
+                // família, Duplecast, GPC Roku) volta pra 30.
                 const expirationDiffDays = expirationDatePart
                   ? daysUntilSP(expirationDatePart)
                   : null;
                 const isExpired =
                   expirationDiffDays !== null && expirationDiffDays < 0;
-                // ✅ <= 7, não < 7 — mesmo achado de expiringAppsForAlert
-                // acima (trial novo de 7 dias exatos precisa aparecer no
-                // dia 0, não só a partir do dia 1).
+                // ✅ <= limiar, não < limiar — mesmo achado de
+                // expiringAppsForAlert acima (trial novo de N dias exatos
+                // precisa aparecer no dia 0, não só a partir do dia 1).
+                const expiringSoonThresholdDays = app.is_appativa ? 7 : 30;
                 const isExpiringSoon =
                   expirationDiffDays !== null &&
                   expirationDiffDays >= 0 &&
-                  expirationDiffDays <= 7;
+                  expirationDiffDays <= expiringSoonThresholdDays;
                 return (
                   <div
                     key={app.id}

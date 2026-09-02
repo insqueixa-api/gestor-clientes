@@ -74,6 +74,18 @@ function IconZap({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
   );
 }
 
+function IconGift({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M20 12v9a1 1 0 01-1 1H5a1 1 0 01-1-1v-9M2 7h20v5H2V7zm10 0v14M12 7c0-2 1.5-4 3.5-4S18 4.5 18 6.5c0 .5-.2 1-.5 1.5H12zm0 0c0-2-1.5-4-3.5-4S6 4.5 6 6.5c0 .5.2 1 .5 1.5H12z"
+      />
+    </svg>
+  );
+}
+
 export type AppIntegrationActionsProps = {
   /** ClouDDy usa o fluxo via extensão do Chrome (3 botões), sem API própria. */
   isClouddy: boolean;
@@ -102,6 +114,12 @@ export type AppIntegrationActionsProps = {
    * mesmo núcleo (renewDuplecastWithCode) usado quando o cliente paga pelo
    * Portal. Só pro app Duplecast. */
   onRenewDuplecast?: () => void | Promise<void>;
+  /** Família GerenciaApp GRÁTIS (IBO Revenda, Zone X, VU Revenda, Facilita,
+   * Uni Revenda, GPC Android/LG/Pro — pedido do Márcio, 01/09/2026: mesma
+   * ideia do "Marcar pago" do GPC Roku, mas sem cobrar nada). Equivalente
+   * admin do botão "Renovar licença — Grátis" que já existe no Portal —
+   * NUNCA passar pro GPC Roku (é pago, usa onMarkGpcRokuPaid). */
+  onFreeRenewGerenciaApp?: () => void | Promise<void>;
   /** Appativa (achado 26/08/2026, pedido do Márcio: "ali eu também deveria
    * chamar essa integração pra confirmar essa ativação dos aplicativos") —
    * botão extra "Ativar via Appativa" pra apps mapeados em
@@ -138,6 +156,7 @@ export default function AppIntegrationActions({
   onRemove,
   onMarkGpcRokuPaid,
   onRenewDuplecast,
+  onFreeRenewGerenciaApp,
   onActivateAppativa,
   appativaPending = false,
   onCheckAppativaStatus,
@@ -246,12 +265,14 @@ export default function AppIntegrationActions({
   const showRemove = showRemoveButton && !!onRemove;
   const showMarkPaid = !!onMarkGpcRokuPaid;
   const showRenewDuplecast = !!onRenewDuplecast;
+  const showFreeRenewGerenciaApp = !!onFreeRenewGerenciaApp;
   const showActivateAppativa = !!onActivateAppativa;
   const buttonCount =
     2 +
     (showRemove ? 1 : 0) +
     (showMarkPaid ? 1 : 0) +
     (showRenewDuplecast ? 1 : 0) +
+    (showFreeRenewGerenciaApp ? 1 : 0) +
     (showActivateAppativa ? 1 : 0);
   const cols =
     buttonCount >= 5
@@ -334,6 +355,19 @@ export default function AppIntegrationActions({
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
             <span className="hidden sm:inline">Renovar Duplecast</span>
+          </button>
+        )}
+
+        {showFreeRenewGerenciaApp && (
+          <button
+            type="button"
+            onClick={() => onFreeRenewGerenciaApp!()}
+            disabled={loading}
+            className="h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            title="Estende o vencimento em +1 ano no painel do parceiro, sem cobrar nada"
+          >
+            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconGift />}
+            <span className="hidden sm:inline">Renovar Grátis</span>
           </button>
         )}
 
