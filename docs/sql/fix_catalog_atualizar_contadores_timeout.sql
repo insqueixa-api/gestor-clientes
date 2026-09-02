@@ -1,0 +1,13 @@
+-- Fix 02/09/2026 (parte 2): mesmo problema do refresh_catalog_stats.sql,
+-- em outra funcao chamada logo antes no mesmo fluxo do sync.
+--
+-- catalog_atualizar_contadores() faz um UPDATE em catalog_master agrupando
+-- sobre catalog_episodes (~180 mil linhas), rodando logo apos a rajada de
+-- upserts do proprio sync -- e como toda chamada via PostgREST/.rpc()
+-- herda o statement_timeout=8s do role "authenticator", estourava
+-- (57014 canceling statement due to statement timeout), confirmado ao
+-- vivo pelo Marcio: POST /rest/v1/rpc/catalog_atualizar_contadores -> 500,
+-- na mesma janela de segundos do refresh_catalog_stats corrigido antes.
+--
+-- Fix: mesma solucao -- eleva o statement_timeout so pra essa funcao.
+ALTER FUNCTION public.catalog_atualizar_contadores(text) SET statement_timeout = '60s';
