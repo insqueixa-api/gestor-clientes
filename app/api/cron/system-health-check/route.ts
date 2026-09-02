@@ -13,6 +13,7 @@
 import crypto from "crypto";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
+import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { getWAContextOrCron, proxyVM } from "@/lib/whatsapp/wa-context";
 import { getActiveProxyOrder } from "@/lib/proxybr";
@@ -302,6 +303,238 @@ async function checkWhatsAppSession(req: Request, session: 1 | 2): Promise<Check
   }
 }
 
+// ✅ 02/09/2026, pedido do Márcio: os 3 checks abaixo (Supabase/Vercel/
+// Cloudflare) mostravam status GENÉRICO da plataforma inteira (statuspage.io
+// — "Supabase está no ar pro mundo?"). Ele queria saber do PROJETO dele
+// especificamente (CPU/RAM/disco do banco, deploy atual, espaço usado no
+// R2) — os checks acima (checkStatusPage) continuam existindo (ainda é útil
+// saber se a plataforma em si está com problema), estes são complementares.
+
+// ─── Parser Prometheus (bem simples — só o suficiente pro formato que o
+// endpoint de métricas privilegiadas da Supabase devolve) ─────────────────
+type PromRow = { name: string; labels: Record<string, string>; value: number };
+function parsePrometheus(raw: string): PromRow[] {
+  const rows: PromRow[] = [];
+  for (const line of raw.split("\n")) {
+    if (!line || line.startsWith("#")) continue;
+    const withLabels = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)\{([^}]*)\}\s+(-?[0-9.eE+]+)\s*$/);
+    const noLabels = withLabels ? null : line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)\s+(-?[0-9.eE+]+)\s*$/);
+    if (withLabels) {
+      const [, name, labelsStr, valStr] = withLabels;
+      const labels: Record<string, string> = {};
+      for (const lm of labelsStr.matchAll(/(\w+)="([^"]*)"/g)) labels[lm[1]] = lm[2];
+      rows.push({ name, labels, value: parseFloat(valStr) });
+    } else if (noLabels) {
+      const [, name, valStr] = noLabels;
+      rows.push({ name, labels: {}, value: parseFloat(valStr) });
+    }
+  }
+  return rows;
+}
+function metricValue(rows: PromRow[], name: string, match?: (l: Record<string, string>) => boolean): number | null {
+  const r = rows.find((r) => r.name === name && (!match || match(r.labels)));
+  return r ? r.value : null;
+}
+function metricSum(rows: PromRow[], name: string, match?: (l: Record<string, string>) => boolean): number {
+  return rows.filter((r) => r.name === name && (!match || match(r.labels))).reduce((a, r) => a + r.value, 0);
+}
+
+// ✅ CPU% real exige 2 amostras (o Prometheus só expõe contador acumulado
+// desde o boot) — guarda a amostra anterior em system_config e compara com
+// a atual a cada rodada (5min de intervalo natural, já que quem chama isso
+// é o próprio pg_cron do health-check).
+async function checkSupabaseProject(): Promise<CheckResult> {
+  const key = "supabase_project";
+  const label = "Supabase — meu projeto";
+  const projectUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  const ref = projectUrl.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1] || "";
+
+  if (!ref || !serviceKey) {
+    return { key, label, group: "externos", status: "warn", detail: "Configuração ausente (NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY)" };
+  }
+
+  try {
+    const res = await fetchWithTimeout(`https://${ref}.supabase.co/customer/v1/privileged/metrics`, 8000, {
+      headers: { Authorization: "Basic " + Buffer.from(`service_role:${serviceKey}`).toString("base64") },
+    });
+    if (!res.ok) return { key, label, group: "externos", status: "warn", detail: `Falha ao consultar métricas (HTTP ${res.status})` };
+    const rows = parsePrometheus(await res.text());
+
+    const memTotal = metricValue(rows, "node_memory_MemTotal_bytes") || 0;
+    const memAvail = metricValue(rows, "node_memory_MemAvailable_bytes") || 0;
+    const memPct = memTotal > 0 ? Math.round(100 * (1 - memAvail / memTotal)) : null;
+
+    const diskTotal = metricValue(rows, "node_filesystem_size_bytes", (l) => l.mountpoint === "/data") || 0;
+    const diskAvail = metricValue(rows, "node_filesystem_avail_bytes", (l) => l.mountpoint === "/data") || 0;
+    const diskPct = diskTotal > 0 ? Math.round(100 * (1 - diskAvail / diskTotal)) : null;
+
+    const idleNow = metricSum(rows, "node_cpu_seconds_total", (l) => l.mode === "idle");
+    const totalNow = metricSum(rows, "node_cpu_seconds_total");
+
+    let cpuPct: number | null = null;
+    const { data: prevRow } = await supabaseAdmin
+      .from("system_config").select("config_value").eq("config_key", "supabase_cpu_sample").maybeSingle<{ config_value: string | null }>();
+    if (prevRow?.config_value) {
+      try {
+        const prev = JSON.parse(prevRow.config_value);
+        const idleDelta = idleNow - prev.idle;
+        const totalDelta = totalNow - prev.total;
+        if (totalDelta > 0) cpuPct = Math.max(0, Math.min(100, Math.round(100 * (1 - idleDelta / totalDelta))));
+      } catch {}
+    }
+    await supabaseAdmin.from("system_config").upsert(
+      { config_key: "supabase_cpu_sample", config_value: JSON.stringify({ idle: idleNow, total: totalNow }), updated_at: new Date().toISOString() },
+      { onConflict: "config_key" },
+    );
+
+    const connections = Math.round(metricSum(rows, "pgbouncer_pools_client_active_connections"));
+
+    // ✅ Só entra na conta se SUPABASE_ACCESS_TOKEN estiver configurado —
+    // best-effort, não quebra o check se faltar (mesmo padrão do checkGemini
+    // quando falta a chave).
+    let errosTxt = "";
+    const mgmtToken = String(process.env.SUPABASE_ACCESS_TOKEN || "").trim();
+    if (mgmtToken) {
+      try {
+        const sql = `select count(*) as n from postgres_logs where event_message ilike '%error%' and timestamp > (extract(epoch from now() - interval '1 hour') * 1000000)::bigint`;
+        const logRes = await fetchWithTimeout(
+          `https://api.supabase.com/v1/projects/${ref}/analytics/endpoints/logs.all?sql=${encodeURIComponent(sql)}`,
+          8000,
+          { headers: { Authorization: `Bearer ${mgmtToken}` } },
+        );
+        if (logRes.ok) {
+          const logJson: any = await logRes.json();
+          const n = logJson?.result?.[0]?.n;
+          if (n !== undefined) errosTxt = ` · ${n} erro(s) (1h)`;
+        }
+      } catch {}
+    }
+
+    const parts = [
+      cpuPct !== null ? `CPU ${cpuPct}%` : "CPU (aguardando 2ª amostra)",
+      memPct !== null ? `RAM ${memPct}% (${Math.round((memTotal - memAvail) / 1e6)}/${Math.round(memTotal / 1e6)}MB)` : null,
+      diskPct !== null ? `Disco ${diskPct}% (${((diskTotal - diskAvail) / 1e9).toFixed(2)}/${(diskTotal / 1e9).toFixed(2)}GB)` : null,
+      `${connections} conexões`,
+    ].filter(Boolean).join(" · ") + errosTxt;
+
+    const status: CheckStatus =
+      (diskPct !== null && diskPct >= 90) || (memPct !== null && memPct >= 90) ? "fail"
+      : (diskPct !== null && diskPct >= 75) || (memPct !== null && memPct >= 75) || (cpuPct !== null && cpuPct >= 85) ? "warn"
+      : "ok";
+
+    return { key, label, group: "externos", status, detail: parts };
+  } catch (e: any) {
+    return { key, label, group: "externos", status: "warn", detail: e?.name === "AbortError" ? "Timeout" : String(e?.message || e).slice(0, 200) };
+  }
+}
+
+// ✅ IDs do time/projeto — não são segredo (aparecem em qualquer URL do
+// dashboard da Vercel), só o VERCEL_API_TOKEN que é sensível.
+const VERCEL_TEAM_ID    = "team_6oAx0zyYrtURvDCz8BvnY0TU";
+const VERCEL_PROJECT_ID = "prj_5i6GIEoZw6AIAPAjpUY7NYR29nxy";
+
+async function checkVercelProject(): Promise<CheckResult> {
+  const key = "vercel_project";
+  const label = "Vercel — meu projeto";
+  const token = String(process.env.VERCEL_API_TOKEN || "").trim();
+
+  if (!token) {
+    return { key, label, group: "externos", status: "warn", detail: "VERCEL_API_TOKEN não configurado" };
+  }
+
+  try {
+    const t0 = Date.now();
+    const [depRes, pingRes] = await Promise.all([
+      fetchWithTimeout(`https://api.vercel.com/v6/deployments?teamId=${VERCEL_TEAM_ID}&projectId=${VERCEL_PROJECT_ID}&limit=5`, 8000, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetchWithTimeout("https://unigestor.net.br/", 6000).catch(() => null),
+    ]);
+    const pingMs = Date.now() - t0;
+
+    if (!depRes.ok) return { key, label, group: "externos", status: "warn", detail: `Falha ao consultar Vercel (HTTP ${depRes.status})` };
+    const depJson: any = await depRes.json();
+    const deps: any[] = depJson?.deployments || [];
+    const latest = deps[0];
+    const okCount = deps.filter((d) => d.state === "READY").length;
+    const ageMin = latest ? Math.round((Date.now() - latest.createdAt) / 60000) : null;
+    const pingOk = !!pingRes && pingRes.ok;
+
+    const parts = [
+      latest ? `Deploy atual: ${latest.readyState}${ageMin !== null ? ` (${ageMin}min atrás)` : ""}` : "Sem deploys",
+      deps.length > 0 ? `últimos ${deps.length}: ${okCount}/${deps.length} OK` : null,
+      `unigestor.net.br: ${pingOk ? `respondeu em ${pingMs}ms` : "sem resposta"}`,
+    ].filter(Boolean).join(" · ");
+
+    const status: CheckStatus =
+      latest?.readyState === "ERROR" || latest?.readyState === "CANCELED" || !pingOk ? "fail"
+      : latest?.readyState === "BUILDING" || latest?.readyState === "QUEUED" || okCount < deps.length ? "warn"
+      : "ok";
+
+    return { key, label, group: "externos", status, detail: parts };
+  } catch (e: any) {
+    return { key, label, group: "externos", status: "warn", detail: e?.name === "AbortError" ? "Timeout" : String(e?.message || e).slice(0, 200) };
+  }
+}
+
+// ✅ Não precisa de token novo do Cloudflare — testado 02/09/2026: os 2
+// buckets juntos têm só ~220 objetos/63MB, ListObjectsV2 completo em
+// <1s. Trava de segurança em 30 páginas (30k objetos) pra nunca virar uma
+// chamada longa se o volume crescer muito.
+async function checkCloudflareR2(): Promise<CheckResult> {
+  const key = "cloudflare_r2";
+  const label = "Cloudflare R2 — meu projeto";
+  const accountId       = String(process.env.R2_ACCOUNT_ID || "").trim();
+  const accessKeyId     = String(process.env.R2_ACCESS_KEY_ID || "").trim();
+  const secretAccessKey = String(process.env.R2_SECRET_ACCESS_KEY || "").trim();
+  const bucketMedia     = String(process.env.R2_BUCKET_NAME || "unigestor-media").trim();
+  const bucketVault     = String(process.env.R2_VAULT_BUCKET_NAME || "").trim();
+
+  if (!accountId || !accessKeyId || !secretAccessKey) {
+    return { key, label, group: "externos", status: "warn", detail: "Credenciais R2 ausentes" };
+  }
+
+  const s3 = new S3Client({
+    region: "auto",
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  async function bucketStats(bucket: string) {
+    let count = 0, bytes = 0, token: string | undefined, pages = 0;
+    do {
+      const r = await s3.send(new ListObjectsV2Command({ Bucket: bucket, ContinuationToken: token, MaxKeys: 1000 }));
+      count += (r.Contents || []).length;
+      bytes += (r.Contents || []).reduce((a, o) => a + (o.Size || 0), 0);
+      token = r.NextContinuationToken;
+      pages++;
+    } while (token && pages < 30);
+    return { count, bytes };
+  }
+
+  try {
+    const t0 = Date.now();
+    const media = await bucketStats(bucketMedia);
+    const vault = bucketVault ? await bucketStats(bucketVault) : null;
+    const ms = Date.now() - t0;
+
+    const totalGB = (media.bytes + (vault?.bytes || 0)) / 1e9;
+    const parts = [
+      `${bucketMedia}: ${media.count} arquivos, ${(media.bytes / 1e6).toFixed(1)}MB`,
+      vault ? `${bucketVault}: ${vault.count} arquivos, ${(vault.bytes / 1e6).toFixed(1)}MB` : null,
+      `respondeu em ${ms}ms`,
+    ].filter(Boolean).join(" · ");
+
+    // R2 tem 10GB grátis de armazenamento/mês — aviso perto do limite.
+    const status: CheckStatus = totalGB >= 9 ? "warn" : "ok";
+
+    return { key, label, group: "externos", status, detail: parts };
+  } catch (e: any) {
+    return { key, label, group: "externos", status: "fail", detail: String(e?.message || e).slice(0, 200) };
+  }
+}
+
 async function runAllChecks(req: Request): Promise<CheckResult[]> {
   const pdfVmBase = String(process.env.PDF_VM_BASE_URL || "").trim();
   const waBase = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
@@ -322,6 +555,9 @@ async function runAllChecks(req: Request): Promise<CheckResult[]> {
     checkStatusPage("cloudflare", "Cloudflare", "https://www.cloudflarestatus.com/api/v2/status.json"),
     checkGemini("gemini_free", "Gemini (chave grátis)", process.env.GEMINI_API_KEY),
     checkGemini("gemini_paid", "Gemini (chave paga, fallback)", process.env.GEMINI_API_KEY_PAID),
+    checkSupabaseProject(),
+    checkVercelProject(),
+    checkCloudflareR2(),
   ]);
 
   return checks;
