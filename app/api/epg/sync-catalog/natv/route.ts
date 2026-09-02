@@ -360,10 +360,13 @@ const master_id = masterIdMap.get(normalizarTituloBusca(ep.titulo_normalizado));
     }
 
     // ── 4e. Contadores ────────────────────────────────────────────────────────
-await supabaseAdmin.rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
+    const { error: rpcErr } = await supabaseAdmin
+      .rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
+    if (rpcErr) console.error(`[CATALOG-NATV] Erro RPC contadores:`, rpcErr.message);
 
     // Refresh da view materializada
-    await supabaseAdmin.rpc("refresh_catalog_stats");
+    const { error: refreshErr } = await supabaseAdmin.rpc("refresh_catalog_stats");
+    if (refreshErr) console.error(`[CATALOG-NATV] Erro RPC refresh_catalog_stats:`, refreshErr.message);
 
     // ── 5. Resultado
     const duracao = Math.round((Date.now() - inicio) / 1000);

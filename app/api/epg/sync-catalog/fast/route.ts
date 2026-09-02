@@ -489,7 +489,8 @@ export async function POST(req: NextRequest) {
       .rpc("catalog_atualizar_contadores", { p_servidor: SERVIDOR });
     if (rpcErr) console.error("[CATALOG-FAST] Erro RPC contadores:", rpcErr.message);
 
-    await supabaseAdmin.rpc("refresh_catalog_stats");
+    const { error: refreshErr } = await supabaseAdmin.rpc("refresh_catalog_stats");
+    if (refreshErr) console.error("[CATALOG-FAST] Erro RPC refresh_catalog_stats:", refreshErr.message);
 
     const [{ count: totalAvailDepois }, { count: totalEpisodiosDepois }] = await Promise.all([
       supabaseAdmin.from("catalog_availability").select("*", { count: "exact", head: true }).eq("servidor", SERVIDOR),

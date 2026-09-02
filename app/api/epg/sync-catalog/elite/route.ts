@@ -401,7 +401,8 @@ const availabilityRows = [...filmesUnicos, ...seriesUnicas.master]
 if (rpcErr) console.error(`[CATALOG-ELITE] Erro RPC contadores:`, rpcErr.message);
 
     // Refresh da view materializada
-    await supabaseAdmin.rpc("refresh_catalog_stats");
+    const { error: refreshErr } = await supabaseAdmin.rpc("refresh_catalog_stats");
+    if (refreshErr) console.error(`[CATALOG-ELITE] Erro RPC refresh_catalog_stats:`, refreshErr.message);
 
     // ── 5. Resultado
     const duracao = Math.round((Date.now() - inicio) / 1000);
