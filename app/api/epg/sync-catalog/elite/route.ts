@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
 
       // 3. Separa em updates e inserts
       const agora = new Date().toISOString();
-      const paraUpdate: Array<{ id: string; titulo_normalizado: string; cover_url?: string; ano: number | null; atualizado_em: string; titulo_exibicao?: string }> = [];
+      const paraUpdate: Array<{ id: string; titulo_normalizado: string; tipo: string; cover_url?: string; ano: number | null; atualizado_em: string; titulo_exibicao?: string }> = [];
       const paraInsert: Array<{ titulo_normalizado: string; tipo: string; cover_url?: string; ano: number | null; atualizado_em: string; titulo_exibicao: string | null }> = [];
 
       for (let j = 0; j < lote.length; j++) {
@@ -235,6 +235,7 @@ export async function POST(req: NextRequest) {
             // constraint), mesmo não mudando esse valor — só reafirma o
             // mesmo título já parseado, sem efeito colateral real.
             titulo_normalizado: e.titulo_normalizado,
+            tipo: e.tipo,
             ...(e.cover_url ? { cover_url: e.cover_url } : {}),
             ano:           e.ano ?? null,
             atualizado_em: agora,
