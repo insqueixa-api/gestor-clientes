@@ -30,6 +30,37 @@ function sourceIdFor(sessionLabel: string): string {
   return `session:${sessionLabel}`;
 }
 
+// ✅ 02/09/2026, pedido do Márcio: em vez de um check dedicado (rota +
+// chamada extra na VM) pra manter o cache de conectividade que
+// billing_dispatch_check usa (system_health_checks, ver docs/sql/
+// billing_dispatch_smart_check.sql), a PRÓPRIA tentativa de envio real já
+// é a prova mais direta de conectividade — toda vez que reportWhatsApp
+// Disconnected/Reconnected roda (ou seja, todo envio de verdade,
+// automático ou manual), atualiza o cache também. Na prática: o status
+// check da VM só acontece de fato quando o cache está velho (>10min sem
+// NENHUM envio real) e chega uma mensagem nova pra mandar — o envio em si
+// vira o check. Enquanto mensagens saem com sucesso a cada <10min, o
+// cache nunca fica velho e nenhuma chamada extra de status roda.
+async function updateConnectivityCache(sessionLabel: string, status: "ok" | "fail" | "warn", detail: string) {
+  try {
+    const supabase = adminSupabase();
+    const session = sessionLabel === "session2" ? 2 : 1;
+    await supabase.from("system_health_checks").upsert(
+      {
+        check_key: `whatsapp_${session}`,
+        label: session === 1 ? "WhatsApp — Principal" : "WhatsApp — Secundário",
+        group_key: "whatsapp",
+        status,
+        detail: detail.slice(0, 300),
+        checked_at: new Date().toISOString(),
+      },
+      { onConflict: "check_key" },
+    );
+  } catch (e: any) {
+    console.error("[WA][disconnect-alert] falha ao atualizar cache de conectividade:", e?.message);
+  }
+}
+
 // "default"/"session2" → mesmo rótulo já usado em Configurações > WhatsApp
 // (WhatsAppSessionCard, app/admin/settings/whatsapp/page.tsx) — sem isso o
 // e-mail/sino mostrava o valor interno cru ("default"), sem significado
@@ -47,6 +78,16 @@ export async function reportWhatsAppDisconnected(
   sessionLabel: string,
   origin: "envio_agora" | "envio_programado" | "envio_avulso",
 ): Promise<void> {
+  // ✅ Roda SEMPRE, fora do dedup do sino abaixo — cada tentativa real de
+  // envio que confirma desconexão precisa renovar os 10min do cache,
+  // mesmo que o alerta do sino já esteja aberto (dedup é só pra não
+  // repetir notificação/e-mail, não pode segurar o cache desatualizado).
+  await updateConnectivityCache(
+    sessionLabel,
+    sessionLabel === "session2" ? "warn" : "fail",
+    "Desconectado — precisa escanear QR Code",
+  );
+
   try {
     const supabase = adminSupabase();
     const sourceId = sourceIdFor(sessionLabel);
@@ -92,6 +133,10 @@ export async function reportWhatsAppDisconnected(
 // sessão, resolve na hora (mesmo espírito do resolve instantâneo do vigia
 // de crons: não espera ninguém checar manualmente).
 export async function reportWhatsAppReconnected(tenantId: string, sessionLabel: string): Promise<void> {
+  // ✅ Renova os 10min do cache a cada envio bem-sucedido — enquanto
+  // mensagens saem normalmente, o próximo tick do billing_dispatch_check
+  // nunca precisa de um check dedicado, só confia no cache.
+  await updateConnectivityCache(sessionLabel, "ok", "");
   try {
     await resolveNotification(tenantId, "whatsapp_desconectado", sourceIdFor(sessionLabel));
   } catch (e: any) {
