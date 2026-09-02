@@ -29,11 +29,21 @@ import { normalizeMacInput } from "@/lib/apps/field-types";
 // 04/08/2026. Cada degrau repete 2x antes de apertar pro próximo (pedido
 // do Márcio, 02/09/2026: "ninguém paga em 10 segundos, até abrir banco e
 // tal") — dá mais fôlego no começo, quando ainda não tem chance real de
-// já ter pago. Depois do fim da lista, fixa no piso (5s) SEM limite de
-// tempo — continua consultando até o pagamento confirmar, dar erro, ou a
-// pessoa sair da tela.
+// já ter pago.
 const PAYMENT_POLL_SCHEDULE_SECS = [10, 10, 9, 9, 8, 8, 7, 7, 6, 6];
-const PAYMENT_POLL_FLOOR_SECS = 5;
+
+// ✅ Depois do fim da rampa acima, o "piso" não é mais fixo — alarga com o
+// tempo total decorrido (pedido do Márcio, 02/09/2026): o Pix do Mercado
+// Pago vale 30min de verdade (date_of_expiration, ver create-payment/
+// route.ts e apps/renew-payment/route.ts) e a tela NÃO tem prazo próprio
+// de desistência — só fica menos frequente com o tempo, nunca para
+// sozinha (só quando o pagamento confirma, dá erro, ou a pessoa sai).
+function paymentPollFloorSecs(elapsedMs: number): number {
+  const elapsedMin = elapsedMs / 60000;
+  if (elapsedMin < 5) return 5;
+  if (elapsedMin < 10) return 10;
+  return 15;
+}
 
 // ========= TYPES =========
 interface ClientAccount {
@@ -480,6 +490,7 @@ export default function RenewClient() {
     // primeira consulta só sai depois de 10s; daí em diante aperta
     // (9,8,7,6) até fixar em 5s — evita bater o servidor toda hora logo de
     // cara, quando ainda não tem chance real de já ter pago.
+    const pollStartedAt = Date.now();
     let secondsUntilNextPoll = PAYMENT_POLL_SCHEDULE_SECS[0];
     let scheduleIndex = 0;
 
@@ -488,7 +499,7 @@ export default function RenewClient() {
       if (secondsUntilNextPoll > 0) return;
       scheduleIndex++;
       secondsUntilNextPoll =
-        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? PAYMENT_POLL_FLOOR_SECS;
+        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? paymentPollFloorSecs(Date.now() - pollStartedAt);
 
       try {
         const res = await fetch("/api/client-portal/payment-status", {
@@ -1650,6 +1661,7 @@ export default function RenewClient() {
     // aperta (9,8,7,6) até fixar em 5s. O corpo original do polling (toda a
     // lógica de phase/status abaixo) fica intacto, só passa a rodar quando
     // a contagem regressiva chega em zero em vez de a cada 3s fixo.
+    const pollStartedAt = Date.now();
     let secondsUntilNextPoll = PAYMENT_POLL_SCHEDULE_SECS[0];
     let scheduleIndex = 0;
 
@@ -1658,7 +1670,7 @@ export default function RenewClient() {
       if (secondsUntilNextPoll > 0) return;
       scheduleIndex++;
       secondsUntilNextPoll =
-        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? PAYMENT_POLL_FLOOR_SECS;
+        PAYMENT_POLL_SCHEDULE_SECS[scheduleIndex] ?? paymentPollFloorSecs(Date.now() - pollStartedAt);
 
       try {
         const res = await fetch("/api/client-portal/payment-status", {
