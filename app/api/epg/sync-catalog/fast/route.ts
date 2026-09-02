@@ -213,12 +213,9 @@ export async function GET(req: Request) {
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
   }
 
-  const { data: cliente } = await supabaseAdmin
-    .from("clients")
-    .select("m3u_url")
-    .eq("id", CLIENT_ID)
-    .single();
-
+  // ✅ 02/09/2026: removida a query/retorno de m3u_url cru (com senha) —
+  // NaTV/Elite nunca expõem isso no GET, e nada no front consumia esse
+  // campo aqui (só o painel de status usa filmes/series_unicas/episodios).
   const { data: statsView } = await supabaseAdmin
     .from("catalog_stats_por_servidor")
     .select("filmes, series_unicas, episodios")
@@ -234,7 +231,6 @@ export async function GET(req: Request) {
     .single();
 
   return NextResponse.json({
-    m3u_url: cliente?.m3u_url || null,
     executado_em: syncData?.sincronizado_em || null,
     resultado: {
       filmes:        statsView?.filmes        || 0,
@@ -262,6 +258,14 @@ export async function POST(req: NextRequest) {
     etapas: {}, resultado: {}, erro: null,
   };
 
+  // ✅ 02/09/2026: alinhado com NaTV/Elite — chamado em TODO caminho de
+  // erro (não só no catch final), senão o watchdog nunca fica sabendo de
+  // falhas nos returns antecipados (m3u_url ausente, VM mal configurada,
+  // falha de download, falha de upsert do master).
+  const finishCheckIn = (status: "ok" | "error") => {
+    reportCronHealth("sync-catalog-fast", status, status === "error" ? log.erro : undefined).catch(() => {});
+  };
+
   try {
     // ── 0. Snapshot dos totais ANTES do sync ─────────────────────────────────
     const { count: totalAvailAntes } = await supabaseAdmin
@@ -281,6 +285,7 @@ export async function POST(req: NextRequest) {
     if (clienteErr || !cliente?.m3u_url) {
       log.erro = `m3u_url do cliente Fast não encontrado: ${clienteErr?.message}`;
       await salvarLog(log);
+      finishCheckIn("error");
       return NextResponse.json({ error: log.erro }, { status: 500 });
     }
     const m3uUrl = cliente.m3u_url as string;
@@ -290,6 +295,7 @@ export async function POST(req: NextRequest) {
     if (!waBaseUrl || !waToken) {
       log.erro = "Server misconfigured (VM).";
       await salvarLog(log);
+      finishCheckIn("error");
       return NextResponse.json({ error: log.erro }, { status: 500 });
     }
 
@@ -327,6 +333,7 @@ export async function POST(req: NextRequest) {
     if (ultimoErro || !m3uText) {
       log.erro = `Falha ao baixar M3U (via VM) após ${MAX_TENTATIVAS} tentativas: ${ultimoErro?.message || "arquivo vazio"}`;
       await salvarLog(log);
+      finishCheckIn("error");
       return NextResponse.json({ error: log.erro }, { status: 502 });
     }
     console.log(`[CATALOG-FAST] ${m3uText.length} bytes baixados`);
@@ -376,6 +383,7 @@ export async function POST(req: NextRequest) {
         console.error(`[CATALOG-FAST] Erro master lote ${i}:`, error.message);
         log.erro = `Erro master lote ${i}: ${error.message}`;
         await salvarLog(log);
+        finishCheckIn("error");
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
@@ -462,12 +470,10 @@ export async function POST(req: NextRequest) {
             onConflict:       "master_id,servidor,temporada,episodio",
             ignoreDuplicates: true,
           });
-        if (error) {
-          console.error(`[CATALOG-FAST] Erro episodes lote ${i}:`, error.message);
-          log.erro = `Erro episodes lote ${i}: ${error.message}`;
-          await salvarLog(log);
-          return NextResponse.json({ error: error.message }, { status: 500 });
-        }
+        // ✅ 02/09/2026: alinhado com NaTV/Elite — loga e continua pros
+        // próximos lotes, em vez de abortar o sync inteiro por causa de um
+        // lote de episódios (títulos e disponibilidade já foram gravados).
+        if (error) console.error(`[CATALOG-FAST] Erro episodes lote ${i}:`, error.message);
       }
     }
     console.log(`[CATALOG-FAST] Episódios: ${episodios.length} processados`);
@@ -520,14 +526,14 @@ export async function POST(req: NextRequest) {
     // automática já tinha rodado de manhã sem ver isso.
     await limparOrfaosAposSync(SERVIDOR);
 
-    reportCronHealth("sync-catalog-fast", "ok").catch(() => {});
+    finishCheckIn("ok");
     return NextResponse.json({ ok: true, ...resultado });
   } catch (e: any) {
     log.erro = e.message;
     await salvarLog(log);
     console.error(`[CATALOG-FAST] Erro fatal:`, e.message);
     Sentry.captureException(e, { tags: { kind: "cron_error", where: "sync-catalog-fast" } });
-    reportCronHealth("sync-catalog-fast", "error", e.message).catch(() => {});
+    finishCheckIn("error");
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

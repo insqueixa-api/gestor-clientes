@@ -155,16 +155,34 @@ export async function POST(req: NextRequest) {
     // ── 2. Baixar M3U ─────────────────────────────────────────────────────────
     console.log(`[CATALOG-ELITE] Baixando M3U...`);
 
+    // ✅ 02/09/2026: alinhado com NaTV/Fast — 3 tentativas com espera entre
+    // elas, em vez de falhar o sync inteiro na primeira falha transitória.
     let m3uText = "";
-    try {
-      const resp = await fetch(m3uUrl, {
-        signal:  AbortSignal.timeout(55_000),
-        headers: { "User-Agent": "VLC/3.0.18 LibVLC/3.0.18" },
-      });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      m3uText = await resp.text();
-    } catch (e: any) {
-      log.erro = `Falha ao baixar M3U: ${e.message}`;
+    const MAX_TENTATIVAS = 3;
+    let ultimoErro: any = null;
+
+    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+      try {
+        console.log(`[CATALOG-ELITE] Tentativa ${tentativa}/${MAX_TENTATIVAS}...`);
+        const resp = await fetch(m3uUrl, {
+          signal:  AbortSignal.timeout(55_000),
+          headers: { "User-Agent": "VLC/3.0.18 LibVLC/3.0.18" },
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        m3uText = await resp.text();
+        ultimoErro = null;
+        break;
+      } catch (e: any) {
+        ultimoErro = e;
+        console.warn(`[CATALOG-ELITE] Tentativa ${tentativa} falhou: ${e.message}`);
+        if (tentativa < MAX_TENTATIVAS) {
+          await new Promise(r => setTimeout(r, 5_000));
+        }
+      }
+    }
+
+    if (ultimoErro) {
+      log.erro = `Falha ao baixar M3U após ${MAX_TENTATIVAS} tentativas: ${ultimoErro.message}`;
       await salvarLog(log);
       finishCheckIn("error");
       return NextResponse.json({ error: log.erro }, { status: 502 });
