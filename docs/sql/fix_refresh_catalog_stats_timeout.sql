@@ -1,0 +1,18 @@
+-- Fix 02/09/2026: REFRESH MATERIALIZED VIEW CONCURRENTLY catalog_stats_por_servidor
+-- batia no statement_timeout de 8s do role "authenticator" (todo .rpc() do
+-- PostgREST herda esse timeout na conexao), sempre que rodava logo apos os
+-- syncs de catalogo (elite/natv/fast) -- justo quando catalog_master/
+-- catalog_availability acabaram de levar uma rajada de upserts, deixando o
+-- REFRESH CONCURRENTLY mais lento por causa da contencao de I/O.
+--
+-- O erro (57014 canceling statement due to statement timeout) era engolido
+-- em silencio -- o sync so faz "await supabaseAdmin.rpc('refresh_catalog_stats')"
+-- sem checar o retorno -- entao o painel de "ultimo sync"
+-- (GET /api/epg/sync-catalog/*, que le dessa mesma view) ficava mostrando
+-- contadores desatualizados (da ultima vez que o refresh deu certo) sem
+-- avisar ninguem.
+--
+-- Fix: eleva o statement_timeout so pra essa funcao (via SET no nivel da
+-- funcao -- vale so durante a execucao dela, nao muda o timeout padrao de
+-- mais nada que passa pelo PostgREST).
+ALTER FUNCTION public.refresh_catalog_stats() SET statement_timeout = '60s';
