@@ -411,16 +411,38 @@ async function checkSupabaseProject(): Promise<CheckResult> {
       } catch {}
     }
 
+    // ✅ 02/09/2026, pedido do Márcio: SUPABASE_ACCESS_TOKEN (Personal Access
+    // Token da conta Supabase, sem escopo por projeto) não tem endpoint de
+    // auto-consulta de validade — testado, /v1/profile não devolve
+    // expiração nenhuma. Guarda a data conhecida (informada na hora da
+    // geração) em system_config e avisa aqui mesmo quando faltar pouco,
+    // já que "daqui a 1 ano eu não vou lembrar" foi o problema apontado.
+    let renovacaoTxt = "";
+    let renovacaoUrgente = false;
+    if (mgmtToken) {
+      const { data: expRow } = await supabaseAdmin
+        .from("system_config").select("config_value").eq("config_key", "supabase_access_token_expires_at").maybeSingle<{ config_value: string | null }>();
+      if (expRow?.config_value) {
+        const expiresAt = new Date(expRow.config_value + "T00:00:00Z");
+        const diasRestantes = Math.ceil((expiresAt.getTime() - Date.now()) / 86_400_000);
+        if (diasRestantes <= 30) {
+          renovacaoUrgente = true;
+          const situacao = diasRestantes < 0 ? `VENCEU há ${-diasRestantes}d` : `vence em ${diasRestantes}d`;
+          renovacaoTxt = ` · ⚠ SUPABASE_ACCESS_TOKEN ${situacao} (${expRow.config_value}) — gere um novo em supabase.com/dashboard/account/tokens e cole na env var SUPABASE_ACCESS_TOKEN (Vercel → Settings → Environment Variables, Production+Preview) + atualize system_config.supabase_access_token_expires_at`;
+        }
+      }
+    }
+
     const parts = [
       cpuPct !== null ? `CPU ${cpuPct}%` : "CPU (aguardando 2ª amostra)",
       memPct !== null ? `RAM ${memPct}% (${Math.round((memTotal - memAvail) / 1e6)}/${Math.round(memTotal / 1e6)}MB)` : null,
       diskPct !== null ? `Disco ${diskPct}% (${((diskTotal - diskAvail) / 1e9).toFixed(2)}/${(diskTotal / 1e9).toFixed(2)}GB)` : null,
       `${connections} conexões`,
-    ].filter(Boolean).join(" · ") + errosTxt;
+    ].filter(Boolean).join(" · ") + errosTxt + renovacaoTxt;
 
     const status: CheckStatus =
       (diskPct !== null && diskPct >= 90) || (memPct !== null && memPct >= 90) ? "fail"
-      : (diskPct !== null && diskPct >= 75) || (memPct !== null && memPct >= 75) || (cpuPct !== null && cpuPct >= 85) ? "warn"
+      : (diskPct !== null && diskPct >= 75) || (memPct !== null && memPct >= 75) || (cpuPct !== null && cpuPct >= 85) || renovacaoUrgente ? "warn"
       : "ok";
 
     return { key, label, group: "externos", status, detail: parts };
