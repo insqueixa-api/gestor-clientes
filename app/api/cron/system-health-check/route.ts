@@ -397,7 +397,13 @@ async function checkSupabaseProject(): Promise<CheckResult> {
     const mgmtToken = String(process.env.SUPABASE_ACCESS_TOKEN || "").trim();
     if (mgmtToken) {
       try {
-        const sql = `select count(*) as n from postgres_logs where event_message ilike '%error%' and timestamp > (extract(epoch from now() - interval '1 hour') * 1000000)::bigint`;
+        // ✅ 02/09/2026, bug real achado: esse endpoint de analytics quebra
+        // com "Backend error! Retry your query" tanto com `ilike` (só
+        // `like` funciona) quanto com `extract()/interval` no WHERE (só
+        // literal `timestamp '...'` funciona) — testado isoladamente com
+        // curl até achar a combinação que não quebra.
+        const umaHoraAtras = new Date(Date.now() - 3_600_000).toISOString().slice(0, 19).replace("T", " ");
+        const sql = `select count(*) as n from postgres_logs where event_message like '%ERROR%' and timestamp > timestamp '${umaHoraAtras}'`;
         const logRes = await fetchWithTimeout(
           `https://api.supabase.com/v1/projects/${ref}/analytics/endpoints/logs.all?sql=${encodeURIComponent(sql)}`,
           8000,
