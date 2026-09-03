@@ -19,7 +19,10 @@ import { getWAContextOrCron, proxyVM } from "@/lib/whatsapp/wa-context";
 import { getActiveProxyOrder } from "@/lib/proxybr";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+// ✅ 02/09/2026: subiu de 30s pra 60s — o novo check do Downdetector
+// (via FlareSolverr na VM, resolve desafio Cloudflare de verdade) pode
+// levar até ~45s no pior caso (2 tentativas, 20s+25s do lado da VM).
+export const maxDuration = 60;
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,54 +60,51 @@ async function checkHttpOk(key: string, label: string, group: CheckResult["group
   }
 }
 
-// ✅ statuspage.io sempre manda `description` em inglês, atrelado 1:1 ao
-// `indicator` — traduzido aqui em vez de repassar cru (pedido do Márcio).
-const INDICATOR_PT: Record<string, string> = {
-  none: "Operacional",
-  minor: "Instabilidade pontual (impacto leve)",
-  major: "Interrupção parcial do serviço",
-  critical: "Interrupção grave do serviço",
-};
+// ✅ 02/09/2026, pedido do Márcio: os checks de status page genéricos
+// (statuspage.io — Supabase/Vercel/Cloudflare) removidos. Diziam se a
+// PLATAFORMA inteira estava com problema, não se o PROJETO dele estava —
+// substituídos pelos checks abaixo (checkSupabaseProject/checkVercelProject/
+// checkCloudflareR2/checkDowndetector), que trazem dado real e específico.
 
-// Providers usam o mesmo formato de status page (statuspage.io).
-// ✅ 01/09/2026, pedido do Márcio: "warn" só com "Instabilidade pontual
-// (impacto leve)" não dizia NADA do que é — tinha que perguntar pra IA (e
-// mesmo assim ela não sabia o incidente real). Agora busca também o nome
-// do incidente aberto de verdade (mesmo statuspage.io, endpoint
-// /incidents/unresolved.json) e mostra direto no painel, sem precisar de
-// IA nenhuma pra saber O QUE está instável.
-async function checkStatusPage(key: string, label: string, url: string): Promise<CheckResult> {
+// ✅ 02/09/2026, pedido do Márcio: a página de status oficial do Cloudflare
+// às vezes não reflete o que afeta ele de verdade —
+// prefere o Downdetector (relatos reais de usuário). Downdetector bloqueia
+// acesso direto (403, anti-bot), então passa pela VM (FlareSolverr resolve
+// o desafio — ver whatsapp-service/src/downdetectorClient.js). Isso é caro
+// (~15-25s por consulta, headless browser), então reaproveita o resultado
+// anterior se tiver menos de 25min — só reconsulta de verdade nessa
+// cadência, mesmo o cron principal rodando a cada 5min.
+async function checkDowndetector(key: string, label: string, slug: string): Promise<CheckResult> {
+  const waBase  = String(process.env.UNIGESTOR_WA_BASE_URL || "").trim();
+  const waToken = String(process.env.UNIGESTOR_WA_TOKEN || "").trim();
+  if (!waBase || !waToken) {
+    return { key, label, group: "externos", status: "warn", detail: "VM não configurada (UNIGESTOR_WA_BASE_URL/UNIGESTOR_WA_TOKEN)" };
+  }
+
+  const { data: prevRow } = await supabaseAdmin
+    .from("system_health_checks").select("status, detail, checked_at").eq("check_key", key)
+    .maybeSingle<{ status: CheckStatus; detail: string; checked_at: string }>();
+  if (prevRow?.checked_at && Date.now() - new Date(prevRow.checked_at).getTime() < 25 * 60_000 && !/^Falha|^VM não configurada|^Timeout/.test(prevRow.detail || "")) {
+    return { key, label, group: "externos", status: prevRow.status, detail: prevRow.detail };
+  }
+
   try {
-    const res = await fetchWithTimeout(url, 6000);
-    if (!res.ok) return { key, label, group: "externos", status: "warn", detail: `HTTP ${res.status} ao consultar status` };
-    const json: any = await res.json();
-    const indicator = String(json?.status?.indicator || "none");
-    const status: CheckStatus = indicator === "none" ? "ok" : indicator === "minor" ? "warn" : "fail";
-
-    if (indicator === "none") {
-      return { key, label, group: "externos", status, detail: "" };
+    const res = await fetchWithTimeout(`${waBase}/downdetector-status?slug=${encodeURIComponent(slug)}`, 50000, {
+      headers: { Authorization: `Bearer ${waToken}` },
+    });
+    const json: any = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok) {
+      return { key, label, group: "externos", status: "warn", detail: `Falha ao consultar Downdetector: ${json?.error || `HTTP ${res.status}`}` };
     }
-
-    let incidentName = "";
-    try {
-      const incidentsUrl = url.replace(/status\.json$/, "incidents/unresolved.json");
-      const incRes = await fetchWithTimeout(incidentsUrl, 6000);
-      if (incRes.ok) {
-        const incJson: any = await incRes.json();
-        const incidents = Array.isArray(incJson?.incidents) ? incJson.incidents : [];
-        // pega o de maior impacto (critical > major > minor > none)
-        const rank: Record<string, number> = { critical: 3, major: 2, minor: 1, none: 0 };
-        const top = incidents.sort((a: any, b: any) => (rank[b?.impact] || 0) - (rank[a?.impact] || 0))[0];
-        incidentName = top?.name || "";
-      }
-    } catch {
-      // segue sem o nome do incidente — detail genérico ainda é melhor que quebrar o check
-    }
-
-    const base = INDICATOR_PT[indicator] || json?.status?.description || "Operacional";
-    return { key, label, group: "externos", status, detail: incidentName ? `${base} — ${incidentName}` : base };
+    const ddStatus: string = json.status || "";
+    const peak = json.peakReports24h;
+    const status: CheckStatus =
+      /problemas detectados/i.test(ddStatus) ? "fail"
+      : /poss[ií]veis problemas/i.test(ddStatus) ? "warn"
+      : "ok";
+    return { key, label, group: "externos", status, detail: `Downdetector: ${ddStatus} (pico de ${peak} relatos/24h)` };
   } catch (e: any) {
-    return { key, label, group: "externos", status: "warn", detail: "Falha ao consultar status page" };
+    return { key, label, group: "externos", status: "warn", detail: e?.name === "AbortError" ? "Timeout ao consultar Downdetector (via VM)" : String(e?.message || e).slice(0, 200) };
   }
 }
 
@@ -307,8 +307,7 @@ async function checkWhatsAppSession(req: Request, session: 1 | 2): Promise<Check
 // Cloudflare) mostravam status GENÉRICO da plataforma inteira (statuspage.io
 // — "Supabase está no ar pro mundo?"). Ele queria saber do PROJETO dele
 // especificamente (CPU/RAM/disco do banco, deploy atual, espaço usado no
-// R2) — os checks acima (checkStatusPage) continuam existindo (ainda é útil
-// saber se a plataforma em si está com problema), estes são complementares.
+// R2) — os genéricos foram removidos (02/09/2026), só ficam estes.
 
 // ─── Parser Prometheus (bem simples — só o suficiente pro formato que o
 // endpoint de métricas privilegiadas da Supabase devolve) ─────────────────
@@ -344,8 +343,8 @@ function metricSum(rows: PromRow[], name: string, match?: (l: Record<string, str
 // a atual a cada rodada (5min de intervalo natural, já que quem chama isso
 // é o próprio pg_cron do health-check).
 async function checkSupabaseProject(): Promise<CheckResult> {
-  const key = "supabase_project";
-  const label = "Supabase — meu projeto";
+  const key = "supabase";
+  const label = "Supabase";
   const projectUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
   const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
   const ref = projectUrl.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1] || "";
@@ -463,8 +462,8 @@ const VERCEL_TEAM_ID    = "team_6oAx0zyYrtURvDCz8BvnY0TU";
 const VERCEL_PROJECT_ID = "prj_5i6GIEoZw6AIAPAjpUY7NYR29nxy";
 
 async function checkVercelProject(): Promise<CheckResult> {
-  const key = "vercel_project";
-  const label = "Vercel — meu projeto";
+  const key = "vercel";
+  const label = "Vercel";
   const token = String(process.env.VERCEL_API_TOKEN || "").trim();
 
   if (!token) {
@@ -512,7 +511,7 @@ async function checkVercelProject(): Promise<CheckResult> {
 // chamada longa se o volume crescer muito.
 async function checkCloudflareR2(): Promise<CheckResult> {
   const key = "cloudflare_r2";
-  const label = "Cloudflare R2 — meu projeto";
+  const label = "Cloudflare R2";
   const accountId       = String(process.env.R2_ACCOUNT_ID || "").trim();
   const accessKeyId     = String(process.env.R2_ACCESS_KEY_ID || "").trim();
   const secretAccessKey = String(process.env.R2_SECRET_ACCESS_KEY || "").trim();
@@ -578,14 +577,12 @@ async function runAllChecks(req: Request): Promise<CheckResult[]> {
       ? checkHttpOk("vm_google", "VM Google Cloud (PDF)", "infra", pdfVmBase)
       : Promise.resolve<CheckResult>({ key: "vm_google", label: "VM Google Cloud (PDF)", group: "infra", status: "fail", detail: "PDF_VM_BASE_URL não configurada" }),
     checkProxy(),
-    checkStatusPage("supabase", "Supabase", "https://status.supabase.com/api/v2/status.json"),
-    checkStatusPage("vercel", "Vercel", "https://www.vercel-status.com/api/v2/status.json"),
-    checkStatusPage("cloudflare", "Cloudflare", "https://www.cloudflarestatus.com/api/v2/status.json"),
     checkGemini("gemini_free", "Gemini (chave grátis)", process.env.GEMINI_API_KEY),
     checkGemini("gemini_paid", "Gemini (chave paga, fallback)", process.env.GEMINI_API_KEY_PAID),
     checkSupabaseProject(),
     checkVercelProject(),
     checkCloudflareR2(),
+    checkDowndetector("cloudflare", "Cloudflare", "cloudflare"),
   ]);
 
   return checks;

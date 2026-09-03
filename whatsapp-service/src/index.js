@@ -10,6 +10,7 @@ import {
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
 } from "./sessionManager.js";
 import { runDuplecastAction } from "./duplecastClient.js";
+import { checkDowndetectorStatus } from "./downdetectorClient.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -419,6 +420,24 @@ app.post("/duplecast/action", authMiddleware, async (req, res) => {
   } catch (e) {
     console.error("[DUPLECAST] erro:", e?.message);
     res.status(e?.notFound ? 404 : 500).json({ ok: false, error: e?.message || "Erro no Duplecast." });
+  }
+});
+
+// ── GET /downdetector-status ──────────────────────────────────
+// Mesmo motivo do Duplecast acima: Downdetector bloqueia acesso direto
+// (403, anti-bot) — resolvido via FlareSolverr. Usado pelo painel Sistema
+// (gestor-clientes) pra saber se o Cloudflare está com problema de verdade
+// segundo relatos reais de usuário, não só a página de status oficial
+// (que às vezes demora a refletir incidentes que já afetam o Márcio).
+app.get("/downdetector-status", authMiddleware, async (req, res) => {
+  const slug = String(req.query.slug || "").trim();
+  if (!slug) return res.status(400).json({ error: "slug é obrigatório (ex: cloudflare)." });
+  try {
+    const result = await checkDowndetectorStatus(slug);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error("[DOWNDETECTOR] erro:", e?.message);
+    res.status(502).json({ ok: false, error: e?.message || "Falha ao consultar Downdetector." });
   }
 });
 
