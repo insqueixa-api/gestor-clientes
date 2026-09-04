@@ -27,6 +27,7 @@ type JobRow = {
   neverRanYet: boolean;
   reprocessUrl: string | null;
   reprocessMethod: "GET" | "POST" | null;
+  reprocessBody: Record<string, unknown> | null;
 };
 
 type GroupRow = {
@@ -270,7 +271,11 @@ export default function CronStatusPage() {
 
       const res = await fetch(job.reprocessUrl, {
         method: job.reprocessMethod,
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(job.reprocessBody ? { "Content-Type": "application/json" } : {}),
+        },
+        ...(job.reprocessBody ? { body: JSON.stringify(job.reprocessBody) } : {}),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error || `Falha ao reprocessar (HTTP ${res.status}).`);
@@ -468,40 +473,42 @@ export default function CronStatusPage() {
                             </td>
                             <td className="p-3 text-muted-foreground whitespace-nowrap">{fmtDateTime(j.lastOkAt)}</td>
                             <td className="p-3">
-                              {!j.active ? (
-                                <span className="text-muted-foreground text-xs">Desativado</span>
-                              ) : j.neverRanYet ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-500">
-                                  <Clock3 className="w-3.5 h-3.5" /> Ainda não rodou
-                                </span>
-                              ) : j.isStale ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-rose-500/10 text-rose-500">
-                                  <XCircle className="w-3.5 h-3.5" /> Falhou
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-500">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> OK
-                                </span>
-                              )}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {!j.active ? (
+                                  <span className="text-muted-foreground text-xs">Desativado</span>
+                                ) : j.neverRanYet ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-500">
+                                    <Clock3 className="w-3.5 h-3.5" /> Ainda não rodou
+                                  </span>
+                                ) : j.isStale ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-rose-500/10 text-rose-500">
+                                    <XCircle className="w-3.5 h-3.5" /> Falhou
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-500">
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> OK
+                                  </span>
+                                )}
+                                {j.active && j.reprocessUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() => reprocessJob(j)}
+                                    disabled={reprocessing[j.key]?.loading}
+                                    className="flex items-center gap-1 text-[11px] text-sky-500 hover:text-sky-400 font-medium disabled:opacity-50"
+                                  >
+                                    {reprocessing[j.key]?.loading ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <RefreshCcw className="w-3 h-3" />
+                                    )}
+                                    {reprocessing[j.key]?.loading ? "Reprocessando..." : "Reprocessar agora"}
+                                  </button>
+                                )}
+                              </div>
                               {j.lastError && (
                                 <div className="text-[10px] text-rose-500 mt-1 max-w-xs truncate" title={j.lastError}>
                                   {j.lastError} {j.lastErrorAt ? `(${fmtDateTime(j.lastErrorAt)})` : ""}
                                 </div>
-                              )}
-                              {j.active && j.reprocessUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => reprocessJob(j)}
-                                  disabled={reprocessing[j.key]?.loading}
-                                  className="mt-1.5 flex items-center gap-1 text-[11px] text-sky-500 hover:text-sky-400 font-medium disabled:opacity-50"
-                                >
-                                  {reprocessing[j.key]?.loading ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <RefreshCcw className="w-3 h-3" />
-                                  )}
-                                  {reprocessing[j.key]?.loading ? "Reprocessando..." : "Reprocessar agora"}
-                                </button>
                               )}
                               {reprocessing[j.key]?.error && (
                                 <div className="text-[10px] text-rose-500 mt-1 max-w-xs truncate" title={reprocessing[j.key]?.error}>

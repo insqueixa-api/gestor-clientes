@@ -76,13 +76,14 @@ const JOB_META: Record<string, { label: string; group: keyof typeof GROUPS }> = 
 // requisição HTTP equivalente pra chamar do browser.
 // URL relativa: o botão chama com a MESMA sessão do admin logado (a rota
 // já aceita usuário autenticado, sem precisar do secret de cron).
-const REPROCESS_ENDPOINTS: Record<string, { url: string; method: "GET" | "POST" }> = {
-  epg_sync_daily:           { url: "/api/epg/sync/sync-claro",      method: "POST" },
-  sync_catalog_elite_daily: { url: "/api/epg/sync-catalog/elite",   method: "POST" },
-  sync_catalog_natv_daily:  { url: "/api/epg/sync-catalog/natv",    method: "POST" },
-  "sync-catalog-fast":      { url: "/api/epg/sync-catalog/fast",    method: "POST" },
-  sync_tmdb_daily:          { url: "/api/epg/sync-tmdb",            method: "POST" },
-  sync_jogos_daily:         { url: "/api/epg/sync/sync-jogos",      method: "POST" },
+const REPROCESS_ENDPOINTS: Record<string, { url: string; method: "GET" | "POST"; body?: Record<string, unknown> }> = {
+  epg_sync_daily:            { url: "/api/epg/sync/sync-claro",      method: "POST" },
+  sync_catalog_elite_daily:  { url: "/api/epg/sync-catalog/elite",   method: "POST" },
+  sync_catalog_natv_daily:   { url: "/api/epg/sync-catalog/natv",    method: "POST" },
+  "sync-catalog-fast":       { url: "/api/epg/sync-catalog/fast",    method: "POST" },
+  sync_tmdb_daily:           { url: "/api/epg/sync-tmdb",            method: "POST" },
+  sync_jogos_daily:          { url: "/api/epg/sync/sync-jogos",      method: "POST" },
+  sync_catalog_limpar_daily: { url: "/api/catalogo/limpar",          method: "POST", body: { servidor: "TODOS" } },
 };
 
 type MergedJob = {
@@ -99,6 +100,7 @@ type MergedJob = {
   neverRanYet: boolean; // job novo, ainda não teve a 1ª chance de rodar
   reprocessUrl: string | null;
   reprocessMethod: "GET" | "POST" | null;
+  reprocessBody: Record<string, unknown> | null;
 };
 
 export async function GET(req: Request) {
@@ -163,6 +165,7 @@ export async function GET(req: Request) {
         neverRanYet: !lastOkAt && !row.last_run_at,
         reprocessUrl: reprocess?.url ?? null,
         reprocessMethod: reprocess?.method ?? null,
+        reprocessBody: reprocess?.body ?? null,
       });
     } else {
       // ✅ Só existe no pg_cron (sql puro, ou http sem monitoramento de app
@@ -183,6 +186,7 @@ export async function GET(req: Request) {
         neverRanYet: !row.last_run_at,
         reprocessUrl: reprocess?.url ?? null,
         reprocessMethod: reprocess?.method ?? null,
+        reprocessBody: reprocess?.body ?? null,
       });
     }
   }
@@ -215,6 +219,7 @@ export async function GET(req: Request) {
       neverRanYet: !lastOkAt,
       reprocessUrl: reprocess?.url ?? null,
       reprocessMethod: reprocess?.method ?? null,
+      reprocessBody: reprocess?.body ?? null,
     });
   }
 
