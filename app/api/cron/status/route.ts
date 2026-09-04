@@ -69,6 +69,22 @@ const JOB_META: Record<string, { label: string; group: keyof typeof GROUPS }> = 
   "checar-sugestoes-adicionadas": { label: "Notificar sugestões de catálogo adicionadas", group: "sistema" },
 };
 
+// ✅ 04/09/2026, pedido do Márcio: botão "Reprocessar" por job — quando um
+// cron falha (ex: EPG Claro), ele quer rodar de novo na hora, sem precisar
+// achar a tela certa. Só os jobs HTTP com uma rota "rodar agora" segura e
+// idempotente entram aqui — jobs SQL puro (vacuum, purge) não têm uma
+// requisição HTTP equivalente pra chamar do browser.
+// URL relativa: o botão chama com a MESMA sessão do admin logado (a rota
+// já aceita usuário autenticado, sem precisar do secret de cron).
+const REPROCESS_ENDPOINTS: Record<string, { url: string; method: "GET" | "POST" }> = {
+  epg_sync_daily:           { url: "/api/epg/sync/sync-claro",      method: "POST" },
+  sync_catalog_elite_daily: { url: "/api/epg/sync-catalog/elite",   method: "POST" },
+  sync_catalog_natv_daily:  { url: "/api/epg/sync-catalog/natv",    method: "POST" },
+  "sync-catalog-fast":      { url: "/api/epg/sync-catalog/fast",    method: "POST" },
+  sync_tmdb_daily:          { url: "/api/epg/sync-tmdb",            method: "POST" },
+  sync_jogos_daily:         { url: "/api/epg/sync/sync-jogos",      method: "POST" },
+};
+
 type MergedJob = {
   key: string;
   label: string;
@@ -81,6 +97,8 @@ type MergedJob = {
   lastError: string | null;
   lastErrorAt: string | null;
   neverRanYet: boolean; // job novo, ainda não teve a 1ª chance de rodar
+  reprocessUrl: string | null;
+  reprocessMethod: "GET" | "POST" | null;
 };
 
 export async function GET(req: Request) {
@@ -130,6 +148,7 @@ export async function GET(req: Request) {
       const lastOkAt = h?.last_ok_at ?? null;
       const staleMs = appJob.maxAgeHours * 60 * 60 * 1000;
       consumedAppNames.add(appName);
+      const reprocess = REPROCESS_ENDPOINTS[row.jobname];
       merged.push({
         key: row.jobname,
         label: meta.label,
@@ -142,11 +161,14 @@ export async function GET(req: Request) {
         lastError: h?.last_error ?? null,
         lastErrorAt: h?.last_error_at ?? null,
         neverRanYet: !lastOkAt && !row.last_run_at,
+        reprocessUrl: reprocess?.url ?? null,
+        reprocessMethod: reprocess?.method ?? null,
       });
     } else {
       // ✅ Só existe no pg_cron (sql puro, ou http sem monitoramento de app
       // dedicado ex: cron_watchdog_check, sync_jogos_daily que já tem
       // Sentry Cron Monitor próprio) — usa o status do próprio pg_cron.
+      const reprocess = REPROCESS_ENDPOINTS[row.jobname];
       merged.push({
         key: row.jobname,
         label: meta.label,
@@ -159,6 +181,8 @@ export async function GET(req: Request) {
         lastError: row.last_run_status === "failed" ? "Última execução do pg_cron falhou" : null,
         lastErrorAt: row.last_run_status === "failed" ? row.last_run_at : null,
         neverRanYet: !row.last_run_at,
+        reprocessUrl: reprocess?.url ?? null,
+        reprocessMethod: reprocess?.method ?? null,
       });
     }
   }
@@ -176,6 +200,7 @@ export async function GET(req: Request) {
     const h = healthMap.get(job.name);
     const lastOkAt = h?.last_ok_at ?? null;
     const staleMs = job.maxAgeHours * 60 * 60 * 1000;
+    const reprocess = REPROCESS_ENDPOINTS[job.name];
     merged.push({
       key: job.name,
       label: meta.label,
@@ -188,6 +213,8 @@ export async function GET(req: Request) {
       lastError: h?.last_error ?? null,
       lastErrorAt: h?.last_error_at ?? null,
       neverRanYet: !lastOkAt,
+      reprocessUrl: reprocess?.url ?? null,
+      reprocessMethod: reprocess?.method ?? null,
     });
   }
 

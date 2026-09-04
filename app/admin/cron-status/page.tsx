@@ -25,6 +25,8 @@ type JobRow = {
   lastError: string | null;
   lastErrorAt: string | null;
   neverRanYet: boolean;
+  reprocessUrl: string | null;
+  reprocessMethod: "GET" | "POST" | null;
 };
 
 type GroupRow = {
@@ -139,6 +141,11 @@ export default function CronStatusPage() {
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
+  // ✅ 04/09/2026, pedido do Márcio: botão "Reprocessar" por job — 1 estado
+  // por chave (mesmo padrão do aiExplain), pra reprocessar 2 jobs ao mesmo
+  // tempo sem misturar loading/erro de um com o outro.
+  const [reprocessing, setReprocessing] = useState<Record<string, { loading: boolean; error?: string }>>({});
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -248,6 +255,32 @@ export default function CronStatusPage() {
       setAiExplain((prev) => ({ ...prev, [item.check_key]: { loading: false, error: e.message || "Erro desconhecido" } }));
     }
   }, []);
+
+  // ✅ 04/09/2026, pedido do Márcio: chama a MESMA rota real do job (com a
+  // sessão do admin logado, sem precisar do secret de cron) e recarrega o
+  // painel inteiro depois — mais simples que atualizar só a linha, e o
+  // /api/cron/status já é 1 chamada barata (1 RPC combinado).
+  const reprocessJob = useCallback(async (job: JobRow) => {
+    if (!job.reprocessUrl || !job.reprocessMethod) return;
+    setReprocessing((prev) => ({ ...prev, [job.key]: { loading: true } }));
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Sessão inválida — faça login novamente.");
+
+      const res = await fetch(job.reprocessUrl, {
+        method: job.reprocessMethod,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `Falha ao reprocessar (HTTP ${res.status}).`);
+
+      setReprocessing((prev) => ({ ...prev, [job.key]: { loading: false } }));
+      await load();
+    } catch (e: any) {
+      setReprocessing((prev) => ({ ...prev, [job.key]: { loading: false, error: e.message || "Erro desconhecido" } }));
+    }
+  }, [load]);
 
   const toggle = (key: string) => {
     setExpanded((prev) => {
@@ -453,6 +486,26 @@ export default function CronStatusPage() {
                               {j.lastError && (
                                 <div className="text-[10px] text-rose-500 mt-1 max-w-xs truncate" title={j.lastError}>
                                   {j.lastError} {j.lastErrorAt ? `(${fmtDateTime(j.lastErrorAt)})` : ""}
+                                </div>
+                              )}
+                              {j.active && j.reprocessUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => reprocessJob(j)}
+                                  disabled={reprocessing[j.key]?.loading}
+                                  className="mt-1.5 flex items-center gap-1 text-[11px] text-sky-500 hover:text-sky-400 font-medium disabled:opacity-50"
+                                >
+                                  {reprocessing[j.key]?.loading ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <RefreshCcw className="w-3 h-3" />
+                                  )}
+                                  {reprocessing[j.key]?.loading ? "Reprocessando..." : "Reprocessar agora"}
+                                </button>
+                              )}
+                              {reprocessing[j.key]?.error && (
+                                <div className="text-[10px] text-rose-500 mt-1 max-w-xs truncate" title={reprocessing[j.key]?.error}>
+                                  {reprocessing[j.key]?.error}
                                 </div>
                               )}
                             </td>
