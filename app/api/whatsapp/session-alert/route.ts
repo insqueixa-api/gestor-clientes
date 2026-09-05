@@ -37,7 +37,7 @@ function isAuthorized(req: NextRequest): boolean {
   return timingSafeEqualStr(token, expected);
 }
 
-const ALERT_KINDS = ["hard_reset", "session_errors"] as const;
+const ALERT_KINDS = ["hard_reset", "session_health"] as const;
 type AlertKind = (typeof ALERT_KINDS)[number];
 
 export async function POST(req: NextRequest) {
@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
   const kind = String(body?.kind || "") as AlertKind;
   const sessionKey = String(body?.sessionKey || "").trim();
   const detail = String(body?.detail || "").slice(0, 500);
+  const libsignalErrors = Math.max(0, Number(body?.libsignalErrors) || 0);
+  const decryptRetries = Math.max(0, Number(body?.decryptRetries) || 0);
 
   if (!ALERT_KINDS.includes(kind) || !sessionKey) {
     return NextResponse.json({ ok: false, error: "Parâmetros inválidos" }, { status: 400 });
@@ -98,22 +100,47 @@ export async function POST(req: NextRequest) {
           <p>A sessão está em branco agora — escaneie o QR novamente em Configurações &gt; WhatsApp assim que possível.</p>
         </div>`,
       );
-    } else if (kind === "session_errors") {
-      await notify({
-        tenantId: selection.tenantId,
-        type: "whatsapp_erros_sessao",
-        title: "⚠️ WhatsApp — erros de sessão/decriptação",
-        message: `${detail} na "${humanLabel}" — pode ser sinal do sintoma "Aguardando mensagem"/mensagem vazia.`,
-        link: "/admin/settings/whatsapp",
-        sourceId,
-      });
-      await sendAdminEmail(
-        `⚠️ WhatsApp — erros de sessão (${humanLabel})`,
-        `<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-          <p><strong>${detail}</strong> na "${humanLabel}".</p>
-          <p>Isso costuma ser o sintoma de mensagens que chegam como "Aguardando mensagem" ou vazias pro destinatário.</p>
-        </div>`,
+    } else if (kind === "session_health") {
+      const total = libsignalErrors + decryptRetries;
+
+      // ✅ Alimenta o card "Sistema > WhatsApp" a CADA chamada (mesmo com
+      // total=0) — sem isso o card ficaria preso em "warn" de uma janela
+      // antiga depois que o problema já passou, já que só é tocado quando
+      // alguém chama esta rota.
+      await supabaseAdmin.from("system_health_checks").upsert(
+        {
+          check_key: "whatsapp_session_health",
+          label: "WhatsApp — Erros de sessão",
+          group_key: "whatsapp",
+          status: total > 0 ? "warn" : "ok",
+          detail:
+            total > 0
+              ? `${humanLabel}: ${libsignalErrors} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${decryptRetries} pedido(s) de reenvio nos últimos 5min`
+              : `${humanLabel}: sem erros de sessão/decriptação nos últimos 5min`,
+          checked_at: new Date().toISOString(),
+        },
+        { onConflict: "check_key" },
       );
+
+      // Sino + e-mail só quando tem algo de verdade pra avisar.
+      if (total > 0) {
+        const detailMsg = `${libsignalErrors} erro(s) de sessão + ${decryptRetries} pedido(s) de reenvio`;
+        await notify({
+          tenantId: selection.tenantId,
+          type: "whatsapp_erros_sessao",
+          title: "⚠️ WhatsApp — erros de sessão/decriptação",
+          message: `${detailMsg} na "${humanLabel}" — pode ser sinal do sintoma "Aguardando mensagem"/mensagem vazia.`,
+          link: "/admin/settings/whatsapp",
+          sourceId,
+        });
+        await sendAdminEmail(
+          `⚠️ WhatsApp — erros de sessão (${humanLabel})`,
+          `<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+            <p><strong>${detailMsg}</strong> na "${humanLabel}".</p>
+            <p>Isso costuma ser o sintoma de mensagens que chegam como "Aguardando mensagem" ou vazias pro destinatário.</p>
+          </div>`,
+        );
+      }
     }
 
     return NextResponse.json({ ok: true });

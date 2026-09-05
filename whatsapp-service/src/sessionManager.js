@@ -56,6 +56,28 @@ async function reportSessionAlert(kind, sessionKey, detail) {
   }
 }
 
+// ✅ 05/09/2026, pedido do Márcio: roda a CADA 5min (mesmo com zero erro),
+// pra alimentar o card "Sistema > WhatsApp" (system_health_checks) com um
+// status sempre fresco — sino/e-mail (reportSessionAlert) só disparam
+// quando o total é > 0, mas esse aqui sempre atualiza, senão o card fica
+// preso em "warn" de uma janela antiga depois que o problema já passou.
+async function reportSessionHealth(sessionKey, libsignalErrors, decryptRetries) {
+  const appUrl = String(process.env.UNIGESTOR_APP_URL || "").trim();
+  const token = String(process.env.API_TOKEN || "").trim();
+  if (!appUrl || !token) return;
+
+  try {
+    await fetch(`${appUrl.replace(/\/+$/, "")}/api/whatsapp/session-alert`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "session_health", sessionKey, libsignalErrors, decryptRetries }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (e) {
+    console.log(`[WA] Falha ao atualizar o card do Sistema: ${e.message}`);
+  }
+}
+
 // ✅ Os contadores de saúde de sessão são globais (não por sessão) — usa a
 // primeira sessão conectada encontrada só pra rotular o alerta de forma
 // legível (hoje na prática só existe uma sessão real em uso).
@@ -76,18 +98,6 @@ const processedCalls = new Map();
 // em vez de só descartar, e avisa a cada 5 min (sem voltar a pichar o log
 // linha a linha, que foi o motivo original da supressão).
 let sessionErrorCount = 0;
-setInterval(() => {
-  if (sessionErrorCount > 0) {
-    const n = sessionErrorCount;
-    console.log(`[WA][SESSION_HEALTH] ${n} erro(s) de sessão/decriptação (Bad MAC/Failed to decrypt/Closing session) nos últimos 5 min`);
-    reportSessionAlert(
-      "session_errors",
-      getConnectedSessionKey(),
-      `${n} erro(s) de sessão/decriptação (Bad MAC/Failed to decrypt/Closing session)`,
-    );
-    sessionErrorCount = 0;
-  }
-}, 5 * 60 * 1000);
 
 // Suprime logs verbosos de ERRO do libsignal (Bad MAC de sessões antigas — erro cosmético)
 const _origConsoleError = console.error;
@@ -377,17 +387,25 @@ const baileysLogStream = new Writable({
 });
 const baileysLogger = pino({ level: "debug" }, baileysLogStream);
 
+// ✅ 05/09/2026, pedido do Márcio: 1 intervalo SÓ (em vez dos 2 separados de
+// antes, que corriam risco de sobrescrever um ao outro no card do Sistema
+// se caíssem no mesmo tick) — soma os dois contadores, atualiza o card
+// "Sistema > WhatsApp" a CADA 5min mesmo com zero erro (pra nunca ficar com
+// um "warn" preso de uma janela antiga), e só dispara sino+e-mail quando o
+// total é realmente > 0.
 setInterval(() => {
-  if (decryptRetryCount > 0) {
-    const n = decryptRetryCount;
-    console.log(`[WA][SESSION_HEALTH] ${n} pedido(s) de reenvio por falha de decriptação (recv retry request) nos últimos 5 min`);
-    reportSessionAlert(
-      "session_errors",
-      getConnectedSessionKey(),
-      `${n} pedido(s) de reenvio por falha de decriptação (celular do cliente não conseguiu abrir a mensagem)`,
-    );
-    decryptRetryCount = 0;
+  const libsignalN = sessionErrorCount;
+  const retryN = decryptRetryCount;
+  const total = libsignalN + retryN;
+
+  if (total > 0) {
+    console.log(`[WA][SESSION_HEALTH] ${libsignalN} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${retryN} pedido(s) de reenvio (recv retry request) nos últimos 5 min`);
   }
+
+  reportSessionHealth(getConnectedSessionKey(), libsignalN, retryN);
+
+  sessionErrorCount = 0;
+  decryptRetryCount = 0;
 }, 5 * 60 * 1000);
 
 // Map de sessões ativas: sessionKey -> { socket, qr, status, retries }
