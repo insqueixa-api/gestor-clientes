@@ -48,6 +48,8 @@ const MESES_PT = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
+// ✅ 05/09/2026, pedido do Márcio: só data (sem hora) — precisa filtrar por
+// dia no Excel, hora só atrapalhava.
 function formatDataHoraBR(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -55,7 +57,6 @@ function formatDataHoraBR(iso: string | null): string {
   return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
     day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
   }).format(d);
 }
 
