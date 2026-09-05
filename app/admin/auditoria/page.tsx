@@ -251,9 +251,13 @@ function matchesWhatsapp(r: LogRow, value: string) {
       eligible &&
       r.whatsapp_status !== "sent" &&
       r.whatsapp_status !== "error" &&
-      r.whatsapp_status !== "manual"
+      r.whatsapp_status !== "manual" &&
+      r.whatsapp_status !== "na"
     );
-  if (value === "na") return !eligible;
+  // ✅ 05/09/2026: "na" também é gravado explicitamente (toggle "Enviar
+  // Mensagem?" desligado numa renovação manual avulsa) — não só derivado
+  // de !eligible.
+  if (value === "na") return !eligible || r.whatsapp_status === "na";
   return false;
 }
 
@@ -1338,6 +1342,12 @@ function AuditoriaPageContent() {
           Manual
         </span>
       );
+    // ✅ 05/09/2026: renovação manual (avulsa, page.tsx/recarga_cliente) em
+    // que o admin desligou o toggle "Enviar Mensagem?" — já nasce
+    // concluída e não existe um passo futuro que vá mandar nada, então
+    // mostra "Não se Aplica" em vez de "Aguardando" pra sempre.
+    if (status === "na")
+      return <span className="text-muted-foreground/60 font-medium">—</span>;
     return (
       <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-transparent text-muted-foreground text-[10px] font-medium uppercase border border-border">
         Aguardando

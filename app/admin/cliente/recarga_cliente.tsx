@@ -1193,6 +1193,18 @@ export default function RecargaCliente({
       const tid = tenantId;
       const nameToSend = clientData?.display_name || clientName;
 
+      // ✅ 05/09/2026: id da linha nova em client_portal_payments quando esta
+      // renovação NÃO veio de uma pendência já existente no Log do Portal
+      // (paymentLogId ausente) — preenchido logo após registrar o pagamento
+      // manual mais abaixo, usado só pra também rastrear o envio de WhatsApp.
+      let newPortalLogId: string | undefined;
+      // ✅ Mesma condição do PASSO 4 abaixo — se não vai nem tentar mandar
+      // (toggle desligado), a linha nova já nasce com whatsapp_status='na'
+      // em vez de ficar "Aguardando" pra sempre na Auditoria.
+      const willAttemptWhatsapp = Boolean(
+        sendWhats && messageContent && messageContent.trim(),
+      );
+
       // ✅ VARIÁVEIS para dados da API
       let apiVencimento = saoPauloDateTimeToIso(dueDate, dueTime); // inicial
       let apiPassword: string | null = null;
@@ -1688,6 +1700,26 @@ export default function RecargaCliente({
           },
         );
         if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+
+        // ✅ 05/09/2026, pedido do Márcio: renovação manual avulsa (não veio
+        // de uma pendência do Log do Portal) também vira uma linha lá —
+        // "Banco" = PIX (Manual)/Revolut (Manual) conforme a moeda do
+        // cliente, já nasce Aprovado (Manual) + Concluído (Manual), porque
+        // o pagamento e a renovação já aconteceram de verdade acima.
+        const { data: loggedId, error: logErr } = await supabaseBrowser.rpc(
+          "log_manual_renewal_payment",
+          {
+            p_tenant_id: tid,
+            p_client_id: clientId,
+            p_price_amount: rawPlanPrice,
+            p_price_currency: currency,
+            p_period: selectedPlanPeriod,
+            p_plan_label: PLAN_LABELS[selectedPlanPeriod],
+            p_new_vencimento: apiVencimento,
+            p_whatsapp_status: willAttemptWhatsapp ? null : "na",
+          },
+        );
+        if (!logErr && loggedId) newPortalLogId = loggedId as string;
       }
 
       // ✅ NOVO: servidor SEM integração (ex: UniGestor), concluído manualmente
@@ -1744,6 +1776,27 @@ export default function RecargaCliente({
           },
         );
         if (renewError) throw new Error(`Erro Renew: ${renewError.message}`);
+
+        // ✅ 05/09/2026: mesma lógica do bloco manual acima — só grava linha
+        // nova no Log do Portal quando NÃO é a conclusão de uma pendência já
+        // existente (paymentLogId ausente). Cobre exatamente o caso da tela
+        // (Renovação Automática ligada + Método PIX, pago por fora).
+        if (!paymentLogId) {
+          const { data: loggedId, error: logErr } = await supabaseBrowser.rpc(
+            "log_manual_renewal_payment",
+            {
+              p_tenant_id: tid,
+              p_client_id: clientId,
+              p_price_amount: rawPlanPrice,
+              p_price_currency: currency,
+              p_period: selectedPlanPeriod,
+              p_plan_label: PLAN_LABELS[selectedPlanPeriod],
+              p_new_vencimento: apiVencimento,
+              p_whatsapp_status: willAttemptWhatsapp ? null : "na",
+            },
+          );
+          if (!logErr && loggedId) newPortalLogId = loggedId as string;
+        }
       }
 
       // ✅ NOVO: verifica o saldo do servidor direto no banco (sem depender de sync
@@ -1811,11 +1864,14 @@ export default function RecargaCliente({
           if (!res.ok) throw new Error("API retornou erro");
 
           // ✅ Atualiza via RPC (RLS bloqueia UPDATE direto no client_portal_payments pelo browser)
-          if (paymentLogId) {
+          // — usa paymentLogId (pendência já existente) ou newPortalLogId
+          // (linha nova gravada acima, renovação avulsa) — nunca os dois.
+          const waLogId = paymentLogId || newPortalLogId;
+          if (waLogId) {
             const { error: waUpErr } = await supabaseBrowser.rpc(
               "update_whatsapp_status",
               {
-                p_log_id: paymentLogId,
+                p_log_id: waLogId,
                 p_tenant_id: tid,
                 p_status: "sent",
               },
@@ -1825,7 +1881,7 @@ export default function RecargaCliente({
               await supabaseBrowser.rpc("resolve_notification", {
                 p_tenant_id: tid,
                 p_type: "whatsapp_falha",
-                p_source_id: paymentLogId,
+                p_source_id: waLogId,
               });
             } catch {}
           }
@@ -1839,11 +1895,12 @@ export default function RecargaCliente({
           );
         } catch {
           // ✅ Atualiza via RPC (RLS bloqueia UPDATE direto no client_portal_payments pelo browser)
-          if (paymentLogId) {
+          const waLogIdErr = paymentLogId || newPortalLogId;
+          if (waLogIdErr) {
             const { error: waUpErr } = await supabaseBrowser.rpc(
               "update_whatsapp_status",
               {
-                p_log_id: paymentLogId,
+                p_log_id: waLogIdErr,
                 p_tenant_id: tid,
                 p_status: "error",
               },
@@ -1951,7 +2008,9 @@ export default function RecargaCliente({
 
       setTimeout(async () => {
         // ✅ Avisa a Auditoria qual ID foi concluído e AGUARDA ela salvar no banco
-        await onSuccess(paymentLogId);
+        // (paymentLogId numa conclusão de pendência já existente, ou
+        // newPortalLogId na linha nova criada acima pra uma renovação avulsa)
+        await onSuccess(paymentLogId || newPortalLogId);
         onClose(); // Só destrói o modal depois que a auditoria terminar
       }, 500);
     } catch (err: any) {
