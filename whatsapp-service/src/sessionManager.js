@@ -555,6 +555,11 @@ if (connection === "open") {
       // sozinho depois de alguns segundos (ver goOnlineForSend/scheduleGoOffline).
       sock.sendPresenceUpdate("unavailable").catch(() => {});
 
+      // ✅ 05/09/2026: agenda a próxima janela de "ficar online sem estar
+      // enviando nada" (ver runPresenceSim/scheduleNextPresenceSim) — imita
+      // alguém abrindo o app de vez em quando.
+      scheduleNextPresenceSim(sessData);
+
       // Rastreador persistente para capturar o nome real (Normal ou Business)
       // ✅ BLINDAGEM: Mata qualquer rastreador antigo antes de criar um novo
       if (sessData.nameTracker) {
@@ -869,11 +874,18 @@ function deleteSessionFiles(sessionKey, fullDelete = false) {
 const ONLINE_BEFORE_SEND_MS = 3_000; // fica "disponível" um instante antes de mandar, como se tivesse acabado de abrir o app
 const ONLINE_LINGER_MS = 12_000; // some tempos depois do ÚLTIMO envio, sem mensagem nova, antes de voltar a "indisponível"
 
-function scheduleGoOffline(sess) {
+// ✅ 05/09/2026: `scheduleGoOffline` agora respeita `presenceKeepOnlineUntil`
+// — usado pela simulação de presença ociosa abaixo, pra um envio real no
+// meio de uma janela "só ficando online, sem mandar nada" não cortar essa
+// janela mais cedo (o timer normal de 12s do envio nunca antecipa o fim de
+// uma janela simulada mais longa que já esteja em andamento).
+function scheduleGoOffline(sess, minDelayMs = ONLINE_LINGER_MS) {
+  const now = Date.now();
+  const targetTs = Math.max(now + minDelayMs, sess.presenceKeepOnlineUntil || 0);
   if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
   sess.presenceOfflineTimer = setTimeout(() => {
     try { sess.socket?.sendPresenceUpdate("unavailable"); } catch {}
-  }, ONLINE_LINGER_MS);
+  }, targetTs - now);
 }
 
 async function goOnlineForSend(sess) {
@@ -887,6 +899,51 @@ async function goOnlineForSend(sess) {
   }
   try { sess.socket?.sendPresenceUpdate("available"); } catch {}
   await new Promise((r) => setTimeout(r, ONLINE_BEFORE_SEND_MS));
+}
+
+// ✅ 05/09/2026, pedido do Márcio: hoje a sessão só aparece "disponível"
+// nos poucos segundos ao redor de um envio real — 100% correlacionado com
+// mandar mensagem, o que também é um padrão reconhecível (gente de
+// verdade abre o WhatsApp e fica online lendo/parada sem estar mandando
+// nada). Simula alguém abrindo o app de vez em quando, sem relação com
+// envio: em intervalos aleatórios (20-90 min) fica "disponível" por
+// alguns minutos (2-8, também aleatório) e volta a "indisponível" sozinha
+// — via `scheduleGoOffline` (mesmo mecanismo do envio real), então se uma
+// mensagem de verdade for mandada no meio dessa janela, o timer de volta-
+// pra-offline dela não encurta a janela simulada (ver comentário acima).
+const PRESENCE_SIM_MIN_GAP_MS = 20 * 60 * 1000;
+const PRESENCE_SIM_MAX_GAP_MS = 90 * 60 * 1000;
+const PRESENCE_SIM_MIN_ONLINE_MS = 2 * 60 * 1000;
+const PRESENCE_SIM_MAX_ONLINE_MS = 8 * 60 * 1000;
+
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function scheduleNextPresenceSim(sess) {
+  if (sess.presenceSimTimer) clearTimeout(sess.presenceSimTimer);
+  sess.presenceSimTimer = setTimeout(
+    () => runPresenceSim(sess),
+    randomBetween(PRESENCE_SIM_MIN_GAP_MS, PRESENCE_SIM_MAX_GAP_MS),
+  );
+}
+
+async function runPresenceSim(sess) {
+  // ✅ Sessão caiu/foi substituída por uma reconexão nova enquanto o timer
+  // corria — não faz nada e não reagenda (a sessão nova já agenda a dela
+  // própria quando conectar).
+  if (!sess.socket || sess.status !== "connected") return;
+
+  const onlineMs = randomBetween(PRESENCE_SIM_MIN_ONLINE_MS, PRESENCE_SIM_MAX_ONLINE_MS);
+  try {
+    await sess.socket.sendPresenceUpdate("available").catch(() => {});
+    sess.presenceKeepOnlineUntil = Date.now() + onlineMs;
+    scheduleGoOffline(sess, onlineMs);
+  } catch {}
+
+  setTimeout(() => {
+    if (sess.status === "connected") scheduleNextPresenceSim(sess);
+  }, onlineMs);
 }
 
 // ✅ "Digitando..." antes de mandar (pedido do Márcio, 26/07/2026: "ninguém
