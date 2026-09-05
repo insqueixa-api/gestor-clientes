@@ -17,6 +17,7 @@ import {
   Trash2,
   Copy,
   Check,
+  Archive,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -1414,6 +1415,43 @@ function ClientePageContent() {
     }
   };
 
+  // ✅ 05/09/2026, pedido do Márcio: jeito manual de mandar um cliente já
+  // arquivado direto pro "Arquivado" (deep_archived), sem esperar os 61
+  // dias do cron — pra teste e também uso real.
+  const handleManualDeepArchive = async (r: ClientRow) => {
+    if (!tenantId) return;
+
+    const ok = await confirm({
+      title: "Arquivar profundamente",
+      subtitle: "Preserva todo o histórico, mas o cliente para de aparecer no Portal e a exclusão definitiva passa a ficar disponível.",
+      tone: "amber",
+      icon: "🗄️",
+      details: [`Cliente: ${r.name}`, "Ação: mover pra Arquivado"],
+      confirmText: "Arquivar profundamente",
+      cancelText: "Voltar",
+    });
+
+    if (!ok) return;
+
+    try {
+      const { error } = await supabaseBrowser.rpc("manual_deep_archive_client", {
+        p_tenant_id: tenantId,
+        p_client_id: r.id,
+      });
+
+      if (error) throw error;
+
+      addToast("success", "Arquivado", "Cliente movido pra Arquivado.");
+      loadData();
+    } catch (e: any) {
+      addToast(
+        "error",
+        "Ação não permitida",
+        e?.message || "Não foi possível arquivar profundamente.",
+      );
+    }
+  };
+
   const handleDeleteForever = async (r: ClientRow) => {
     if (!tenantId) return;
 
@@ -2576,6 +2614,24 @@ function ClientePageContent() {
                             {r.archived ? <IconRestore /> : <IconTrash />}
                           </IconActionBtn>
 
+                          {/* ✅ 05/09/2026: jeito manual de mandar um cliente
+                              da Lixeira comum direto pro "Arquivado", sem
+                              esperar os 61 dias do cron — pra teste e uso real. */}
+                          {archivedFilter === "Sim" &&
+                            r.archived &&
+                            !r.deepArchivedAt && (
+                              <IconActionBtn
+                                title="Arquivar profundamente"
+                                tone="amber"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleManualDeepArchive(r);
+                                }}
+                              >
+                                <IconArchive />
+                              </IconActionBtn>
+                            )}
+
                           {/* ✅ 05/09/2026: só aparece pra quem já é "Arquivado"
                               (deep_archived) — cliente comum na Lixeira (ainda
                               não passou dos 61 dias) não pode mais ser excluído
@@ -3640,4 +3696,7 @@ function IconTrash() {
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;
+}
+function IconArchive() {
+  return <Archive className="w-4 h-4" />;
 }
