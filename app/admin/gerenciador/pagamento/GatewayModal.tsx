@@ -118,6 +118,35 @@ export default function GatewayModal({
 
       const supabase = supabaseBrowser;
 
+      // ✅ 04/09/2026, pedido do Márcio: FastDePix não mostra o webhook
+      // secret na tela de criação de chave (é um cadastro separado, "não
+      // tenho acesso a isso") — o UniGestor cadastra o webhook sozinho
+      // (POST /webhooks/register) toda vez que a Chave API muda, sem pedir
+      // pro admin ver/colar nada. Só chama de novo se a chave mudou (ou
+      // ainda não tem webhook_secret salvo) — não fica recadastrando à toa
+      // a cada edição de outro campo (prioridade, status etc).
+      let finalForm = form;
+      if (
+        (selectedType === "fastpay" || selectedType === "fastflow" || selectedType === "depix") &&
+        form.api_key?.trim() &&
+        (form.api_key !== gateway?.config?.api_key || !gateway?.config?.webhook_secret)
+      ) {
+        const { data: sess } = await supabase.auth.getSession();
+        const accessToken = sess.session?.access_token;
+        if (!accessToken) throw new Error("Sessão inválida. Atualize a página.");
+
+        const whRes = await fetch("/api/admin/fastdepix/register-webhook", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ api_key: form.api_key.trim() }),
+        });
+        const whJson = await whRes.json().catch(() => ({}));
+        if (!whRes.ok || !whJson?.webhook_secret) {
+          throw new Error(whJson?.error || "Falha ao cadastrar o webhook na FastDePix — confira se a Chave API está correta.");
+        }
+        finalForm = { ...form, webhook_secret: whJson.webhook_secret };
+      }
+
       const isFallbackType =
         selectedType === "pix_manual" ||
         selectedType === "transfer_manual_eur" ||
@@ -132,7 +161,7 @@ export default function GatewayModal({
         is_active: isActive,
         is_online: meta.is_online,
         is_manual_fallback: isFallbackType ? isManualFallback : false,
-        config: form,
+        config: finalForm,
         updated_at: new Date().toISOString(),
       };
 
