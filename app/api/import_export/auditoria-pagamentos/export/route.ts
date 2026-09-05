@@ -21,6 +21,7 @@ const exportHeaders = [
   "Telas",
   "Valor Pago",
   "Banco",
+  "Referência",
 ];
 
 // ✅ Mesmo mapa de app/admin/auditoria/page.tsx (GATEWAY_LABELS) — duplicado
@@ -101,22 +102,14 @@ export async function GET(req: Request) {
   endDate.setUTCMonth(endDate.getUTCMonth() + 1);
   const endISO = endDate.toISOString();
 
+  // ✅ Achado ao vivo (05/09/2026): client_portal_payments.client_id NÃO tem
+  // foreign key de verdade pra clients (só client_app_id/coupon_id/
+  // parent_payment_id têm) — o embed automático do PostgREST
+  // (clients(...)) falha com PGRST200 "no relationship found". Join manual
+  // em 2 passos (payments → clients → servers) em vez de embed.
   const { data: rows, error } = await supabase
     .from("client_portal_payments")
-    .select(`
-      created_at,
-      plan_label,
-      app_name_snapshot,
-      price_amount,
-      price_currency,
-      gateway_type,
-      clients (
-        display_name,
-        server_username,
-        screens,
-        servers ( name )
-      )
-    `)
+    .select("created_at, client_id, plan_label, app_name_snapshot, price_amount, price_currency, gateway_type, mp_payment_id")
     .eq("tenant_id", tenant_id)
     .in("status", ["approved", "manual_approved"])
     .gte("created_at", startISO)
@@ -127,21 +120,41 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "export_failed", details: error.message }, { status: 500 });
   }
 
+  const clientIds = [...new Set((rows || []).map((r) => r.client_id).filter(Boolean))];
+  const clientsMap = new Map<string, { display_name: string | null; server_username: string | null; screens: number | null; server_id: string | null }>();
+  if (clientIds.length > 0) {
+    const { data: clientsData } = await supabase
+      .from("clients")
+      .select("id, display_name, server_username, screens, server_id")
+      .in("id", clientIds);
+    for (const c of clientsData || []) clientsMap.set(c.id, c as any);
+  }
+
+  const serverIds = [...new Set([...clientsMap.values()].map((c) => c.server_id).filter(Boolean))] as string[];
+  const serversMap = new Map<string, string>();
+  if (serverIds.length > 0) {
+    const { data: serversData } = await supabase.from("servers").select("id, name").in("id", serverIds);
+    for (const s of serversData || []) serversMap.set(s.id, s.name);
+  }
+
   const dataAsArrays = (rows || []).map((r: any) => {
     const d = new Date(r.created_at);
     const mesNome = !Number.isNaN(d.getTime())
       ? `${MESES_PT[Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", month: "numeric" }).format(d)) - 1]}/${year}`
       : "";
+    const cliente = r.client_id ? clientsMap.get(r.client_id) : null;
+    const servidorNome = cliente?.server_id ? serversMap.get(cliente.server_id) || "" : "";
     return [
       formatDataHoraBR(r.created_at),
       mesNome,
-      r.clients?.display_name || "",
-      r.clients?.server_username || "",
-      r.clients?.servers?.name || "",
+      cliente?.display_name || "",
+      cliente?.server_username || "",
+      servidorNome,
       r.plan_label || r.app_name_snapshot || "",
-      r.clients?.screens ?? "",
+      cliente?.screens ?? "",
       formatValor(r.price_amount, r.price_currency),
       gatewayLabel(r.gateway_type),
+      r.mp_payment_id || "",
     ];
   });
 
@@ -156,6 +169,7 @@ export async function GET(req: Request) {
     { wch: 8 },  // Telas
     { wch: 14 }, // Valor Pago
     { wch: 18 }, // Banco
+    { wch: 20 }, // Referência
   ];
 
   const workbook = XLSX.utils.book_new();
