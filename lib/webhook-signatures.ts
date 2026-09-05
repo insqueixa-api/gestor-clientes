@@ -75,3 +75,17 @@ export function verifyStripeWebhookSignature(params: {
   const expected = crypto.createHmac("sha256", secret).update(`${t}.${rawBody}`, "utf8").digest("hex");
   return safeEqualHex(expected, v1);
 }
+
+// ✅ 04/09/2026 — FastDePix (FastPay/FastFlow/DePix): header
+// X-Webhook-Signature: sha256=<hmac>, sem timestamp/replay-window embutido
+// no header (doc oficial só manda validar o hash puro contra o body cru).
+export function verifyFastDepixSignature(params: {
+  signatureHeader: string;
+  rawBody: string;
+  secret: string;
+}): boolean {
+  const { signatureHeader, rawBody, secret } = params;
+  if (!signatureHeader || !secret) return false;
+  const expected = "sha256=" + crypto.createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+  return safeEqualHex(expected, signatureHeader);
+}

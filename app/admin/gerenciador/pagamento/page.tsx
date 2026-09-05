@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/gerenciador/pagamento/page.tsx
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Camera, Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 
 import { useEffect, useState, useCallback, useRef } from "react";
@@ -26,18 +26,23 @@ function GatewayCard({
   onDelete,
   onToggle,
   isDeleting,
+  onIconUpload,
+  uploadingIcon,
 }: {
   gateway: PaymentGateway;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: () => void;
   isDeleting?: boolean;
+  onIconUpload: (file: File) => void;
+  uploadingIcon?: boolean;
 }) {
   const meta = GATEWAY_META.find((m) => m.type === gateway.type);
   if (!meta) return null;
 
   const priorityLabel =
     PRIORITY_LABELS[gateway.priority] || `P${gateway.priority}`;
+  const customIconUrl = gateway.config?.icon_url as string | undefined;
 
   return (
     <div
@@ -48,9 +53,31 @@ function GatewayCard({
       {/* Header */}
       <div className="px-4 py-3 bg-transparent border-b border-border flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-xl shrink-0">
-            {meta.icon}
-          </div>
+          {/* ✅ 04/09/2026, pedido do Márcio: ícone próprio por gateway
+              (upload manual, sobrepõe o emoji padrão) — mesmo mecanismo de
+              server_integrations.icon_url em api-server/page.tsx. */}
+          <label className="relative w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-xl shrink-0 overflow-hidden cursor-pointer group shrink-0">
+            {uploadingIcon ? (
+              <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+            ) : customIconUrl ? (
+              <img src={customIconUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              meta.icon
+            )}
+            <span className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera className="w-3.5 h-3.5 text-white" />
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onIconUpload(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
 
           <div className="min-w-0">
             <h3 className="font-medium text-foreground text-sm truncate">
@@ -168,6 +195,7 @@ export default function PagamentosPage() {
     null,
   );
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [uploadingIconFor, setUploadingIconFor] = useState<string | null>(null);
 
   // --- TOAST + CONFIRM (padrão do admin) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -297,6 +325,48 @@ export default function PagamentosPage() {
     }
   }
 
+  // ✅ 04/09/2026, pedido do Márcio: ícone próprio por gateway, mesmo
+  // mecanismo de upload já usado em app/admin/settings/api-server/page.tsx
+  // (presign → PUT direto no R2 → grava a URL pública). Aqui grava em
+  // payment_gateways.config.icon_url (jsonb já existente, sem migração).
+  async function handleIconUpload(gateway: PaymentGateway, file: File) {
+    if (!file.type.startsWith("image/")) {
+      addToast("error", "Arquivo inválido", "Selecione uma imagem.");
+      return;
+    }
+    if (!tenantId) return;
+    try {
+      setUploadingIconFor(gateway.id);
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          contentType: file.type,
+          folder: "payment_gateways",
+        }),
+      });
+      const { presignedUrl, publicUrl } = await presignRes.json();
+      await fetch(presignedUrl, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type },
+      });
+      const { error } = await supabaseBrowser
+        .from("payment_gateways")
+        .update({ config: { ...gateway.config, icon_url: publicUrl } })
+        .eq("id", gateway.id)
+        .eq("tenant_id", tenantId);
+      if (error) throw error;
+      addToast("success", "Ícone salvo", "Ícone atualizado com sucesso.");
+      await fetchGateways();
+    } catch (e: any) {
+      addToast("error", "Erro no upload", e?.message ?? "Falha ao enviar a imagem.");
+    } finally {
+      setUploadingIconFor(null);
+    }
+  }
+
   // Agrupar por moeda
   const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
   const intlGateways = gateways.filter(
@@ -389,6 +459,8 @@ export default function PagamentosPage() {
                         }}
                         onDelete={() => handleDelete(g)}
                         onToggle={() => handleToggle(g)}
+                        onIconUpload={(file) => handleIconUpload(g, file)}
+                        uploadingIcon={uploadingIconFor === g.id}
                       />
                     ))}
                   </div>
@@ -426,6 +498,8 @@ export default function PagamentosPage() {
                         }}
                         onDelete={() => handleDelete(g)}
                         onToggle={() => handleToggle(g)}
+                        onIconUpload={(file) => handleIconUpload(g, file)}
+                        uploadingIcon={uploadingIconFor === g.id}
                       />
                     ))}
                   </div>

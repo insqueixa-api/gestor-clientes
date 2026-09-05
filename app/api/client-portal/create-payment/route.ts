@@ -14,6 +14,7 @@ import {
 } from "@/lib/client-portal/coupons";
 import { touchPortalSession } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
+import { createFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
 
 export const dynamic = "force-dynamic";
 
@@ -886,6 +887,94 @@ return NextResponse.json(
           safeServerLog("create-payment: stripe error", stripeRes.status, stripeData?.error?.message);
           lastError = "Falha ao criar pagamento no gateway";
           continue;
+        }
+
+        // ======================
+        // FASTDEPIX (FastPay / FastFlow / DePix)
+        // ======================
+        if (isFastDepixGatewayType(gateway.type)) {
+          const apiKey = String(gateway?.config?.api_key || "").trim();
+          if (!apiKey) {
+            safeServerLog(`create-payment: ${gateway.type} missing api_key`);
+            Sentry.captureMessage(`create-payment: ${gateway.type} missing api_key`, { level: "error", tags: { kind: "client_portal_error", route: "create-payment" } });
+            lastError = "Gateway misconfigured";
+            continue;
+          }
+
+          // ✅ DePix exige nome + CPF/CNPJ do pagador em toda cobrança — o
+          // Portal ainda não coleta esse dado no checkout de renovação (ver
+          // docs/fiscal/nota-fiscal-reforma-tributaria-2027.md). Sem isso,
+          // pula pro próximo gateway em vez de estourar 422 sem contexto.
+          if (gateway.type === "depix") {
+            safeServerLog("create-payment: depix skipped — CPF/CNPJ não coletado no checkout ainda");
+            lastError = "Gateway misconfigured";
+            continue;
+          }
+
+          const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();
+          const notificationUrl = appUrl ? `${appUrl.replace(/\/+$/, "")}/api/webhooks/fastdepix` : undefined;
+
+          try {
+            const tx = await createFastDepixTransaction({
+              apiKey,
+              providerType: gateway.type,
+              amount: Number(finalComputedPrice),
+              payerName: displayName,
+              notificationUrl,
+            });
+
+            const qrBase64 = tx.qr_code ? await fetchQrCodeAsBase64(tx.qr_code) : null;
+
+            const { data: inserted, error: insErr } = await supabaseAdmin
+              .from("client_portal_payments")
+              .upsert(
+                {
+                  tenant_id: sess.tenant_id,
+                  client_id,
+                  gateway_type: gateway.type,
+                  payment_method: "online",
+                  mp_payment_id: String(tx.id),
+                  period,
+                  plan_label: planLabel,
+                  price_amount: Number(computedPrice),
+                  plan_price_amount: Number(planPriceOnly),
+                  price_currency: currency,
+                  status: "pending",
+                  settled_alert_ids: settledAlertIds,
+                  coupon_id: couponId,
+                  coupon_code: couponCodeApplied,
+                  coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
+                  bundled_app_renewals: bundledAppRenewals,
+                },
+                { onConflict: "tenant_id,gateway_type,mp_payment_id" }
+              )
+              .select("id, mp_payment_id")
+              .single();
+
+            if (insErr || !inserted) {
+              safeServerLog("create-payment: upsert payment error", insErr?.message);
+              Sentry.captureMessage("create-payment: upsert payment error", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" }, extra: { message: insErr?.message } });
+              return jsonError("Erro interno", 500);
+            }
+
+            return NextResponse.json(
+              {
+                ok: true,
+                payment_method: "online",
+                gateway_name: gateway.name,
+                payment_id: String(tx.id),
+                internal_payment_id: inserted.id,
+                pix_qr_code: tx.qr_code_text || undefined,
+                pix_qr_code_base64: qrBase64 || undefined,
+                expires_at: tx.qr_code_expires_at || new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+              },
+              { status: 200, headers: NO_STORE_HEADERS }
+            );
+          } catch (fdErr: any) {
+            safeServerLog(`create-payment: ${gateway.type} error`, fdErr?.message);
+            lastError = "Falha ao criar pagamento no gateway";
+            continue;
+          }
         }
       } catch (err: any) {
         safeServerLog(`create-payment: gateway error (${gateway?.type})`, err?.message);

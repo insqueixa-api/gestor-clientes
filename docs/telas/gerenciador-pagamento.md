@@ -4,7 +4,11 @@ Arquivo: [app/admin/gerenciador/pagamento/page.tsx](../../app/admin/gerenciador/
 
 ## O que é
 
-Configuração dos gateways de pagamento/recebimento por moeda usados no Portal do Cliente: Mercado Pago e Stripe (automáticos, com API), PIX Manual e Transferência Manual (EUR/USD). Cada gateway tem prioridade (1=Principal, 2=Fallback) e pode ser marcado como fallback manual (exibido ao cliente quando os gateways online falham).
+Configuração dos gateways de pagamento/recebimento por moeda usados no Portal do Cliente: Mercado Pago, FastPay, FastFlow e DePix (automáticos, com API), Stripe (cartão internacional), PIX Manual e Transferência Manual (EUR/USD). Cada gateway tem prioridade (1=Principal, 2=Fallback) e pode ser marcado como fallback manual (exibido ao cliente quando os gateways online falham).
+
+**FastPay/FastFlow/DePix (04/09/2026)**: os 3 são a mesma API REST da FastDePix (`https://fastdepix.space/api/v1/`, doc completa em `https://fastdepix.space/api/docs.php`) — o provedor é definido pela chave (`config.api_key`, tipo `fdpx_...`), não por um endpoint diferente. Lógica compartilhada em [lib/fastdepix.ts](../../lib/fastdepix.ts). **DePix exige CPF/CNPJ do pagador em toda cobrança** — o checkout do Portal ainda não coleta esse dado, então esse gateway fica configurável mas pulado silenciosamente em `create-payment`/`renew-payment` até o campo existir (ver [docs/fiscal/nota-fiscal-reforma-tributaria-2027.md](../fiscal/nota-fiscal-reforma-tributaria-2027.md) — o mesmo campo do projeto de nota fiscal resolve isso). FastPay/FastFlow funcionam hoje, sem CPF, dentro do teto anônimo de cada provedor.
+
+**Ícone por gateway (04/09/2026)**: cada card tem upload próprio de ícone (sobrepõe o emoji padrão), salvo em `config.icon_url` — mesmo mecanismo de upload (`/api/upload/presign` → PUT direto no R2) já usado em `server_integrations`/`api_integrations` (ver `app/admin/settings/api-server/page.tsx`).
 
 ## De onde vêm os dados
 
@@ -15,6 +19,7 @@ Configuração dos gateways de pagamento/recebimento por moeda usados no Portal 
 Nenhuma própria — a tela grava direto na tabela. As rotas que **consomem** essa tabela (fora desta tela) são:
 - `POST /api/webhooks/mercadopago` — lê `config.webhook_secret`/`config.access_token` para validar assinatura HMAC e buscar o pagamento na API do MP.
 - `POST /api/webhooks/stripe` — mesma lógica, `config.webhook_secret` para validar assinatura Stripe.
+- `POST /api/webhooks/fastdepix` — mesma lógica (assinatura `X-Webhook-Signature: sha256=...`, `config.webhook_secret`), reconsulta `GET /transactions/{id}` na API FastDePix antes de rodar o fulfillment.
 - `POST /api/client-portal/create-payment` — lê todos os gateways para montar o checkout do cliente final (escolhe o de maior prioridade `is_online=true`, ou cai no fallback manual).
 - `POST /api/client-portal/apps/renew-payment` — idem, para renovação avulsa de app.
 

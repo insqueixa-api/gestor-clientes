@@ -290,8 +290,12 @@ export default function GatewayModal({
             <>
               <div className="p-4 rounded-xl bg-transparent border border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-xl">
-                    {meta.icon}
+                  <div className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-xl overflow-hidden">
+                    {gateway?.config?.icon_url ? (
+                      <img src={gateway.config.icon_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      meta.icon
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="font-medium text-foreground">

@@ -10,6 +10,9 @@ import { X } from "lucide-react";
 export type GatewayType =
   | "mercadopago"
   | "stripe"
+  | "fastpay"
+  | "fastflow"
+  | "depix"
   | "pix_manual"
   | "transfer_manual_eur"
   | "transfer_manual_usd";
@@ -128,6 +131,91 @@ export const GATEWAY_META: GatewayMeta[] = [
         placeholder: "Ex: Stripe Payments",
         hint: "Nome da instituição financeira exibido ao cliente",
         required: false,
+      },
+    ],
+  },
+  // ✅ 04/09/2026, pedido do Márcio: FastDePix oferece 3 provedores de
+  // liquidação PIX pela MESMA API REST (https://fastdepix.space/api/v1/) —
+  // o provedor usado depende do tipo da chave gerada no painel deles
+  // (campo "Tipo de integração": fastpay, fastflow ou depix), não de um
+  // endpoint diferente. Por isso viram 3 GatewayType separados aqui — cada
+  // um com sua própria chave — mas toda a lógica de chamada da API é
+  // compartilhada (ver lib/fastdepix.ts).
+  {
+    type: "fastpay",
+    label: "FastPay",
+    description: "PIX custodial via FastDePix — sem CPF até R$3.000, com CPF até R$5.000/TX.",
+    currencies: ["BRL"],
+    is_online: true,
+    icon: "⚡",
+    color: "from-amber-500 to-orange-500",
+    fields: [
+      {
+        key: "api_key",
+        label: "Chave API",
+        type: "password",
+        placeholder: "fdpx_...",
+        hint: "FastDePix → Dashboard → Chaves API → Criar Nova Chave API (Tipo de integração: FastPay)",
+        required: true,
+      },
+      {
+        key: "webhook_secret",
+        label: "Webhook Secret",
+        type: "password",
+        placeholder: "Chave secreta do webhook",
+        hint: "Gerado ao cadastrar o webhook no painel FastDePix (ou via POST /webhooks/register)",
+      },
+    ],
+  },
+  {
+    type: "fastflow",
+    label: "FastFlow",
+    description: "PIX custodial via FastDePix — com ou sem CPF até R$5.000.",
+    currencies: ["BRL"],
+    is_online: true,
+    icon: "🌊",
+    color: "from-teal-500 to-cyan-500",
+    fields: [
+      {
+        key: "api_key",
+        label: "Chave API",
+        type: "password",
+        placeholder: "fdpx_...",
+        hint: "FastDePix → Dashboard → Chaves API → Criar Nova Chave API (Tipo de integração: FastFlow)",
+        required: true,
+      },
+      {
+        key: "webhook_secret",
+        label: "Webhook Secret",
+        type: "password",
+        placeholder: "Chave secreta do webhook",
+        hint: "Gerado ao cadastrar o webhook no painel FastDePix (ou via POST /webhooks/register)",
+      },
+    ],
+  },
+  {
+    type: "depix",
+    label: "DePix",
+    description: "Liquidação via DePix / Liquid Network — exige CPF/CNPJ do pagador em toda cobrança.",
+    currencies: ["BRL"],
+    is_online: true,
+    icon: "🔗",
+    color: "from-slate-500 to-zinc-600",
+    fields: [
+      {
+        key: "api_key",
+        label: "Chave API",
+        type: "password",
+        placeholder: "fdpx_...",
+        hint: "FastDePix → Dashboard → Chaves API → Criar Nova Chave API (Tipo de integração: DePix)",
+        required: true,
+      },
+      {
+        key: "webhook_secret",
+        label: "Webhook Secret",
+        type: "password",
+        placeholder: "Chave secreta do webhook",
+        hint: "Gerado ao cadastrar o webhook no painel FastDePix (ou via POST /webhooks/register)",
       },
     ],
   },
@@ -366,6 +454,63 @@ export const GATEWAY_HELP: Record<
       "⚠️ Use pk_live_ e sk_live_ — as chaves pk_test_ são apenas para testes e não processam pagamentos reais",
       "⚠️ Chaves de teste e produção são diferentes — não misture os ambientes",
       "⚠️ Sem completar o KYC da conta, os pagamentos serão bloqueados pelo Stripe",
+    ],
+  },
+  fastpay: {
+    title: "Como configurar o FastPay (FastDePix)",
+    link: "https://fastdepix.space/api/docs.php",
+    linkLabel: "Acessar documentação da API FastDePix →",
+    steps: [
+      "Acesse seu Dashboard de Parceiro em fastdepix.space",
+      "Navegue até Gerenciar Chaves API",
+      "Clique em Criar Nova Chave API",
+      "Em Tipo de integração, selecione FastPay",
+      "Copie a chave gerada (formato fdpx_...) — só aparece uma vez",
+      "Cole a chave no campo Chave API aqui no UniGestor",
+      "Ainda no painel FastDePix, cadastre um webhook apontando pra https://unigestor.net.br/api/webhooks/fastdepix, com os eventos transaction.approved, transaction.paid, transaction.expired e transaction.refunded",
+      "Copie o Webhook Secret gerado e cole no campo correspondente aqui",
+    ],
+    warnings: [
+      "⚠️ A chave API expira em 1 ano — renove antes do vencimento",
+      "⚠️ Sem CPF/CNPJ do pagador: cobrança até R$3.000 (R$5.000 com CPF) — sem limite diário",
+    ],
+  },
+  fastflow: {
+    title: "Como configurar o FastFlow (FastDePix)",
+    link: "https://fastdepix.space/api/docs.php",
+    linkLabel: "Acessar documentação da API FastDePix →",
+    steps: [
+      "Acesse seu Dashboard de Parceiro em fastdepix.space",
+      "Navegue até Gerenciar Chaves API",
+      "Clique em Criar Nova Chave API",
+      "Em Tipo de integração, selecione FastFlow",
+      "Copie a chave gerada (formato fdpx_...) — só aparece uma vez",
+      "Cole a chave no campo Chave API aqui no UniGestor",
+      "Ainda no painel FastDePix, cadastre um webhook apontando pra https://unigestor.net.br/api/webhooks/fastdepix, com os eventos transaction.approved, transaction.paid, transaction.expired e transaction.refunded",
+      "Copie o Webhook Secret gerado e cole no campo correspondente aqui",
+    ],
+    warnings: [
+      "⚠️ A chave API expira em 1 ano — renove antes do vencimento",
+      "⚠️ Com ou sem CPF: cobrança até R$5.000 por transação",
+    ],
+  },
+  depix: {
+    title: "Como configurar o DePix (FastDePix)",
+    link: "https://fastdepix.space/api/docs.php",
+    linkLabel: "Acessar documentação da API FastDePix →",
+    steps: [
+      "Acesse seu Dashboard de Parceiro em fastdepix.space",
+      "Navegue até Gerenciar Chaves API",
+      "Clique em Criar Nova Chave API",
+      "Em Tipo de integração, selecione DePix",
+      "Copie a chave gerada (formato fdpx_...) — só aparece uma vez",
+      "Cole a chave no campo Chave API aqui no UniGestor",
+      "Ainda no painel FastDePix, cadastre um webhook apontando pra https://unigestor.net.br/api/webhooks/fastdepix, com os eventos transaction.approved, transaction.paid, transaction.expired e transaction.refunded",
+      "Copie o Webhook Secret gerado e cole no campo correspondente aqui",
+    ],
+    warnings: [
+      "⚠️ A API DePix EXIGE CPF/CNPJ do pagador em toda cobrança — o Portal do Cliente ainda não coleta esse dado no checkout de renovação, então esse gateway fica configurado mas SEM gerar cobrança de verdade até essa etapa existir (ver docs/fiscal/nota-fiscal-reforma-tributaria-2027.md — o mesmo campo CPF/CNPJ do projeto de nota fiscal resolve isso)",
+      "⚠️ Limite: R$10 a R$5.000/dia por CPF (1º depósito/24h: até R$500)",
     ],
   },
 };

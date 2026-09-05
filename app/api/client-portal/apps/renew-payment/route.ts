@@ -26,6 +26,7 @@ import { randomUUID } from "crypto";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
 import { convertAmount } from "@/lib/fx";
+import { createFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
 
 export const dynamic = "force-dynamic";
 
@@ -224,6 +225,75 @@ export async function POST(req: NextRequest) {
         },
         { status: 200, headers: NO_STORE_HEADERS },
       );
+    }
+
+    // ======================
+    // FASTDEPIX (FastPay / FastFlow) — DePix exige CPF/CNPJ do pagador, que
+    // este fluxo ainda não coleta (ver docs/fiscal/nota-fiscal-reforma-
+    // tributaria-2027.md), então nunca cai aqui pra esse tipo.
+    // ======================
+    if (isFastDepixGatewayType(gateway.type) && gateway.type !== "depix") {
+      const apiKey = String(gateway?.config?.api_key || "").trim();
+      if (!apiKey) return jsonError("Erro interno", 500);
+
+      const appUrl = getAppOrigin();
+      const notificationUrl = appUrl ? `${appUrl}/api/webhooks/fastdepix` : undefined;
+
+      try {
+        const tx = await createFastDepixTransaction({
+          apiKey,
+          providerType: gateway.type,
+          amount: Number(chargeAmount),
+          payerName: displayName,
+          notificationUrl,
+        });
+        const qrBase64 = tx.qr_code ? await fetchQrCodeAsBase64(tx.qr_code) : null;
+
+        const { data: inserted, error: insErr } = await supabaseAdmin
+          .from("client_portal_payments")
+          .upsert(
+            {
+              tenant_id: ctx.tenant_id,
+              client_id,
+              gateway_type: gateway.type,
+              payment_method: "online",
+              mp_payment_id: String(tx.id),
+              price_amount: chargeAmount,
+              price_currency: currency,
+              status: "pending",
+              payment_type: "app_renewal",
+              client_app_id,
+              app_name_snapshot: appName,
+            },
+            { onConflict: "tenant_id,gateway_type,mp_payment_id" },
+          )
+          .select("id, mp_payment_id")
+          .single();
+
+        if (insErr || !inserted) {
+          console.error("[apps/renew-payment] upsert error", insErr?.message);
+          return jsonError("Erro interno", 500);
+        }
+
+        return NextResponse.json(
+          {
+            ok: true,
+            payment_method: "online",
+            gateway_name: gateway.name,
+            payment_id: String(tx.id),
+            internal_payment_id: inserted.id,
+            price_amount: chargeAmount,
+            currency,
+            pix_qr_code: tx.qr_code_text || undefined,
+            pix_qr_code_base64: qrBase64 || undefined,
+            expires_at: tx.qr_code_expires_at || new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+          },
+          { status: 200, headers: NO_STORE_HEADERS },
+        );
+      } catch (fdErr: any) {
+        console.error(`[apps/renew-payment] ${gateway.type} error`, fdErr?.message);
+        return jsonError("Falha ao criar pagamento no gateway", 502);
+      }
     }
 
     if (gateway.type !== "mercadopago") {
