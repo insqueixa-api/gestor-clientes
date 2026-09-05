@@ -58,10 +58,11 @@ async function reportSessionAlert(kind, sessionKey, detail) {
 
 // ✅ 05/09/2026, pedido do Márcio: roda a CADA 5min (mesmo com zero erro),
 // pra alimentar o card "Sistema > WhatsApp" (system_health_checks) com um
-// status sempre fresco — sino/e-mail (reportSessionAlert) só disparam
-// quando o total é > 0, mas esse aqui sempre atualiza, senão o card fica
-// preso em "warn" de uma janela antiga depois que o problema já passou.
-async function reportSessionHealth(sessionKey, libsignalErrors, decryptRetries) {
+// status sempre fresco. `shouldAlert`/`consecutiveWindows` decidem se o app
+// também dispara sino+e-mail (só quando o problema é sustentado ou um pico
+// alto — ver comentário no setInterval que chama isto) — o card em si
+// sempre atualiza, independente disso.
+async function reportSessionHealth(sessionKey, libsignalErrors, decryptRetries, shouldAlert, consecutiveWindows) {
   const appUrl = String(process.env.UNIGESTOR_APP_URL || "").trim();
   const token = String(process.env.API_TOKEN || "").trim();
   if (!appUrl || !token) return;
@@ -70,7 +71,14 @@ async function reportSessionHealth(sessionKey, libsignalErrors, decryptRetries) 
     await fetch(`${appUrl.replace(/\/+$/, "")}/api/whatsapp/session-alert`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "session_health", sessionKey, libsignalErrors, decryptRetries }),
+      body: JSON.stringify({
+        kind: "session_health",
+        sessionKey,
+        libsignalErrors,
+        decryptRetries,
+        shouldAlert: !!shouldAlert,
+        consecutiveWindows: consecutiveWindows || 0,
+      }),
       signal: AbortSignal.timeout(10_000),
     });
   } catch (e) {
@@ -391,18 +399,32 @@ const baileysLogger = pino({ level: "debug" }, baileysLogStream);
 // antes, que corriam risco de sobrescrever um ao outro no card do Sistema
 // se caíssem no mesmo tick) — soma os dois contadores, atualiza o card
 // "Sistema > WhatsApp" a CADA 5min mesmo com zero erro (pra nunca ficar com
-// um "warn" preso de uma janela antiga), e só dispara sino+e-mail quando o
-// total é realmente > 0.
+// um "warn" preso de uma janela antiga).
+//
+// ✅ AJUSTADO no mesmo dia, depois do Márcio receber um alerta real (não
+// teste) de 3 erros isolados e perguntar "de que adianta me avisar sem
+// solução?" — ele tem razão: um punhado de Bad MAC/retry isolado é
+// exatamente o que o próprio Baileys já tenta corrigir sozinho (por isso
+// existe o getMessage/maxMsgRetryCount) — sino+e-mail em CADA janela com
+// qualquer erro > 0 era alarme falso na maioria das vezes. Agora só
+// dispara sino+e-mail quando o problema é SUSTENTADO (3 janelas seguidas
+// com erro = 15min contínuos, não autocorrigiu sozinho) ou um pico bem
+// alto isolado (>=15 num único ciclo) — os dois casos em que vale a pena
+// interromper o Márcio de verdade.
+let consecutiveBadWindows = 0;
 setInterval(() => {
   const libsignalN = sessionErrorCount;
   const retryN = decryptRetryCount;
   const total = libsignalN + retryN;
 
+  consecutiveBadWindows = total > 0 ? consecutiveBadWindows + 1 : 0;
+
   if (total > 0) {
-    console.log(`[WA][SESSION_HEALTH] ${libsignalN} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${retryN} pedido(s) de reenvio (recv retry request) nos últimos 5 min`);
+    console.log(`[WA][SESSION_HEALTH] ${libsignalN} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${retryN} pedido(s) de reenvio (recv retry request) nos últimos 5 min (janela ${consecutiveBadWindows} seguida(s))`);
   }
 
-  reportSessionHealth(getConnectedSessionKey(), libsignalN, retryN);
+  const shouldAlert = consecutiveBadWindows >= 3 || total >= 15;
+  reportSessionHealth(getConnectedSessionKey(), libsignalN, retryN, shouldAlert, consecutiveBadWindows);
 
   sessionErrorCount = 0;
   decryptRetryCount = 0;

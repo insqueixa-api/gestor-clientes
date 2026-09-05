@@ -51,6 +51,14 @@ export async function POST(req: NextRequest) {
   const detail = String(body?.detail || "").slice(0, 500);
   const libsignalErrors = Math.max(0, Number(body?.libsignalErrors) || 0);
   const decryptRetries = Math.max(0, Number(body?.decryptRetries) || 0);
+  // ✅ 05/09/2026: quem decide SE isso é sério o suficiente pra interromper
+  // o Márcio é a VM (sessionManager.js) — sustentado por 3 janelas seguidas
+  // (15min contínuos) ou um pico isolado alto, nunca qualquer erro pontual
+  // (isso o próprio Baileys já tenta corrigir sozinho via retry automático,
+  // então avisar em toda janela com erro>0 era alarme falso na maioria das
+  // vezes — achado pelo próprio Márcio ao receber um alerta sem solução).
+  const shouldAlert = Boolean(body?.shouldAlert);
+  const consecutiveWindows = Math.max(0, Number(body?.consecutiveWindows) || 0);
 
   if (!ALERT_KINDS.includes(kind) || !sessionKey) {
     return NextResponse.json({ ok: false, error: "Parâmetros inválidos" }, { status: 400 });
@@ -122,22 +130,32 @@ export async function POST(req: NextRequest) {
         { onConflict: "check_key" },
       );
 
-      // Sino + e-mail só quando tem algo de verdade pra avisar.
-      if (total > 0) {
+      // ✅ Sino + e-mail só quando é SUSTENTADO ou um pico alto (shouldAlert
+      // decidido na VM) — não em toda janela com erro>0, pra não avisar sem
+      // ter uma ação real pra recomendar.
+      if (shouldAlert) {
         const detailMsg = `${libsignalErrors} erro(s) de sessão + ${decryptRetries} pedido(s) de reenvio`;
+        const durationMsg =
+          consecutiveWindows >= 3
+            ? `persistindo há ${consecutiveWindows * 5}+ minutos seguidos (não se autocorrigiu sozinho)`
+            : "num pico isolado bem acima do normal";
+        const actionMsg =
+          "Verifique se algum cliente reclamou de não receber mensagem recentemente. Se sim, tente primeiro \"Reconectar\" em Configurações > WhatsApp; se voltar a acontecer logo em seguida, use \"Hard Reset\" (vai exigir escanear o QR de novo).";
+
         await notify({
           tenantId: selection.tenantId,
           type: "whatsapp_erros_sessao",
-          title: "⚠️ WhatsApp — erros de sessão/decriptação",
-          message: `${detailMsg} na "${humanLabel}" — pode ser sinal do sintoma "Aguardando mensagem"/mensagem vazia.`,
+          title: "⚠️ WhatsApp — erros de sessão persistentes",
+          message: `${detailMsg} na "${humanLabel}", ${durationMsg}. ${actionMsg}`,
           link: "/admin/settings/whatsapp",
           sourceId,
         });
         await sendAdminEmail(
-          `⚠️ WhatsApp — erros de sessão (${humanLabel})`,
+          `⚠️ WhatsApp — erros de sessão persistentes (${humanLabel})`,
           `<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-            <p><strong>${detailMsg}</strong> na "${humanLabel}".</p>
+            <p><strong>${detailMsg}</strong> na "${humanLabel}", ${durationMsg}.</p>
             <p>Isso costuma ser o sintoma de mensagens que chegam como "Aguardando mensagem" ou vazias pro destinatário.</p>
+            <p><strong>O que fazer:</strong> ${actionMsg}</p>
           </div>`,
         );
       }
