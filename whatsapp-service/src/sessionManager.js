@@ -10,6 +10,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import pino from "pino";
+import { Writable } from "stream";
 import { HttpsProxyAgent } from "https-proxy-agent";
 
 // ✅ Proxy residencial pro socket do WhatsApp (pedido do Márcio, 26/07/2026)
@@ -35,11 +36,28 @@ if (WA_PROXY_URL) {
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map();
 
+// ✅ 05/09/2026, achado numa investigação urgente de "Aguardando mensagem"/
+// mensagem vazia (pedido do Márcio): os erros abaixo (Bad MAC, Failed to
+// decrypt, Session error, Closing session) eram só descartados como
+// "cosmético" — mas são EXATAMENTE o sintoma que ele reportou. Agora conta
+// em vez de só descartar, e avisa a cada 5 min (sem voltar a pichar o log
+// linha a linha, que foi o motivo original da supressão).
+let sessionErrorCount = 0;
+setInterval(() => {
+  if (sessionErrorCount > 0) {
+    console.log(`[WA][SESSION_HEALTH] ${sessionErrorCount} erro(s) de sessão/decriptação (Bad MAC/Failed to decrypt/Closing session) nos últimos 5 min`);
+    sessionErrorCount = 0;
+  }
+}, 5 * 60 * 1000);
+
 // Suprime logs verbosos de ERRO do libsignal (Bad MAC de sessões antigas — erro cosmético)
 const _origConsoleError = console.error;
 console.error = (...args) => {
   const msg = String(args[0] || "");
-  if (msg.includes("Bad MAC") || msg.includes("Failed to decrypt") || msg.includes("Session error")) return;
+  if (msg.includes("Bad MAC") || msg.includes("Failed to decrypt") || msg.includes("Session error")) {
+    sessionErrorCount++;
+    return;
+  }
   _origConsoleError(...args);
 };
 
@@ -47,7 +65,10 @@ console.error = (...args) => {
 const _origConsoleLog = console.log;
 console.log = (...args) => {
   const msg = String(args[0] || "");
-  if (msg.includes("Closing open session in favor") || msg.includes("Closing session: SessionEntry")) return;
+  if (msg.includes("Closing open session in favor") || msg.includes("Closing session: SessionEntry")) {
+    sessionErrorCount++;
+    return;
+  }
   _origConsoleLog(...args);
 };
 
@@ -60,7 +81,10 @@ process.stdout.write = (chunk, ...args) => {
     msg.includes("Closing session: SessionEntry") ||
     msg.includes("SessionEntry {") ||
     msg.includes("Decrypted message with closed session")
-  ) return true;
+  ) {
+    sessionErrorCount++;
+    return true;
+  }
   return _origStdoutWrite(chunk, ...args);
 };
 
@@ -72,7 +96,10 @@ process.stderr.write = (chunk, ...args) => {
     msg.includes("Closing session: SessionEntry") ||
     msg.includes("SessionEntry {") ||
     msg.includes("Decrypted message with closed session")
-  ) return true;
+  ) {
+    sessionErrorCount++;
+    return true;
+  }
   return _origStderrWrite(chunk, ...args);
 };
 
@@ -89,6 +116,54 @@ function isCallAlreadyProcessed(callId) {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUTH_DIR = path.resolve(__dirname, "../auth");
+
+// ✅ 05/09/2026, pedido do Márcio: o fingerprint do "aparelho vinculado"
+// (Mac OS/Chrome, ver `browser:` no makeWASocket abaixo) tava congelado no
+// Chrome 124 desde 01/08/2026 — mais de um ano parado enquanto um Chrome de
+// verdade se atualiza sozinho o tempo todo, um padrão que sistemas
+// antifraude associam a automação. Busca a versão estável atual na API
+// pública do Google, cacheia em disco (sobrevive a restart do container) e
+// se atualiza sozinho 1x/dia — sem precisar de ninguém lembrar de trocar
+// manualmente. Se a busca falhar (rede fora, API fora do ar), mantém o
+// último valor bom conhecido; nunca derruba a conexão por causa disso.
+const CHROME_VERSION_CACHE_FILE = path.resolve(AUTH_DIR, "../chrome-version-cache.json");
+const CHROME_VERSION_FALLBACK = "130.0.6723.117";
+let currentChromeVersion = CHROME_VERSION_FALLBACK;
+
+function loadChromeVersionCache() {
+  try {
+    const raw = fs.readFileSync(CHROME_VERSION_CACHE_FILE, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (parsed?.version && /^\d+\.\d+\.\d+\.\d+$/.test(parsed.version)) {
+      currentChromeVersion = parsed.version;
+    }
+  } catch {}
+}
+
+async function refreshChromeVersion() {
+  try {
+    const res = await fetch(
+      "https://versionhistory.googleapis.com/v1/chrome/platforms/mac/channels/stable/versions",
+      { signal: AbortSignal.timeout(10_000) },
+    );
+    const json = await res.json();
+    const version = json?.versions?.[0]?.version;
+    if (version && /^\d+\.\d+\.\d+\.\d+$/.test(version) && version !== currentChromeVersion) {
+      currentChromeVersion = version;
+      fs.writeFileSync(
+        CHROME_VERSION_CACHE_FILE,
+        JSON.stringify({ version, updatedAt: new Date().toISOString() }),
+      );
+      console.log(`[WA] Fingerprint do Chrome atualizado automaticamente pra ${version}`);
+    }
+  } catch (e) {
+    console.log(`[WA] Falha ao checar versão atual do Chrome (mantendo ${currentChromeVersion}): ${e.message}`);
+  }
+}
+
+loadChromeVersionCache();
+refreshChromeVersion(); // não bloqueia o startup — roda em paralelo
+setInterval(refreshChromeVersion, 24 * 60 * 60 * 1000); // 1x/dia
 
 // Mensagem enviada ao rejeitar chamadas
 const DEFAULT_REJECT_MESSAGE =
@@ -243,8 +318,32 @@ function renderRejectMessage(template, fromJid) {
     .replace(/\{NUMERO\}/gi, numero);
 }
 
-// logger silencioso para Baileys (evita spam nos logs)
-const baileysLogger = pino({ level: "silent" });
+// ✅ 05/09/2026, pedido do Márcio: precisamos enxergar quando o CELULAR DO
+// CLIENTE pede reenvio por não conseguir decifrar uma mensagem que
+// mandamos ("recv retry request", debug interno do Baileys) — hoje esse
+// sinal existe mas é 100% ignorado (logger silencioso). Em vez de deixar o
+// Baileys solto em nível debug (ele é MUITO verboso, motivo original do
+// "silent"), o destino customizado abaixo intercepta cada linha, conta só
+// o que interessa e nunca escreve nada solto no stdout — sem reintroduzir
+// o spam.
+let decryptRetryCount = 0;
+const baileysLogStream = new Writable({
+  write(chunk, _enc, cb) {
+    try {
+      const line = JSON.parse(chunk.toString());
+      if (line?.msg === "recv retry request") decryptRetryCount++;
+    } catch {}
+    cb();
+  },
+});
+const baileysLogger = pino({ level: "debug" }, baileysLogStream);
+
+setInterval(() => {
+  if (decryptRetryCount > 0) {
+    console.log(`[WA][SESSION_HEALTH] ${decryptRetryCount} pedido(s) de reenvio por falha de decriptação (recv retry request) nos últimos 5 min`);
+    decryptRetryCount = 0;
+  }
+}, 5 * 60 * 1000);
 
 // Map de sessões ativas: sessionKey -> { socket, qr, status, retries }
 const sessions = new Map();
@@ -325,8 +424,10 @@ const sock = makeWASocket({
     // customizar, e por isso reconhecíveis em massa por antifraude. Esse
     // array customizado (Mac OS + Chrome + versão real, mas não é preset de
     // ninguém) tem o mesmo formato de uma sessão genuína, sem ser cópia do
-    // valor padrão da biblioteca.
-    browser: ["Mac OS", "Chrome", "124.0.6367.91"],
+    // valor padrão da biblioteca. ✅ 05/09/2026: versão do Chrome não é mais
+    // fixa — `currentChromeVersion` se atualiza sozinho 1x/dia (ver topo do
+    // arquivo), então cada nova conexão já nasce com a versão atual.
+    browser: ["Mac OS", "Chrome", currentChromeVersion],
 
     // ✅ Proxy residencial (ver comentário no topo do arquivo) — sai por IP
     // brasileiro em vez do IP de datacenter da VM. `agent` é o socket
@@ -338,7 +439,10 @@ const sock = makeWASocket({
 // ✅ CONFIGURAÇÕES DE SAAS (Alta Tolerância)
     connectTimeoutMs: 60_000,        
     defaultQueryTimeoutMs: 60_000,   
-    keepAliveIntervalMs: 30_000,     // ✅ Manda o "Alô?" a cada 30s para manter o túnel aceso
+    // ✅ 05/09/2026, pedido do Márcio: reduzido de 30s pra 15s — se um "Alô?"
+    // falhar (proxy/rede engasgar por um instante), ainda sobra margem pro
+    // próximo antes da WhatsApp considerar o túnel morto.
+    keepAliveIntervalMs: 15_000,     // ✅ Manda o "Alô?" a cada 15s para manter o túnel aceso
     retryRequestDelayMs: 5_000,
     
     markOnlineOnConnect: false,
