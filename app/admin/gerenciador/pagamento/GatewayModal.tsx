@@ -299,7 +299,6 @@ export default function GatewayModal({
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                               {" "}
                 {visibleMeta.map((m) => {
                   const selected = selectedType === m.type;
                   const hasHelp = !!GATEWAY_HELP[m.type];
