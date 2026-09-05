@@ -376,6 +376,21 @@ export const PRIORITY_LABELS: Record<number, string> = {
   2: "Secundário",
 };
 
+// ✅ 05/09/2026, pedido do Márcio: com FastPay/FastFlow/DePix somados ao
+// que já existia, dá pra ter 3-4+ gateways online na mesma moeda — o mapa
+// fixo (só 1/2) não escalava. Rótulo por extenso até o 3º, depois "Nª
+// opção" (ordinal em português trava feio a partir do 4º).
+export function priorityLabel(p: number): string {
+  if (p === 1) return "Principal";
+  if (p === 2) return "Secundário";
+  if (p === 3) return "Terciário";
+  return `${p}ª opção`;
+}
+
+// Teto de opções oferecido no seletor de Prioridade do modal — generoso o
+// bastante pra qualquer cenário realista sem virar uma lista infinita.
+export const MAX_PRIORITY = 6;
+
 // ─── HELP CONTENT ─────────────────────────────────────────────────────────────
 
 export const GATEWAY_HELP: Record<

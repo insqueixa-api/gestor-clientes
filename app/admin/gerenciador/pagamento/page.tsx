@@ -11,7 +11,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import {
   type PaymentGateway,
   GATEWAY_META,
-  PRIORITY_LABELS,
+  priorityLabel,
 } from "./shared";
 
 const GatewayModal = dynamic(() => import("./GatewayModal"), {
@@ -40,8 +40,13 @@ function GatewayCard({
   const meta = GATEWAY_META.find((m) => m.type === gateway.type);
   if (!meta) return null;
 
-  const priorityLabel =
-    PRIORITY_LABELS[gateway.priority] || `P${gateway.priority}`;
+  // ✅ 05/09/2026: fallback online mostra "Manual" em vez do número de
+  // prioridade — o valor numérico dele não decide ordem nenhuma (create-
+  // payment só usa is_manual_fallback=true, pega o 1º que achar), então
+  // mostrar "2 — Secundário" ali confundia mais do que ajudava.
+  const priorityLabelText = gateway.is_manual_fallback
+    ? "Manual (fallback)"
+    : `${gateway.priority} — ${priorityLabel(gateway.priority)}`;
   const customIconUrl = gateway.config?.icon_url as string | undefined;
 
   return (
@@ -86,7 +91,7 @@ function GatewayCard({
 
             <div className="flex flex-wrap gap-1.5 mt-1">
               <span className="gap-1 px-2 py-1 rounded-lg border border-border bg-muted text-[10px] font-medium tracking-tight shadow-sm text-muted-foreground">
-                {priorityLabel}
+                {priorityLabelText}
               </span>
 
               <span
@@ -367,13 +372,29 @@ export default function PagamentosPage() {
     }
   }
 
+  // ✅ 05/09/2026, pedido do Márcio: com 3-4+ gateways online na mesma
+  // moeda, a ordem na tela deve refletir a sequência real (Principal,
+  // Secundário, Terciário...) e os manuais (fallback, sem prioridade real
+  // — create-payment só olha is_manual_fallback) sempre por último, nunca
+  // misturados no meio pelo número de priority.
+  function sortForDisplay(list: PaymentGateway[]): PaymentGateway[] {
+    return [...list].sort((a, b) => {
+      if (a.is_manual_fallback !== b.is_manual_fallback) {
+        return a.is_manual_fallback ? 1 : -1;
+      }
+      return a.priority - b.priority;
+    });
+  }
+
   // Agrupar por moeda
-  const brlGateways = gateways.filter((g) => g.currency.includes("BRL"));
-  const intlGateways = gateways.filter(
-    (g) =>
-      g.currency.includes("USD") ||
-      g.currency.includes("EUR") ||
-      g.currency.includes("INTL"),
+  const brlGateways = sortForDisplay(gateways.filter((g) => g.currency.includes("BRL")));
+  const intlGateways = sortForDisplay(
+    gateways.filter(
+      (g) =>
+        g.currency.includes("USD") ||
+        g.currency.includes("EUR") ||
+        g.currency.includes("INTL"),
+    ),
   );
 
   return (

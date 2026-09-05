@@ -16,6 +16,8 @@ import {
   GATEWAY_META,
   GATEWAY_HELP,
   IconX,
+  priorityLabel,
+  MAX_PRIORITY,
 } from "./shared";
 
 function Label({ children }: { children: ReactNode }) {
@@ -97,6 +99,24 @@ export default function GatewayModal({
 
   const meta = GATEWAY_META.find((m) => m.type === selectedType);
   const [helpType, setHelpType] = useState<string | null>(null);
+
+  // ✅ 05/09/2026, pedido do Márcio: a lista de tipos ficava toda visível de
+  // uma vez (8 cards) — feio e confuso, principalmente com FastPay/
+  // FastFlow/DePix somados ao que já existia. Vira um assistente em 2
+  // passos: 1) escolhe BRL ou Internacional, 2) só aí vê os tipos daquela
+  // moeda, e ao escolher um, os outros somem (não é mais "grid + resumo
+  // embaixo", é troca de tela mesmo). Editando um gateway existente pula
+  // os 2 passos (já sabe currency+type).
+  const isIntlType = (t: GatewayType) => {
+    const m2 = GATEWAY_META.find((x) => x.type === t);
+    return !!m2 && !m2.currencies.includes("BRL");
+  };
+  const [currencyGroup, setCurrencyGroup] = useState<"BRL" | "INTL" | null>(
+    gateway ? (isIntlType(gateway.type) ? "INTL" : "BRL") : null,
+  );
+  const visibleMeta = GATEWAY_META.filter((m2) =>
+    currencyGroup === "INTL" ? !m2.currencies.includes("BRL") : m2.currencies.includes("BRL"),
+  );
 
   async function handleSave() {
     if (!selectedType || !meta) return;
@@ -231,9 +251,48 @@ export default function GatewayModal({
         {/* BODY */}
         <div className="flex-1 min-h-0 p-6 overflow-y-auto space-y-6">
           {/* Seletor de tipo (só na criação) */}
-          {!isEdit && (
+          {!isEdit && !currencyGroup && (
             <div className="space-y-3">
-              <Label>Tipo de Integração</Label>
+              <Label>Moeda</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCurrencyGroup("BRL")}
+                  className="w-full p-5 rounded-xl border border-border bg-card hover:bg-muted/30 hover:border-emerald-500/40 transition-all text-left"
+                >
+                  <div className="text-2xl mb-1">🇧🇷</div>
+                  <div className="font-medium text-foreground text-sm">BRL</div>
+                  <div className="text-xs text-muted-foreground/70 mt-0.5">
+                    Mercado Pago, FastPay, FastFlow, DePix, PIX Manual
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrencyGroup("INTL")}
+                  className="w-full p-5 rounded-xl border border-border bg-card hover:bg-muted/30 hover:border-emerald-500/40 transition-all text-left"
+                >
+                  <div className="text-2xl mb-1">🌍</div>
+                  <div className="font-medium text-foreground text-sm">Internacional</div>
+                  <div className="text-xs text-muted-foreground/70 mt-0.5">
+                    Stripe, Transferência (EUR/USD)
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isEdit && currencyGroup && !selectedType && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Tipo de Integração ({currencyGroup === "INTL" ? "Internacional" : "BRL"})</Label>
+                <button
+                  type="button"
+                  onClick={() => setCurrencyGroup(null)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ← Trocar moeda
+                </button>
+              </div>
 
               {helpType && (
                 <HelpModal type={helpType} onClose={() => setHelpType(null)} />
@@ -241,7 +300,7 @@ export default function GatewayModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                {" "}
-                {GATEWAY_META.map((m) => {
+                {visibleMeta.map((m) => {
                   const selected = selectedType === m.type;
                   const hasHelp = !!GATEWAY_HELP[m.type];
                   return (
@@ -314,9 +373,23 @@ export default function GatewayModal({
             </div>
           )}
 
-          {/* Conteúdo do tipo selecionado */}
+          {/* Conteúdo do tipo selecionado — a partir daqui os passos 1/2 somem
+              por completo (não fica grid + resumo juntos). */}
           {meta && (
             <>
+              {!isEdit && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedType(null);
+                    setForm({});
+                    setError(null);
+                  }}
+                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ← Trocar tipo
+                </button>
+              )}
               <div className="p-4 rounded-xl bg-transparent border border-border">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-xl overflow-hidden">
@@ -444,8 +517,9 @@ export default function GatewayModal({
                     value={priority}
                     onChange={(e) => setPriority(Number(e.target.value))}
                   >
-                    <option value={1}>1 — Principal</option>
-                    <option value={2}>2 — Secundário</option>
+                    {Array.from({ length: MAX_PRIORITY }, (_, i) => i + 1).map((p) => (
+                      <option key={p} value={p}>{p} — {priorityLabel(p)}</option>
+                    ))}
                   </Select>
                 </div>
 
