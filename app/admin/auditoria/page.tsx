@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/auditoria/page.tsx
-import { X } from "lucide-react";
+import { X, Download, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -97,16 +97,24 @@ const FULFILLMENT_OPTIONS = [
   { value: "processando", label: "Processando" },
 ];
 
-// ✅ Nomes "corretos" dos gateways (25/07/2026) — a tabela sempre guardou o
-// enum cru (mercadopago/stripe/transfer_manual_eur/...); os dois tipos de
-// transferência manual (EUR/USD) e o PIX manual viram um único rótulo aqui —
-// já são tratados como "manual" no resto da tela (getPaymentBadge etc.).
+// ✅ Nomes "corretos" dos gateways (25/07/2026, refinado 05/09/2026 —
+// pedido do Márcio: precisa saber exatamente qual banco recebeu, não só
+// "automático"/"manual" genérico). Rótulo baseado no gateway_type real
+// gravado em client_portal_payments — dado que já existe no banco, isso só
+// troca a EXIBIÇÃO. Nota: as transferências manuais internacionais usam
+// hoje a Revolut (payment_gateways.config.bank_name) — rótulo fixo aqui,
+// não uma consulta ao vivo, então se o banco mudar no futuro isso precisa
+// ser atualizado à mão (registros antigos não "sabem" qual banco recebeu
+// de fato, só o tipo de gateway).
 const GATEWAY_LABELS: Record<string, string> = {
-  mercadopago: "Mercado Pago",
+  mercadopago: "Mercado Pago PJ",
   stripe: "Stripe",
-  pix_manual: "Transferência Manual",
-  transfer_manual_eur: "Transferência Manual",
-  transfer_manual_usd: "Transferência Manual",
+  fastpay: "FastPay",
+  fastflow: "FastFlow",
+  depix: "DePix",
+  pix_manual: "PIX (Manual)",
+  transfer_manual_eur: "Revolut (Manual)",
+  transfer_manual_usd: "Revolut (Manual)",
   manual: "Transferência Manual",
 };
 function gatewayLabel(raw: string) {
@@ -301,6 +309,14 @@ function AuditoriaPageContent() {
     searchParams.get("view") === "aplicativos" ? "aplicativos" : "iptv",
   );
   const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
+
+  // ✅ 05/09/2026, pedido do Márcio: export em Excel do histórico de
+  // pagamentos aprovados (fiscal/conferência bancária) — seletor de ano
+  // (setas) + mês opcional (grade 3x4, clique de novo desmarca).
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportYear, setExportYear] = useState(new Date().getFullYear());
+  const [exportMonth, setExportMonth] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [rows, setRows] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true); // Filtros
   const [search, setSearch] = useState("");
@@ -322,6 +338,33 @@ function AuditoriaPageContent() {
     if (activeLogView === "iptv") loadData(search);
     else if (activeLogView === "aplicativos")
       aplicativosLogRef.current?.refresh();
+  }
+
+  // ✅ 05/09/2026: mesmo padrão de app/admin/settings/profile/page.tsx
+  // (handleExportFinanceiro) — fetch → blob → link temporário → click.
+  async function handleExportPagamentos() {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ year: String(exportYear) });
+      if (exportMonth) params.set("month", String(exportMonth));
+      const res = await fetch(`/api/import_export/auditoria-pagamentos/export?${params.toString()}`);
+      if (!res.ok) throw new Error("Falha ao exportar.");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = exportMonth
+        ? `pagamentos_${exportYear}-${String(exportMonth).padStart(2, "0")}.xlsx`
+        : `pagamentos_${exportYear}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      setExportModalOpen(false);
+      setExportMonth(null);
+    } catch (e: any) {
+      addToast("error", "Erro ao exportar", e?.message || "Erro inesperado.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   // Paginação
@@ -1365,8 +1408,110 @@ function AuditoriaPageContent() {
             </span>
             <span className="hidden sm:inline">Atualizar</span>
           </button>
+          <button
+            onClick={() => setExportModalOpen(true)}
+            title="Exportar pagamentos aprovados"
+            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 flex items-center justify-center gap-1.5 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-[11px] font-medium shrink-0"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Exportar</span>
+          </button>
         </div>
       </div>
+
+      {exportModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setExportModalOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md bg-card border border-border rounded-xl shadow-2xl flex flex-col"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-border flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-medium text-foreground">Exportar Pagamentos</h2>
+                <p className="text-xs text-foreground/70 mt-0.5">
+                  Só entram pagamentos aprovados (automático ou manual).
+                </p>
+              </div>
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Seletor de ano */}
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setExportYear((y) => y - 1)}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xl font-medium text-foreground w-20 text-center">{exportYear}</span>
+                <button
+                  type="button"
+                  onClick={() => setExportYear((y) => Math.min(new Date().getFullYear(), y + 1))}
+                  disabled={exportYear >= new Date().getFullYear()}
+                  className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Grade de meses — clique de novo desmarca */}
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2 text-center">
+                  Mês (opcional — sem seleção exporta o ano todo)
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"].map((label, idx) => {
+                    const m = idx + 1;
+                    const selected = exportMonth === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setExportMonth((prev) => (prev === m ? null : m))}
+                        className={`h-9 rounded-lg border text-xs font-medium transition-colors ${
+                          selected
+                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                            : "border-border bg-transparent text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-2">
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleExportPagamentos}
+                disabled={exporting}
+                className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-emerald-900/20 disabled:opacity-50 transition-all"
+              >
+                {exporting ? "Exportando..." : "Exportar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeLogView === "aplicativos" && tenantId && (
         <AplicativosLog
