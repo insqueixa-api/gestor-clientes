@@ -17,7 +17,6 @@ import {
   Trash2,
   Copy,
   Check,
-  Archive,
 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
@@ -139,7 +138,6 @@ type VwClientRow = {
   vencimento: string | null; // Timestamptz ou Date
   computed_status: "ACTIVE" | "OVERDUE" | "TRIAL" | "ARCHIVED" | string;
   client_is_archived: boolean | null;
-  deep_archived_at: string | null;
 
   screens: number | null;
 
@@ -210,7 +208,6 @@ type ClientRow = {
   screens: number;
 
   archived: boolean;
-  deepArchivedAt: string | null;
   alertsCount: number;
   apps: string[]; // ✅ Novo campo para a lista de apps
   appsData: Array<{
@@ -375,7 +372,6 @@ function mapVwClientRow(r: VwClientRow): ClientRow {
     screens: Number(r.screens || 1),
 
     archived: Boolean(r.client_is_archived),
-    deepArchivedAt: r.deep_archived_at || null,
     alertsCount: Number(r.alerts_open || 0),
     apps: r.apps_names || [],
     appsData:
@@ -460,10 +456,6 @@ function ClientePageContent() {
   const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">(
     "Não",
   );
-  // ✅ 05/09/2026, pedido do Márcio: sub-filtro "Arquivado" (deep_archived)
-  // dentro da Lixeira — cliente real que passou dos 61 dias de vencido
-  // (antes era deletado de verdade; agora só entra aqui, preservado).
-  const [deepArchivedFilter, setDeepArchivedFilter] = useState(false);
   const [serverFilter, setServerFilter] = useState("Todos");
   const [planFilter, setPlanFilter] = useState("Todos");
   const [dueFilter, setDueFilter] = useState("Todos");
@@ -927,9 +919,6 @@ function ClientePageContent() {
           p_is_default_sort: isDefaultSort,
           p_page: page,
           p_page_size: pageSize,
-          // ✅ só faz sentido dentro da Lixeira — fora dela, sempre null
-          // (sem filtro, comportamento de sempre).
-          p_deep_archived: archivedFilter === "Sim" && deepArchivedFilter ? true : null,
         },
       );
 
@@ -1046,7 +1035,6 @@ function ClientePageContent() {
   }, [
     tenantId,
     archivedFilter,
-    deepArchivedFilter,
     statusFilter,
     debouncedSearch,
     serverFilter,
@@ -1390,17 +1378,6 @@ function ClientePageContent() {
 
       if (error) throw error;
 
-      // ✅ 05/09/2026: restaurar um cliente que já era "Arquivado"
-      // (deep_archived) precisa limpar esse campo também — senão ele volta
-      // pra lista ativa mas continua invisível no Portal (filtro de lá é
-      // só por deep_archived_at).
-      if (!goingToArchive && r.deepArchivedAt) {
-        await supabaseBrowser.rpc("clear_deep_archived", {
-          p_tenant_id: tenantId,
-          p_client_id: r.id,
-        });
-      }
-
       addToast(
         "success",
         goingToArchive ? "Cliente arquivado" : "Cliente restaurado",
@@ -1415,55 +1392,14 @@ function ClientePageContent() {
     }
   };
 
-  // ✅ 05/09/2026, pedido do Márcio: jeito manual de mandar um cliente já
-  // arquivado direto pro "Arquivado" (deep_archived), sem esperar os 61
-  // dias do cron — pra teste e também uso real.
-  const handleManualDeepArchive = async (r: ClientRow) => {
-    if (!tenantId) return;
-
-    const ok = await confirm({
-      title: "Arquivar profundamente",
-      subtitle: "Preserva todo o histórico, mas o cliente para de aparecer no Portal e a exclusão definitiva passa a ficar disponível.",
-      tone: "amber",
-      icon: "🗄️",
-      details: [`Cliente: ${r.name}`, "Ação: mover pra Arquivado"],
-      confirmText: "Arquivar profundamente",
-      cancelText: "Voltar",
-    });
-
-    if (!ok) return;
-
-    try {
-      const { error } = await supabaseBrowser.rpc("manual_deep_archive_client", {
-        p_tenant_id: tenantId,
-        p_client_id: r.id,
-      });
-
-      if (error) throw error;
-
-      addToast("success", "Arquivado", "Cliente movido pra Arquivado.");
-      loadData();
-    } catch (e: any) {
-      addToast(
-        "error",
-        "Ação não permitida",
-        e?.message || "Não foi possível arquivar profundamente.",
-      );
-    }
-  };
-
   const handleDeleteForever = async (r: ClientRow) => {
     if (!tenantId) return;
 
-    // ✅ 05/09/2026: antes bastava estar arquivado (Lixeira); agora só
-    // quem já é "Arquivado" (deep_archived, cliente vencido há 61+ dias)
-    // pode ser excluído de verdade — mesma trava aplicada no banco
-    // (delete_client_forever), isso aqui só evita o round-trip.
-    if (!r.deepArchivedAt) {
+    if (!r.archived) {
       addToast(
         "error",
         "Ação bloqueada",
-        "Só é possível excluir definitivamente clientes em Arquivado (dentro da Lixeira).",
+        "Só é possível excluir definitivamente pela Lixeira.",
       );
       return;
     }
@@ -1479,6 +1415,22 @@ function ClientePageContent() {
     });
 
     if (!ok) return;
+
+    // ✅ 05/09/2026, pedido do Márcio: confirmação extra sobre retenção
+    // fiscal antes da exclusão definitiva (pagamentos/histórico ligados
+    // a esse cliente podem precisar ser guardados por obrigação legal).
+    const okFiscal = await confirm({
+      title: "Atenção: retenção fiscal",
+      subtitle:
+        "Excluir para sempre também apaga o histórico de pagamentos deste cliente. Tem certeza que não há nada que precise ser mantido por obrigação fiscal?",
+      tone: "amber",
+      icon: "🧾",
+      details: [`Cliente: ${r.name}`],
+      confirmText: "Sim, excluir mesmo assim",
+      cancelText: "Voltar",
+    });
+
+    if (!okFiscal) return;
 
     try {
       const { error } = await supabaseBrowser.rpc("delete_client_forever", {
@@ -1733,26 +1685,6 @@ function ClientePageContent() {
           >
             {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
           </button>
-
-          {/* ✅ 05/09/2026, pedido do Márcio: sub-filtro dentro da Lixeira —
-              cliente real vencido há 61+ dias (antes deletado de verdade,
-              agora só preservado aqui, sem sumir). */}
-          {archivedFilter === "Sim" && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeepArchivedFilter((v) => !v);
-              }}
-              title="Clientes reais preservados após o antigo prazo de exclusão automática"
-              className={`hidden md:inline-flex h-10 px-3 rounded-lg text-xs font-medium border transition-colors items-center justify-center ${
-                deepArchivedFilter
-                  ? "bg-rose-500/10 text-rose-500 border-rose-500/30"
-                  : "bg-muted border-border text-muted-foreground"
-              }`}
-            >
-              {deepArchivedFilter ? "Todos da Lixeira" : "Arquivado"}
-            </button>
-          )}
 
           <button
             onClick={(e) => {
@@ -2305,8 +2237,15 @@ function ClientePageContent() {
 
                           // 1. A sua regra exata de cálculo de dias
                           let textDiff = "";
+                          // ✅ 05/09/2026: mesmo contador de dias, só a
+                          // palavra muda de "Venceu" pra "Arquivado" a
+                          // partir de 61 dias (quando ele seria excluído
+                          // de verdade antes dessa data existir).
                           if (diff < -2)
-                            textDiff = `Venceu há ${Math.abs(diff)} dias`;
+                            textDiff =
+                              Math.abs(diff) >= 61
+                                ? `Arquivado há ${Math.abs(diff)} dias`
+                                : `Venceu há ${Math.abs(diff)} dias`;
                           else if (diff === -2) textDiff = "Venceu há 2 dias";
                           else if (diff === -1) textDiff = "Venceu Ontem";
                           else if (diff === 0) textDiff = "Vence Hoje";
@@ -2341,31 +2280,11 @@ function ClientePageContent() {
                           }
 
                           return (
-                            <>
-                              <StatusBadge
-                                status={r.status}
-                                customLabel={label}
-                                customTone={colorTone}
-                              />
-                              {/* ✅ 05/09/2026, pedido do Márcio: indicação de
-                                  quando fica "elegível" pra limpeza (vencimento
-                                  +5 anos) — só informativo, NÃO trava a
-                                  exclusão manual (que já tem confirmação própria). */}
-                              {r.deepArchivedAt && (
-                                <div
-                                  className="text-[9px] text-muted-foreground/70 mt-0.5"
-                                  title="Sugestão de retenção fiscal (5 anos) — não bloqueia a exclusão manual"
-                                >
-                                  Arquivado · elegível p/ limpeza em{" "}
-                                  {(() => {
-                                    const d = new Date(r.dueISODate);
-                                    if (Number.isNaN(d.getTime())) return "—";
-                                    d.setFullYear(d.getFullYear() + 5);
-                                    return d.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
-                                  })()}
-                                </div>
-                              )}
-                            </>
+                            <StatusBadge
+                              status={r.status}
+                              customLabel={label}
+                              customTone={colorTone}
+                            />
                           );
                         })()}
                       </Td>
@@ -2614,29 +2533,8 @@ function ClientePageContent() {
                             {r.archived ? <IconRestore /> : <IconTrash />}
                           </IconActionBtn>
 
-                          {/* ✅ 05/09/2026: jeito manual de mandar um cliente
-                              da Lixeira comum direto pro "Arquivado", sem
-                              esperar os 61 dias do cron — pra teste e uso real. */}
-                          {archivedFilter === "Sim" &&
-                            r.archived &&
-                            !r.deepArchivedAt && (
-                              <IconActionBtn
-                                title="Arquivar profundamente"
-                                tone="amber"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleManualDeepArchive(r);
-                                }}
-                              >
-                                <IconArchive />
-                              </IconActionBtn>
-                            )}
-
-                          {/* ✅ 05/09/2026: só aparece pra quem já é "Arquivado"
-                              (deep_archived) — cliente comum na Lixeira (ainda
-                              não passou dos 61 dias) não pode mais ser excluído
-                              direto, só arquivado profundamente pelo cron. */}
-                          {archivedFilter === "Sim" && r.deepArchivedAt && (
+                          {/* ✅ Excluir definitivo (somente quando estiver VISUALIZANDO a Lixeira) */}
+                          {archivedFilter === "Sim" && r.archived && (
                             <IconActionBtn
                               title="Excluir definitivamente"
                               tone="red"
@@ -3696,7 +3594,4 @@ function IconTrash() {
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;
-}
-function IconArchive() {
-  return <Archive className="w-4 h-4" />;
 }
