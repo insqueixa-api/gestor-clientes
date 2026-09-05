@@ -54,6 +54,21 @@ begin
     raise exception 'NOT_AUTHORIZED';
   end if;
 
+  -- ✅ Confere que o cliente É de fato deste tenant (mesmo padrão de
+  -- manual_deep_archive_client) — sem isso, um p_client_id/p_tenant_id
+  -- incoerentes (bug de chamada, nunca deveria acontecer pela UI de hoje)
+  -- gravaria uma linha órfã/incoerente em client_portal_payments.
+  if not exists (
+    select 1 from public.clients c
+    where c.tenant_id = p_tenant_id and c.id = p_client_id
+  ) then
+    raise exception 'Cliente não encontrado para este tenant.';
+  end if;
+
+  if p_price_amount is null or p_price_amount < 0 then
+    raise exception 'PRICE_AMOUNT_INVALID';
+  end if;
+
   v_gateway_type := case upper(coalesce(p_price_currency, 'BRL'))
     when 'EUR' then 'transfer_manual_eur'
     when 'USD' then 'transfer_manual_usd'

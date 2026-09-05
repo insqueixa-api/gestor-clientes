@@ -1719,7 +1719,19 @@ export default function RecargaCliente({
             p_whatsapp_status: willAttemptWhatsapp ? null : "na",
           },
         );
-        if (!logErr && loggedId) newPortalLogId = loggedId as string;
+        if (!logErr && loggedId) {
+          newPortalLogId = loggedId as string;
+        } else if (logErr) {
+          // ✅ Não bloqueia a renovação (já aconteceu de verdade acima) —
+          // só avisa que o registro no Log do Portal falhou, pra não passar
+          // batido em silêncio.
+          console.error("[recarga_cliente] log_manual_renewal_payment falhou", logErr.message);
+          addToast(
+            "warning",
+            "Renovado, mas sem registro no Log do Portal",
+            "A renovação foi concluída normalmente, mas não foi possível gravar essa transação na Auditoria.",
+          );
+        }
       }
 
       // ✅ NOVO: servidor SEM integração (ex: UniGestor), concluído manualmente
@@ -1795,7 +1807,16 @@ export default function RecargaCliente({
               p_whatsapp_status: willAttemptWhatsapp ? null : "na",
             },
           );
-          if (!logErr && loggedId) newPortalLogId = loggedId as string;
+          if (!logErr && loggedId) {
+            newPortalLogId = loggedId as string;
+          } else if (logErr) {
+            console.error("[recarga_cliente] log_manual_renewal_payment falhou", logErr.message);
+            addToast(
+              "warning",
+              "Renovado, mas sem registro no Log do Portal",
+              "A renovação foi concluída normalmente, mas não foi possível gravar essa transação na Auditoria.",
+            );
+          }
         }
       }
 
