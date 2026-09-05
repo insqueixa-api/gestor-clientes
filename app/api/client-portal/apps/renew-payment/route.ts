@@ -26,7 +26,7 @@ import { randomUUID } from "crypto";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
 import { convertAmount } from "@/lib/fx";
-import { createFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
+import { createFastDepixTransaction, getFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
 
 export const dynamic = "force-dynamic";
 
@@ -238,6 +238,49 @@ export async function POST(req: NextRequest) {
 
       const appUrl = getAppOrigin();
       const notificationUrl = appUrl ? `${appUrl}/api/webhooks/fastdepix` : undefined;
+
+      // ✅ Idempotência (mesmo raciocínio do bloco Mercado Pago abaixo, e do
+      // create-payment/route.ts, 05/09/2026) — a API do FastDePix não tem
+      // idempotency-key própria, então reaproveita um "pending" recente pra
+      // essa mesma licença de app em vez de gerar uma segunda cobrança real.
+      try {
+        const { data: existingFdPending } = await supabaseAdmin
+          .from("client_portal_payments")
+          .select("id, mp_payment_id")
+          .eq("tenant_id", ctx.tenant_id)
+          .eq("client_id", client_id)
+          .eq("gateway_type", gateway.type)
+          .eq("payment_type", "app_renewal")
+          .eq("client_app_id", client_app_id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingFdPending?.mp_payment_id) {
+          const existingTx = await getFastDepixTransaction(apiKey, existingFdPending.mp_payment_id);
+          if (String(existingTx.status || "").toLowerCase() === "pending") {
+            const qrBase64 = existingTx.qr_code ? await fetchQrCodeAsBase64(existingTx.qr_code) : null;
+            return NextResponse.json(
+              {
+                ok: true,
+                payment_method: "online",
+                gateway_name: gateway.name,
+                payment_id: String(existingTx.id),
+                internal_payment_id: existingFdPending.id,
+                price_amount: chargeAmount,
+                currency,
+                pix_qr_code: existingTx.qr_code_text || undefined,
+                pix_qr_code_base64: qrBase64 || undefined,
+                expires_at: existingTx.qr_code_expires_at || new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+              },
+              { status: 200, headers: NO_STORE_HEADERS },
+            );
+          }
+        }
+      } catch (e: any) {
+        console.error("[apps/renew-payment] fastdepix idempotency check failed", e?.message);
+      }
 
       try {
         const tx = await createFastDepixTransaction({

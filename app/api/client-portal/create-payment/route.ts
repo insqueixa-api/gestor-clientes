@@ -14,7 +14,7 @@ import {
 } from "@/lib/client-portal/coupons";
 import { touchPortalSession } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
-import { createFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
+import { createFastDepixTransaction, getFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
 
 export const dynamic = "force-dynamic";
 
@@ -913,6 +913,55 @@ return NextResponse.json(
 
           const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();
           const notificationUrl = appUrl ? `${appUrl.replace(/\/+$/, "")}/api/webhooks/fastdepix` : undefined;
+
+          // ✅ Idempotência (achado em auditoria de fraude/duplicação,
+          // 05/09/2026) — a API do FastDePix não tem um header de
+          // idempotency-key como o Mercado Pago/Stripe, então um duplo-clique
+          // ou retry de rede criaria uma SEGUNDA transação PIX real. Antes de
+          // criar uma nova, reaproveita um "pending" recente (10min) pro
+          // mesmo cliente/gateway/plano/valor, reconsultando o status real.
+          try {
+            const idempWindowStart = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+            const { data: existingFdPending } = await supabaseAdmin
+              .from("client_portal_payments")
+              .select("id, mp_payment_id")
+              .eq("tenant_id", sess.tenant_id)
+              .eq("client_id", client_id)
+              .eq("gateway_type", gateway.type)
+              .is("payment_type", null)
+              .eq("period", period)
+              .eq("price_currency", currency)
+              .eq("price_amount", Number(computedPrice))
+              .eq("status", "pending")
+              .gte("created_at", idempWindowStart)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (existingFdPending?.mp_payment_id) {
+              const existingTx = await getFastDepixTransaction(apiKey, existingFdPending.mp_payment_id);
+              if (String(existingTx.status || "").toLowerCase() === "pending") {
+                const qrBase64 = existingTx.qr_code ? await fetchQrCodeAsBase64(existingTx.qr_code) : null;
+                return NextResponse.json(
+                  {
+                    ok: true,
+                    payment_method: "online",
+                    gateway_name: gateway.name,
+                    payment_id: String(existingTx.id),
+                    internal_payment_id: existingFdPending.id,
+                    pix_qr_code: existingTx.qr_code_text || undefined,
+                    pix_qr_code_base64: qrBase64 || undefined,
+                    expires_at: existingTx.qr_code_expires_at || new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+                  },
+                  { status: 200, headers: NO_STORE_HEADERS }
+                );
+              }
+            }
+          } catch (e: any) {
+            // Falha ao checar/reconsultar não deve travar o pagamento — segue
+            // o fluxo normal e cria uma transação nova abaixo.
+            safeServerLog("create-payment: fastdepix idempotency check failed", e?.message);
+          }
 
           try {
             const tx = await createFastDepixTransaction({
