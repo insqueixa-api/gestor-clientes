@@ -125,6 +125,19 @@ function GatewayCard({
 
       {/* Body */}
       <div className="p-4 space-y-3">
+        {/* ✅ 05/09/2026, pedido do Márcio: link do painel do provedor (mesmo
+            padrão de apps.info_url) — só aparece se cadastrado. */}
+        {gateway.config?.dashboard_url && (
+          <a
+            href={gateway.config.dashboard_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-sky-500 hover:underline truncate max-w-full block -mt-1"
+          >
+            🌐 {gateway.config.dashboard_url}
+          </a>
+        )}
+
         {/* Moedas */}
         <div className="flex flex-wrap gap-1.5">
           {gateway.currency.map((c) => (

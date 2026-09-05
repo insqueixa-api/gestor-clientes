@@ -506,6 +506,25 @@ export default function GatewayModal({
                     )}
                   </div>
                 ))}
+
+                {/* ✅ 05/09/2026, pedido do Márcio: link externo pro painel do
+                    provedor (mesmo padrão de apps.info_url) — opcional, guardado
+                    em config.dashboard_url (jsonb, sem coluna/view nova). Só
+                    aparece no card se preenchido. */}
+                <div>
+                  <Label>Link do Painel (opcional)</Label>
+                  <Input
+                    type="text"
+                    value={form.dashboard_url || ""}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, dashboard_url: e.target.value }))
+                    }
+                    placeholder="https://..."
+                  />
+                  <p className="text-[11px] text-muted-foreground/60 mt-1">
+                    Atalho pro dashboard do provedor — aparece como link no card, se preenchido.
+                  </p>
+                </div>
               </div>
 
               {/* Extras */}
