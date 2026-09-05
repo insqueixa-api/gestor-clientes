@@ -33,6 +33,39 @@ if (WA_PROXY_URL) {
   console.log("[WA] Proxy residencial ativo pra conexão com o WhatsApp");
 }
 
+// ✅ 05/09/2026, pedido do Márcio: avisa o app (sino do admin + e-mail,
+// reaproveitando o mesmo pipeline de app/api/whatsapp/session-alert) quando
+// acontece um Hard Reset ou quando os erros de sessão/decriptação passam de
+// zero — antes ficava só no docker logs, ninguém era avisado de verdade.
+// Best-effort: nunca lança, nunca atrasa nada — se o app estiver fora do ar
+// ou a rede falhar, só loga e segue.
+async function reportSessionAlert(kind, sessionKey, detail) {
+  const appUrl = String(process.env.UNIGESTOR_APP_URL || "").trim();
+  const token = String(process.env.API_TOKEN || "").trim();
+  if (!appUrl || !token) return;
+
+  try {
+    await fetch(`${appUrl.replace(/\/+$/, "")}/api/whatsapp/session-alert`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, sessionKey, detail }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (e) {
+    console.log(`[WA] Falha ao avisar o app sobre "${kind}": ${e.message}`);
+  }
+}
+
+// ✅ Os contadores de saúde de sessão são globais (não por sessão) — usa a
+// primeira sessão conectada encontrada só pra rotular o alerta de forma
+// legível (hoje na prática só existe uma sessão real em uso).
+function getConnectedSessionKey() {
+  for (const [key, sess] of sessions.entries()) {
+    if (sess.status === "connected") return key;
+  }
+  return "unknown";
+}
+
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map();
 
@@ -45,7 +78,13 @@ const processedCalls = new Map();
 let sessionErrorCount = 0;
 setInterval(() => {
   if (sessionErrorCount > 0) {
-    console.log(`[WA][SESSION_HEALTH] ${sessionErrorCount} erro(s) de sessão/decriptação (Bad MAC/Failed to decrypt/Closing session) nos últimos 5 min`);
+    const n = sessionErrorCount;
+    console.log(`[WA][SESSION_HEALTH] ${n} erro(s) de sessão/decriptação (Bad MAC/Failed to decrypt/Closing session) nos últimos 5 min`);
+    reportSessionAlert(
+      "session_errors",
+      getConnectedSessionKey(),
+      `${n} erro(s) de sessão/decriptação (Bad MAC/Failed to decrypt/Closing session)`,
+    );
     sessionErrorCount = 0;
   }
 }, 5 * 60 * 1000);
@@ -340,7 +379,13 @@ const baileysLogger = pino({ level: "debug" }, baileysLogStream);
 
 setInterval(() => {
   if (decryptRetryCount > 0) {
-    console.log(`[WA][SESSION_HEALTH] ${decryptRetryCount} pedido(s) de reenvio por falha de decriptação (recv retry request) nos últimos 5 min`);
+    const n = decryptRetryCount;
+    console.log(`[WA][SESSION_HEALTH] ${n} pedido(s) de reenvio por falha de decriptação (recv retry request) nos últimos 5 min`);
+    reportSessionAlert(
+      "session_errors",
+      getConnectedSessionKey(),
+      `${n} pedido(s) de reenvio por falha de decriptação (celular do cliente não conseguiu abrir a mensagem)`,
+    );
     decryptRetryCount = 0;
   }
 }, 5 * 60 * 1000);
@@ -811,11 +856,21 @@ async function hardResetSession(sessionKey) {
     if (sess.nameTracker) clearInterval(sess.nameTracker);
     if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
     if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
+    // ✅ 05/09/2026: sem isso, o timer da simulação de presença (ver
+    // runPresenceSim) continuava vivo apontando pro objeto de sessão
+    // antigo — como `status` nunca era atualizado aqui, ele nunca via
+    // "desconectado" e ficava reagendando pra sempre num socket morto
+    // (inofensivo por causa dos try/catch, mas um vazamento de timer real).
+    if (sess.presenceSimTimer) clearTimeout(sess.presenceSimTimer);
+    sess.status = "disconnected";
     await safeCloseSocket(sess);
   }
 
   sessions.delete(sessionKey);
   deleteSessionFiles(sessionKey, true);
+
+  reportSessionAlert("hard_reset", sessionKey, "Hard reset executado — sessão apagada, aguardando novo QR.");
+
   return true;
 }
 
@@ -827,6 +882,8 @@ async function reconnectSession(sessionKey) {
     if (sess.nameTracker) clearInterval(sess.nameTracker);
     if (sess.qrTimeout) clearTimeout(sess.qrTimeout);
     if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
+    if (sess.presenceSimTimer) clearTimeout(sess.presenceSimTimer); // ✅ mesmo motivo do hardResetSession acima
+    sess.status = "disconnected";
     await safeCloseSocket(sess);
     sessions.delete(sessionKey);
     console.log(`[WA][${sessionKey.slice(0, 8)}] 🔄 Sessão encerrada para reconexão`);
