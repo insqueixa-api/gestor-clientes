@@ -400,13 +400,17 @@ const baileysLogger = pino({ level: "debug" }, baileysLogStream);
 // a última vez — "janela" aqui não é mais um tempo fixo, é "desde a última
 // checagem", seja ela quando for.
 //
-// Critério de alerta sustentado ou pico isolado é o mesmo de antes (ajustado
-// depois do Márcio receber um alerta real de 3 erros isolados e perguntar
-// "de que adianta me avisar sem solução?" — um punhado de Bad MAC/retry
-// pontual é exatamente o que o próprio Baileys já tenta corrigir sozinho):
-// só sinaliza "alerta de verdade" quando o problema aparece em 3 consultas
-// seguidas com erro (não autocorrigiu entre uma consulta e outra) ou um
-// pico bem alto isolado (>=15 numa consulta só).
+// Critério de alerta sustentado ou pico isolado (ajustado depois do Márcio
+// receber um alerta real de 3 erros isolados e perguntar "de que adianta me
+// avisar sem solução?" — um punhado de Bad MAC/retry pontual é exatamente o
+// que o próprio Baileys já tenta corrigir sozinho): só sinaliza "alerta de
+// verdade" quando o problema aparece em 3 consultas seguidas com erro (não
+// autocorrigiu entre uma consulta e outra) ou um pico bem alto isolado.
+// ✅ 06/09/2026: limite do pico isolado subiu de 15 pra 30 — depois de
+// ignorar grupo/Status e manter sessão persistente entre envios (só zera
+// tudo ao reconectar), o normal virou 0-1 erro por envio real; 15 estava
+// pegando ruído residual sem nenhum pedido de reenvio associado (ou seja,
+// sem sinal de entrega realmente afetada).
 let consecutiveBadWindows = 0;
 // ⚠️ 06/09/2026, achado numa auditoria: `sessionErrorCount`/
 // `consecutiveBadWindows` continuam globais (não por sessão), diferente do
@@ -454,7 +458,7 @@ function getAndResetSessionHealth(sessionKey, sendSucceeded = false) {
   }
 
   const sustained = !sendSucceeded && consecutiveBadWindows >= 3;
-  const shouldAlert = sustained || total >= 15;
+  const shouldAlert = sustained || total >= 30;
   const consecutiveWindows = consecutiveBadWindows;
 
   sessionErrorCount = 0;
