@@ -4860,8 +4860,15 @@ export default function RenewClient() {
                                     pronta) — pedido do Márcio, 31/07/2026: parceria/gratuito
                                     sem integração é self-service (o cliente configura
                                     sozinho olhando os dados acima), nunca vira pendência
-                                    pro suporte. */}
-                              {app.requires_admin_setup &&
+                                    pro suporte.
+                                    ⚠️ Bug real achado 06/09/2026 (Márcio configurou o ClouDDy
+                                    pelo admin, vencimento real já apareceu lá em cima, mas o
+                                    botão de solicitar continuava aparecendo embaixo): faltava
+                                    checar `!app.expiration` aqui — sem isso, esse bloco nunca
+                                    saía do estado "precisa configurar", mesmo depois do admin
+                                    terminar de verdade (não existe nenhum flag "concluído" pra
+                                    esses apps, só vencimento real preenchido ou não). */}
+                              {app.requires_admin_setup && !app.expiration &&
                                 (app.has_pending_setup_request ? (
                                   <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
                                     ✓ Configuração solicitada
