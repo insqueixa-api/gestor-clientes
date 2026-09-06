@@ -186,6 +186,18 @@ async function listAvailableCodes(siteRoot, jar, userAgent) {
   jar.absorb(res.headers);
   const html = await res.text();
   const counts = parseCodeCounts(html);
+  // ✅ 06/09/2026, bug real achado numa auditoria: sem isso, se o layout da
+  // página mudar (ou a sessão de revenda cair silenciosamente sem redirecionar
+  // pro /login), parseCodeCounts devolve `null` pros 3 campos — e mais
+  // adiante (app/api/integrations/duplecast/sync-credits/route.ts) `Number(
+  // null)` vira 0. Isso gravava "0 créditos disponíveis" de verdade no banco
+  // como se fosse dado real, disparando alerta falso de "sem créditos" em
+  // cima de uma falha de leitura, não de saldo. `unused` é o campo que
+  // alimenta credits_available (o crítico); joga erro explícito em vez de
+  // deixar virar um "sucesso" com dado inventado.
+  if (counts.unused === null) {
+    throw new Error("Não foi possível ler os créditos disponíveis do Duplecast (layout da página mudou ou sessão de revenda inválida) — confira manualmente antes de confiar no saldo.");
+  }
   return { ...counts, html };
 }
 
