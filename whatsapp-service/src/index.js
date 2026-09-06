@@ -8,6 +8,7 @@ import {
   createSession, disconnectSession, reconnectSession, hardResetSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
+  getAndResetSessionHealth,
 } from "./sessionManager.js";
 import { runDuplecastAction } from "./duplecastClient.js";
 import { checkDowndetectorStatus } from "./downdetectorClient.js";
@@ -42,7 +43,7 @@ app.use(express.json());
 // ── Logs de acesso inteligentes (Silencia o Polling e 404) ───────────
 app.use((req, res, next) => {
   // ✅ Pula o log se a URL COMEÇAR com alguma dessas rotas (ignora os parâmetros)
-  const isQuiet = ["/health", "/status", "/profile", "/sessions", "/session-config"].some(path => 
+  const isQuiet = ["/health", "/status", "/profile", "/sessions", "/session-config", "/session-health"].some(path =>
     req.url.startsWith(path) || req.path.startsWith(path)
   );
   
@@ -87,6 +88,16 @@ app.get("/health", (req, res) => {
 // Lista todas as sessões ativas
 app.get("/sessions", authMiddleware, (req, res) => {
   res.json({ sessions: getAllSessions() });
+});
+
+// ── GET /session-health ───────────────────────────────────────
+// ✅ 05/09/2026, pedido do Márcio: sem timer nenhum rodando sozinho aqui —
+// o app consulta isso sob demanda (botão "Sincronizar agora"/cron de 5min
+// que já existe pra outras checagens do painel Sistema). Cada chamada
+// CONSOME (zera) os contadores acumulados desde a última consulta — o
+// resultado do envio real (/send) também já vem com isso embutido.
+app.get("/session-health", authMiddleware, (req, res) => {
+  res.json(getAndResetSessionHealth());
 });
 
 // Adiciona antes do "── 404 ───":

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
+import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -106,6 +107,9 @@ try {
   }
 
   await reportWhatsAppReconnected(tenantId, whatsappSession);
+  // ✅ 05/09/2026: "durante o envio checa e grava" — sem timer separado,
+  // aproveita o resultado já embutido na resposta do /send.
+  await reportSessionHealthFromSend(tenantId, whatsappSession, parsed?.sessionHealth);
   return NextResponse.json({ ok: true, phone: digits });
 } catch (err: any) {
   const isTimeout = err?.name === "AbortError";

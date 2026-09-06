@@ -19,6 +19,7 @@ import {
 } from "@/lib/whatsapp/template-vars";
 import { notify } from "@/lib/notifications/notify";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
+import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";
 import { getCouponPhraseForClient, getPendencyPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
 import {
   normalizeSecondaryContactDelay,
@@ -648,6 +649,12 @@ export async function POST(req: Request) {
           } else {
             successCount++;
             await reportWhatsAppReconnected(String(job.tenant_id), targetSession);
+            // ✅ 05/09/2026: "durante o envio checa e grava" — sem timer
+            // separado, aproveita o resultado embutido na resposta do /send.
+            const okRaw = await res.text().catch(() => "");
+            let okParsed: any = null;
+            try { okParsed = okRaw ? JSON.parse(okRaw) : null; } catch {}
+            await reportSessionHealthFromSend(String(job.tenant_id), targetSession, okParsed?.sessionHealth);
           }
 
           // ✅ Checkpoint no PRIMEIRO sucesso — ver comentário grande acima

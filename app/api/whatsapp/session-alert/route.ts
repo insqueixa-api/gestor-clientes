@@ -1,12 +1,20 @@
 // app/api/whatsapp/session-alert/route.ts
-// ✅ 05/09/2026, pedido do Márcio: a VM do WhatsApp já loga (docker logs)
-// quando faz um Hard Reset ou quando os erros de sessão/decriptação (Bad
-// MAC/Failed to decrypt/Session error/Closing session/recv retry request —
-// ver sessionManager.js) passam de zero num período de 5 min, mas ninguém é
-// avisado de verdade — é preciso ir olhar o log manualmente. Esta rota deixa
-// a própria VM chamar de volta o app pra reaproveitar o MESMO pipeline de
-// alerta (sino do admin + e-mail) que já existe pra desconexão total
-// (ver lib/whatsapp/disconnect-alert.ts).
+// ✅ 05/09/2026, pedido do Márcio: a VM do WhatsApp faz um Hard Reset (apaga
+// a sessão inteira, exige QR novo) sem que ninguém seja avisado de verdade —
+// antes ficava só no docker logs. Esta rota deixa a própria VM chamar de
+// volta o app pra reaproveitar o MESMO pipeline de alerta (sino do admin +
+// e-mail) que já existe pra desconexão total (ver
+// lib/whatsapp/disconnect-alert.ts).
+//
+// ✅ 05/09/2026 (mesmo dia): o "kind: session_health" que existia aqui foi
+// REMOVIDO — pedido do Márcio pra não ter nenhum timer rodando sozinho na
+// VM. Essa checagem virou pull sob demanda (Sincronizar agora/cron de 5min
+// que já existe pras outras checagens do Sistema — ver checkWhatsAppSession
+// Errors em system-health-check/route.ts) ou embutida na resposta de um
+// envio real (ver reportSessionHealthFromSend em envio_agora/envio_
+// programado/envio_avulso) — nenhum dos dois precisa desta rota, porque
+// já rodam dentro do próprio Next.js e podem chamar notify()/
+// sendAdminEmail() direto, sem round-trip HTTP.
 //
 // Autenticação: reaproveita o segredo que JÁ é compartilhado especificamente
 // entre app e VM nos dois sentidos — UNIGESTOR_WA_TOKEN no app é o MESMO
@@ -37,30 +45,17 @@ function isAuthorized(req: NextRequest): boolean {
   return timingSafeEqualStr(token, expected);
 }
 
-const ALERT_KINDS = ["hard_reset", "session_health"] as const;
-type AlertKind = (typeof ALERT_KINDS)[number];
-
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, error: "Não autorizado" }, { status: 401 });
   }
 
   const body = await req.json().catch(() => ({} as any));
-  const kind = String(body?.kind || "") as AlertKind;
+  const kind = String(body?.kind || "");
   const sessionKey = String(body?.sessionKey || "").trim();
   const detail = String(body?.detail || "").slice(0, 500);
-  const libsignalErrors = Math.max(0, Number(body?.libsignalErrors) || 0);
-  const decryptRetries = Math.max(0, Number(body?.decryptRetries) || 0);
-  // ✅ 05/09/2026: quem decide SE isso é sério o suficiente pra interromper
-  // o Márcio é a VM (sessionManager.js) — sustentado por 3 janelas seguidas
-  // (15min contínuos) ou um pico isolado alto, nunca qualquer erro pontual
-  // (isso o próprio Baileys já tenta corrigir sozinho via retry automático,
-  // então avisar em toda janela com erro>0 era alarme falso na maioria das
-  // vezes — achado pelo próprio Márcio ao receber um alerta sem solução).
-  const shouldAlert = Boolean(body?.shouldAlert);
-  const consecutiveWindows = Math.max(0, Number(body?.consecutiveWindows) || 0);
 
-  if (!ALERT_KINDS.includes(kind) || !sessionKey) {
+  if (kind !== "hard_reset" || !sessionKey) {
     return NextResponse.json({ ok: false, error: "Parâmetros inválidos" }, { status: 400 });
   }
 
@@ -91,75 +86,22 @@ export async function POST(req: NextRequest) {
 
     const sourceId = `${kind}:${sessionKey}:${Date.now()}`;
 
-    if (kind === "hard_reset") {
-      await notify({
-        tenantId: selection.tenantId,
-        type: "whatsapp_hard_reset",
-        title: "🗑️ WhatsApp — Hard Reset executado",
-        message: `A "${humanLabel}" foi resetada por completo (${detail || "sem detalhe"}) — escaneie o QR novamente em Configurações > WhatsApp.`,
-        link: "/admin/settings/whatsapp",
-        sourceId,
-      });
-      await sendAdminEmail(
-        `🗑️ WhatsApp — Hard Reset executado (${humanLabel})`,
-        `<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-          <p><strong>A "${humanLabel}" do WhatsApp foi resetada por completo (Hard Reset).</strong></p>
-          <p>${detail || "Sem detalhe adicional."}</p>
-          <p>A sessão está em branco agora — escaneie o QR novamente em Configurações &gt; WhatsApp assim que possível.</p>
-        </div>`,
-      );
-    } else if (kind === "session_health") {
-      const total = libsignalErrors + decryptRetries;
-
-      // ✅ Alimenta o card "Sistema > WhatsApp" a CADA chamada (mesmo com
-      // total=0) — sem isso o card ficaria preso em "warn" de uma janela
-      // antiga depois que o problema já passou, já que só é tocado quando
-      // alguém chama esta rota.
-      await supabaseAdmin.from("system_health_checks").upsert(
-        {
-          check_key: "whatsapp_session_health",
-          label: "WhatsApp — Erros de sessão",
-          group_key: "whatsapp",
-          status: total > 0 ? "warn" : "ok",
-          detail:
-            total > 0
-              ? `${humanLabel}: ${libsignalErrors} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${decryptRetries} pedido(s) de reenvio nos últimos 5min`
-              : `${humanLabel}: sem erros de sessão/decriptação nos últimos 5min`,
-          checked_at: new Date().toISOString(),
-        },
-        { onConflict: "check_key" },
-      );
-
-      // ✅ Sino + e-mail só quando é SUSTENTADO ou um pico alto (shouldAlert
-      // decidido na VM) — não em toda janela com erro>0, pra não avisar sem
-      // ter uma ação real pra recomendar.
-      if (shouldAlert) {
-        const detailMsg = `${libsignalErrors} erro(s) de sessão + ${decryptRetries} pedido(s) de reenvio`;
-        const durationMsg =
-          consecutiveWindows >= 3
-            ? `persistindo há ${consecutiveWindows * 5}+ minutos seguidos (não se autocorrigiu sozinho)`
-            : "num pico isolado bem acima do normal";
-        const actionMsg =
-          "Verifique se algum cliente reclamou de não receber mensagem recentemente. Se sim, tente primeiro \"Reconectar\" em Configurações > WhatsApp; se voltar a acontecer logo em seguida, use \"Hard Reset\" (vai exigir escanear o QR de novo).";
-
-        await notify({
-          tenantId: selection.tenantId,
-          type: "whatsapp_erros_sessao",
-          title: "⚠️ WhatsApp — erros de sessão persistentes",
-          message: `${detailMsg} na "${humanLabel}", ${durationMsg}. ${actionMsg}`,
-          link: "/admin/settings/whatsapp",
-          sourceId,
-        });
-        await sendAdminEmail(
-          `⚠️ WhatsApp — erros de sessão persistentes (${humanLabel})`,
-          `<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-            <p><strong>${detailMsg}</strong> na "${humanLabel}", ${durationMsg}.</p>
-            <p>Isso costuma ser o sintoma de mensagens que chegam como "Aguardando mensagem" ou vazias pro destinatário.</p>
-            <p><strong>O que fazer:</strong> ${actionMsg}</p>
-          </div>`,
-        );
-      }
-    }
+    await notify({
+      tenantId: selection.tenantId,
+      type: "whatsapp_hard_reset",
+      title: "🗑️ WhatsApp — Hard Reset executado",
+      message: `A "${humanLabel}" foi resetada por completo (${detail || "sem detalhe"}) — escaneie o QR novamente em Configurações > WhatsApp.`,
+      link: "/admin/settings/whatsapp",
+      sourceId,
+    });
+    await sendAdminEmail(
+      `🗑️ WhatsApp — Hard Reset executado (${humanLabel})`,
+      `<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+        <p><strong>A "${humanLabel}" do WhatsApp foi resetada por completo (Hard Reset).</strong></p>
+        <p>${detail || "Sem detalhe adicional."}</p>
+        <p>A sessão está em branco agora — escaneie o QR novamente em Configurações &gt; WhatsApp assim que possível.</p>
+      </div>`,
+    );
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

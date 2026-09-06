@@ -17,6 +17,7 @@ import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { getWAContextOrCron, proxyVM } from "@/lib/whatsapp/wa-context";
 import { getActiveProxyOrder } from "@/lib/proxybr";
+import { sessionHealthCheckResult, notifySessionHealthAlert } from "@/lib/whatsapp/session-health-alert";
 
 export const dynamic = "force-dynamic";
 // ✅ 02/09/2026: subiu de 30s pra 60s — o novo check do Downdetector
@@ -303,6 +304,47 @@ async function checkWhatsAppSession(req: Request, session: 1 | 2): Promise<Check
   }
 }
 
+// ✅ 05/09/2026, pedido do Márcio: sem timer separado de 5 em 5 minutos —
+// esta checagem só acontece aqui (mesmo cron/"Sincronizar agora" que já
+// existe pras outras ~9 checagens desta tela) ou embutida na resposta de um
+// envio real (ver reportSessionHealthFromSend em envio_agora/envio_
+// programado/envio_avulso). GET /session-health na VM consome (zera) os
+// contadores acumulados desde a última consulta, seja ela qual for.
+async function checkWhatsAppSessionErrors(req: Request): Promise<CheckResult> {
+  const key = "whatsapp_session_health";
+  const label = "WhatsApp — Erros de sessão";
+
+  const ctx = await getWAContextOrCron(req, 1);
+  if (!ctx) {
+    return { key, label, group: "whatsapp", status: "warn", detail: "Configuração ausente (env vars)" };
+  }
+
+  try {
+    const result = await proxyVM(ctx, "/session-health", { method: "GET" });
+    if (!result.ok) {
+      return { key, label, group: "whatsapp", status: "warn", detail: `Falha ao consultar: HTTP ${result.status}` };
+    }
+    const health = {
+      libsignalErrors: Number(result.json?.libsignalErrors) || 0,
+      decryptRetries: Number(result.json?.decryptRetries) || 0,
+      shouldAlert: !!result.json?.shouldAlert,
+      consecutiveWindows: Number(result.json?.consecutiveWindows) || 0,
+    };
+
+    // ✅ Sino + e-mail só quando sustentado/pico alto — a gravação do card
+    // em si acontece pelo retorno normal desta função (mesmo upsert em lote
+    // de todas as outras checagens, logo abaixo em handle()).
+    if (health.shouldAlert) {
+      await notifySessionHealthAlert(ctx.tenantId, "default", health).catch(() => {});
+    }
+
+    const { status, detail } = sessionHealthCheckResult("default", health);
+    return { key, label, group: "whatsapp", status, detail };
+  } catch (e: any) {
+    return { key, label, group: "whatsapp", status: "warn", detail: e?.message?.slice(0, 200) || "Falha ao consultar a VM" };
+  }
+}
+
 // ✅ 02/09/2026, pedido do Márcio: os 3 checks abaixo (Supabase/Vercel/
 // Cloudflare) mostravam status GENÉRICO da plataforma inteira (statuspage.io
 // — "Supabase está no ar pro mundo?"). Ele queria saber do PROJETO dele
@@ -569,6 +611,7 @@ async function runAllChecks(req: Request): Promise<CheckResult[]> {
   const checks = await Promise.all([
     checkWhatsAppSession(req, 1),
     checkWhatsAppSession(req, 2),
+    checkWhatsAppSessionErrors(req),
     checkBillingSends(),
     waBase
       ? checkHttpOk("vm_hetzner", "VM Hetzner (WhatsApp)", "infra", `${waBase}/health`)

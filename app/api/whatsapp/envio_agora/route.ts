@@ -22,6 +22,7 @@ import {
 } from "@/lib/whatsapp/template-vars";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
+import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
 
 function safeServerLog(...args: any[]) {
@@ -497,6 +498,12 @@ export async function POST(req: Request) {
         });
         results.push({ phone: contact.number, ok: true, status: 200 });
         await reportWhatsAppReconnected(tenantId, targetSession);
+        // ✅ 05/09/2026: "durante o envio checa e grava" — sem timer separado,
+        // aproveita o resultado que já veio embutido na resposta do /send.
+        // await (não fire-and-forget) — função já é best-effort por dentro
+        // (nunca lança), mas sem await o runtime serverless pode encerrar a
+        // function antes da promise terminar.
+        await reportSessionHealthFromSend(tenantId, targetSession, parsed?.sessionHealth);
       }
     } catch (err: any) {
       results.push({ phone: contact.number, error: err?.message, status: 500 });

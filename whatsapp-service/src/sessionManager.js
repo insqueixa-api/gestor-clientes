@@ -56,46 +56,6 @@ async function reportSessionAlert(kind, sessionKey, detail) {
   }
 }
 
-// ✅ 05/09/2026, pedido do Márcio: roda a CADA 5min (mesmo com zero erro),
-// pra alimentar o card "Sistema > WhatsApp" (system_health_checks) com um
-// status sempre fresco. `shouldAlert`/`consecutiveWindows` decidem se o app
-// também dispara sino+e-mail (só quando o problema é sustentado ou um pico
-// alto — ver comentário no setInterval que chama isto) — o card em si
-// sempre atualiza, independente disso.
-async function reportSessionHealth(sessionKey, libsignalErrors, decryptRetries, shouldAlert, consecutiveWindows) {
-  const appUrl = String(process.env.UNIGESTOR_APP_URL || "").trim();
-  const token = String(process.env.API_TOKEN || "").trim();
-  if (!appUrl || !token) return;
-
-  try {
-    await fetch(`${appUrl.replace(/\/+$/, "")}/api/whatsapp/session-alert`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        kind: "session_health",
-        sessionKey,
-        libsignalErrors,
-        decryptRetries,
-        shouldAlert: !!shouldAlert,
-        consecutiveWindows: consecutiveWindows || 0,
-      }),
-      signal: AbortSignal.timeout(10_000),
-    });
-  } catch (e) {
-    console.log(`[WA] Falha ao atualizar o card do Sistema: ${e.message}`);
-  }
-}
-
-// ✅ Os contadores de saúde de sessão são globais (não por sessão) — usa a
-// primeira sessão conectada encontrada só pra rotular o alerta de forma
-// legível (hoje na prática só existe uma sessão real em uso).
-function getConnectedSessionKey() {
-  for (const [key, sess] of sessions.entries()) {
-    if (sess.status === "connected") return key;
-  }
-  return "unknown";
-}
-
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map();
 
@@ -103,8 +63,9 @@ const processedCalls = new Map();
 // mensagem vazia (pedido do Márcio): os erros abaixo (Bad MAC, Failed to
 // decrypt, Session error, Closing session) eram só descartados como
 // "cosmético" — mas são EXATAMENTE o sintoma que ele reportou. Agora conta
-// em vez de só descartar, e avisa a cada 5 min (sem voltar a pichar o log
-// linha a linha, que foi o motivo original da supressão).
+// em vez de só descartar — consultado sob demanda via getAndResetSessionHealth()
+// mais abaixo (sem voltar a pichar o log linha a linha, que foi o motivo
+// original da supressão).
 let sessionErrorCount = 0;
 
 // Suprime logs verbosos de ERRO do libsignal (Bad MAC de sessões antigas — erro cosmético)
@@ -395,40 +356,43 @@ const baileysLogStream = new Writable({
 });
 const baileysLogger = pino({ level: "debug" }, baileysLogStream);
 
-// ✅ 05/09/2026, pedido do Márcio: 1 intervalo SÓ (em vez dos 2 separados de
-// antes, que corriam risco de sobrescrever um ao outro no card do Sistema
-// se caíssem no mesmo tick) — soma os dois contadores, atualiza o card
-// "Sistema > WhatsApp" a CADA 5min mesmo com zero erro (pra nunca ficar com
-// um "warn" preso de uma janela antiga).
+// ✅ 05/09/2026, pedido do Márcio: nada de timer autônomo rodando sozinho —
+// "não precisa, pode rolar quando eu abrir o sync ou durante o envio de
+// qualquer mensagem". Em vez de empurrar (push) a cada 5min, agora é
+// consultado sob demanda (pull): o app pergunta via GET /session-health
+// (chamado só pelo botão "Sincronizar agora"/cron de 5min que JÁ existia
+// pra outras checagens do Sistema — ver system-health-check/route.ts) ou o
+// resultado vai embutido na resposta de um /send de verdade (ver sendMessage
+// mais abaixo). Cada consulta CONSOME (zera) os contadores acumulados desde
+// a última vez — "janela" aqui não é mais um tempo fixo, é "desde a última
+// checagem", seja ela quando for.
 //
-// ✅ AJUSTADO no mesmo dia, depois do Márcio receber um alerta real (não
-// teste) de 3 erros isolados e perguntar "de que adianta me avisar sem
-// solução?" — ele tem razão: um punhado de Bad MAC/retry isolado é
-// exatamente o que o próprio Baileys já tenta corrigir sozinho (por isso
-// existe o getMessage/maxMsgRetryCount) — sino+e-mail em CADA janela com
-// qualquer erro > 0 era alarme falso na maioria das vezes. Agora só
-// dispara sino+e-mail quando o problema é SUSTENTADO (3 janelas seguidas
-// com erro = 15min contínuos, não autocorrigiu sozinho) ou um pico bem
-// alto isolado (>=15 num único ciclo) — os dois casos em que vale a pena
-// interromper o Márcio de verdade.
+// Critério de alerta sustentado ou pico isolado é o mesmo de antes (ajustado
+// depois do Márcio receber um alerta real de 3 erros isolados e perguntar
+// "de que adianta me avisar sem solução?" — um punhado de Bad MAC/retry
+// pontual é exatamente o que o próprio Baileys já tenta corrigir sozinho):
+// só sinaliza "alerta de verdade" quando o problema aparece em 3 consultas
+// seguidas com erro (não autocorrigiu entre uma consulta e outra) ou um
+// pico bem alto isolado (>=15 numa consulta só).
 let consecutiveBadWindows = 0;
-setInterval(() => {
-  const libsignalN = sessionErrorCount;
-  const retryN = decryptRetryCount;
-  const total = libsignalN + retryN;
+function getAndResetSessionHealth() {
+  const libsignalErrors = sessionErrorCount;
+  const decryptRetries = decryptRetryCount;
+  const total = libsignalErrors + decryptRetries;
 
   consecutiveBadWindows = total > 0 ? consecutiveBadWindows + 1 : 0;
 
   if (total > 0) {
-    console.log(`[WA][SESSION_HEALTH] ${libsignalN} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${retryN} pedido(s) de reenvio (recv retry request) nos últimos 5 min (janela ${consecutiveBadWindows} seguida(s))`);
+    console.log(`[WA][SESSION_HEALTH] ${libsignalErrors} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${decryptRetries} pedido(s) de reenvio (recv retry request) desde a última checagem (${consecutiveBadWindows} seguida(s) com erro)`);
   }
 
   const shouldAlert = consecutiveBadWindows >= 3 || total >= 15;
-  reportSessionHealth(getConnectedSessionKey(), libsignalN, retryN, shouldAlert, consecutiveBadWindows);
 
   sessionErrorCount = 0;
   decryptRetryCount = 0;
-}, 5 * 60 * 1000);
+
+  return { libsignalErrors, decryptRetries, shouldAlert, consecutiveWindows: consecutiveBadWindows };
+}
 
 // Map de sessões ativas: sessionKey -> { socket, qr, status, retries }
 const sessions = new Map();
@@ -1099,9 +1063,15 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
 
   const messageId = result?.key?.id || null;
 
+  // ✅ 05/09/2026, pedido do Márcio: "durante o envio de qualquer mensagem
+  // já checa e grava" — em vez de um timer separado, embute o resultado da
+  // checagem de saúde de sessão na própria resposta do envio real (ver
+  // getAndResetSessionHealth acima). O app decide o que fazer com isso
+  // (card do Sistema + alerta se sustentado).
   return {
     ok: true,
     messageId,
+    sessionHealth: getAndResetSessionHealth(),
   };
 }
 
@@ -1179,4 +1149,5 @@ export {
   createSession, disconnectSession, reconnectSession, hardResetSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, renderRejectMessage, getContactProfilePicture,
+  getAndResetSessionHealth,
 };
