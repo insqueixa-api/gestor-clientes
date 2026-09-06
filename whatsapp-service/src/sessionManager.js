@@ -527,7 +527,14 @@ const sock = makeWASocket({
     // grupo, então ignorar @g.us aqui não tira nada da função do sistema.
     // Não afeta o WhatsApp do celular do Márcio (aparelho principal) — só
     // faz este "aparelho vinculado" parar de tentar decriptar grupo.
-    shouldIgnoreJid: (jid) => jid.endsWith("@g.us"),
+    // ✅ 06/09/2026: "status@broadcast" (Status/Stories de contatos) somado
+    // ao grupo — mesmo raciocínio, essa conta não usa/mostra Status pra
+    // nada, zero perda em ignorar. NÃO estende pra JID de contato 1:1 comum
+    // (nem pra filtrar só mídia) — shouldIgnoreJid também bloqueia recibo
+    // de "retry request" (pedido de reenvio) daquele JID, que é o mecanismo
+    // do próprio WhatsApp pra corrigir "Aguardando mensagem" sozinho; ignorar
+    // 1:1 quebraria essa auto-recuperação, o oposto do que se quer aqui.
+    shouldIgnoreJid: (jid) => jid.endsWith("@g.us") || jid === "status@broadcast",
 
     // ✅ PREVENÇÃO CONTRA "Aguardando mensagem..."
     maxMsgRetryCount: 15,
