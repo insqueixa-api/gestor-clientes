@@ -485,9 +485,16 @@ export async function POST(req: Request) {
         if (isWhatsAppDisconnectedResponse(res.status, raw)) {
           await reportWhatsAppDisconnected(tenantId, targetSession, "envio_agora");
         }
+        // ✅ 06/09/2026, bug real achado: desde 05/09/2026 todo /send
+        // bem-sucedido vem com `sessionHealth` embutido (ver
+        // sessionManager.js::sendMessage), e o texto "sessionHealth" contém
+        // "session" — o regex abaixo tratava isso como erro (ex: EduardoSogro,
+        // mensagem entregue no WhatsApp mas registrada como FAILED aqui).
+        // Só cai no regex quando o corpo não confirma sucesso explicitamente.
       } else if (
-        (parsed && (parsed.ok === false || !!parsed.error)) ||
-        /not\s*connected|disconnected|qr|invalid|blocked|logout|session/i.test(String(raw || ""))
+        parsed?.ok !== true &&
+        ((parsed && (parsed.ok === false || !!parsed.error)) ||
+          /not\s*connected|disconnected|qr|invalid|blocked|logout|session/i.test(String(raw || "")))
       ) {
         safeServerLog("[WA][vm_send] logical_error", { to_suffix: contact.number.slice(-4) });
         results.push({ phone: contact.number, error: "Falha ao enviar (WA backend)", status: 502 });
