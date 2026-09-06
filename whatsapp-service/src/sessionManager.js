@@ -1231,19 +1231,38 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
 
   scheduleGoOffline(sess);
 
-  // ❌ 06/09/2026: apagar a sessão do contato após cada envio (ideia
-  // testada mais cedo) foi revertida no mesmo dia. Investigação posterior
-  // mostrou que a causa real das falhas daquele dia era uma identidade do
-  // aparelho vinculado corrompida (relogin de emergência feito aos trancos),
-  // não a estratégia de sessão — resolvido de verdade com um Hard Reset
-  // limpo. Sessão persistente + `rememberSentMessage`/`getMessage` abaixo
-  // (entrega o conteúdo de verdade quando o Baileys pede reenvio) é o que
-  // fica: mais simples e sem o custo de recriar sessão em toda mensagem.
   const messageId = result?.key?.id || null;
   // ✅ result.message já é o proto.IMessage exato que o Baileys gerou e
   // mandou (com as chaves de mídia, se for imagem) — mesmo formato que
   // getMessage precisa devolver, sem reconstruir nada por conta própria.
+  // Guarda ANTES de apagar a sessão logo abaixo: se um pedido de reenvio
+  // chegar, precisa ter o conteúdo real pra devolver.
   rememberSentMessage(messageId, result?.message);
+
+  // ✅ 06/09/2026, decisão explícita do Márcio (2ª rodada, depois de
+  // entender a diferença entre isto e o cache de conteúdo acima): apaga a
+  // sessão Signal do contato logo após cada envio, forçando o PRÓXIMO envio
+  // a negociar do zero (prekey bundle novo do servidor do WhatsApp) — nunca
+  // reaproveita sessão entre mensagens, sempre "primeiro contato". Testado
+  // e revertido numa 1ª rodada mais cedo hoje (Luiz2Vidamerica falhou), mas
+  // àquela altura o `getMessage` ainda devolvia vazio — um pedido de
+  // reenvio corrigia a sessão mas nunca entregava o texto de verdade,
+  // mascarando se o mecanismo em si funcionava. Com o cache acima já no
+  // ar, essa lacuna não existe mais. Mesma lógica de detecção de
+  // multi-dispositivo já corrigida na 1ª tentativa (arquivo é
+  // "session-<telefone>.<deviceId real>.json", nem sempre ".0").
+  try {
+    const digits = jid.split("@")[0];
+    const sessDir = getSessionDir(sessionKey);
+    const prefix = `session-${digits}.`;
+    const matches = fs.readdirSync(sessDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
+    for (const f of matches) {
+      const id = f.slice("session-".length, -".json".length);
+      await sess.socket.authState.keys.set({ session: { [id]: null } });
+    }
+  } catch (e) {
+    console.error(`[WA] Falha ao resetar sessão pós-envio: ${e?.message}`);
+  }
 
   // ✅ 05/09/2026, pedido do Márcio: "durante o envio de qualquer mensagem
   // já checa e grava" — em vez de um timer separado, embute o resultado da
