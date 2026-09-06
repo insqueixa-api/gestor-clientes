@@ -4,6 +4,7 @@
   DisconnectReason,
   fetchLatestBaileysVersion,
   downloadMediaMessage,
+  WAMessageStatus,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import path from "path";
@@ -635,6 +636,22 @@ sock.ev.on("messages.upsert", ({ messages, type }) => {
     }
   }
   if (changed) saveLidMap(sessionKey);
+});
+
+// ✅ 06/09/2026, achado numa auditoria: a lib já avisa quando o APARELHO DO
+// DESTINATÁRIO não conseguiu exibir uma mensagem nossa (ack de erro —
+// messages-recv.js::handleBadAck) — com o contato e o motivo, não só uma
+// contagem agregada. Nunca ouvíamos esse evento. Só loga por enquanto (dá
+// pra ver de quem foi sem precisar abrir o WhatsApp da pessoa); virar
+// alerta no sino é um passo separado, mexe no app Next.js também.
+sock.ev.on("messages.update", (updates) => {
+  for (const { key, update } of updates) {
+    if (update?.status !== WAMessageStatus.ERROR) continue;
+    const reason = Array.isArray(update.messageStubParameters)
+      ? update.messageStubParameters.join(", ")
+      : "motivo não informado";
+    console.log(`[WA][${sessionKey.slice(0, 8)}] Mensagem p/ ${key.remoteJid} (id ${key.id}) NÃO exibida no aparelho do destinatário — ${reason}`);
+  }
 });
 
   // ── Conexão ──────────────────────────────────────────────────
