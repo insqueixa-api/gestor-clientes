@@ -546,8 +546,16 @@ const sock = makeWASocket({
       : {}),
 
 // ✅ CONFIGURAÇÕES DE SAAS (Alta Tolerância)
-    connectTimeoutMs: 60_000,        
-    defaultQueryTimeoutMs: 60_000,   
+    connectTimeoutMs: 60_000,
+    defaultQueryTimeoutMs: 60_000,
+    // ✅ 06/09/2026, achado numa auditoria: upload de imagem (usamos
+    // `caption` em toda mensagem com mídia) não tinha timeout nenhum
+    // configurado — se o proxy residencial ou o host de mídia do WhatsApp
+    // engasgasse no meio do upload, o envio ficava pendurado pra sempre em
+    // vez de falhar rápido e deixar o chamador decidir (o app já trata erro
+    // de `/send`, mas só se ele efetivamente retornar). Mesmo valor dos
+    // outros timeouts de rede desta config.
+    mediaUploadTimeoutMs: 60_000,
     // ✅ 05/09/2026, pedido do Márcio: reduzido de 30s pra 15s — se um "Alô?"
     // falhar (proxy/rede engasgar por um instante), ainda sobra margem pro
     // próximo antes da WhatsApp considerar o túnel morto.
