@@ -427,18 +427,33 @@ let consecutiveBadWindows = 0;
 // junto (senão ficaria reconectando em loop se o problema persistir logo
 // depois da tentativa). `sessionKey` é opcional — sem ele (ex: consulta via
 // /session-health sem sessão identificada) só avisa, não tenta reconectar.
-function getAndResetSessionHealth(sessionKey) {
+// ✅ 06/09/2026, pedido do Márcio depois de reabilitar "sempre primeiro
+// contato": com sessão sendo recriada em todo envio, um pouco de ruído
+// (Closing session) virou o normal esperado, não mais sinal de problema —
+// não faz sentido deixar isso acumular rumo ao auto-reconnect enquanto as
+// mensagens estão sendo entregues de verdade. `sendSucceeded` (true só
+// quando chamado de dentro de um envio que funcionou) zera a sequência na
+// hora, mesmo que a janela tenha tido erro — só a checagem periódica
+// (/session-health, sem saber se algo foi enviado) mantém a contagem
+// tradicional. O alerta de PICO isolado (>=15 numa janela só) continua
+// valendo sempre, não depende disso — um evento grande de verdade ainda
+// avisa mesmo em meio a envios bem-sucedidos.
+function getAndResetSessionHealth(sessionKey, sendSucceeded = false) {
   const libsignalErrors = sessionErrorCount;
   const decryptRetries = decryptRetryCounts.get(sessionKey) || 0;
   const total = libsignalErrors + decryptRetries;
 
-  consecutiveBadWindows = total > 0 ? consecutiveBadWindows + 1 : 0;
-
-  if (total > 0) {
-    console.log(`[WA][SESSION_HEALTH] ${libsignalErrors} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${decryptRetries} pedido(s) de reenvio (recv retry request) desde a última checagem (${consecutiveBadWindows} seguida(s) com erro)`);
+  if (sendSucceeded) {
+    consecutiveBadWindows = 0;
+  } else {
+    consecutiveBadWindows = total > 0 ? consecutiveBadWindows + 1 : 0;
   }
 
-  const sustained = consecutiveBadWindows >= 3;
+  if (total > 0) {
+    console.log(`[WA][SESSION_HEALTH] ${libsignalErrors} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${decryptRetries} pedido(s) de reenvio (recv retry request) desde a última checagem (${consecutiveBadWindows} seguida(s) com erro${sendSucceeded ? ", envio OK — sequência zerada" : ""})`);
+  }
+
+  const sustained = !sendSucceeded && consecutiveBadWindows >= 3;
   const shouldAlert = sustained || total >= 15;
   const consecutiveWindows = consecutiveBadWindows;
 
@@ -1272,7 +1287,7 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
   return {
     ok: true,
     messageId,
-    sessionHealth: getAndResetSessionHealth(sessionKey),
+    sessionHealth: getAndResetSessionHealth(sessionKey, true),
   };
 }
 
