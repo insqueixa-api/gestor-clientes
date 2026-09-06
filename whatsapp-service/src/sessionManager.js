@@ -59,6 +59,27 @@ async function reportSessionAlert(kind, sessionKey, detail) {
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map();
 
+// ✅ 06/09/2026, achado investigando "Aguardando mensagem" persistindo mesmo
+// depois de uma sessão dessincronizar (ex: cliente troca de celular): quando
+// o WhatsApp de alguém pede reenvio (recv retry request), o Baileys já força
+// uma sessão nova sozinho (assertSessions com force=true, ver messages-recv.js
+// da própria lib) — mas pra saber O QUE reenviar ele chama `getMessage`, que
+// aqui só devolvia texto vazio (só reparava a sessão, nunca entregava o
+// conteúdo de verdade). Guarda o conteúdo de cada envio por 10min (tempo de
+// sobra pro retry, que costuma vir em segundos) pra `getMessage` conseguir
+// devolver a mensagem real quando pedirem de novo.
+const sentMessagesCache = new Map();
+const SENT_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+
+function rememberSentMessage(id, content) {
+  if (!id) return;
+  const now = Date.now();
+  for (const [k, v] of sentMessagesCache.entries()) {
+    if (now - v.ts > SENT_CACHE_MAX_AGE_MS) sentMessagesCache.delete(k);
+  }
+  sentMessagesCache.set(id, { content, ts: now });
+}
+
 // ✅ 05/09/2026, achado numa investigação urgente de "Aguardando mensagem"/
 // mensagem vazia (pedido do Márcio): os erros abaixo (Bad MAC, Failed to
 // decrypt, Session error, Closing session) eram só descartados como
@@ -538,9 +559,12 @@ const sock = makeWASocket({
 
     // ✅ PREVENÇÃO CONTRA "Aguardando mensagem..."
     maxMsgRetryCount: 15,
+    // ✅ 06/09/2026: devolve o conteúdo real (ver rememberSentMessage) —
+    // antes só devolvia texto vazio, então o pedido de reenvio consertava a
+    // sessão mas nunca entregava a mensagem de verdade pra quem pediu.
     getMessage: async (key) => {
-      // Retorna vazio apenas para acionar o gatilho interno do Baileys
-      // que força o celular a reenviar as chaves de descriptografia.
+      const cached = sentMessagesCache.get(key.id);
+      if (cached) return cached.content;
       return { conversation: "" };
     },
   });
@@ -1127,18 +1151,19 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
 
   scheduleGoOffline(sess);
 
-  // ❌ 06/09/2026: apagar a sessão do contato após cada envio (pra forçar
-  // renegociação, ideia do Márcio investigando "Aguardando mensagem") foi
-  // testado e revertido no mesmo dia — isso faz TODA mensagem virar
-  // "PreKey message" (estilo primeiro contato) em vez de usar uma sessão já
-  // estabelecida, caminho bem menos testado no Baileys. A 1ª mensagem real
-  // depois do deploy (Luiz2Vidamerica, 12:39) falhou do mesmo jeito, sem
-  // nenhum erro/aviso do nosso lado — trocou uma falha ocasional por outra,
-  // talvez mais frequente. Isso não é equivalente ao que resolve de verdade
-  // pro Márcio (apagar tudo e reconectar = Hard Reset completo, troca a
-  // identidade do aparelho inteiro — bem diferente de só limpar sessão 1:1
-  // mantendo a mesma identidade).
+  // ❌ 06/09/2026: apagar a sessão do contato após cada envio (ideia
+  // testada mais cedo) foi revertida no mesmo dia. Investigação posterior
+  // mostrou que a causa real das falhas daquele dia era uma identidade do
+  // aparelho vinculado corrompida (relogin de emergência feito aos trancos),
+  // não a estratégia de sessão — resolvido de verdade com um Hard Reset
+  // limpo. Sessão persistente + `rememberSentMessage`/`getMessage` abaixo
+  // (entrega o conteúdo de verdade quando o Baileys pede reenvio) é o que
+  // fica: mais simples e sem o custo de recriar sessão em toda mensagem.
   const messageId = result?.key?.id || null;
+  // ✅ result.message já é o proto.IMessage exato que o Baileys gerou e
+  // mandou (com as chaves de mídia, se for imagem) — mesmo formato que
+  // getMessage precisa devolver, sem reconstruir nada por conta própria.
+  rememberSentMessage(messageId, result?.message);
 
   // ✅ 05/09/2026, pedido do Márcio: "durante o envio de qualquer mensagem
   // já checa e grava" — em vez de um timer separado, embute o resultado da
