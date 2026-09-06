@@ -1,0 +1,17 @@
+-- ✅ 05/09/2026: docs/sql/system_health_checks.sql (31/08/2026) criava a
+-- função system_health_check_trigger() E tentava agendá-la via
+-- cron.schedule('system_health_check_5min', '*/5 * * * *', ...) -- mas esse
+-- agendamento nunca "pegou" de verdade: conferido direto em cron.job em
+-- 05/09/2026, não existe nenhum job com esse nome ou schedule entre os ~23
+-- jobs reais ativos hoje. A FUNÇÃO ficou órfã no banco (existe, mas nada a
+-- chama) — motivo real de o comentário em system-health-check/route.ts
+-- afirmar um cron de 5min que nunca existiu de verdade (achado quando o
+-- Márcio perguntou "não lembro de ter habilitado esse cron").
+--
+-- Márcio confirmou que NÃO quer esse cron automático (pediu explicitamente
+-- pra tirar qualquer coisa rodando de 5 em 5 min) — então em vez de
+-- finalmente agendar o cron.schedule que faltava, remove a função órfã de
+-- vez, pra não confundir ninguém de novo no futuro. A checagem continua
+-- funcionando normalmente via botão "Sincronizar agora" (POST direto em
+-- /api/cron/system-health-check).
+DROP FUNCTION IF EXISTS public.system_health_check_trigger();

@@ -1,4 +1,11 @@
 -- docs/sql/system_health_checks.sql
+-- ⚠️ CORREÇÃO 05/09/2026: o cron.schedule('system_health_check_5min', ...)
+-- no fim deste arquivo NUNCA existiu de verdade no banco (conferido direto
+-- em cron.job) — a função system_health_check_trigger() ficou órfã, e foi
+-- removida em docs/sql/remove_orphan_system_health_cron_fn.sql. Márcio
+-- confirmou que não quer esse cron ativo — a checagem roda só via botão
+-- "Sincronizar agora". Não reaplicar o bloco "pg_cron" abaixo.
+--
 -- 31/08/2026, pedido do Márcio: painel "Sistema" (renomeado de "Crons")
 -- reflete tudo que é externo/infraestrutura, não só os cron jobs — VMs
 -- (Hetzner/Google), sessões WhatsApp (principal/secundária), proxy

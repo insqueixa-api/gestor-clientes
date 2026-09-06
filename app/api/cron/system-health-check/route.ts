@@ -4,12 +4,20 @@
 // WhatsApp (principal crítica, secundária só aviso), proxy dedicado (com
 // aviso de validade — não só se caiu) e status de Supabase/Vercel/
 // Cloudflare/Gemini (grátis+paga). TODAS as checagens daqui são EXTERNAS
-// (~9 chamadas curtas, em paralelo, timeout de 6-8s cada) — de propósito
-// rodam só aqui, disparadas por 1 pg_cron a cada 5min (docs/sql/
-// system_health_checks.sql), NUNCA a partir da página (GET /api/system-
-// health só lê o cache). Isso é o que o Márcio pediu explicitamente: "não
-// consumir muito tempo/CPU da Vercel" — a página pode ser aberta 50x no
-// dia sem gerar 1 chamada externa a mais.
+// (~10 chamadas curtas, em paralelo, timeout de 6-8s cada) — de propósito
+// rodam só aqui, NUNCA a partir da página (GET /api/system-health só lê o
+// cache). Isso é o que o Márcio pediu explicitamente: "não consumir muito
+// tempo/CPU da Vercel" — a página pode ser aberta 50x no dia sem gerar 1
+// chamada externa a mais.
+//
+// ✅ CORRIGIDO 05/09/2026: o comentário antigo dizia "disparadas por 1
+// pg_cron a cada 5min (docs/sql/system_health_checks.sql)" — isso NUNCA
+// existiu de verdade no banco (o `SELECT cron.schedule(...)` daquele
+// arquivo nunca chegou a rodar, ou foi removido sem atualizar a doc;
+// conferido direto em `cron.job` em 05/09/2026: os únicos ~23 jobs reais
+// rodam 1x/dia ou o billing_dispatch_check a cada 2min só das 11h-22h,
+// nenhum de 5 em 5min 24h). Hoje esta rota SÓ roda quando alguém clica
+// "Sincronizar agora" no painel — não existe nenhum agendamento automático.
 import crypto from "crypto";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { fetch as undiciFetch, ProxyAgent } from "undici";
