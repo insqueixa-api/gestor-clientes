@@ -154,6 +154,29 @@ app.get("/session-health", authMiddleware, (req, res) => {
   res.json(getAndResetSessionHealth(getSessionKey(req)));
 });
 
+// ── GET /debug-groups ─────────────────────────────────────────
+// Diagnóstico pontual (06/09/2026): descartar/confirmar grupo como origem
+// dos erros de sessão (Bad MAC/Closing session) — grupo usa Sender Keys,
+// bem mais instável que sessão 1:1 no Baileys.
+app.get("/debug-groups", authMiddleware, async (req, res) => {
+  const sessionKey = getSessionKey(req);
+  const sess = getSession(sessionKey);
+  if (!sess || sess.status !== "connected") {
+    return res.status(503).json({ error: "Sessão não conectada" });
+  }
+  try {
+    const groups = await sess.socket.groupFetchAllParticipating();
+    const list = Object.values(groups).map((g) => ({
+      id: g.id,
+      subject: g.subject,
+      participants: g.participants?.length || 0,
+    }));
+    res.json({ count: list.length, groups: list });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || "Falha ao listar grupos" });
+  }
+});
+
 // Adiciona antes do "── 404 ───":
 // ── GET /profile-picture ─────────────────────────────────────
 app.get("/profile-picture", authMiddleware, async (req, res) => {

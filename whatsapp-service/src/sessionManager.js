@@ -515,7 +515,20 @@ const sock = makeWASocket({
     
     markOnlineOnConnect: false,
     generateHighQualityLinkPreview: true, // Garante envio de links mais bonitos
-    
+
+    // ✅ 06/09/2026, achado numa investigação de erros de sessão (Bad MAC/
+    // Failed to decrypt/Closing session, 40-88 de uma vez): essa conta está
+    // em 41 grupos do WhatsApp, vários enormes (Nordik Games 1 = 1019
+    // membros, Vendas Vivaz e Vidamerica = 814, etc). Grupo usa Sender Keys
+    // (chave por grupo, redistribuída toda vez que alguém entra/sai/manda
+    // mensagem) — é a causa nº1 documentada de Bad MAC no Baileys, muito
+    // mais instável que sessão 1:1. Esta conta só manda mensagem direta pra
+    // cliente (ver messages.upsert acima — só olha @s.whatsapp.net), nunca
+    // grupo, então ignorar @g.us aqui não tira nada da função do sistema.
+    // Não afeta o WhatsApp do celular do Márcio (aparelho principal) — só
+    // faz este "aparelho vinculado" parar de tentar decriptar grupo.
+    shouldIgnoreJid: (jid) => jid.endsWith("@g.us"),
+
     // ✅ PREVENÇÃO CONTRA "Aguardando mensagem..."
     maxMsgRetryCount: 15,
     getMessage: async (key) => {
@@ -1106,6 +1119,35 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
   }
 
   scheduleGoOffline(sess);
+
+  // ✅ 06/09/2026, ideia do Márcio depois de investigar "Aguardando
+  // mensagem"/erros de sessão: em vez de guardar a sessão criptográfica
+  // (Signal) com o contato entre um envio e outro — onde ela pode
+  // dessincronizar com o que o aparelho dele tem (reinstalou o WhatsApp,
+  // trocou de celular, etc) — apaga a sessão logo após enviar. Confirmado
+  // na própria lib (messages-send.js::assertSessions) que, sem sessão
+  // salva, o PRÓXIMO envio busca um prekey bundle novo do servidor do
+  // WhatsApp e recria do zero sozinho — exatamente como uma reconexão
+  // completa faz pra TODOS os contatos, só que aqui só pra este. Só a
+  // sessão 1:1 (Signal), não mexe em identidade/credenciais da conta.
+  // ⚠️ Achado testando: o id do arquivo é "<telefone>.<deviceId real do
+  // contato>" (ex: .66, .73 — quem usa WhatsApp Web/Desktop não é sempre
+  // .0), não dá pra chutar um device fixo. Lista os arquivos "session-
+  // <telefone>.*.json" já salvos e apaga todos via keys.set (não fs direto,
+  // pra não brigar com o cache de transação que o Baileys mantém em cima
+  // do keys.get/set durante o envio).
+  try {
+    const digits = jid.split("@")[0];
+    const sessDir = getSessionDir(sessionKey);
+    const prefix = `session-${digits}.`;
+    const matches = fs.readdirSync(sessDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
+    for (const f of matches) {
+      const id = f.slice("session-".length, -".json".length);
+      await sess.socket.authState.keys.set({ session: { [id]: null } });
+    }
+  } catch (e) {
+    console.error(`[WA] Falha ao resetar sessão pós-envio: ${e?.message}`);
+  }
 
   const messageId = result?.key?.id || null;
 
