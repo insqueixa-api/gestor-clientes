@@ -61,13 +61,67 @@ app.use((req, res, next) => {
 });
 
 // ── Autenticação ─────────────────────────────────────────────
+// ✅ 06/09/2026, pedido do Márcio: a porta 3000 fica exposta pra internet
+// inteira (Vercel não tem IP fixo, não dá pra restringir por firewall) — a
+// única defesa de verdade hoje é o token. Isso aqui é a 2ª camada: um IP que
+// errar o token repetidas vezes fica bloqueado por um tempo, mesmo que
+// depois mande o token certo — mitiga tentativa de força bruta/scanning
+// automatizado. Nunca afeta a Vercel de verdade (ela sempre manda o token
+// certo, exceto se algum dia um deploy tiver o valor errado — nesse caso o
+// bloqueio é um sinal útil de "token errado no ar", não um problema em si).
+const FAILED_AUTH_MAX = 10;
+const FAILED_AUTH_WINDOW_MS = 5 * 60 * 1000;
+const BAN_DURATION_MS = 30 * 60 * 1000;
+const failedAuthByIp = new Map(); // ip -> { count, windowStart, bannedUntil }
+
+// Limpeza periódica — sem isso, IPs de scanners que só aparecem uma vez
+// ficariam acumulando na memória pra sempre.
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of failedAuthByIp.entries()) {
+    if (record.bannedUntil < now && now - record.windowStart > FAILED_AUTH_WINDOW_MS) {
+      failedAuthByIp.delete(ip);
+    }
+  }
+}, 60 * 60 * 1000);
+
+function getClientIp(req) {
+  // Sem proxy reverso conhecido na frente desta VM (nem nginx nem
+  // Cloudflare) — o IP da conexão TCP já é o IP real de quem está chamando.
+  // ✅ Normaliza o prefixo "::ffff:" (IPv4 mapeado em IPv6, comum quando o
+  // socket escuta em dual-stack) — sem isso o mesmo IPv4 apareceria com um
+  // rótulo diferente no log dependendo de como a conexão chegou.
+  const raw = req.ip || req.socket?.remoteAddress || "unknown";
+  return raw.replace(/^::ffff:/, "");
+}
+
 function authMiddleware(req, res, next) {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const existing = failedAuthByIp.get(ip);
+
+  if (existing?.bannedUntil && now < existing.bannedUntil) {
+    return res.status(429).json({ error: "Too many failed attempts, try again later" });
+  }
+
   const auth = req.headers["authorization"] || "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
 
   if (!token || token !== API_TOKEN) {
+    const record = existing && now - existing.windowStart <= FAILED_AUTH_WINDOW_MS
+      ? existing
+      : { count: 0, windowStart: now, bannedUntil: 0 };
+    record.count++;
+    if (record.count >= FAILED_AUTH_MAX) {
+      record.bannedUntil = now + BAN_DURATION_MS;
+      console.log(`[WA][SECURITY] IP ${ip} bloqueado por ${BAN_DURATION_MS / 60000}min — ${record.count} tentativa(s) de token errado em ${FAILED_AUTH_WINDOW_MS / 60000}min`);
+    }
+    failedAuthByIp.set(ip, record);
     return res.status(401).json({ error: "Unauthorized" });
   }
+
+  // Token correto — zera qualquer contador de falha pra esse IP.
+  if (existing) failedAuthByIp.delete(ip);
   next();
 }
 
