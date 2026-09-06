@@ -25,7 +25,7 @@ import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { getWAContextOrCron, proxyVM } from "@/lib/whatsapp/wa-context";
 import { getActiveProxyOrder } from "@/lib/proxybr";
-import { sessionHealthCheckResult, notifySessionHealthAlert } from "@/lib/whatsapp/session-health-alert";
+import { sessionHealthCheckResult, notifySessionHealthAlert, resolveSessionHealthAlert } from "@/lib/whatsapp/session-health-alert";
 
 export const dynamic = "force-dynamic";
 // ✅ 02/09/2026: subiu de 30s pra 60s — o novo check do Downdetector
@@ -342,11 +342,15 @@ async function checkWhatsAppSessionErrors(req: Request): Promise<CheckResult> {
     // ✅ Sino + e-mail só quando sustentado/pico alto — a gravação do card
     // em si acontece pelo retorno normal desta função (mesmo upsert em lote
     // de todas as outras checagens, logo abaixo em handle()).
+    const { status, detail } = sessionHealthCheckResult("default", health);
     if (health.shouldAlert) {
       await notifySessionHealthAlert(ctx.tenantId, "default", health).catch(() => {});
+    } else if (status === "ok") {
+      // ✅ 06/09/2026, bug real achado: nada nunca resolvia esse alerta —
+      // ficava no sino pra sempre mesmo depois do erro parar de acontecer.
+      await resolveSessionHealthAlert(ctx.tenantId, "default").catch(() => {});
     }
 
-    const { status, detail } = sessionHealthCheckResult("default", health);
     return { key, label, group: "whatsapp", status, detail };
   } catch (e: any) {
     return { key, label, group: "whatsapp", status: "warn", detail: e?.message?.slice(0, 200) || "Falha ao consultar a VM" };

@@ -16,7 +16,7 @@
 // avisar sem ter uma ação real pra recomendar só gera alarme falso (achado
 // pelo Márcio ao receber o primeiro alerta real).
 import { adminSupabase } from "@/lib/api/auth";
-import { notify } from "@/lib/notifications/notify";
+import { notify, resolveNotification } from "@/lib/notifications/notify";
 import { sendAdminEmail } from "@/lib/notifications/send-admin-email";
 
 export type SessionHealthPayload = {
@@ -34,6 +34,17 @@ export type SessionHealthPayload = {
 // (ver disconnect-alert.ts::humanSessionLabel, mesmo padrão).
 export function humanSessionLabel(sessionLabel: string): string {
   return sessionLabel === "session2" ? "Sessão Secundária" : "Sessão Principal";
+}
+
+// ✅ 06/09/2026, bug real achado (Márcio: "se já resolveu, pq não some do
+// sino?"): estável por sessão, não por tentativa — precisa ser sempre o
+// mesmo pra resolveNotification (abaixo) conseguir achar e fechar a MESMA
+// notificação que notify() abriu, igual ao padrão de whatsapp_desconectado
+// em disconnect-alert.ts. Antes tinha Date.now() no sourceId, então cada
+// alerta virava uma notificação nova e nada nunca resolvia — ficava pra
+// sempre no sino mesmo depois do erro parar.
+function sessionHealthSourceId(sessionLabel: string): string {
+  return `session_health:${sessionLabel}`;
 }
 
 export function sessionHealthCheckResult(sessionLabel: string, health: SessionHealthPayload) {
@@ -96,7 +107,7 @@ export async function notifySessionHealthAlert(tenantId: string, sessionLabel: s
   const actionMsg = health.autoReconnectTriggered
     ? 'A própria sessão já tentou reconectar sozinha automaticamente. Verifique se algum cliente reclamou de não receber mensagem recentemente; se o problema voltar a acontecer logo em seguida, use "Hard Reset" em Configurações > WhatsApp (vai exigir escanear o QR de novo).'
     : 'Verifique se algum cliente reclamou de não receber mensagem recentemente. Se sim, tente primeiro "Reconectar" em Configurações > WhatsApp; se voltar a acontecer logo em seguida, use "Hard Reset" (vai exigir escanear o QR de novo).';
-  const sourceId = `session_health:${sessionLabel}:${Date.now()}`;
+  const sourceId = sessionHealthSourceId(sessionLabel);
 
   try {
     await notify({
@@ -120,11 +131,27 @@ export async function notifySessionHealthAlert(tenantId: string, sessionLabel: s
   }
 }
 
+// Some do sino quando uma checagem volta limpa (0 erros na janela) — chamar
+// sempre que sessionHealthCheckResult() der status "ok", nos dois pontos que
+// checam saúde de sessão (envio real e cron/"Sincronizar agora"). Best-effort.
+export async function resolveSessionHealthAlert(tenantId: string, sessionLabel: string) {
+  try {
+    await resolveNotification(tenantId, "whatsapp_erros_sessao", sessionHealthSourceId(sessionLabel));
+  } catch (e: any) {
+    console.error("[session-health-alert] falha ao resolver alerta:", e?.message);
+  }
+}
+
 // Usado pelos 3 envios reais (envio_agora/envio_programado/envio_avulso) —
 // combina os dois de uma vez, já que ali não existe nenhum outro mecanismo
 // de upsert em lote pra reaproveitar.
 export async function reportSessionHealthFromSend(tenantId: string, sessionLabel: string, health: SessionHealthPayload | null | undefined) {
   if (!health) return;
   await upsertSessionHealthTile(sessionLabel, health);
-  await notifySessionHealthAlert(tenantId, sessionLabel, health);
+  const { status } = sessionHealthCheckResult(sessionLabel, health);
+  if (status === "ok") {
+    await resolveSessionHealthAlert(tenantId, sessionLabel);
+  } else {
+    await notifySessionHealthAlert(tenantId, sessionLabel, health);
+  }
 }
