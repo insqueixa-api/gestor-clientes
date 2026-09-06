@@ -97,7 +97,7 @@ app.get("/sessions", authMiddleware, (req, res) => {
 // CONSOME (zera) os contadores acumulados desde a última consulta — o
 // resultado do envio real (/send) também já vem com isso embutido.
 app.get("/session-health", authMiddleware, (req, res) => {
-  res.json(getAndResetSessionHealth());
+  res.json(getAndResetSessionHealth(getSessionKey(req)));
 });
 
 // Adiciona antes do "── 404 ───":

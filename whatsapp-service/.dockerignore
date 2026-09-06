@@ -1,0 +1,14 @@
+# ✅ 05/09/2026, pedido do Márcio (boas práticas): o Dockerfile já copia só
+# o que precisa (package.json, src/, fast-sync/) de propósito — isso aqui é
+# rede de segurança pro FUTURO, caso alguém troque isso por um COPY . .
+# mais preguiçoso sem perceber. Sem isso, .env (todas as senhas/tokens) e
+# auth/ (as próprias chaves da sessão do WhatsApp — mais sensível ainda)
+# iriam parar dentro da imagem do Docker sem ninguém notar.
+node_modules
+auth
+.env
+.env.*
+*.log
+.git
+.DS_Store
+chrome-version-cache.json

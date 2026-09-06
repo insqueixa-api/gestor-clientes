@@ -375,7 +375,15 @@ const baileysLogger = pino({ level: "debug" }, baileysLogStream);
 // seguidas com erro (não autocorrigiu entre uma consulta e outra) ou um
 // pico bem alto isolado (>=15 numa consulta só).
 let consecutiveBadWindows = 0;
-function getAndResetSessionHealth() {
+// ✅ 05/09/2026, pedido do Márcio ("com toda certeza preciso"): quando o
+// problema é SUSTENTADO (não isolado — 3+ checagens seguidas com erro, não
+// autocorrigiu sozinho), tenta um "Reconectar" (soft — reaproveita a sessão
+// salva, SEM QR novo) automaticamente, antes de esperar o Márcio ver o
+// alerta e agir na mão. Só dispara UMA VEZ por episódio: zera o contador
+// junto (senão ficaria reconectando em loop se o problema persistir logo
+// depois da tentativa). `sessionKey` é opcional — sem ele (ex: consulta via
+// /session-health sem sessão identificada) só avisa, não tenta reconectar.
+function getAndResetSessionHealth(sessionKey) {
   const libsignalErrors = sessionErrorCount;
   const decryptRetries = decryptRetryCount;
   const total = libsignalErrors + decryptRetries;
@@ -386,12 +394,23 @@ function getAndResetSessionHealth() {
     console.log(`[WA][SESSION_HEALTH] ${libsignalErrors} erro(s) de sessão (Bad MAC/Failed to decrypt/Closing session) + ${decryptRetries} pedido(s) de reenvio (recv retry request) desde a última checagem (${consecutiveBadWindows} seguida(s) com erro)`);
   }
 
-  const shouldAlert = consecutiveBadWindows >= 3 || total >= 15;
+  const sustained = consecutiveBadWindows >= 3;
+  const shouldAlert = sustained || total >= 15;
+  const consecutiveWindows = consecutiveBadWindows;
 
   sessionErrorCount = 0;
   decryptRetryCount = 0;
 
-  return { libsignalErrors, decryptRetries, shouldAlert, consecutiveWindows: consecutiveBadWindows };
+  if (sustained && sessionKey) {
+    consecutiveBadWindows = 0;
+    console.log(`[WA][${sessionKey.slice(0, 8)}] Erro sustentado detectado — tentando reconectar sozinho (auto-recuperação)...`);
+    reconnectSession(sessionKey).catch((e) => {
+      console.log(`[WA][${sessionKey.slice(0, 8)}] Falha na reconexão automática: ${e.message}`);
+    });
+    return { libsignalErrors, decryptRetries, shouldAlert, consecutiveWindows, autoReconnectTriggered: true };
+  }
+
+  return { libsignalErrors, decryptRetries, shouldAlert, consecutiveWindows, autoReconnectTriggered: false };
 }
 
 // Map de sessões ativas: sessionKey -> { socket, qr, status, retries }
@@ -1025,10 +1044,37 @@ async function runPresenceSim(sess) {
 const TYPING_BEFORE_SEND_MIN_MS = 2_000;
 const TYPING_BEFORE_SEND_MAX_MS = 5_000;
 
+// ✅ 05/09/2026, pedido do Márcio: disjuntor de emergência — teto rígido,
+// não configurável em tela nenhuma, contra um bug/config errada mandando
+// uma rajada de mensagens de uma vez (o mesmo padrão que já derrubou 2
+// números antes por restrição de disparo em massa). Generoso o bastante pra
+// nunca incomodar o uso normal (mesmo o pacing anti-detecção do app usa
+// dezenas de segundos entre envios) — só existe pra pegar um bug
+// catastrófico antes dele virar um banimento de número.
+const RATE_LIMIT_MAX = 60;
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
+let rateLimitWindowStart = Date.now();
+let rateLimitCount = 0;
+
+function checkRateLimit() {
+  const now = Date.now();
+  if (now - rateLimitWindowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitWindowStart = now;
+    rateLimitCount = 0;
+  }
+  rateLimitCount++;
+  return rateLimitCount <= RATE_LIMIT_MAX;
+}
+
 async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {}) {
   const sess = sessions.get(sessionKey);
   if (!sess || sess.status !== "connected") {
     throw new Error("Sessão não conectada");
+  }
+
+  if (!checkRateLimit()) {
+    console.log(`[WA][RATE_LIMIT] Disjuntor acionado — mais de ${RATE_LIMIT_MAX} mensagens em ${RATE_LIMIT_WINDOW_MS / 60000}min, recusando envio`);
+    throw new Error(`Limite de segurança atingido (${RATE_LIMIT_MAX} mensagens em ${RATE_LIMIT_WINDOW_MS / 60000}min) — envio recusado`);
   }
 
   // Normaliza número para WhatsApp
@@ -1071,7 +1117,7 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
   return {
     ok: true,
     messageId,
-    sessionHealth: getAndResetSessionHealth(),
+    sessionHealth: getAndResetSessionHealth(sessionKey),
   };
 }
 

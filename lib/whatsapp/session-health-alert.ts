@@ -24,6 +24,10 @@ export type SessionHealthPayload = {
   decryptRetries?: number;
   shouldAlert?: boolean;
   consecutiveWindows?: number;
+  // ✅ 05/09/2026, pedido do Márcio ("com toda certeza preciso"): quando
+  // sustentado, a própria VM já tenta reconectar sozinha (soft, sem QR
+  // novo) antes de avisar — ver getAndResetSessionHealth em sessionManager.js.
+  autoReconnectTriggered?: boolean;
 };
 
 // "default"/"session2" → mesmo rótulo usado em Configurações > WhatsApp
@@ -86,8 +90,12 @@ export async function notifySessionHealthAlert(tenantId: string, sessionLabel: s
     consecutiveWindows >= 3
       ? `persistindo em ${consecutiveWindows} checagens seguidas (não se autocorrigiu sozinho)`
       : "num pico isolado bem acima do normal";
-  const actionMsg =
-    'Verifique se algum cliente reclamou de não receber mensagem recentemente. Se sim, tente primeiro "Reconectar" em Configurações > WhatsApp; se voltar a acontecer logo em seguida, use "Hard Reset" (vai exigir escanear o QR de novo).';
+  // ✅ Quando a VM já tentou reconectar sozinha (auto-recuperação), a
+  // recomendação muda: não pede pra tentar "Reconectar" de novo (acabou de
+  // acontecer), só orienta escalar pro Hard Reset se persistir.
+  const actionMsg = health.autoReconnectTriggered
+    ? 'A própria sessão já tentou reconectar sozinha automaticamente. Verifique se algum cliente reclamou de não receber mensagem recentemente; se o problema voltar a acontecer logo em seguida, use "Hard Reset" em Configurações > WhatsApp (vai exigir escanear o QR de novo).'
+    : 'Verifique se algum cliente reclamou de não receber mensagem recentemente. Se sim, tente primeiro "Reconectar" em Configurações > WhatsApp; se voltar a acontecer logo em seguida, use "Hard Reset" (vai exigir escanear o QR de novo).';
   const sourceId = `session_health:${sessionLabel}:${Date.now()}`;
 
   try {
