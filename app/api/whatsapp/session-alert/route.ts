@@ -23,7 +23,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import crypto from "crypto";
-import { notify } from "@/lib/notifications/notify";
+import { notify, resolveNotification } from "@/lib/notifications/notify";
 import { sendAdminEmail } from "@/lib/notifications/send-admin-email";
 import { makeSessionKey, resolveCronTenantSelection } from "@/lib/whatsapp/wa-context";
 
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   const sessionKey = String(body?.sessionKey || "").trim();
   const detail = String(body?.detail || "").slice(0, 500);
 
-  if (kind !== "hard_reset" || !sessionKey) {
+  if ((kind !== "hard_reset" && kind !== "connected") || !sessionKey) {
     return NextResponse.json({ ok: false, error: "Parâmetros inválidos" }, { status: 400 });
   }
 
@@ -83,8 +83,29 @@ export async function POST(req: NextRequest) {
       sessionKey === session1Key ? "Sessão Principal"
       : sessionKey === session2Key ? "Sessão Secundária"
       : `Sessão (${sessionKey.slice(0, 8)})`;
+    // ✅ "default"/"session2" — mesmo rótulo interno usado em disconnect-alert.ts
+    // (sourceIdFor), pra conseguir resolver whatsapp_desconectado abaixo.
+    const sessionLabel =
+      sessionKey === session1Key ? "default" : sessionKey === session2Key ? "session2" : null;
 
-    const sourceId = `${kind}:${sessionKey}:${Date.now()}`;
+    // ✅ 06/09/2026, bug real achado: sourceId tinha Date.now() — cada Hard
+    // Reset virava notificação nova, nunca reabria a mesma, e nada nunca
+    // resolvia (Márcio viu 3 "Hard Reset executado" acumuladas no sino).
+    // Estável por sessão + resolvido pelo "connected" abaixo, mesmo padrão
+    // já corrigido hoje pra whatsapp_erros_sessao.
+    const hardResetSourceId = `hard_reset:${sessionKey}`;
+
+    if (kind === "connected") {
+      // ✅ Conexão reabriu de verdade — resolve qualquer alerta de Hard
+      // Reset ou desconexão que ainda estivesse aberto pra esta sessão.
+      // Best-effort, sem e-mail (reconectar sozinho não é um evento que
+      // precise avisar por e-mail toda vez).
+      await resolveNotification(selection.tenantId, "whatsapp_hard_reset", hardResetSourceId);
+      if (sessionLabel) {
+        await resolveNotification(selection.tenantId, "whatsapp_desconectado", `session:${sessionLabel}`);
+      }
+      return NextResponse.json({ ok: true });
+    }
 
     await notify({
       tenantId: selection.tenantId,
@@ -92,7 +113,7 @@ export async function POST(req: NextRequest) {
       title: "🗑️ WhatsApp — Hard Reset executado",
       message: `A "${humanLabel}" foi resetada por completo (${detail || "sem detalhe"}) — escaneie o QR novamente em Configurações > WhatsApp.`,
       link: "/admin/settings/whatsapp",
-      sourceId,
+      sourceId: hardResetSourceId,
     });
     await sendAdminEmail(
       `🗑️ WhatsApp — Hard Reset executado (${humanLabel})`,
