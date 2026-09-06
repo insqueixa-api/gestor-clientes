@@ -968,7 +968,7 @@ return NextResponse.json(
               apiKey,
               providerType: gateway.type,
               amount: Number(finalComputedPrice),
-              payerName: displayName,
+              payerName: client.server_username ? `${displayName} (${client.server_username})` : displayName,
               notificationUrl,
             });
 

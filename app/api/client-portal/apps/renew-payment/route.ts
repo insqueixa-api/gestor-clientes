@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     const { data: client } = await supabaseAdmin
       .from("clients")
-      .select("display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, price_currency")
+      .select("display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, server_username, price_currency")
       .eq("id", client_id)
       .single();
     const isSecondary = client?.secondary_whatsapp_username === ctx.whatsapp_username;
@@ -287,7 +287,7 @@ export async function POST(req: NextRequest) {
           apiKey,
           providerType: gateway.type,
           amount: Number(chargeAmount),
-          payerName: displayName,
+          payerName: client?.server_username ? `${displayName} (${client.server_username})` : displayName,
           notificationUrl,
         });
         const qrBase64 = tx.qr_code ? await fetchQrCodeAsBase64(tx.qr_code) : null;
