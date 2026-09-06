@@ -1127,35 +1127,17 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
 
   scheduleGoOffline(sess);
 
-  // ✅ 06/09/2026, ideia do Márcio depois de investigar "Aguardando
-  // mensagem"/erros de sessão: em vez de guardar a sessão criptográfica
-  // (Signal) com o contato entre um envio e outro — onde ela pode
-  // dessincronizar com o que o aparelho dele tem (reinstalou o WhatsApp,
-  // trocou de celular, etc) — apaga a sessão logo após enviar. Confirmado
-  // na própria lib (messages-send.js::assertSessions) que, sem sessão
-  // salva, o PRÓXIMO envio busca um prekey bundle novo do servidor do
-  // WhatsApp e recria do zero sozinho — exatamente como uma reconexão
-  // completa faz pra TODOS os contatos, só que aqui só pra este. Só a
-  // sessão 1:1 (Signal), não mexe em identidade/credenciais da conta.
-  // ⚠️ Achado testando: o id do arquivo é "<telefone>.<deviceId real do
-  // contato>" (ex: .66, .73 — quem usa WhatsApp Web/Desktop não é sempre
-  // .0), não dá pra chutar um device fixo. Lista os arquivos "session-
-  // <telefone>.*.json" já salvos e apaga todos via keys.set (não fs direto,
-  // pra não brigar com o cache de transação que o Baileys mantém em cima
-  // do keys.get/set durante o envio).
-  try {
-    const digits = jid.split("@")[0];
-    const sessDir = getSessionDir(sessionKey);
-    const prefix = `session-${digits}.`;
-    const matches = fs.readdirSync(sessDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
-    for (const f of matches) {
-      const id = f.slice("session-".length, -".json".length);
-      await sess.socket.authState.keys.set({ session: { [id]: null } });
-    }
-  } catch (e) {
-    console.error(`[WA] Falha ao resetar sessão pós-envio: ${e?.message}`);
-  }
-
+  // ❌ 06/09/2026: apagar a sessão do contato após cada envio (pra forçar
+  // renegociação, ideia do Márcio investigando "Aguardando mensagem") foi
+  // testado e revertido no mesmo dia — isso faz TODA mensagem virar
+  // "PreKey message" (estilo primeiro contato) em vez de usar uma sessão já
+  // estabelecida, caminho bem menos testado no Baileys. A 1ª mensagem real
+  // depois do deploy (Luiz2Vidamerica, 12:39) falhou do mesmo jeito, sem
+  // nenhum erro/aviso do nosso lado — trocou uma falha ocasional por outra,
+  // talvez mais frequente. Isso não é equivalente ao que resolve de verdade
+  // pro Márcio (apagar tudo e reconectar = Hard Reset completo, troca a
+  // identidade do aparelho inteiro — bem diferente de só limpar sessão 1:1
+  // mantendo a mesma identidade).
   const messageId = result?.key?.id || null;
 
   // ✅ 05/09/2026, pedido do Márcio: "durante o envio de qualquer mensagem
