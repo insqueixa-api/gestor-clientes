@@ -365,12 +365,20 @@ function renderRejectMessage(template, fromJid) {
 // "silent"), o destino customizado abaixo intercepta cada linha, conta só
 // o que interessa e nunca escreve nada solto no stdout — sem reintroduzir
 // o spam.
-let decryptRetryCount = 0;
+// ✅ 06/09/2026, bug real achado numa auditoria: era 1 contador só pro
+// processo inteiro — com 2 sessões (Principal/Secundária) rodando juntas,
+// pedido de reenvio de uma virava estatística da outra. `logger:
+// baileysLogger.child({ sessionKey })` (ver makeWASocket abaixo) faz o
+// pino carimbar `sessionKey` em toda linha, sem precisar de logger/stream
+// por sessão — só ler o campo aqui.
+const decryptRetryCounts = new Map();
 const baileysLogStream = new Writable({
   write(chunk, _enc, cb) {
     try {
       const line = JSON.parse(chunk.toString());
-      if (line?.msg === "recv retry request") decryptRetryCount++;
+      if (line?.msg === "recv retry request" && line.sessionKey) {
+        decryptRetryCounts.set(line.sessionKey, (decryptRetryCounts.get(line.sessionKey) || 0) + 1);
+      }
     } catch {}
     cb();
   },
@@ -396,6 +404,17 @@ const baileysLogger = pino({ level: "debug" }, baileysLogStream);
 // seguidas com erro (não autocorrigiu entre uma consulta e outra) ou um
 // pico bem alto isolado (>=15 numa consulta só).
 let consecutiveBadWindows = 0;
+// ⚠️ 06/09/2026, achado numa auditoria: `sessionErrorCount`/
+// `consecutiveBadWindows` continuam globais (não por sessão), diferente do
+// rate limit e do `decryptRetryCounts` acima, que já viraram por sessão.
+// Motivo: Bad MAC/Closing session vêm de dentro do pipeline de recebimento
+// do próprio Baileys (decripta ANTES de emitir qualquer evento que a gente
+// escuta), sem nenhum hook público exposto pra saber de qual sessão veio
+// no momento exato do erro — só daria pra saber "espionando" partes
+// internas não documentadas da lib, risco maior que o benefício com só 1
+// sessão ativa hoje (a Secundária está desligada por escolha do Márcio).
+// Se um dia a Secundária voltar a rodar em paralelo com a Principal,
+// revisitar isso.
 // ✅ 05/09/2026, pedido do Márcio ("com toda certeza preciso"): quando o
 // problema é SUSTENTADO (não isolado — 3+ checagens seguidas com erro, não
 // autocorrigiu sozinho), tenta um "Reconectar" (soft — reaproveita a sessão
@@ -406,7 +425,7 @@ let consecutiveBadWindows = 0;
 // /session-health sem sessão identificada) só avisa, não tenta reconectar.
 function getAndResetSessionHealth(sessionKey) {
   const libsignalErrors = sessionErrorCount;
-  const decryptRetries = decryptRetryCount;
+  const decryptRetries = decryptRetryCounts.get(sessionKey) || 0;
   const total = libsignalErrors + decryptRetries;
 
   consecutiveBadWindows = total > 0 ? consecutiveBadWindows + 1 : 0;
@@ -420,7 +439,7 @@ function getAndResetSessionHealth(sessionKey) {
   const consecutiveWindows = consecutiveBadWindows;
 
   sessionErrorCount = 0;
-  decryptRetryCount = 0;
+  decryptRetryCounts.delete(sessionKey);
 
   if (sustained && sessionKey) {
     consecutiveBadWindows = 0;
@@ -505,7 +524,7 @@ const sessData = {
 const sock = makeWASocket({
     version,
     auth: state,
-    logger: baileysLogger,
+    logger: baileysLogger.child({ sessionKey }),
     printQRInTerminal: false,
     // ✅ Fingerprint do "aparelho vinculado" (pedido do Márcio, 01/08/2026) —
     // NÃO usa Browsers.windows()/.macOS() daqui da lib: esses presets são
@@ -1097,17 +1116,21 @@ const TYPING_BEFORE_SEND_MAX_MS = 5_000;
 // catastrófico antes dele virar um banimento de número.
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;
-let rateLimitWindowStart = Date.now();
-let rateLimitCount = 0;
+// ✅ 06/09/2026, bug real achado numa auditoria: era um único contador pro
+// processo inteiro — com 2 sessões (Principal/Secundária), tráfego normal
+// de uma podia estourar o teto e derrubar envios da outra, saudável. Um
+// disjuntor por sessão de verdade.
+const rateLimitState = new Map();
 
-function checkRateLimit() {
+function checkRateLimit(sessionKey) {
   const now = Date.now();
-  if (now - rateLimitWindowStart > RATE_LIMIT_WINDOW_MS) {
-    rateLimitWindowStart = now;
-    rateLimitCount = 0;
+  let state = rateLimitState.get(sessionKey);
+  if (!state || now - state.windowStart > RATE_LIMIT_WINDOW_MS) {
+    state = { windowStart: now, count: 0 };
+    rateLimitState.set(sessionKey, state);
   }
-  rateLimitCount++;
-  return rateLimitCount <= RATE_LIMIT_MAX;
+  state.count++;
+  return state.count <= RATE_LIMIT_MAX;
 }
 
 async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {}) {
@@ -1116,8 +1139,8 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
     throw new Error("Sessão não conectada");
   }
 
-  if (!checkRateLimit()) {
-    console.log(`[WA][RATE_LIMIT] Disjuntor acionado — mais de ${RATE_LIMIT_MAX} mensagens em ${RATE_LIMIT_WINDOW_MS / 60000}min, recusando envio`);
+  if (!checkRateLimit(sessionKey)) {
+    console.log(`[WA][${sessionKey.slice(0, 8)}][RATE_LIMIT] Disjuntor acionado — mais de ${RATE_LIMIT_MAX} mensagens em ${RATE_LIMIT_WINDOW_MS / 60000}min, recusando envio`);
     throw new Error(`Limite de segurança atingido (${RATE_LIMIT_MAX} mensagens em ${RATE_LIMIT_WINDOW_MS / 60000}min) — envio recusado`);
   }
 
