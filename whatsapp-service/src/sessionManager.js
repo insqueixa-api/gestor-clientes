@@ -491,6 +491,32 @@ function ensureAuthDir(sessionKey) {
   return dir;
 }
 
+// ✅ 06/09/2026, decisão do Márcio (3ª rodada): em vez de apagar a sessão
+// de um contato a cada envio (testado antes — gera ruído/renegociação em
+// todo mensagem, mesmo pra quem já mandou 2x no mesmo dia, tipo aviso de
+// 9h + confirmação de pagamento às 10h), agora a sessão fica normal/
+// persistente entre envios, e só é zerada por completo quando a CONEXÃO
+// reabre de verdade (reconectar ou Hard Reset) — momento em que faz
+// sentido garantir estado limpo com todo mundo, já que foi exatamente uma
+// reconexão malfeita que causou o incidente de hoje. Só apaga arquivo
+// "session-*" (sessão Signal 1:1 por contato); não toca em creds/
+// app-state-sync/pre-key/sender-key.
+async function wipeAllContactSessions(sessionKey, sock) {
+  try {
+    const sessDir = getSessionDir(sessionKey);
+    if (!fs.existsSync(sessDir)) return 0;
+    const files = fs.readdirSync(sessDir).filter((f) => f.startsWith("session-") && f.endsWith(".json"));
+    for (const f of files) {
+      const id = f.slice("session-".length, -".json".length);
+      await sock.authState.keys.set({ session: { [id]: null } });
+    }
+    return files.length;
+  } catch (e) {
+    console.error(`[WA][${sessionKey.slice(0, 8)}] Falha ao zerar sessões dos contatos pós-conexão: ${e?.message}`);
+    return 0;
+  }
+}
+
 function getSession(sessionKey) {
   return sessions.get(sessionKey) || null;
 }
@@ -720,6 +746,18 @@ if (connection === "open") {
       // Nome provisório: Tenta o nome imediato, se não tiver, usa o número para a UI não travar
       sessData.pushName = sock.user?.name || (cleanPhone ? `+${cleanPhone}` : "Sem Nome");
       console.log(`[WA][${sessionKey.slice(0, 8)}] ✅ Conectado: ${sessData.pushName}`);
+
+      // ✅ 06/09/2026: toda vez que a conexão reabre (reconectar ou Hard
+      // Reset), zera a sessão Signal de TODOS os contatos — garante que
+      // ninguém herde estado de antes da reconexão (ver
+      // wipeAllContactSessions acima pro porquê). Best-effort, nunca atrasa
+      // nem derruba a conexão. Também avisa o app que reconectou — resolve
+      // sozinho o alerta de "Hard Reset executado"/"desconectado" no sino,
+      // se algum estiver aberto pra esta sessão.
+      wipeAllContactSessions(sessionKey, sock).then((n) => {
+        if (n > 0) console.log(`[WA][${sessionKey.slice(0, 8)}] 🔄 ${n} sessão(ões) de contato zeradas pós-conexão`);
+      });
+      reportSessionAlert("connected", sessionKey, "Sessão conectada");
 
      // Tenta buscar foto de perfil
       try {
@@ -1254,30 +1292,12 @@ async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {
   // chegar, precisa ter o conteúdo real pra devolver.
   rememberSentMessage(messageId, result?.message);
 
-  // ✅ 06/09/2026, decisão explícita do Márcio (2ª rodada, depois de
-  // entender a diferença entre isto e o cache de conteúdo acima): apaga a
-  // sessão Signal do contato logo após cada envio, forçando o PRÓXIMO envio
-  // a negociar do zero (prekey bundle novo do servidor do WhatsApp) — nunca
-  // reaproveita sessão entre mensagens, sempre "primeiro contato". Testado
-  // e revertido numa 1ª rodada mais cedo hoje (Luiz2Vidamerica falhou), mas
-  // àquela altura o `getMessage` ainda devolvia vazio — um pedido de
-  // reenvio corrigia a sessão mas nunca entregava o texto de verdade,
-  // mascarando se o mecanismo em si funcionava. Com o cache acima já no
-  // ar, essa lacuna não existe mais. Mesma lógica de detecção de
-  // multi-dispositivo já corrigida na 1ª tentativa (arquivo é
-  // "session-<telefone>.<deviceId real>.json", nem sempre ".0").
-  try {
-    const digits = jid.split("@")[0];
-    const sessDir = getSessionDir(sessionKey);
-    const prefix = `session-${digits}.`;
-    const matches = fs.readdirSync(sessDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
-    for (const f of matches) {
-      const id = f.slice("session-".length, -".json".length);
-      await sess.socket.authState.keys.set({ session: { [id]: null } });
-    }
-  } catch (e) {
-    console.error(`[WA] Falha ao resetar sessão pós-envio: ${e?.message}`);
-  }
+  // ❌ 06/09/2026, decisão explícita do Márcio (3ª rodada): apagar a sessão
+  // a cada envio (2ª rodada) foi substituído por zerar tudo só quando a
+  // CONEXÃO reabre (ver wipeAllContactSessions, chamado no connection.update
+  // deste arquivo) — evita renegociar toda vez com quem já recebeu mensagem
+  // no mesmo dia (ex: aviso 9h + confirmação de pagamento 10h), mantendo o
+  // ganho real (nunca herda sessão de antes de uma reconexão malfeita).
 
   // ✅ 05/09/2026, pedido do Márcio: "durante o envio de qualquer mensagem
   // já checa e grava" — em vez de um timer separado, embute o resultado da
