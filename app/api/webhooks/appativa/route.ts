@@ -23,9 +23,19 @@
 // Sem cron recorrente de propósito — volume baixo não justifica.
 //
 // URL cadastrada no painel da Appativa: https://unigestor.net.br/api/webhooks/appativa
+//
+// ✅ 06/09/2026 (auditoria de segurança): a Appativa não assina o payload
+// (sem HMAC/secret nenhum do lado deles) — a única defesa possível é um
+// token nosso embutido na própria URL do webhook, já que é a gente quem
+// registra essa URL no painel deles. Só REJEITA quando um ?token= errado
+// vem junto (ataque de verdade); se vier sem token nenhum, deixa passar
+// (compatível com a URL atual, cadastrada sem token) — protege de fato
+// assim que a URL registrada no painel da Appativa for trocada pra incluir
+// ?token=<APPATIVA_WEBHOOK_TOKEN>, sem quebrar nada até lá.
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import * as Sentry from "@sentry/nextjs";
+import crypto from "crypto";
 import { resolveAppativaAppRenewal, prodLog } from "@/lib/client-portal/fulfillment";
 import { flagSuspiciousAccess } from "@/lib/observability";
 
@@ -36,8 +46,23 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
+function timingSafeCompare(received: string, expected: string): boolean {
+  if (!expected || !received) return false;
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const expectedToken = process.env.APPATIVA_WEBHOOK_TOKEN || "";
+    const receivedToken = req.nextUrl.searchParams.get("token") || "";
+    if (expectedToken && receivedToken && !timingSafeCompare(receivedToken, expectedToken)) {
+      flagSuspiciousAccess("appativa_webhook_token_invalido", {});
+      return NextResponse.json({ ok: false }, { status: 401 });
+    }
+
     const body = await req.json().catch(() => ({} as any));
     const idCobranca = String(body?.id_cobranca || "").trim();
 

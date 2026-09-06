@@ -17,7 +17,7 @@
 // — se um dia a chave mudar de novo, o cache já resolve sem precisar
 // registrar nem consultar nada.
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminTenant } from "@/lib/api/auth";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -64,9 +64,8 @@ async function fetchWebhookDetail(apiKey: string, id: number): Promise<string | 
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  const auth = await requireAdminTenant(req);
+  if (!auth.ok) return auth.res;
 
   const body = await req.json().catch(() => ({} as any));
   const apiKey = String(body?.api_key || "").trim();

@@ -92,6 +92,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false }, { status: 401 });
       }
 
+      // ✅ Nunca confia só no corpo do webhook — reconsulta o PaymentIntent
+      // real na API da Stripe (mesma defesa em profundidade do MP/FastDePix).
+      const secretKey = String(gateways?.[0]?.config?.secret_key || "").trim();
+      if (!secretKey) return NextResponse.json({ ok: true });
+
+      const piRes = await fetch(`https://api.stripe.com/v1/payment_intents/${paymentIntentId}`, {
+        headers: { Authorization: `Bearer ${secretKey}` },
+      });
+      const piData = await piRes.json().catch(() => ({} as any));
+      const piStatus = String(piData?.status ?? "").toLowerCase();
+      if (!piRes.ok || piStatus !== "succeeded") return NextResponse.json({ ok: true });
+
       await supabaseAdmin.from("client_portal_payments")
         .update({ status: "approved", fulfillment_status: "pending" })
         .eq("id", iptvPayment.id)
