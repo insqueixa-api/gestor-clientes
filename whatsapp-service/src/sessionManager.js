@@ -832,6 +832,17 @@ if (connection === "open") {
       // ✅ Resolve o JID real ANTES de qualquer operação
       let callerJid = call.from;
       let callerNumber = call.from.split("@")[0].split(":")[0].replace(/\D/g, "");
+      // ⚠️ 06/09/2026, bug real achado numa auditoria: quando o LID não
+      // resolve, o código ANTES seguia usando `call.from` (ainda no formato
+      // "<id-interno>@lid") como se fosse o JID do contato — e mais adiante
+      // isso ia pro `sendMessage()`, cujo `normalizeJid()` só extrai os
+      // dígitos e monta "<dígitos>@s.whatsapp.net". Ou seja: o id interno do
+      // LID virava, sem querer, um número de telefone de verdade — se
+      // coincidisse com o de outra pessoa, a mensagem de rejeição ia pra ela,
+      // não pra quem ligou. Rejeitar a chamada continua usando `call.from`
+      // (correto, é o que o `rejectCall` da própria lib espera), só a
+      // MENSAGEM fica condicionada a ter resolvido um número real.
+      let lidUnresolved = false;
 
       if (call.from.includes("@lid")) {
         const map = lidPhoneMap.get(sessionKey);
@@ -841,7 +852,8 @@ if (connection === "open") {
           callerJid = `${resolvedPhone}@s.whatsapp.net`;
           console.log(`[WA][CALL_DEBUG] LID ${call.from} → ${callerJid}`);
         } else {
-          console.log(`[WA][CALL_DEBUG] LID ${call.from} não resolvido — usando JID original`);
+          lidUnresolved = true;
+          console.log(`[WA][CALL_DEBUG] LID ${call.from} não resolvido — chamada será rejeitada, mas SEM mensagem (não dá pra saber o número real)`);
         }
       }
 
@@ -880,6 +892,15 @@ if (connection === "open") {
       if (isGroupCall) {
         console.log(`[WA][${sessionKey.slice(0, 8)}] 👥 Chamada em grupo detectada — raw call: ${JSON.stringify(call)}`);
         console.log(`[WA][${sessionKey.slice(0, 8)}] 🔇 Chamada de grupo — mensagem de rejeição NÃO enviada`);
+        continue;
+      }
+
+      // ✅ LID sem número real resolvido: chamada já foi rejeitada acima
+      // (correto, usa call.from original) — mas não dá pra saber pra quem
+      // mandar a mensagem, então não manda. Ver comentário na resolução do
+      // LID logo acima do porquê disso ser necessário.
+      if (lidUnresolved) {
+        console.log(`[WA][${sessionKey.slice(0, 8)}] 🔇 LID não resolvido — mensagem de rejeição NÃO enviada (evita mandar pra número errado)`);
         continue;
       }
 
