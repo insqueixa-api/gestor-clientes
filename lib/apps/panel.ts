@@ -5,7 +5,7 @@
 
 // Handlers cujo campo "password" do payload é o PIN da integração
 // (app_integrations.pin), não a senha real do cliente — mesma regra do admin.
-export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO"]);
+export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "CAPPLAYER"]);
 
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada).
@@ -35,7 +35,7 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // create/delete dessa API (não em is_protected/pin/confirm_pin separados),
 // buscado server-side em app_integrations — não entra em PIN_HANDLERS
 // (mesmo padrão do QUICKPLAYER).
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER"]);
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER", "CAPPLAYER"]);
 
 // Alias de CHECK_VALIDITY_HANDLERS pro botão "Verificar vencimento" do
 // ADMIN (novo_cliente.tsx) — eram dois Sets com o mesmo conteúdo mantidos
