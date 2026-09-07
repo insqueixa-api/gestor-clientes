@@ -71,10 +71,18 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
     try {
       const img = new Image();
       img.crossOrigin = "anonymous";
+      // ✅ Achado ao vivo (07/09/2026): essa mesma foto já aparece na tela
+      // sem crossOrigin (a pré-visualização abaixo) — o navegador guarda
+      // uma versão em cache sem validação de CORS, e pedir a MESMA URL de
+      // novo com crossOrigin="anonymous" esbarra nesse cache e falha
+      // (comportamento conhecido de browser). Um parâmetro extra na URL
+      // força uma requisição de rede nova, já negociada como CORS desde o
+      // início, sem essa colisão.
+      const bustedUrl = `${capa.url}${capa.url.includes("?") ? "&" : "?"}_rotate=${Date.now()}`;
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
         img.onerror = () => reject(new Error("Falha ao carregar a foto pra rotacionar."));
-        img.src = capa.url;
+        img.src = bustedUrl;
       });
 
       const canvas = document.createElement("canvas");
