@@ -604,10 +604,14 @@ const sock = makeWASocket({
     // de `/send`, mas só se ele efetivamente retornar). Mesmo valor dos
     // outros timeouts de rede desta config.
     mediaUploadTimeoutMs: 60_000,
-    // ✅ 05/09/2026, pedido do Márcio: reduzido de 30s pra 15s — se um "Alô?"
-    // falhar (proxy/rede engasgar por um instante), ainda sobra margem pro
-    // próximo antes da WhatsApp considerar o túnel morto.
-    keepAliveIntervalMs: 15_000,     // ✅ Manda o "Alô?" a cada 15s para manter o túnel aceso
+    // ❌ 07/09/2026: revertido pro padrão da própria lib (30s) — o valor de
+    // 15s (05/09/2026) foi uma precaução contra o proxy engasgar um ping,
+    // mas os logs nunca mostraram sequer 1 "conexão perdida" por timeout de
+    // ping (isso geraria código 408, nunca visto) — só quedas de WebSocket
+    // (428), que não têm nenhuma relação com esse número. 15s era mais
+    // agressivo que o necessário sem nenhum ganho real medido; 30s é o
+    // valor que a grande maioria das instalações Baileys usa.
+    keepAliveIntervalMs: 30_000,
     retryRequestDelayMs: 5_000,
     
     markOnlineOnConnect: false,
