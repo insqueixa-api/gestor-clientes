@@ -385,10 +385,15 @@ const decryptRetryCounts = new Map();
 // nunca tinha sido usado, só a contagem agregada. Passa de
 // CONTACT_RETRY_ESCALATE_AT pedidos do MESMO contato → zera a sessão dele
 // (mesma lógica segura de sempre: só arquivo "session-<telefone>.*",
-// nunca credencial/identidade da conta) e reseta a contagem (dá uma folga
-// antes de escalar de novo, se persistir).
+// nunca credencial/identidade da conta) e reseta a contagem — se persistir
+// DEPOIS do zerar, volta a contar do zero e escala de novo (nunca desiste
+// nem trava numa única tentativa).
+// ✅ mesmo dia, ajuste do Márcio: 2 era cedo demais — cortava a chance da
+// autocorreção natural do próprio WhatsApp (o caso do Anderson só
+// resolveu de verdade depois de mais tentativas orgânicas). 3 dá mais
+// espaço pro protocolo se corrigir sozinho antes da gente intervir.
 const contactRetryCounts = new Map();
-const CONTACT_RETRY_ESCALATE_AT = 2;
+const CONTACT_RETRY_ESCALATE_AT = 3;
 
 async function escalateContactSession(sessionKey, remoteJid) {
   const sess = sessions.get(sessionKey);
