@@ -458,6 +458,18 @@ export default function RenewClient() {
   // cliente ficava olhando "Aguardando pagamento..." (errado, já pagou) até
   // a tela virar "confirmado" do nada. Fase intermediária honesta.
   const [renewPaymentProcessing, setRenewPaymentProcessing] = useState(false);
+  // ✅ Depois de ~30s ainda em "processando", troca o texto pra avisar que
+  // pode levar até uns 2 minutos — sem isso parecia travado no mesmo texto
+  // o tempo todo (pedido do Márcio: "troca a mensagem de tempo em tempo").
+  const [renewPaymentProcessingLong, setRenewPaymentProcessingLong] = useState(false);
+  useEffect(() => {
+    if (!renewPaymentProcessing) {
+      setRenewPaymentProcessingLong(false);
+      return;
+    }
+    const t = setTimeout(() => setRenewPaymentProcessingLong(true), 30_000);
+    return () => clearTimeout(t);
+  }, [renewPaymentProcessing]);
   const [copiedAppPixCode, setCopiedAppPixCode] = useState(false);
   // ✅ "Tentar novamente" — ativação via Appativa que falhou (achado
   // 25/08/2026), cliente já corrigiu o campo (ex: MAC) e reenvia.
@@ -5295,7 +5307,9 @@ export default function RenewClient() {
                                   {renewPaymentExpired
                                     ? "Esse código não vale mais. Feche e comece o pagamento de novo."
                                     : renewPaymentProcessing
-                                      ? "Renovando automaticamente no painel do parceiro — leva só um instante."
+                                      ? renewPaymentProcessingLong
+                                        ? "Ainda renovando no painel do parceiro — pode levar até uns 2 minutos, aguarde."
+                                        : "Renovando automaticamente no painel do parceiro — leva só um instante."
                                       : "Detectaremos automaticamente quando você pagar"}
                                 </p>
                               </div>

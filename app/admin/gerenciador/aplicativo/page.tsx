@@ -1108,33 +1108,20 @@ export default function AppManagerPage() {
                 {app.name}
               </h3>
             </div>
-            {app.appativa_app_id && (
-              <p className="text-[11px] text-muted-foreground pt-1">
-                🔗 Appativa:{" "}
-                <span className="font-medium text-foreground">
-                  {app.appativa_app_name || app.appativa_app_id}
-                </span>
-                {appativaCost != null && (
-                  <>
-                    {" "}
-                    · Custo:{" "}
-                    <span className="font-bold text-rose-500">
-                      {appativaCost.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </>
-                )}
-              </p>
-            )}
             {/* ✅ Custo do Duplecast/GerenciaApp (achado 26/08/2026, pedido
-                do Márcio: mesmo espírito do bloco da Appativa acima, "só pra
+                do Márcio: mesmo espírito do bloco da Appativa abaixo, "só pra
                 eu ver visualmente meu custo"). GerenciaApp é sempre grátis
                 (assinatura mensal fixa, não varia por app); Duplecast custa
                 1 código (credit_unit_price) por renovação, e se o app
                 também estiver mapeado na Appativa, mostra qual das duas
-                está de fato ativa (app.renewal_source). */}
+                está de fato ativa (app.renewal_source).
+                ⚠️ Achado 07/09/2026 (Márcio): esse bloco vem ANTES do da
+                Appativa de propósito quando integration_type=DUPLECAST —
+                Duplecast é sempre o parceiro nativo desse app tipo (ver
+                comentário em lib/client-portal/fulfillment.ts), então listar
+                a Appativa primeiro dava a impressão errada de que ela era a
+                principal, mesmo quando "renovando via Duplecast" (padrão)
+                dizia o contrário logo ali do lado. */}
             {app.integration_type === "DUPLECAST" && (
               <p className="text-[11px] text-muted-foreground pt-1">
                 🔗 Duplecast
@@ -1157,6 +1144,26 @@ export default function AppManagerPage() {
                     · renovando via{" "}
                     {app.renewal_source === "appativa" ? "Appativa" : "Duplecast"}
                   </span>
+                )}
+              </p>
+            )}
+            {app.appativa_app_id && (
+              <p className="text-[11px] text-muted-foreground pt-1">
+                🔗 Appativa:{" "}
+                <span className="font-medium text-foreground">
+                  {app.appativa_app_name || app.appativa_app_id}
+                </span>
+                {appativaCost != null && (
+                  <>
+                    {" "}
+                    · Custo:{" "}
+                    <span className="font-bold text-rose-500">
+                      {appativaCost.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </>
                 )}
               </p>
             )}
