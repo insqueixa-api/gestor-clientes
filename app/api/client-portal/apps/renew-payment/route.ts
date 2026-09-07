@@ -58,6 +58,9 @@ export async function POST(req: NextRequest) {
     const session_token = normalizeStr(body?.session_token);
     const client_id = normalizeStr(body?.client_id);
     const client_app_id = normalizeStr(body?.client_app_id);
+    // ✅ 07/09/2026, mesmo pedido/motivo de create-payment/route.ts — botão
+    // "Tentar outra forma de pagamento" no portal.
+    const exclude_gateway_type = normalizeStr(body?.exclude_gateway_type);
 
     const ctx = await validatePortalClient(supabaseAdmin, session_token, client_id);
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
@@ -106,14 +109,22 @@ export async function POST(req: NextRequest) {
       .eq("is_active", true)
       .eq("is_online", true)
       .contains("currency", [currency])
-      .order("priority", { ascending: true })
-      .limit(1);
+      .order("priority", { ascending: true });
 
     if (gwErr || !gateways?.length) {
       return jsonError("Nenhum método de pagamento disponível pra licença de app no momento.", 503);
     }
 
-    const gateway = gateways[0];
+    // ✅ "Tentar outra forma" — pula o tipo já tentado, mantendo a ordem de
+    // prioridade pro resto. has_alternate_gateway (nas respostas abaixo) usa
+    // `gateways.length` original, não esse filtrado.
+    const gateway = exclude_gateway_type
+      ? gateways.find((g: any) => g.type !== exclude_gateway_type)
+      : gateways[0];
+
+    if (!gateway) {
+      return jsonError("Não há outro método de pagamento disponível pra tentar.", 503);
+    }
 
     // ✅ Defesa em profundidade (auditoria de fraude/duplicação, 24/08/2026):
     // nunca deixa cobrar de novo a licença de um app que JÁ foi pago e está
@@ -214,6 +225,8 @@ export async function POST(req: NextRequest) {
           ok: true,
           payment_method: "stripe",
           gateway_name: gateway.name,
+          gateway_type: gateway.type,
+          has_alternate_gateway: gateways.length > 1,
           payment_id: String(stripeData.id),
           internal_payment_id: inserted.id,
           client_secret: stripeData.client_secret,
@@ -266,6 +279,8 @@ export async function POST(req: NextRequest) {
                 ok: true,
                 payment_method: "online",
                 gateway_name: gateway.name,
+          gateway_type: gateway.type,
+          has_alternate_gateway: gateways.length > 1,
                 payment_id: String(existingTx.id),
                 internal_payment_id: existingFdPending.id,
                 price_amount: chargeAmount,
@@ -323,6 +338,8 @@ export async function POST(req: NextRequest) {
             ok: true,
             payment_method: "online",
             gateway_name: gateway.name,
+          gateway_type: gateway.type,
+          has_alternate_gateway: gateways.length > 1,
             payment_id: String(tx.id),
             internal_payment_id: inserted.id,
             price_amount: chargeAmount,

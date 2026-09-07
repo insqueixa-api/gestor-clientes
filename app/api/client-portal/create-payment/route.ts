@@ -87,6 +87,12 @@ const client_id = normalizeStr(body?.client_id);
 const period = normalizeStr(body?.period);
 const force_manual = body?.force_manual === true;
 const coupon_code_raw = normalizeStr(body?.coupon_code);
+// ✅ 07/09/2026, pedido do Márcio: botão "Tentar outra forma de pagamento"
+// no portal — cliente já tentou o gateway "Principal" (ex: FastFlow com
+// instabilidade) e quer forçar o próximo da fila em vez de esperar. Só
+// filtra um tipo específico fora da lista já ordenada por prioridade; o
+// loop "tenta cada gateway" abaixo continua igual, só sobra menos opção.
+const exclude_gateway_type = normalizeStr(body?.exclude_gateway_type);
 // ✅ Renovação antecipada de app embutida no pagamento combinado (achado
 // 24/08/2026) — ids de client_apps que o cliente marcou no alerta de
 // "vencendo em 30 dias". Filtra qualquer coisa que não pareça UUID aqui
@@ -584,7 +590,14 @@ if (coupon_code_raw) {
     // 4b) Tentar criar pagamento com cada gateway
     let lastError: any = null;
 
-    for (const gateway of gateways) {
+    // ✅ "Tentar outra forma de pagamento" — filtra só da LISTA DE TENTATIVA,
+    // has_alternate_gateway acima (calculado sobre `gateways` original,
+    // antes do filtro) continua contando certo mesmo depois de excluir um.
+    const gatewaysToTry = exclude_gateway_type
+      ? gateways.filter((g: any) => g.type !== exclude_gateway_type)
+      : gateways;
+
+    for (const gateway of gatewaysToTry) {
       try {
         // ======================
         // MERCADO PAGO (PIX)
@@ -759,6 +772,8 @@ if (insErr || !inserted) {
                 ok: true,
                 payment_method: "online",
                 gateway_name: gateway.name,
+                gateway_type: gateway.type,
+                has_alternate_gateway: gateways.length > 1,
 
                 payment_id: String(mpData.id),
                 internal_payment_id: inserted.id,
@@ -871,6 +886,8 @@ return NextResponse.json(
                 ok: true,
                 payment_method: "stripe",
                 gateway_name: gateway.name,
+                gateway_type: gateway.type,
+                has_alternate_gateway: gateways.length > 1,
                 payment_id: String(stripeData.id),
                 internal_payment_id: inserted.id,
                 client_secret: stripeData.client_secret,
@@ -947,6 +964,8 @@ return NextResponse.json(
                     ok: true,
                     payment_method: "online",
                     gateway_name: gateway.name,
+                gateway_type: gateway.type,
+                has_alternate_gateway: gateways.length > 1,
                     payment_id: String(existingTx.id),
                     internal_payment_id: existingFdPending.id,
                     pix_qr_code: existingTx.qr_code_text || undefined,
@@ -1011,6 +1030,8 @@ return NextResponse.json(
                 ok: true,
                 payment_method: "online",
                 gateway_name: gateway.name,
+                gateway_type: gateway.type,
+                has_alternate_gateway: gateways.length > 1,
                 payment_id: String(tx.id),
                 internal_payment_id: inserted.id,
                 pix_qr_code: tx.qr_code_text || undefined,

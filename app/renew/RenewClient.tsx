@@ -443,6 +443,12 @@ export default function RenewClient() {
     payment_method: "mercadopago" | "stripe";
     client_secret?: string;
     publishable_key?: string;
+    // ✅ 07/09/2026, botão "Tentar outra forma de pagamento" — tipo real do
+    // gateway usado (mercadopago/stripe/fastpay/fastflow/depix, não só o
+    // "mercadopago"|"stripe" genérico acima) e se existe pelo menos mais um
+    // configurado pra essa moeda, pra saber se vale mostrar o botão.
+    gateway_type?: string;
+    has_alternate_gateway?: boolean;
   };
   const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
   const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(
@@ -568,7 +574,7 @@ export default function RenewClient() {
     setRenewPollInterval(interval);
   }
 
-  async function handleRenewPayment(clientAppId: string) {
+  async function handleRenewPayment(clientAppId: string, excludeGatewayType?: string) {
     if (!selectedAccountId || !session) return;
     setRenewPaymentBusyId(clientAppId);
     try {
@@ -579,12 +585,14 @@ export default function RenewClient() {
           session_token: session,
           client_id: selectedAccountId,
           client_app_id: clientAppId,
+          ...(excludeGatewayType ? { exclude_gateway_type: excludeGatewayType } : {}),
         }),
       });
       const result = await res.json().catch(() => null);
       if (!result?.ok)
         throw new Error(result?.error || "Falha ao gerar pagamento.");
       setRenewPaymentDone(false);
+      setRenewPaymentProcessing(false);
       setRenewStripeError(null);
       const isStripe = result.payment_method === "stripe";
       setRenewPayment({
@@ -597,17 +605,32 @@ export default function RenewClient() {
         payment_method: isStripe ? "stripe" : "mercadopago",
         client_secret: result.client_secret,
         publishable_key: result.publishable_key,
+        gateway_type: result.gateway_type,
+        has_alternate_gateway: !!result.has_alternate_gateway,
       });
       // ✅ Stripe: só inicia o polling depois que o cartão for confirmado
       // (handleConfirmRenewStripePayment) — igual ao fluxo de assinatura.
       if (!isStripe) startPollingAppPayment(result.payment_id);
     } catch (err: any) {
       await alertError(
-        "Não foi possível gerar o pagamento agora. Tente novamente em instantes.",
+        excludeGatewayType
+          ? err?.message || "Não foi possível tentar outra forma de pagamento agora."
+          : "Não foi possível gerar o pagamento agora. Tente novamente em instantes.",
       );
     } finally {
       setRenewPaymentBusyId(null);
     }
+  }
+
+  // ✅ "Problemas com o pagamento? Tente outra forma" (pedido do Márcio,
+  // 07/09/2026) — cancela o código Pix atual (sem cobrar 2x, gera um novo)
+  // e pede de novo excluindo o gateway já usado, respeitando a ordem de
+  // prioridade pro resto. Só aparece quando has_alternate_gateway=true.
+  function handleTryAlternateGateway() {
+    if (!renewPayment) return;
+    if (renewPollInterval) clearInterval(renewPollInterval);
+    setRenewPollInterval(null);
+    handleRenewPayment(renewPayment.clientAppId, renewPayment.gateway_type);
   }
 
   async function handleRetryActivation(clientAppId: string) {
@@ -750,6 +773,12 @@ export default function RenewClient() {
   // Estados do pagamento
   const [paymentModal, setPaymentModal] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
+  // ✅ 07/09/2026, "Tentar outra forma de pagamento" — guarda o corpo EXATO
+  // enviado pro create-payment (período, cupom, apps embutidos, etc.), pra
+  // um retry só reenviar o mesmo pedido trocando o gateway, sem precisar
+  // reconstruir tudo a partir de estados que já podem ter sido limpos
+  // (pendingRenew, por ex., é zerado no finally de handleMethodConfirmDirect).
+  const lastCreatePaymentBodyRef = useRef<Record<string, unknown> | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<
     "pending" | "approved" | "rejected"
   >("pending");
@@ -2209,28 +2238,23 @@ export default function RenewClient() {
       setPaymentPhase("awaiting_payment");
       setPaymentData(null);
 
-      const res = await fetch("/api/client-portal/create-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          session_token: session,
-          client_id: selectedAccount.id,
-          period: resolvedPeriod,
-          screens: selectedAccount.screens,
-          force_manual: choice === "manual",
-          coupon_code: appliedCoupon?.code || null,
-          client_app_ids: appsToRenew.map((app) => app.id),
-          // ✅ Device ID do Mercado Pago (gerado pelo security.js carregado
-          // no useEffect acima) — melhora a "Qualidade da Integração" e a
-          // taxa de aprovação no MP. Undefined/vazio se o script ainda não
-          // rodou ou o método não for MP; o backend trata como opcional.
-          mp_device_id: (window as any).MP_DEVICE_SESSION_ID || null,
-        }),
-        cache: "no-store",
-      });
+      const requestBody = {
+        session_token: session,
+        client_id: selectedAccount.id,
+        period: resolvedPeriod,
+        screens: selectedAccount.screens,
+        force_manual: choice === "manual",
+        coupon_code: appliedCoupon?.code || null,
+        client_app_ids: appsToRenew.map((app) => app.id),
+        // ✅ Device ID do Mercado Pago (gerado pelo security.js carregado
+        // no useEffect acima) — melhora a "Qualidade da Integração" e a
+        // taxa de aprovação no MP. Undefined/vazio se o script ainda não
+        // rodou ou o método não for MP; o backend trata como opcional.
+        mp_device_id: (window as any).MP_DEVICE_SESSION_ID || null,
+      };
+      lastCreatePaymentBodyRef.current = requestBody;
 
-      const result = await res.json().catch(() => null);
-
+      const result = await submitCreatePayment(requestBody);
       if (!result?.ok) {
         await alertError(
           "Não foi possível criar o pagamento. Tente novamente.",
@@ -2258,6 +2282,50 @@ export default function RenewClient() {
     } finally {
       setIsProcessingPayment(false);
       setPendingRenew(null);
+    }
+  }
+
+  async function submitCreatePayment(body: Record<string, unknown>) {
+    const res = await fetch("/api/client-portal/create-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+    return res.json().catch(() => null);
+  }
+
+  // ✅ "Problemas com o pagamento? Tente outra forma" (pedido do Márcio,
+  // 07/09/2026) — reenvia o MESMO pedido (período, cupom, apps embutidos)
+  // só trocando o gateway a evitar. Só aparece quando
+  // paymentData.has_alternate_gateway=true.
+  async function handleTryAlternatePaymentGateway() {
+    const baseBody = lastCreatePaymentBodyRef.current;
+    if (!baseBody || !paymentData?.gateway_type) return;
+    if (pollingInterval) clearInterval(pollingInterval);
+    setIsProcessingPayment(true);
+    setPaymentStatus("pending");
+    setPaymentPhase("awaiting_payment");
+    try {
+      const result = await submitCreatePayment({
+        ...baseBody,
+        exclude_gateway_type: paymentData.gateway_type,
+      });
+      if (!result?.ok) {
+        await alertError(
+          result?.error || "Não foi possível tentar outra forma de pagamento agora.",
+        );
+        return;
+      }
+      const payment = result.data ?? result;
+      setPaymentData(payment);
+      if (payment?.payment_method === "online" && payment?.payment_id) {
+        startPolling(String(payment.payment_id));
+      }
+    } catch {
+      await alertError("Não foi possível tentar outra forma de pagamento agora.");
+    } finally {
+      setIsProcessingPayment(false);
     }
   }
 
@@ -2910,10 +2978,6 @@ export default function RenewClient() {
                     <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
                       Ou copie o código:
                     </p>
-                    <p className="text-[11px] text-muted-foreground text-center">
-                      Copie apenas no app oficial do seu banco e confirme se o
-                      recebedor e o valor estão corretos antes de concluir.
-                    </p>
                     <div className="relative group">
                       <input
                         type="text"
@@ -2938,23 +3002,6 @@ export default function RenewClient() {
                         {copiedCode ? "✅ Copiado" : "📋 Copiar"}
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {/* Instruções */}
-                {paymentPhase !== "renewing" && (
-                  <div className="space-y-2 text-sm">
-                    <p className="font-bold text-foreground/90 flex items-center gap-2">
-                      <span>📱</span> Como pagar:
-                    </p>
-                    <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
-                      <li>Abra o app do seu banco ou carteira digital</li>
-                      <li>Escaneie o QR Code ou copie o código acima</li>
-                      <li>Confira valor e recebedor antes de confirmar</li>
-                      <li>
-                        Finalize o pagamento e aguarde a confirmação automática
-                      </li>
-                    </ol>
                   </div>
                 )}
 
@@ -2996,6 +3043,26 @@ export default function RenewClient() {
                     </p>
                   </div>
                 </div>
+
+                {/* ✅ 07/09/2026, pedido do Márcio: se o gateway "Principal"
+                    estiver instável (ex: FastFlow), deixa o cliente trocar
+                    pra outro sem fechar e começar de novo — só quando existe
+                    mesmo um 2º método pra essa moeda. */}
+                {paymentPhase === "awaiting_payment" && paymentData?.has_alternate_gateway && (
+                  <button
+                    type="button"
+                    onClick={handleTryAlternatePaymentGateway}
+                    disabled={isProcessingPayment}
+                    className="w-full p-3 rounded-xl border border-dashed border-border text-left hover:border-sky-500/40 hover:bg-sky-500/5 transition-colors disabled:opacity-50"
+                  >
+                    <p className="text-xs font-bold text-foreground/90">
+                      Problemas com o pagamento?
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {isProcessingPayment ? "Gerando novo código..." : "Tente outra forma aqui"}
+                    </p>
+                  </button>
+                )}
 
                 {/* Botão Cancelar */}
                 {paymentPhase !== "renewing" && (
@@ -5225,19 +5292,6 @@ export default function RenewClient() {
                               </div>
                             )}
 
-                            {!renewPaymentProcessing && (
-                              <div className="space-y-2 text-sm">
-                                <p className="font-bold text-foreground/90 flex items-center gap-2">
-                                  <span>📱</span> Como pagar:
-                                </p>
-                                <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
-                                  <li>Abra o app do seu banco</li>
-                                  <li>Escaneie o QR Code</li>
-                                  <li>Confirme o pagamento</li>
-                                </ol>
-                              </div>
-                            )}
-
                             {!renewPaymentProcessing && renewPayment.pix_qr_code && (
                               <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
                                 <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
@@ -5314,6 +5368,29 @@ export default function RenewClient() {
                                 </p>
                               </div>
                             </div>
+
+                            {/* ✅ 07/09/2026, pedido do Márcio: se o gateway
+                                "Principal" estiver instável (ex: FastFlow),
+                                deixa o cliente trocar pra outro sem precisar
+                                fechar e começar tudo de novo. Só quando
+                                existe mesmo um 2º método pra essa moeda. */}
+                            {!renewPaymentExpired && !renewPaymentProcessing && renewPayment.has_alternate_gateway && (
+                              <button
+                                type="button"
+                                onClick={handleTryAlternateGateway}
+                                disabled={renewPaymentBusyId === renewPayment.clientAppId}
+                                className="w-full p-3 rounded-xl border border-dashed border-border text-left hover:border-sky-500/40 hover:bg-sky-500/5 transition-colors disabled:opacity-50"
+                              >
+                                <p className="text-xs font-bold text-foreground/90">
+                                  Problemas com o pagamento?
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {renewPaymentBusyId === renewPayment.clientAppId
+                                    ? "Gerando novo código..."
+                                    : "Tente outra forma aqui"}
+                                </p>
+                              </button>
+                            )}
 
                             <button
                               onClick={closeRenewPaymentModal}
