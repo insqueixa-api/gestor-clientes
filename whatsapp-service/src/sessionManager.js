@@ -394,7 +394,21 @@ async function escalateContactSession(sessionKey, remoteJid) {
   const sess = sessions.get(sessionKey);
   if (!sess?.socket) return;
   try {
-    const digits = String(remoteJid).split("@")[0];
+    let digits = String(remoteJid).split("@")[0];
+    // ✅ 07/09/2026, bug real achado (1ª tentativa não resolvia LID): o
+    // `remoteJid` do pedido de reenvio às vezes vem no formato "@lid" (id
+    // interno do WhatsApp), não o telefone — os arquivos de sessão são
+    // salvos por TELEFONE. Sem essa resolução, a escalada "achava" que
+    // zerou mas não encontrava nenhum arquivo de verdade. Mesmo mapa
+    // LID→telefone já usado na rejeição de chamada (`lidPhoneMap`).
+    if (String(remoteJid).includes("@lid")) {
+      const resolved = lidPhoneMap.get(sessionKey)?.get(digits);
+      if (!resolved) {
+        console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 LID ${remoteJid} pediu reenvio ${CONTACT_RETRY_ESCALATE_AT}x seguidas, mas ainda não resolvido pra telefone — não dá pra saber qual sessão zerar`);
+        return;
+      }
+      digits = resolved;
+    }
     const sessDir = getSessionDir(sessionKey);
     if (!fs.existsSync(sessDir)) return;
     const prefix = `session-${digits}.`;
