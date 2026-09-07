@@ -655,6 +655,20 @@ const sock = makeWASocket({
 
 sessData.socket = sock;
 
+  // ✅ 07/09/2026, pedido do Márcio investigando as quedas "Desconectado
+  // (428)": o Baileys generaliza QUALQUER fechamento de WebSocket pro mesmo
+  // código 428, sem dizer se foi a rede/proxy que derrubou a conexão TCP ou
+  // o próprio servidor do WhatsApp mandando um fechamento "normal". O
+  // código de fechamento BRUTO do WebSocket (padrão do protocolo, ex: 1000
+  // = normal/deliberado pelo servidor, 1006 = anormal/rede caiu sem aviso)
+  // existe e é descartado pela lib nesse meio do caminho. `sock.ws` reemite
+  // os eventos crus do socket (ver Socket/Client/websocket.js da própria
+  // lib) — escuta ADICIONALMENTE aqui (não troca nada do Baileys, só soma
+  // um listener a mais no mesmo evento) só pra logar esse detalhe.
+  sock.ws.on("close", (code, reason) => {
+    console.log(`[WA][${sessionKey.slice(0, 8)}] WebSocket fechou — código bruto ${code}${reason ? `, motivo: ${reason.toString().slice(0, 200)}` : " (sem motivo informado)"}`);
+  });
+
   // carrega mapa lid→phone salvo no disco
   loadLidMap(sessionKey);
 
