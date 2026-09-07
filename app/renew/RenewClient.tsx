@@ -477,6 +477,13 @@ export default function RenewClient() {
     return () => clearTimeout(t);
   }, [renewPaymentProcessing]);
   const [copiedAppPixCode, setCopiedAppPixCode] = useState(false);
+  // ✅ 07/09/2026, pedido do Márcio: trocar de gateway ("Tente outra forma")
+  // gera um QR Code/código PIX novo, mas a troca visual sozinha passa
+  // despercebida — a maioria usa o copia-e-cola, não o QR Code, então
+  // precisa avisar explicitamente que precisa copiar de novo (o código
+  // antigo não vale mais). Fica visível até a pessoa copiar o novo ou
+  // fechar o modal, nunca some sozinho.
+  const [renewAppGatewayJustSwitched, setRenewAppGatewayJustSwitched] = useState(false);
   // ✅ "Tentar novamente" — ativação via Appativa que falhou (achado
   // 25/08/2026), cliente já corrigiu o campo (ex: MAC) e reenvia.
   const [retryActivationBusyId, setRetryActivationBusyId] = useState<
@@ -608,6 +615,14 @@ export default function RenewClient() {
         gateway_type: result.gateway_type,
         has_alternate_gateway: !!result.has_alternate_gateway,
       });
+      setRenewAppGatewayJustSwitched(!!excludeGatewayType);
+      if (excludeGatewayType) {
+        addToast(
+          "success",
+          "Novos dados de pagamento gerados!",
+          "O código PIX anterior não vale mais — copie o novo código ou escaneie o QR Code atualizado.",
+        );
+      }
       // ✅ Stripe: só inicia o polling depois que o cartão for confirmado
       // (handleConfirmRenewStripePayment) — igual ao fluxo de assinatura.
       if (!isStripe) startPollingAppPayment(result.payment_id);
@@ -671,6 +686,7 @@ export default function RenewClient() {
     setRenewPayment(null);
     setRenewPaymentDone(false);
     setRenewStripeError(null);
+    setRenewAppGatewayJustSwitched(false);
   }
 
   function tryClosePortalWindow(fallbackAction: () => void) {
@@ -881,6 +897,9 @@ export default function RenewClient() {
 
   // ✅ NOVO: Estados para controle visual do botão de copiar
   const [copiedCode, setCopiedCode] = useState(false);
+  // ✅ Mesmo motivo do renewAppGatewayJustSwitched acima, versão da tela de
+  // renovação de assinatura.
+  const [gatewayJustSwitched, setGatewayJustSwitched] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -2237,6 +2256,7 @@ export default function RenewClient() {
       setPaymentStatus("pending");
       setPaymentPhase("awaiting_payment");
       setPaymentData(null);
+                      setGatewayJustSwitched(false);
 
       const requestBody = {
         session_token: session,
@@ -2319,6 +2339,13 @@ export default function RenewClient() {
       }
       const payment = result.data ?? result;
       setPaymentData(payment);
+      setCopiedCode(false);
+      setGatewayJustSwitched(true);
+      addToast(
+        "success",
+        "Novos dados de pagamento gerados!",
+        "O código PIX anterior não vale mais — copie o novo código ou escaneie o QR Code atualizado.",
+      );
       if (payment?.payment_method === "online" && payment?.payment_id) {
         startPolling(String(payment.payment_id));
       }
@@ -2823,6 +2850,7 @@ export default function RenewClient() {
                       tryClosePortalWindow(() => {
                         setPaymentModal(false);
                         setPaymentData(null);
+                      setGatewayJustSwitched(false);
                         setPaymentStatus("pending");
                         setPaymentPhase("awaiting_payment");
                       });
@@ -2905,6 +2933,7 @@ export default function RenewClient() {
                 onClick={() => {
                   setPaymentModal(false);
                   setPaymentData(null);
+                      setGatewayJustSwitched(false);
                   setPaymentStatus("pending");
                 }}
                 className="px-6 py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-colors"
@@ -2941,6 +2970,20 @@ export default function RenewClient() {
               {summaryBlock}
 
               <div className="px-5 pt-4 pb-3 space-y-3">
+                {/* ✅ 07/09/2026, pedido do Márcio: trocar de gateway gera QR
+                    Code/código novo, mas a troca visual sozinha passa
+                    despercebida — maioria usa copia-e-cola, não escaneia.
+                    Aviso explícito, fica até a pessoa copiar o código novo. */}
+                {gatewayJustSwitched && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-center">
+                    <p className="text-xs font-bold text-amber-600">
+                      🔄 Novos dados de pagamento gerados!
+                    </p>
+                    <p className="text-[11px] text-amber-600/80 mt-0.5">
+                      O código anterior não vale mais — copie o código abaixo de novo ou escaneie o QR Code atualizado.
+                    </p>
+                  </div>
+                )}
                 {paymentPhase !== "renewing" && (
                   <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm text-muted-foreground space-y-1.5">
                     <p className="font-semibold text-foreground">
@@ -2991,6 +3034,7 @@ export default function RenewClient() {
                             paymentData.pix_qr_code,
                           );
                           setCopiedCode(true);
+                          setGatewayJustSwitched(false);
                           setTimeout(() => setCopiedCode(false), 3000);
                         }}
                         className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
@@ -3053,12 +3097,12 @@ export default function RenewClient() {
                     type="button"
                     onClick={handleTryAlternatePaymentGateway}
                     disabled={isProcessingPayment}
-                    className="w-full p-3 rounded-xl border border-dashed border-border text-left hover:border-sky-500/40 hover:bg-sky-500/5 transition-colors disabled:opacity-50"
+                    className="w-full p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-left hover:bg-amber-500/10 transition-colors disabled:opacity-50"
                   >
-                    <p className="text-xs font-bold text-foreground/90">
+                    <p className="text-xs font-bold text-amber-600">
                       Problemas com o pagamento?
                     </p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[11px] text-amber-600/80">
                       {isProcessingPayment ? "Gerando novo código..." : "Tente outra forma aqui"}
                     </p>
                   </button>
@@ -3071,6 +3115,7 @@ export default function RenewClient() {
                       if (pollingInterval) clearInterval(pollingInterval);
                       setPaymentModal(false);
                       setPaymentData(null);
+                      setGatewayJustSwitched(false);
                       setPaymentStatus("pending");
                       setPaymentPhase("awaiting_payment");
                     }}
@@ -3258,6 +3303,7 @@ export default function RenewClient() {
                       onClick={() => {
                         setPaymentModal(false);
                         setPaymentData(null);
+                      setGatewayJustSwitched(false);
                         setPaymentStatus("pending");
                         setPaymentPhase("awaiting_payment");
                         setStripeStep(1);
@@ -3381,6 +3427,7 @@ export default function RenewClient() {
                         onClick={() => {
                           setPaymentModal(false);
                           setPaymentData(null);
+                      setGatewayJustSwitched(false);
                           setPaymentStatus("pending");
                           setPaymentPhase("awaiting_payment");
                           setStripeStep(1);
@@ -3883,6 +3930,7 @@ export default function RenewClient() {
                   onClick={() => {
                     setPaymentModal(false);
                     setPaymentData(null);
+                      setGatewayJustSwitched(false);
                   }}
                   className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -5277,6 +5325,22 @@ export default function RenewClient() {
                             </div>
                           ) : (
                           <div className="px-5 pt-4 pb-3 space-y-3">
+                            {/* ✅ 07/09/2026, pedido do Márcio: trocar de
+                                gateway gera QR Code/código novo, mas a troca
+                                visual sozinha passa despercebida — maioria
+                                usa copia-e-cola, não escaneia. Aviso explícito,
+                                fica até a pessoa copiar o código novo. */}
+                            {renewAppGatewayJustSwitched && (
+                              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-center">
+                                <p className="text-xs font-bold text-amber-600">
+                                  🔄 Novos dados de pagamento gerados!
+                                </p>
+                                <p className="text-[11px] text-amber-600/80 mt-0.5">
+                                  O código anterior não vale mais — copie o código abaixo de novo ou escaneie o QR Code atualizado.
+                                </p>
+                              </div>
+                            )}
+
                             {/* ✅ 07/09/2026: some assim que o pagamento é
                                 detectado (renewPaymentProcessing) — mostrar
                                 "escaneie o QR Code" pra quem já pagou é
@@ -5310,6 +5374,7 @@ export default function RenewClient() {
                                         renewPayment.pix_qr_code || "",
                                       );
                                       setCopiedAppPixCode(true);
+                                      setRenewAppGatewayJustSwitched(false);
                                       setTimeout(
                                         () => setCopiedAppPixCode(false),
                                         3000,
@@ -5379,12 +5444,12 @@ export default function RenewClient() {
                                 type="button"
                                 onClick={handleTryAlternateGateway}
                                 disabled={renewPaymentBusyId === renewPayment.clientAppId}
-                                className="w-full p-3 rounded-xl border border-dashed border-border text-left hover:border-sky-500/40 hover:bg-sky-500/5 transition-colors disabled:opacity-50"
+                                className="w-full p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-left hover:bg-amber-500/10 transition-colors disabled:opacity-50"
                               >
-                                <p className="text-xs font-bold text-foreground/90">
+                                <p className="text-xs font-bold text-amber-600">
                                   Problemas com o pagamento?
                                 </p>
-                                <p className="text-[11px] text-muted-foreground">
+                                <p className="text-[11px] text-amber-600/80">
                                   {renewPaymentBusyId === renewPayment.clientAppId
                                     ? "Gerando novo código..."
                                     : "Tente outra forma aqui"}
