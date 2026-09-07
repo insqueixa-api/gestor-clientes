@@ -4985,7 +4985,7 @@ export default function RenewClient() {
                   : "Em qual aparelho você vai usar?"
               }
               presetDeviceTypes={
-                isP2PAccount ? ["ANDROID_TVBOX", "FIRE_TV"] : undefined
+                isP2PAccount ? ["ANDROID_PHONE", "FIRE_TV"] : undefined
               }
             />
 

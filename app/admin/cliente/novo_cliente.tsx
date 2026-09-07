@@ -6657,7 +6657,7 @@ export default function NovoCliente({
                     technology === "P2P" ||
                     (technology === "Personalizado" &&
                       customTechnology.trim().toUpperCase() === "P2P")
-                      ? ["ANDROID_TVBOX", "FIRE_TV"]
+                      ? ["ANDROID_PHONE", "FIRE_TV"]
                       : undefined
                   }
                   helperText="Os apps são adicionados diretamente ao cliente e podem usar a integração ativa do admin."

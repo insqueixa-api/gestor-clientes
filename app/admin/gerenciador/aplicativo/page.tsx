@@ -3,6 +3,22 @@
 import { X, Pencil, Trash2, Download, Settings } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useTenantId } from "@/lib/tenant-context";
@@ -117,6 +133,72 @@ function Select({
   );
 }
 
+// ✅ 06/09/2026 — linha arrastável do Construtor de Campos, migrada do drag
+// nativo (HTML5) pro @dnd-kit (mesmo padrão já em uso em app/admin/settings/
+// condominio/edicoes/nova/page.tsx) — ganha suporte a teclado/touch de graça.
+// useSortable precisa de componente próprio (hook não pode rodar dentro de
+// .map() no componente pai).
+function SortableFieldRow({
+  field,
+  index,
+  onRename,
+  onRemove,
+}: {
+  field: AppField;
+  index: number;
+  onRename: (id: string, label: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: field.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg select-none"
+    >
+      <span
+        {...attributes}
+        {...listeners}
+        className="text-muted-foreground/60 hover:text-foreground cursor-grab active:cursor-grabbing transition-colors text-sm px-0.5"
+        title="Arrastar para reordenar"
+      >
+        ⠿
+      </span>
+      <span className="text-base shrink-0" title={FIELD_LABELS[field.type]}>
+        {FIELD_ICONS[field.type]}
+      </span>
+      <input
+        type="text"
+        value={field.label}
+        onChange={(e) => onRename(field.id, e.target.value)}
+        onBlur={(e) => {
+          if (!e.target.value.trim()) onRename(field.id, FIELD_LABELS[field.type]);
+        }}
+        placeholder={FIELD_LABELS[field.type]}
+        title="Nome exibido no admin e no portal do cliente"
+        className="flex-1 min-w-0 h-8 px-2 bg-transparent border border-transparent hover:border-border focus:border-emerald-500/60 rounded-lg text-sm font-medium text-foreground/90 outline-none transition-colors"
+      />
+      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
+        #{index + 1}
+      </span>
+      <button
+        onClick={() => onRemove(field.id)}
+        className="w-8 h-8 flex items-center justify-center text-rose-500 hover:bg-rose-500/20 rounded-lg transition-colors"
+        title="Remover campo"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
 // --- PÁGINA ---
 function normalizeApiUrl(url: string) {
   if (!url) return "";
@@ -163,14 +245,24 @@ export default function AppManagerPage() {
   // novo_cliente.tsx, 10/08/2026).
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"geral" | "dispositivo" | "campos">("geral");
   const [formName, setFormName] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formFields, setFormFields] = useState<AppField[]>([]);
-  const [fieldPickerType, setFieldPickerType] = useState<AppFieldType>(
-    ALL_FIELD_TYPES[0],
-  );
   const [formIntegration, setFormIntegration] = useState<string>("");
-  const dragIndexRef = useRef<number | null>(null);
+  // ✅ Sugestão de instruções por IA (pedido do Márcio, 06/09/2026) — mesmo
+  // padrão de app/admin/settings/condominio/ModalAcao.tsx: state de
+  // sugestão separado, nunca sobrescreve o textarea sozinho.
+  const [sugestaoInstrucoes, setSugestaoInstrucoes] = useState<{
+    text: string;
+    basedOnAppName: string;
+    viaAI: boolean;
+  } | null>(null);
+  const [sugerindoInstrucoes, setSugerindoInstrucoes] = useState(false);
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+  );
   const [formIconUrl, setFormIconUrl] = useState<string>("");
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [formCostType, setFormCostType] = useState<CostType | "">("");
@@ -638,6 +730,8 @@ export default function AppManagerPage() {
 
   function openNew() {
     setEditingId(null);
+    setActiveTab("geral");
+    setSugestaoInstrucoes(null);
     setFormName("");
     setFormUrl("");
     setFormFields([]);
@@ -664,6 +758,8 @@ export default function AppManagerPage() {
 
   function openEdit(app: AppData) {
     setEditingId(app.id);
+    setActiveTab("geral");
+    setSugestaoInstrucoes(null);
     setFormName(app.name);
     setFormUrl(app.info_url || "");
     // ✅ Backfill de label pra apps salvos antes desse campo existir — sem
@@ -727,6 +823,52 @@ export default function AppManagerPage() {
 
   function removeField(id: string) {
     setFormFields((prev) => prev.filter((f) => f.id !== id));
+  }
+
+  function handleFieldDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setFormFields((prev) => {
+      const oldIndex = prev.findIndex((f) => f.id === active.id);
+      const newIndex = prev.findIndex((f) => f.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }
+
+  async function handleSugerirInstrucoes() {
+    setSugerindoInstrucoes(true);
+    setSugestaoInstrucoes(null);
+    try {
+      const { data: sessionData } = await supabaseBrowser.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch("/api/admin/aplicativo/sugerir-instrucoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          app_name: formName.trim() || "este aplicativo",
+          exclude_app_id: editingId || undefined,
+          cost_type: formCostType || "free",
+          license_price: formCostType === "paid" && formLicensePrice ? Number(formLicensePrice) : null,
+          license_period: formCostType === "paid" ? formLicensePeriod : null,
+          field_types: formFields.map((f) => f.type),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        addToast("error", "Falha na sugestão", json?.error || "Não foi possível gerar uma sugestão agora.");
+        return;
+      }
+      if (!json.suggestion) {
+        addToast("error", "Nenhum app parecido", "Não achei nenhum app parecido o bastante com instruções cadastradas.");
+        return;
+      }
+      setSugestaoInstrucoes({ text: json.suggestion, basedOnAppName: json.basedOnAppName || "", viaAI: !!json.viaAI });
+    } catch {
+      addToast("error", "Erro", "Falha ao conectar com o servidor.");
+    } finally {
+      setSugerindoInstrucoes(false);
+    }
   }
 
   async function handleSave() {
@@ -1583,9 +1725,37 @@ export default function AppManagerPage() {
             </h2>
           </ModalHeader>
 
-            <ModalBody className="p-6 space-y-6">
+            <ModalBody className="p-3 sm:p-4 space-y-3">
+              {/* ABAS */}
+              <div className="flex justify-center border-b border-border bg-muted/50 -mx-3 sm:-mx-4 -mt-3 sm:-mt-4 px-4 py-2 mb-1">
+                <div className="flex rounded-lg p-1 w-full sm:w-auto overflow-x-auto">
+                  {(
+                    [
+                      { key: "geral", label: "GERAL" },
+                      { key: "dispositivo", label: "DISPOSITIVO" },
+                      { key: "campos", label: "CAMPOS" },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`flex-1 sm:flex-none px-4 py-2 text-xs font-medium rounded-md transition-all uppercase tracking-wider whitespace-nowrap ${
+                        activeTab === tab.key
+                          ? "bg-card text-emerald-500 shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {activeTab === "geral" && (
+              <div className="space-y-3 animate-in slide-in-from-right-4 duration-300">
               {/* DADOS BÁSICOS */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Nome do Aplicativo</Label>
                   <Input
@@ -1857,7 +2027,7 @@ export default function AppManagerPage() {
                   muda sozinho qual parceiro está ativo; só troca quando
                   escolhido aqui explicitamente. */}
               {formIntegration === "DUPLECAST" && formAppativaAppId && (
-                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
                   <Label>Renovar automaticamente via</Label>
                   <select
                     value={formRenewalSource}
@@ -1878,7 +2048,7 @@ export default function AppManagerPage() {
               )}
 
               {/* CUSTO E PARCERIA */}
-              <div className="bg-transparent border border-border rounded-xl p-4 space-y-4">
+              <div className="bg-transparent border border-border rounded-xl p-3 space-y-3">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Custo e Parceria
                 </h3>
@@ -1920,7 +2090,7 @@ export default function AppManagerPage() {
                 )}
 
                 {formCostType === "paid" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <Label>Valor da licença (R$)</Label>
                       <Input
@@ -1951,9 +2121,13 @@ export default function AppManagerPage() {
                   </div>
                 )}
               </div>
+              </div>
+              )}
 
+              {activeTab === "dispositivo" && (
+              <div className="space-y-3 animate-in slide-in-from-right-4 duration-300">
               {/* DISPOSITIVO E TECNOLOGIA */}
-              <div className="bg-transparent border border-border rounded-xl p-4 space-y-4">
+              <div className="bg-transparent border border-border rounded-xl p-3 space-y-3">
                 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Dispositivo e Tecnologia
                 </h3>
@@ -2095,7 +2269,17 @@ export default function AppManagerPage() {
                 </div>
 
                 <div>
-                  <Label>Instruções de configuração (portal do cliente)</Label>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label>Instruções de configuração (portal do cliente)</Label>
+                    <button
+                      type="button"
+                      onClick={handleSugerirInstrucoes}
+                      disabled={sugerindoInstrucoes}
+                      className="text-[11px] font-medium text-emerald-500 hover:text-emerald-400 disabled:opacity-50 transition-colors shrink-0"
+                    >
+                      {sugerindoInstrucoes ? "Buscando..." : "✨ Sugerir com IA"}
+                    </button>
+                  </div>
                   <textarea
                     value={formPortalInstructions}
                     onChange={(e) => setFormPortalInstructions(e.target.value)}
@@ -2106,6 +2290,38 @@ export default function AppManagerPage() {
                   <p className="text-[11px] text-muted-foreground mt-1">
                     Texto livre com o passo a passo básico de configuração.
                   </p>
+
+                  {sugestaoInstrucoes && (
+                    <div className="mt-2 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                      <p className="text-[10px] font-medium text-emerald-600 uppercase tracking-wider">
+                        {sugestaoInstrucoes.viaAI
+                          ? `Sugestão da IA — baseada em "${sugestaoInstrucoes.basedOnAppName}"`
+                          : `Copiado de "${sugestaoInstrucoes.basedOnAppName}" (app quase idêntico, sem gastar IA)`}
+                      </p>
+                      <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+                        {sugestaoInstrucoes.text}
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFormPortalInstructions(sugestaoInstrucoes.text);
+                            setSugestaoInstrucoes(null);
+                          }}
+                          className="h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors"
+                        >
+                          Usar este texto
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSugestaoInstrucoes(null)}
+                          className="h-8 px-3 rounded-lg border border-border text-muted-foreground text-xs font-medium hover:bg-muted transition-colors"
+                        >
+                          Descartar
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -2140,131 +2356,96 @@ export default function AppManagerPage() {
                   )}
                 </div>
               </div>
+              </div>
+              )}
 
+              {activeTab === "campos" && (
+              <div className="space-y-3 animate-in slide-in-from-right-4 duration-300">
               {/* CONSTRUTOR DE CAMPOS */}
-              <div className="bg-transparent border border-border rounded-xl p-4 space-y-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Campos Personalizados
-                  </h3>
-                  {(() => {
-                    const available = ALL_FIELD_TYPES.filter(
-                      (type) => !formFields.some((f) => f.type === type),
-                    );
-                    return (
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={
-                            available.includes(fieldPickerType)
-                              ? fieldPickerType
-                              : available[0] || ""
-                          }
-                          onChange={(e) =>
-                            setFieldPickerType(e.target.value as AppFieldType)
-                          }
-                          disabled={available.length === 0}
-                          className="h-8 px-2 bg-transparent border border-border rounded-lg text-xs text-foreground outline-none focus:border-emerald-500/60 disabled:opacity-40"
-                        >
-                          {available.map((type) => (
-                            <option key={type} value={type}>
-                              {FIELD_ICONS[type]} {FIELD_LABELS[type]}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => {
-                            if (available.length === 0) return;
-                            const type = available.includes(fieldPickerType)
-                              ? fieldPickerType
-                              : available[0];
-                            addField(type);
-                            const next = available.filter((t) => t !== type);
-                            if (next[0]) setFieldPickerType(next[0]);
-                          }}
-                          disabled={available.length === 0}
-                          className="text-xs px-3 py-1.5 border rounded-lg font-medium transition-colors bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          + Adicionar
-                        </button>
-                      </div>
-                    );
-                  })()}
-                </div>
+              <div className="bg-transparent border border-border rounded-xl p-3 space-y-3">
+                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Campos Personalizados
+                </h3>
                 <p className="text-[11px] text-muted-foreground -mt-1">
-                  Depois de adicionar, dá pra renomear cada campo (nome que
+                  Clique num campo disponível pra adicionar, arraste os
+                  selecionados pra reordenar e renomeie como quiser (nome que
                   aparece no admin e no portal do cliente).
                 </p>
 
-                <div className="space-y-2">
-                  {formFields.length === 0 && (
-                    <div className="text-center py-4 text-muted-foreground text-xs italic border border-dashed border-border rounded-lg">
-                      Nenhum campo extra definido. O app usará apenas o campo
-                      "Nome" ou "Usuário".
-                    </div>
-                  )}
+                {(() => {
+                  const available = ALL_FIELD_TYPES.filter(
+                    (type) => !formFields.some((f) => f.type === type),
+                  );
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* DISPONÍVEIS */}
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                          Disponíveis
+                        </p>
+                        <div className="space-y-1.5">
+                          {available.length === 0 ? (
+                            <div className="text-center py-4 text-muted-foreground text-xs italic border border-dashed border-border rounded-lg">
+                              Todos os tipos de campo já foram adicionados.
+                            </div>
+                          ) : (
+                            available.map((type) => (
+                              <button
+                                key={type}
+                                type="button"
+                                onClick={() => addField(type)}
+                                className="w-full flex items-center gap-2 px-3 py-2 bg-transparent border border-dashed border-border rounded-lg text-sm text-muted-foreground hover:border-emerald-500/50 hover:text-foreground hover:bg-emerald-500/5 transition-colors text-left"
+                              >
+                                <span className="text-base shrink-0">{FIELD_ICONS[type]}</span>
+                                <span className="flex-1 min-w-0 truncate">{FIELD_LABELS[type]}</span>
+                                <span className="text-emerald-500 text-xs font-bold shrink-0">+</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
 
-                  {formFields.map((field, index) => (
-                    <div
-                      key={field.id}
-                      draggable
-                      onDragStart={() => {
-                        dragIndexRef.current = index;
-                      }}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={() => {
-                        const from = dragIndexRef.current;
-                        if (from === null || from === index) return;
-                        setFormFields((prev) => {
-                          const next = [...prev];
-                          const [moved] = next.splice(from, 1);
-                          next.splice(index, 0, moved);
-                          return next;
-                        });
-                        dragIndexRef.current = null;
-                      }}
-                      onDragEnd={() => {
-                        dragIndexRef.current = null;
-                      }}
-                      className="flex items-center gap-3 px-3 py-2 bg-card border border-border rounded-lg cursor-default select-none"
-                    >
-                      <span
-                        className="text-muted-foreground/60 hover:text-foreground cursor-grab active:cursor-grabbing transition-colors text-sm px-0.5"
-                        title="Arrastar para reordenar"
-                      >
-                        ⠿
-                      </span>
-                      <span
-                        className="text-base shrink-0"
-                        title={FIELD_LABELS[field.type]}
-                      >
-                        {FIELD_ICONS[field.type]}
-                      </span>
-                      <input
-                        type="text"
-                        value={field.label}
-                        onChange={(e) => renameField(field.id, e.target.value)}
-                        onBlur={(e) => {
-                          if (!e.target.value.trim())
-                            renameField(field.id, FIELD_LABELS[field.type]);
-                        }}
-                        placeholder={FIELD_LABELS[field.type]}
-                        title="Nome exibido no admin e no portal do cliente"
-                        className="flex-1 min-w-0 h-8 px-2 bg-transparent border border-transparent hover:border-border focus:border-emerald-500/60 rounded-lg text-sm font-medium text-foreground/90 outline-none transition-colors"
-                      />
-                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded shrink-0">
-                        #{index + 1}
-                      </span>
-                      <button
-                        onClick={() => removeField(field.id)}
-                        className="w-8 h-8 flex items-center justify-center text-rose-500 hover:bg-rose-500/20 rounded-lg transition-colors"
-                        title="Remover campo"
-                      >
-                        ✕
-                      </button>
+                      {/* SELECIONADOS */}
+                      <div>
+                        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1.5">
+                          Selecionados
+                        </p>
+                        {formFields.length === 0 ? (
+                          <div className="text-center py-4 text-muted-foreground text-xs italic border border-dashed border-border rounded-lg">
+                            Nenhum campo extra definido. O app usará apenas o
+                            campo "Nome" ou "Usuário".
+                          </div>
+                        ) : (
+                          <DndContext
+                            sensors={dndSensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={handleFieldDragEnd}
+                          >
+                            <SortableContext
+                              items={formFields.map((f) => f.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <div className="space-y-1.5">
+                                {formFields.map((field, index) => (
+                                  <SortableFieldRow
+                                    key={field.id}
+                                    field={field}
+                                    index={index}
+                                    onRename={renameField}
+                                    onRemove={removeField}
+                                  />
+                                ))}
+                              </div>
+                            </SortableContext>
+                          </DndContext>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </div>
+              </div>
+              )}
             </ModalBody>
 
             <ModalFooter>

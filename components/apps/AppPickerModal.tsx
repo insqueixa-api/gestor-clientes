@@ -27,7 +27,9 @@ export type AppPickerCatalogItem = {
 
 const DEVICE_ICONS: Record<DeviceType, string> = {
   SAMSUNG_LG: "📺",
-  ANDROID_TVBOX: "📦",
+  ANDROID_PHONE: "📱",
+  ANDROID_TV: "📦",
+  XBOX: "🎮",
   IOS: "📱",
   COMPUTADOR: "💻",
   FIRE_TV: "🔥",
