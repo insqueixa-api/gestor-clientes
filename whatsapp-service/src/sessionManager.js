@@ -376,12 +376,57 @@ function renderRejectMessage(template, fromJid) {
 // pino carimbar `sessionKey` em toda linha, sem precisar de logger/stream
 // por sessão — só ler o campo aqui.
 const decryptRetryCounts = new Map();
+
+// ✅ 07/09/2026, ideia do Márcio: "se pedir reenvio, reenviamos; se pedir
+// OUTRO reenvio do mesmo contato, apaga a sessão dele e força de novo" —
+// escalada automática e cirúrgica, só pro contato que realmente está
+// insistindo (não em massa). O próprio log de "recv retry request" já
+// carrega `key.remoteJid` (confirmado testando o formato real do pino) —
+// nunca tinha sido usado, só a contagem agregada. Passa de
+// CONTACT_RETRY_ESCALATE_AT pedidos do MESMO contato → zera a sessão dele
+// (mesma lógica segura de sempre: só arquivo "session-<telefone>.*",
+// nunca credencial/identidade da conta) e reseta a contagem (dá uma folga
+// antes de escalar de novo, se persistir).
+const contactRetryCounts = new Map();
+const CONTACT_RETRY_ESCALATE_AT = 2;
+
+async function escalateContactSession(sessionKey, remoteJid) {
+  const sess = sessions.get(sessionKey);
+  if (!sess?.socket) return;
+  try {
+    const digits = String(remoteJid).split("@")[0];
+    const sessDir = getSessionDir(sessionKey);
+    if (!fs.existsSync(sessDir)) return;
+    const prefix = `session-${digits}.`;
+    const files = fs.readdirSync(sessDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
+    for (const f of files) {
+      const id = f.slice("session-".length, -".json".length);
+      await sess.socket.authState.keys.set({ session: { [id]: null } });
+    }
+    console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 ${remoteJid} pediu reenvio ${CONTACT_RETRY_ESCALATE_AT}x seguidas — sessão zerada automaticamente (${files.length} arquivo(s)), próximo envio renegocia do zero`);
+  } catch (e) {
+    console.error(`[WA][${sessionKey.slice(0, 8)}] Falha ao escalar sessão de ${remoteJid}: ${e?.message}`);
+  }
+}
+
 const baileysLogStream = new Writable({
   write(chunk, _enc, cb) {
     try {
       const line = JSON.parse(chunk.toString());
       if (line?.msg === "recv retry request" && line.sessionKey) {
         decryptRetryCounts.set(line.sessionKey, (decryptRetryCounts.get(line.sessionKey) || 0) + 1);
+
+        const remoteJid = line.key?.remoteJid;
+        if (remoteJid) {
+          const contactKey = `${line.sessionKey}|${remoteJid}`;
+          const count = (contactRetryCounts.get(contactKey) || 0) + 1;
+          if (count >= CONTACT_RETRY_ESCALATE_AT) {
+            contactRetryCounts.delete(contactKey);
+            escalateContactSession(line.sessionKey, remoteJid).catch(() => {});
+          } else {
+            contactRetryCounts.set(contactKey, count);
+          }
+        }
       }
     } catch {}
     cb();
@@ -1265,7 +1310,31 @@ function checkRateLimit(sessionKey) {
   return state.count <= RATE_LIMIT_MAX;
 }
 
-async function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {}) {
+// ✅ 07/09/2026, pedido do Márcio: "a VM tem que trabalhar uma mensagem por
+// vez" — antes, duas chamadas a /send quase juntas eram processadas
+// intercaladas pelo event loop (sem trava nenhuma), o que podia interferir
+// uma na outra. Fila real por sessão: cada envio só começa depois do
+// anterior terminar (sucesso ou erro), com uma pausa curta ("respira")
+// antes do próximo. `sendQueues` guarda a ponta da fila de cada sessão.
+const sendQueues = new Map();
+const SEND_BREATHE_MS = 1500;
+
+function sendMessage(sessionKey, phone, message, imageUrl = null, opts = {}) {
+  const prevTail = sendQueues.get(sessionKey) || Promise.resolve();
+  // ✅ quem chamou recebe o resultado assim que o envio termina de verdade —
+  // a pausa ("respira") só atrasa quando o PRÓXIMO da fila pode começar, não
+  // a resposta de quem já terminou.
+  const resultPromise = prevTail
+    .catch(() => {}) // uma falha no envio anterior não pode travar a fila pros próximos
+    .then(() => sendMessageInternal(sessionKey, phone, message, imageUrl, opts));
+  const queueTail = resultPromise
+    .catch(() => {})
+    .then(() => new Promise((r) => setTimeout(r, SEND_BREATHE_MS)));
+  sendQueues.set(sessionKey, queueTail);
+  return resultPromise;
+}
+
+async function sendMessageInternal(sessionKey, phone, message, imageUrl = null, opts = {}) {
   const sess = sessions.get(sessionKey);
   if (!sess || sess.status !== "connected") {
     throw new Error("Sessão não conectada");
