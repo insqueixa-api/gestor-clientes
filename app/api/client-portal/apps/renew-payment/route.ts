@@ -396,6 +396,10 @@ export async function POST(req: NextRequest) {
           return NextResponse.json(
             {
               ok: true,
+              payment_method: "online",
+              gateway_name: gateway.name,
+              gateway_type: gateway.type,
+              has_alternate_gateway: gateways.length > 1,
               payment_id: String(existingPending.mp_payment_id),
               internal_payment_id: existingPending.id,
               price_amount: Number(existingPending.price_amount),

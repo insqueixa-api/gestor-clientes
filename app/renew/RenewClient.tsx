@@ -448,6 +448,7 @@ export default function RenewClient() {
     // "mercadopago"|"stripe" genérico acima) e se existe pelo menos mais um
     // configurado pra essa moeda, pra saber se vale mostrar o botão.
     gateway_type?: string;
+    gateway_name?: string;
     has_alternate_gateway?: boolean;
   };
   const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
@@ -613,6 +614,7 @@ export default function RenewClient() {
         client_secret: result.client_secret,
         publishable_key: result.publishable_key,
         gateway_type: result.gateway_type,
+        gateway_name: result.gateway_name,
         has_alternate_gateway: !!result.has_alternate_gateway,
       });
       setRenewAppGatewayJustSwitched(!!excludeGatewayType);
@@ -2946,25 +2948,39 @@ export default function RenewClient() {
           {/* Online - QR Code PIX */}
           {isOnline && !isApproved && !isRejected && (
             <>
-              <div className="bg-gradient-to-r from-emerald-500 to-green-600 py-3 px-6 text-white text-center">
+              <div className="bg-gradient-to-r from-emerald-500 to-green-600 py-3 px-6 text-white text-center relative">
+                {/* ✅ 07/09/2026, pedido do Márcio: mesmo estilo do popup de
+                    app avulso (botão de fechar no cabeçalho, título/subtítulo
+                    mais diretos) — "Antes de pagar, confira" saiu (o resumo
+                    logo abaixo já mostra o mesmo valor). O bloco de resumo/
+                    desconto em si (summaryBlock) continua exatamente como
+                    sempre foi, sem mexer. */}
+                {paymentPhase !== "renewing" && (
+                  <button
+                    onClick={() => {
+                      if (pollingInterval) clearInterval(pollingInterval);
+                      setPaymentModal(false);
+                      setPaymentData(null);
+                      setGatewayJustSwitched(false);
+                      setPaymentStatus("pending");
+                      setPaymentPhase("awaiting_payment");
+                    }}
+                    className="absolute right-3 top-3 text-white/80 hover:text-white text-sm leading-none"
+                  >
+                    ✕
+                  </button>
+                )}
                 <h2 className="text-xl font-bold mb-1">
                   {paymentPhase === "renewing"
                     ? "Pagamento confirmado ✅"
-                    : "Pagamento via PIX seguro"}
+                    : "Pague com PIX"}
                 </h2>
 
                 <p className="text-sm text-white/80">
                   {paymentPhase === "renewing"
                     ? "Renovação em andamento…"
-                    : "Confira os dados antes de confirmar no app do banco"}
+                    : paymentData.gateway_name || "Mercado Pago"}
                 </p>
-
-                {/* ✅ extra: ainda mostra o gateway, mas sem poluir */}
-                {paymentPhase === "renewing" && paymentData.gateway_name && (
-                  <p className="text-[11px] text-white/70 mt-1">
-                    {paymentData.gateway_name}
-                  </p>
-                )}
               </div>
 
               {summaryBlock}
@@ -2982,17 +2998,6 @@ export default function RenewClient() {
                     <p className="text-[11px] text-amber-600/80 mt-0.5">
                       O código anterior não vale mais — copie o código abaixo de novo ou escaneie o QR Code atualizado.
                     </p>
-                  </div>
-                )}
-                {paymentPhase !== "renewing" && (
-                  <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm text-muted-foreground space-y-1.5">
-                    <p className="font-semibold text-foreground">
-                      Antes de pagar, confira:
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 pl-1">
-                      <li>o valor mostrado na tela</li>
-                      <li>o nome do recebedor no app do seu banco</li>
-                    </ul>
                   </div>
                 )}
 
@@ -5243,9 +5248,13 @@ export default function RenewClient() {
                                 : "Pague com PIX"}
                             </h2>
                             <p className="text-xs text-white/80">
-                              {renewPayment.payment_method === "stripe"
-                                ? "Stripe"
-                                : "Mercado Pago"}
+                              {/* ✅ 07/09/2026, achado do Márcio: isso vinha
+                                  fixo "Mercado Pago" pra qualquer gateway
+                                  não-Stripe, mesmo quando era FastFlow/
+                                  FastPay/DePix de verdade — usa o nome real
+                                  do gateway configurado. */}
+                              {renewPayment.gateway_name ||
+                                (renewPayment.payment_method === "stripe" ? "Stripe" : "Mercado Pago")}
                             </p>
                           </div>
 
