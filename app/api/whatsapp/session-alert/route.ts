@@ -54,8 +54,9 @@ export async function POST(req: NextRequest) {
   const kind = String(body?.kind || "");
   const sessionKey = String(body?.sessionKey || "").trim();
   const detail = String(body?.detail || "").slice(0, 500);
+  const contactDigits = String(body?.contactDigits || "").trim();
 
-  if ((kind !== "hard_reset" && kind !== "connected") || !sessionKey) {
+  if ((kind !== "hard_reset" && kind !== "connected" && kind !== "chronic_contact") || !sessionKey) {
     return NextResponse.json({ ok: false, error: "Parâmetros inválidos" }, { status: 400 });
   }
 
@@ -104,6 +105,27 @@ export async function POST(req: NextRequest) {
       if (sessionLabel) {
         await resolveNotification(selection.tenantId, "whatsapp_desconectado", `session:${sessionLabel}`);
       }
+      return NextResponse.json({ ok: true });
+    }
+
+    if (kind === "chronic_contact") {
+      // ✅ 07/09/2026, pedido do Márcio: a escalada automática por contato
+      // (3 → 5 → 7 → 10 pedidos de reenvio) já se resolve sozinha na
+      // maioria dos casos zerando a sessão do contato — só chega até aqui
+      // quando o MESMO contato ainda insiste depois de todos os degraus
+      // (padrão visto com o Anderson: algo persistente, provavelmente do
+      // lado do aparelho dele). sourceId por contato (não por sessão) pra
+      // cada contato problemático virar sua própria notificação, sem se
+      // misturar com os outros.
+      const chronicSourceId = `chronic_contact:${sessionKey}:${contactDigits || detail.slice(0, 40)}`;
+      await notify({
+        tenantId: selection.tenantId,
+        type: "whatsapp_contato_persistente",
+        title: "🔁 WhatsApp — contato insistindo em pedir reenvio",
+        message: `Na "${humanLabel}", ${detail || "um contato"} continua pedindo reenvio mesmo depois de várias zeragens automáticas de sessão — pode ser algo do lado do aparelho dele. Vale checar manualmente se as mensagens estão chegando.`,
+        link: "/admin/settings/whatsapp",
+        sourceId: chronicSourceId,
+      });
       return NextResponse.json({ ok: true });
     }
 

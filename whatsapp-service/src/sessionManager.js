@@ -43,7 +43,7 @@ if (WA_PROXY_URL) {
 // zero — antes ficava só no docker logs, ninguém era avisado de verdade.
 // Best-effort: nunca lança, nunca atrasa nada — se o app estiver fora do ar
 // ou a rede falhar, só loga e segue.
-async function reportSessionAlert(kind, sessionKey, detail) {
+async function reportSessionAlert(kind, sessionKey, detail, extra = {}) {
   const appUrl = String(process.env.UNIGESTOR_APP_URL || "").trim();
   const token = String(process.env.API_TOKEN || "").trim();
   if (!appUrl || !token) return;
@@ -52,7 +52,7 @@ async function reportSessionAlert(kind, sessionKey, detail) {
     await fetch(`${appUrl.replace(/\/+$/, "")}/api/whatsapp/session-alert`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, sessionKey, detail }),
+      body: JSON.stringify({ kind, sessionKey, detail, ...extra }),
       signal: AbortSignal.timeout(10_000),
     });
   } catch (e) {
@@ -382,37 +382,46 @@ const decryptRetryCounts = new Map();
 // escalada automática e cirúrgica, só pro contato que realmente está
 // insistindo (não em massa). O próprio log de "recv retry request" já
 // carrega `key.remoteJid` (confirmado testando o formato real do pino) —
-// nunca tinha sido usado, só a contagem agregada. Passa de
-// CONTACT_RETRY_ESCALATE_AT pedidos do MESMO contato → zera a sessão dele
-// (mesma lógica segura de sempre: só arquivo "session-<telefone>.*",
-// nunca credencial/identidade da conta) e reseta a contagem — se persistir
-// DEPOIS do zerar, volta a contar do zero e escala de novo (nunca desiste
-// nem trava numa única tentativa).
-// ✅ mesmo dia, ajuste do Márcio: 2 era cedo demais — cortava a chance da
-// autocorreção natural do próprio WhatsApp (o caso do Anderson só
-// resolveu de verdade depois de mais tentativas orgânicas). 3 dá mais
-// espaço pro protocolo se corrigir sozinho antes da gente intervir.
-const contactRetryCounts = new Map();
-const CONTACT_RETRY_ESCALATE_AT = 3;
+// nunca tinha sido usado, só a contagem agregada.
+//
+// ✅ mesmo dia, desenho final (casos reais do Anderson e da Josy): em vez
+// de um número fixo, uma ESCADA que sobe a cada vez que o mesmo contato
+// precisa de nova escalada — dá mais espaço pra autocorreção natural do
+// WhatsApp (que às vezes resolve sozinha em algumas tentativas, como no
+// caso do Anderson) antes de cada intervenção, sem nunca desistir nem
+// travar numa tentativa só (sempre volta a contar e escala de novo se
+// persistir). No último degrau (15), além de zerar a sessão, avisa
+// Márcio de verdade (sino) — só ali, não nos degraus de baixo, pra não
+// alarmar enquanto o sistema ainda está tentando se resolver sozinho.
+const ESCALATION_LADDER = [3, 5, 7, 10, 15];
+// Esquece contagem/degrau se não pintar NENHUM pedido de reenvio novo
+// desse contato por um tempo — sem isso, 1 pedido de meses atrás somava
+// com pedidos de hoje sem relação nenhuma entre si.
+const CONTACT_RETRY_RESET_WINDOW_MS = 10 * 60 * 1000;
+const contactRetryState = new Map(); // contactKey -> { count, level, lastAt }
 
-async function escalateContactSession(sessionKey, remoteJid) {
+function resolveContactDigits(sessionKey, remoteJid) {
+  let digits = String(remoteJid).split("@")[0];
+  // ✅ 07/09/2026, bug real achado (1ª tentativa não resolvia LID): o
+  // `remoteJid` do pedido de reenvio às vezes vem no formato "@lid" (id
+  // interno do WhatsApp), não o telefone — os arquivos de sessão são
+  // salvos por TELEFONE. Mesmo mapa LID→telefone já usado na rejeição de
+  // chamada (`lidPhoneMap`).
+  if (String(remoteJid).includes("@lid")) {
+    return lidPhoneMap.get(sessionKey)?.get(digits) || null;
+  }
+  return digits;
+}
+
+async function escalateContactSession(sessionKey, remoteJid, level) {
   const sess = sessions.get(sessionKey);
   if (!sess?.socket) return;
+  const threshold = ESCALATION_LADDER[level];
   try {
-    let digits = String(remoteJid).split("@")[0];
-    // ✅ 07/09/2026, bug real achado (1ª tentativa não resolvia LID): o
-    // `remoteJid` do pedido de reenvio às vezes vem no formato "@lid" (id
-    // interno do WhatsApp), não o telefone — os arquivos de sessão são
-    // salvos por TELEFONE. Sem essa resolução, a escalada "achava" que
-    // zerou mas não encontrava nenhum arquivo de verdade. Mesmo mapa
-    // LID→telefone já usado na rejeição de chamada (`lidPhoneMap`).
-    if (String(remoteJid).includes("@lid")) {
-      const resolved = lidPhoneMap.get(sessionKey)?.get(digits);
-      if (!resolved) {
-        console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 LID ${remoteJid} pediu reenvio ${CONTACT_RETRY_ESCALATE_AT}x seguidas, mas ainda não resolvido pra telefone — não dá pra saber qual sessão zerar`);
-        return;
-      }
-      digits = resolved;
+    const digits = resolveContactDigits(sessionKey, remoteJid);
+    if (!digits) {
+      console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 LID ${remoteJid} pediu reenvio ${threshold}x seguidas, mas ainda não resolvido pra telefone — não dá pra saber qual sessão zerar`);
+      return;
     }
     const sessDir = getSessionDir(sessionKey);
     if (!fs.existsSync(sessDir)) return;
@@ -422,7 +431,30 @@ async function escalateContactSession(sessionKey, remoteJid) {
       const id = f.slice("session-".length, -".json".length);
       await sess.socket.authState.keys.set({ session: { [id]: null } });
     }
-    console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 ${remoteJid} pediu reenvio ${CONTACT_RETRY_ESCALATE_AT}x seguidas — sessão zerada automaticamente (${files.length} arquivo(s)), próximo envio renegocia do zero`);
+    console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 ${remoteJid} pediu reenvio ${threshold}x seguidas (degrau ${level + 1}/${ESCALATION_LADDER.length}) — sessão zerada automaticamente (${files.length} arquivo(s)), próximo envio renegocia do zero`);
+
+    // ✅ Pedido do Márcio: "a cada zeragem, reinicia os erros" — sem isso, o
+    // contador AGREGADO (sessionErrorCount/decryptRetryCounts, usado pelo
+    // alerta geral whatsapp_erros_sessao em getAndResetSessionHealth) segue
+    // subindo em paralelo enquanto a escalada por contato ainda está
+    // tentando se resolver sozinha, podendo estourar o alerta geral (sino)
+    // antes da hora — mesmo com o sistema ainda no meio da autocorreção.
+    sessionErrorCount = 0;
+    decryptRetryCounts.delete(sessionKey);
+
+    // ✅ Último degrau: além de zerar, avisa de verdade — esse contato já
+    // passou por todos os degraus de autocorreção (3,5,7,10) sem resolver
+    // sozinho, é o padrão do Anderson (algo persistente, provavelmente do
+    // lado do aparelho dele) e vale a pena o Márcio saber, não só o
+    // sistema seguir tentando escondido pra sempre.
+    if (level >= ESCALATION_LADDER.length - 1) {
+      reportSessionAlert(
+        "chronic_contact",
+        sessionKey,
+        `${digits} (${remoteJid}) — ${threshold}+ pedidos de reenvio, já escalado por todos os degraus (${ESCALATION_LADDER.join(", ")}) sem se resolver sozinho`,
+        { contactDigits: digits },
+      ).catch(() => {});
+    }
   } catch (e) {
     console.error(`[WA][${sessionKey.slice(0, 8)}] Falha ao escalar sessão de ${remoteJid}: ${e?.message}`);
   }
@@ -438,13 +470,21 @@ const baileysLogStream = new Writable({
         const remoteJid = line.key?.remoteJid;
         if (remoteJid) {
           const contactKey = `${line.sessionKey}|${remoteJid}`;
-          const count = (contactRetryCounts.get(contactKey) || 0) + 1;
-          if (count >= CONTACT_RETRY_ESCALATE_AT) {
-            contactRetryCounts.delete(contactKey);
-            escalateContactSession(line.sessionKey, remoteJid).catch(() => {});
-          } else {
-            contactRetryCounts.set(contactKey, count);
+          const now = Date.now();
+          let state = contactRetryState.get(contactKey);
+          if (!state || now - state.lastAt > CONTACT_RETRY_RESET_WINDOW_MS) {
+            state = { count: 0, level: 0 };
           }
+          state.count++;
+          state.lastAt = now;
+
+          if (state.count >= ESCALATION_LADDER[state.level]) {
+            const level = state.level;
+            state.count = 0;
+            state.level = Math.min(level + 1, ESCALATION_LADDER.length - 1);
+            escalateContactSession(line.sessionKey, remoteJid, level).catch(() => {});
+          }
+          contactRetryState.set(contactKey, state);
         }
       }
     } catch {}

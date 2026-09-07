@@ -9,6 +9,7 @@ type NotificationType =
   | "whatsapp_desconectado"
   | "whatsapp_hard_reset"
   | "whatsapp_erros_sessao"
+  | "whatsapp_contato_persistente"
   | "automacao_falha"
   | "fulfillment_error"
   | "saldo_baixo"
