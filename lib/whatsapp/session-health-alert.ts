@@ -62,6 +62,22 @@ export function sessionHealthCheckResult(sessionLabel: string, health: SessionHe
   };
 }
 
+// ✅ 07/09/2026, bug real achado (Márcio: "2+2 enviou e zerou, 9+1 enviou e
+// zerou, 10+3 enviou e zerou... deveria ter resolvido"): a resolução do
+// SINO exigia total === 0 (via sessionHealthCheckResult acima), mas depois
+// de subir o limite de alerta pra 30 (ruído residual normal virou 0-13 por
+// janela, não mais raro), zero exato praticamente nunca mais acontece —
+// o sino, uma vez aberto, ficava preso numa "zona morta" (total entre 1 e
+// 29): nem alto o bastante pra reabrir alerta, nem zero pra fechar.
+// Resolve quando volta a um nível claramente normal de novo (bem abaixo
+// do limite de alerta), não só quando bate exatamente zero.
+const ALERT_CLEAR_THRESHOLD = 15;
+
+export function shouldClearSessionHealthAlert(health: SessionHealthPayload): boolean {
+  const total = Math.max(0, Number(health.libsignalErrors) || 0) + Math.max(0, Number(health.decryptRetries) || 0);
+  return total < ALERT_CLEAR_THRESHOLD;
+}
+
 // Grava direto em system_health_checks — usado por quem NÃO já tem um
 // mecanismo próprio de upsert em lote (os 3 envios reais; a rota de
 // Sincronizar/cron já faz isso sozinha pra TODAS as checagens, incluindo
@@ -131,9 +147,10 @@ export async function notifySessionHealthAlert(tenantId: string, sessionLabel: s
   }
 }
 
-// Some do sino quando uma checagem volta limpa (0 erros na janela) — chamar
-// sempre que sessionHealthCheckResult() der status "ok", nos dois pontos que
-// checam saúde de sessão (envio real e cron/"Sincronizar agora"). Best-effort.
+// Some do sino quando uma checagem volta a um nível claramente normal —
+// chamar sempre que shouldClearSessionHealthAlert() der true, nos dois
+// pontos que checam saúde de sessão (envio real e cron/"Sincronizar
+// agora"). Best-effort.
 export async function resolveSessionHealthAlert(tenantId: string, sessionLabel: string) {
   try {
     await resolveNotification(tenantId, "whatsapp_erros_sessao", sessionHealthSourceId(sessionLabel));
@@ -148,8 +165,7 @@ export async function resolveSessionHealthAlert(tenantId: string, sessionLabel: 
 export async function reportSessionHealthFromSend(tenantId: string, sessionLabel: string, health: SessionHealthPayload | null | undefined) {
   if (!health) return;
   await upsertSessionHealthTile(sessionLabel, health);
-  const { status } = sessionHealthCheckResult(sessionLabel, health);
-  if (status === "ok") {
+  if (shouldClearSessionHealthAlert(health)) {
     await resolveSessionHealthAlert(tenantId, sessionLabel);
   } else {
     await notifySessionHealthAlert(tenantId, sessionLabel, health);

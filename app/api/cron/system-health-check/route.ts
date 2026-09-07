@@ -25,7 +25,7 @@ import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { getWAContextOrCron, proxyVM } from "@/lib/whatsapp/wa-context";
 import { getActiveProxyOrder } from "@/lib/proxybr";
-import { sessionHealthCheckResult, notifySessionHealthAlert, resolveSessionHealthAlert } from "@/lib/whatsapp/session-health-alert";
+import { sessionHealthCheckResult, notifySessionHealthAlert, resolveSessionHealthAlert, shouldClearSessionHealthAlert } from "@/lib/whatsapp/session-health-alert";
 
 export const dynamic = "force-dynamic";
 // ✅ 02/09/2026: subiu de 30s pra 60s — o novo check do Downdetector
@@ -345,9 +345,13 @@ async function checkWhatsAppSessionErrors(req: Request): Promise<CheckResult> {
     const { status, detail } = sessionHealthCheckResult("default", health);
     if (health.shouldAlert) {
       await notifySessionHealthAlert(ctx.tenantId, "default", health).catch(() => {});
-    } else if (status === "ok") {
+    } else if (shouldClearSessionHealthAlert(health)) {
       // ✅ 06/09/2026, bug real achado: nada nunca resolvia esse alerta —
       // ficava no sino pra sempre mesmo depois do erro parar de acontecer.
+      // ✅ 07/09/2026: exigia total===0 (via status "ok"), mas depois do
+      // limite de alerta subir pra 30, ruído residual normal (0-13 por
+      // janela) nunca mais batia zero exato — ficava numa "zona morta"
+      // presa. Resolve quando volta claramente normal, não só em zero.
       await resolveSessionHealthAlert(ctx.tenantId, "default").catch(() => {});
     }
 
