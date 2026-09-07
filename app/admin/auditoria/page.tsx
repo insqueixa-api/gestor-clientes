@@ -41,6 +41,11 @@ type LogRow = {
   payment_status: string;
   fulfillment_status: string;
   fulfillment_error: string | null;
+  // ✅ Achado 07/09/2026: fulfillment_status="manual_done" também é gravado
+  // por renovações 100% automáticas (Appativa/Duplecast/GerenciaApp/GPC
+  // Roku) — sem esse flag não dava pra saber, só olhando o banco, se um
+  // admin clicou "Concluir" de verdade ou se o sistema resolveu sozinho.
+  fulfilled_automatically?: boolean;
   whatsapp_status: string | null;
   price_amount: number;
   price_currency: string;
@@ -530,7 +535,7 @@ function AuditoriaPageContent() {
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select(
-            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id",
+            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, fulfilled_automatically, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id",
           ) // ✅ Adicionado whatsapp_status, coupon_code/coupon_discount_amount, settled_alert_ids (resumo do valor)
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
@@ -636,6 +641,7 @@ function AuditoriaPageContent() {
             payment_status: r.status,
             fulfillment_status: r.fulfillment_status,
             fulfillment_error: r.fulfillment_error,
+            fulfilled_automatically: r.fulfilled_automatically,
             whatsapp_status: r.whatsapp_status, // ✅ Lendo o campo real do banco!
             price_amount: r.price_amount,
             price_currency: r.price_currency,
@@ -1218,6 +1224,7 @@ function AuditoriaPageContent() {
     status: string,
     paymentStatus: string,
     createdAt: string,
+    fulfilledAutomatically?: boolean,
   ) {
     const bucket = getFulfillmentBucket(status, paymentStatus, createdAt);
 
@@ -1251,8 +1258,12 @@ function AuditoriaPageContent() {
       );
     if (bucket === "manual_done")
       return (
+        // ✅ Achado 07/09/2026 (Márcio, caso real do DupleCast): esse status
+        // também é gravado por renovações 100% automáticas (Appativa/
+        // Duplecast/GerenciaApp/GPC Roku) — sem fulfilled_automatically não
+        // dava pra diferenciar de um clique real em "Concluir".
         <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20">
-          Concluído (Manual)
+          {fulfilledAutomatically ? "Concluído (Automático)" : "Concluído (Manual)"}
         </span>
       );
     if (bucket === "manual_pending")
@@ -1925,6 +1936,7 @@ function AuditoriaPageContent() {
                                   r.fulfillment_status,
                                   r.payment_status,
                                   r.created_at,
+                                  r.fulfilled_automatically,
                                 )}
                                 {/* Cor neutra para todos os fluxos manuais (Pendente, Concluído ou Cancelado) */}
                                 {r.fulfillment_status === "manual_pending" ||

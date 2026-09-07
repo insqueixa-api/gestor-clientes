@@ -275,13 +275,40 @@ export async function POST(req: NextRequest) {
     // ✅ Pagamento avulso de licença de app — nunca passa pela lógica de
     // fulfillment de assinatura IPTV abaixo (manual_pending/zumbi/lock/
     // runFulfillment são todos específicos de renovação de assinatura).
-    // Só confirma a cobrança e devolve "done".
     if (payment.payment_type === "app_renewal") {
-      if (fStatus !== "done") {
+      // ⚠️ Achado 07/09/2026 (Márcio, caso real do DupleCast): esse bloco
+      // sempre devolvia phase:"done" depois de chamar markAppRenewalPaid,
+      // não importa o resultado real — se a ativação automática (Duplecast/
+      // Appativa/GerenciaApp) tivesse falhado ou ainda estivesse
+      // manual_pending, o cliente via "Pagamento confirmado ✅" do mesmo
+      // jeito, uma mentira. markAppRenewalPaid já É síncrono pra apps com
+      // integração real (a chamada renewDuplecastWithCode, por ex., só
+      // retorna quando o painel do parceiro já confirmou de verdade) —
+      // então dá pra confiar no fulfillment_status re-lido do banco logo
+      // depois, em vez de assumir sucesso.
+      if (fStatus !== "manual_done") {
         await markAppRenewalPaid(supabaseAdmin, tenantId, payment.id, origin);
       }
+      const { data: postAppRenewal } = await supabaseAdmin
+        .from("client_portal_payments")
+        .select("fulfillment_status, fulfillment_error")
+        .eq("tenant_id", tenantId)
+        .eq("id", payment.id)
+        .single();
+      const finalAppStatus = String(postAppRenewal?.fulfillment_status || "").toLowerCase();
+      if (finalAppStatus === "manual_done") {
+        return NextResponse.json(
+          { ok: true, status: "approved", phase: "done" },
+          { status: 200, headers: NO_STORE_HEADERS }
+        );
+      }
       return NextResponse.json(
-        { ok: true, status: "approved", phase: "done" },
+        {
+          ok: true,
+          status: "approved",
+          phase: "manual_pending",
+          fulfillment_error: postAppRenewal?.fulfillment_error ?? null,
+        },
         { status: 200, headers: NO_STORE_HEADERS }
       );
     }

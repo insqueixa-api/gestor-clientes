@@ -465,7 +465,7 @@ export async function markAppRenewalPaid(
             // concluiu esse mesmo pagamento.
             const { data: claimedRows } = await supabaseAdmin
               .from("client_portal_payments")
-              .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null })
+              .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null, fulfilled_automatically: true })
               .eq("id", paymentRowId)
               .eq("tenant_id", tenantId)
               .eq("fulfillment_status", "manual_pending")
@@ -606,7 +606,7 @@ export async function markAppRenewalPaid(
             // usado pelo GPC Roku acima (marca done, notifica, WhatsApp).
             const { data: claimedRows } = await supabaseAdmin
               .from("client_portal_payments")
-              .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null })
+              .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null, fulfilled_automatically: true })
               .eq("id", paymentRowId)
               .eq("tenant_id", tenantId)
               .eq("fulfillment_status", "manual_pending")
@@ -1041,7 +1041,7 @@ export async function resolveAppativaAppRenewal(
   // (mark_app_renewal_manual_pending) que motivou o guard condicional ali.
   const { data: claimedRows } = await supabaseAdmin
     .from("client_portal_payments")
-    .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null })
+    .update({ fulfillment_status: "manual_done", fulfilled_at: new Date().toISOString(), fulfillment_error: null, fulfilled_automatically: true })
     .eq("id", payment.id)
     .eq("tenant_id", tenantId)
     .eq("fulfillment_status", "manual_pending")

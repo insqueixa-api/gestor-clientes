@@ -452,6 +452,12 @@ export default function RenewClient() {
   // ✅ Pix expirado (30min, mesmo prazo real do Mercado Pago) — polling
   // desiste sozinho, mostra aviso em vez de ficar "Aguardando..." parado.
   const [renewPaymentExpired, setRenewPaymentExpired] = useState(false);
+  // ✅ 07/09/2026, pedido do Márcio: entre o PIX confirmado e a renovação
+  // automática (Duplecast/Appativa/GerenciaApp) realmente terminar — pode
+  // levar até ~1-2min, o painel do parceiro é chamado de verdade — o
+  // cliente ficava olhando "Aguardando pagamento..." (errado, já pagou) até
+  // a tela virar "confirmado" do nada. Fase intermediária honesta.
+  const [renewPaymentProcessing, setRenewPaymentProcessing] = useState(false);
   const [copiedAppPixCode, setCopiedAppPixCode] = useState(false);
   // ✅ "Tentar novamente" — ativação via Appativa que falhou (achado
   // 25/08/2026), cliente já corrigiu o campo (ex: MAC) e reenvia.
@@ -491,6 +497,7 @@ export default function RenewClient() {
     if (!session) return;
     if (renewPollInterval) clearInterval(renewPollInterval);
     setRenewPaymentExpired(false);
+    setRenewPaymentProcessing(false);
 
     // ✅ Polling progressivo (pedido do Márcio, 04/08/2026): a pessoa acabou
     // de gerar o PIX e precisa abrir o banco antes de pagar, então a
@@ -528,10 +535,19 @@ export default function RenewClient() {
         });
         const result = await res.json().catch(() => null);
         if (!result?.ok) return;
-        if (String(result.phase || "").toLowerCase() === "done") {
+        const phase = String(result.phase || "").toLowerCase();
+        if (phase === "done") {
           clearInterval(interval);
           setRenewPollInterval(null);
           setRenewPaymentDone(true);
+        } else if (phase === "manual_pending") {
+          // ✅ Pagamento já aprovado — só ainda não é possível dizer se a
+          // ativação automática terminou (síncrona, pode levar 1-2min) ou
+          // se esse app realmente depende de admin. Continua o polling
+          // (mesmo intervalo) até virar "done" de verdade ou o modal
+          // fechar — só troca o texto de "aguardando pagamento" pra
+          // "processando", nunca finge sucesso antes da hora.
+          setRenewPaymentProcessing(true);
         }
       } catch {
         // continua tentando
@@ -5045,16 +5061,36 @@ export default function RenewClient() {
                             <p className="text-base font-bold text-foreground">
                               Pagamento confirmado!
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              Recebemos seu pagamento e nosso suporte já foi
-                              avisado.
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              A renovação dessa licença é feita manualmente por
-                              aqui — assim que for concluída, a nova validade
-                              aparece sozinha na tela do aplicativo, sem você
-                              precisar fazer mais nada.
-                            </p>
+                            {/* ✅ Achado 07/09/2026 (Márcio, num caso real do
+                                DupleCast): esse texto dizia "renovação é feita
+                                manualmente" pra QUALQUER app, mesmo os com
+                                renovação automática (Appativa/Duplecast/
+                                GerenciaApp/GPC Roku — leva só uns 90s pra
+                                confirmar de verdade no painel do parceiro).
+                                Isso já confundiu o próprio Márcio, imagina o
+                                cliente. Agora reflete o que realmente vai
+                                acontecer, olhando has_integration do app que
+                                acabou de ser pago. */}
+                            {installedApps.find((a) => a.id === renewPayment.clientAppId)?.has_integration ? (
+                              <p className="text-xs text-muted-foreground">
+                                A renovação é automática — em alguns segundos a
+                                nova validade aparece sozinha na tela do
+                                aplicativo, sem você precisar fazer mais nada.
+                              </p>
+                            ) : (
+                              <>
+                                <p className="text-xs text-muted-foreground">
+                                  Recebemos seu pagamento e nosso suporte já foi
+                                  avisado.
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  A renovação dessa licença é feita manualmente por
+                                  aqui — assim que for concluída, a nova validade
+                                  aparece sozinha na tela do aplicativo, sem você
+                                  precisar fazer mais nada.
+                                </p>
+                              </>
+                            )}
                           </div>
                           <button
                             onClick={() =>
@@ -5162,7 +5198,12 @@ export default function RenewClient() {
                             </div>
                           ) : (
                           <div className="px-5 pt-4 pb-3 space-y-3">
-                            {renewPayment.pix_qr_code_base64 && (
+                            {/* ✅ 07/09/2026: some assim que o pagamento é
+                                detectado (renewPaymentProcessing) — mostrar
+                                "escaneie o QR Code" pra quem já pagou é
+                                confuso, só o card de status abaixo importa
+                                a partir daqui. */}
+                            {!renewPaymentProcessing && renewPayment.pix_qr_code_base64 && (
                               <div className="bg-card p-2 sm:p-4 rounded-xl border-2 border-border">
                                 <img
                                   src={`data:image/png;base64,${renewPayment.pix_qr_code_base64}`}
@@ -5172,18 +5213,20 @@ export default function RenewClient() {
                               </div>
                             )}
 
-                            <div className="space-y-2 text-sm">
-                              <p className="font-bold text-foreground/90 flex items-center gap-2">
-                                <span>📱</span> Como pagar:
-                              </p>
-                              <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
-                                <li>Abra o app do seu banco</li>
-                                <li>Escaneie o QR Code</li>
-                                <li>Confirme o pagamento</li>
-                              </ol>
-                            </div>
+                            {!renewPaymentProcessing && (
+                              <div className="space-y-2 text-sm">
+                                <p className="font-bold text-foreground/90 flex items-center gap-2">
+                                  <span>📱</span> Como pagar:
+                                </p>
+                                <ol className="list-decimal list-inside space-y-1 text-muted-foreground pl-6">
+                                  <li>Abra o app do seu banco</li>
+                                  <li>Escaneie o QR Code</li>
+                                  <li>Confirme o pagamento</li>
+                                </ol>
+                              </div>
+                            )}
 
-                            {renewPayment.pix_qr_code && (
+                            {!renewPaymentProcessing && renewPayment.pix_qr_code && (
                               <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
                                 <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
                                   Ou copie o código:
@@ -5238,7 +5281,11 @@ export default function RenewClient() {
                                     renewPaymentExpired ? "text-rose-500" : "text-sky-500"
                                   }`}
                                 >
-                                  {renewPaymentExpired ? "Código Pix expirado" : "Aguardando pagamento..."}
+                                  {renewPaymentExpired
+                                    ? "Código Pix expirado"
+                                    : renewPaymentProcessing
+                                      ? "Pagamento recebido — processando..."
+                                      : "Aguardando pagamento..."}
                                 </p>
                                 <p
                                   className={`text-xs ${
@@ -5247,7 +5294,9 @@ export default function RenewClient() {
                                 >
                                   {renewPaymentExpired
                                     ? "Esse código não vale mais. Feche e comece o pagamento de novo."
-                                    : "Detectaremos automaticamente quando você pagar"}
+                                    : renewPaymentProcessing
+                                      ? "Renovando automaticamente no painel do parceiro — leva só um instante."
+                                      : "Detectaremos automaticamente quando você pagar"}
                                 </p>
                               </div>
                             </div>
