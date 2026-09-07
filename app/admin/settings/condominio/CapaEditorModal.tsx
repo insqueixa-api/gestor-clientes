@@ -7,6 +7,7 @@
 // e escolhe qualquer outra foto já enviada pra virar a nova capa (reordena
 // o array, a escolhida vira fotos[0]). Salva direto em condominio_acoes.
 import { useRef, useState } from "react";
+import { RotateCw } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import type { AcaoRow, Foto } from "./shared";
@@ -28,6 +29,7 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
   const [fotos, setFotos] = useState<Foto[]>(acao.fotos || []);
   const [posY, setPosY] = useState<number>(acao.fotos?.[0]?.posY ?? POS_Y_PADRAO);
   const [saving, setSaving] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const draggingRef = useRef<{ startY: number; startPos: number } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -52,6 +54,78 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
 
   function handlePointerUp() {
     draggingRef.current = null;
+  }
+
+  // ✅ 07/09/2026, pedido do Márcio: botão de girar a capa 90° (ex: foto
+  // tirada de lado no celular). Em vez de guardar um ângulo e aplicar
+  // transform:rotate em CSS (precisaria repetir a mesma lógica aqui, na
+  // grade de Ações, na prévia do jornal E no template do PDF — que roda
+  // fora daqui, na VM — com risco real de esquecer um lugar, mesmo erro já
+  // cometido antes com o posY que "não chegava no PDF"), gira o ARQUIVO de
+  // verdade (canvas) e reenvia como uma nova imagem — todo mundo que só lê
+  // a URL (grade, prévia, PDF) já funciona certo sem precisar saber que
+  // rotação existe. Bucket confirmado com CORS liberado pro nosso domínio.
+  async function handleRotate() {
+    if (!capa) return;
+    setRotating(true);
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Falha ao carregar a foto pra rotacionar."));
+        img.src = capa.url;
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalHeight;
+      canvas.height = img.naturalWidth;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Não foi possível preparar a rotação.");
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error("Falha ao gerar a foto rotacionada."))),
+          "image/jpeg",
+          0.92,
+        ),
+      );
+
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: `capa-rotacionada-${Date.now()}.jpg`,
+          contentType: "image/jpeg",
+          folder: "condominio-acoes",
+        }),
+      });
+      const { presignedUrl, publicUrl } = await presignRes.json();
+      if (!presignedUrl || !publicUrl) throw new Error("Falha ao preparar o envio da foto rotacionada.");
+
+      await fetch(presignedUrl, {
+        method: "PUT",
+        body: blob,
+        headers: { "Content-Type": "image/jpeg" },
+      });
+
+      setFotos((prev) => {
+        const next = [...prev];
+        next[0] = { ...next[0], url: publicUrl };
+        return next;
+      });
+      // ✅ Enquadramento vertical antigo não faz mais sentido depois de
+      // girar (composição da foto mudou) — volta pro padrão pra o Márcio
+      // reajustar do zero.
+      setPosY(POS_Y_PADRAO);
+    } catch (e: any) {
+      onError?.(e?.message || "Erro ao rotacionar a foto.");
+    } finally {
+      setRotating(false);
+    }
   }
 
   function escolherComoCapa(idx: number) {
@@ -94,9 +168,21 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
 
       <ModalBody className="p-4 sm:p-6 space-y-5">
         <div>
-          <p className="text-xs text-muted-foreground mb-2">
-            Arraste a foto pra cima ou pra baixo pra escolher o melhor enquadramento.
-          </p>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-xs text-muted-foreground">
+              Arraste a foto pra cima ou pra baixo pra escolher o melhor enquadramento.
+            </p>
+            <button
+              type="button"
+              onClick={handleRotate}
+              disabled={rotating}
+              title="Girar foto 90°"
+              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <RotateCw className={`w-3.5 h-3.5 ${rotating ? "animate-spin" : ""}`} />
+              {rotating ? "Girando..." : "Girar"}
+            </button>
+          </div>
           <div
             ref={containerRef}
             className="w-full rounded-xl overflow-hidden border border-border select-none"
