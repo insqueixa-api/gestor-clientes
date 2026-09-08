@@ -10,6 +10,8 @@ import React, { useEffect, useState } from "react";
 import { RefreshCw, Database, CheckCircle, AlertTriangle, X } from "lucide-react";
 import ToastNotifications from "@/hooks/ToastNotifications";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { supabaseBrowser } from "@/lib/supabase/browser";
+import { dispatchNatvSync } from "@/lib/apps/natv-extension";
 
 type SrvId = "elite" | "natv" | "fast";
 type SrvStatus = "idle" | "running" | "ok" | "error";
@@ -250,19 +252,83 @@ export default function ModalCatalogo({ onClose }: { onClose: () => void }) {
   }
 
   // ✅ 08/09/2026: NaTV bloqueou qualquer IP não-brasileiro (nem Vercel nem a
-  // VM Hetzner passam) — clicar aqui nunca vai funcionar mais, então nem
-  // tenta a chamada (evita o 403 confuso). Sync precisa rodar local, no PC
-  // de alguém no Brasil: `node scripts/sync-natv-manual.js` na raiz do repo.
-  // Cron automático pausado (cron.job.active=false) até isso mudar.
-  function syncNaTV() {
-    setStatus((p) => ({ ...p, natv: "error" }));
-    setServerMessages((p) => ({
-      ...p,
-      natv: {
-        text: "NaTV bloqueia IP fora do Brasil — não dá mais pra sincronizar por aqui. Rode `node scripts/sync-natv-manual.js` no seu PC.",
-        type: "error",
-      },
-    }));
+  // VM Hetzner passam) — chamar a rota direto nunca mais funciona. Em vez
+  // disso, pede pra extensão do Chrome (UniGestor Automator, já instalada)
+  // baixar o M3U — o background dela roda no seu navegador de verdade, sai
+  // pelo seu IP residencial e sem CORS (host_permissions <all_urls>). Depois
+  // sobe o conteúdo pro R2 e chama a rota de sync apontando pra lá — mesmo
+  // fluxo que scripts/sync-natv-manual.js já fazia via terminal, só que
+  // clicando aqui. Cron automático pausado (cron.job.active=false) até
+  // NaTV mudar essa regra.
+  const NATV_CLIENT_ID = "f7e0b6e7-e7bb-486f-924c-5fc6704b94e9";
+
+  async function syncNaTV() {
+    setStatus((p) => ({ ...p, natv: "running" }));
+    setServerMessages((p) => ({ ...p, natv: null }));
+    try {
+      const { data: cliente, error: clienteErr } = await supabaseBrowser
+        .from("clients")
+        .select("m3u_url")
+        .eq("id", NATV_CLIENT_ID)
+        .single();
+      if (clienteErr || !cliente?.m3u_url) {
+        throw new Error("Não encontrei o m3u_url do cliente-fonte do NaTV.");
+      }
+
+      const ext = await dispatchNatvSync(cliente.m3u_url);
+      if (!ext.ok || !ext.m3uText) {
+        throw new Error(
+          ext.error ||
+            "Falha ao baixar via extensão — confira se o UniGestor Automator está instalado e ativo.",
+        );
+      }
+
+      const presignRes = await fetch("/api/upload/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: "natv_manual_upload.m3u",
+          contentType: "text/plain",
+          folder: "epg",
+        }),
+      }).then((r) => r.json());
+      if (!presignRes.presignedUrl || !presignRes.publicUrl) {
+        throw new Error("Falha ao preparar o upload pro R2.");
+      }
+      await fetch(presignRes.presignedUrl, {
+        method: "PUT",
+        body: ext.m3uText,
+        headers: { "Content-Type": "text/plain" },
+      });
+
+      const r2Key = presignRes.publicUrl.replace(
+        `${process.env.NEXT_PUBLIC_R2_DEV_URL}/`,
+        "",
+      );
+
+      const d = await fetch("/api/epg/sync-catalog/natv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromR2Key: r2Key }),
+      }).then((r) => r.json());
+      if (d.error) throw new Error(d.error);
+
+      await carregarInfo();
+      setStatus((p) => ({ ...p, natv: "ok" }));
+      const msg = `Novos títulos: ${d.novos_titulos ?? 0} · Concluído em ${d.duracao_s}s`;
+      setServerMessages((p) => ({
+        ...p,
+        natv: { text: msg, type: "success" },
+      }));
+      addToast("success", "NaTV sincronizado", msg);
+    } catch (e: any) {
+      setStatus((p) => ({ ...p, natv: "error" }));
+      setServerMessages((p) => ({
+        ...p,
+        natv: { text: e.message || "Erro desconhecido", type: "error" },
+      }));
+      addToast("error", "Falha ao sincronizar NaTV", e.message);
+    }
   }
 
   // ✅ Igual Elite/NaTV: uma chamada só. A Vercel busca o M3U através de um
