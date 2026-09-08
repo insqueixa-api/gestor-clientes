@@ -64,11 +64,21 @@ export async function POST(req: NextRequest) {
   if (baixaErr) return NextResponse.json({ ok: false, error: baixaErr.message }, { status: 500 });
 
   try {
-    await supabase.rpc("resolve_notification", {
-      p_tenant_id: tenantId,
-      p_type: "fin_vencido",
-      p_source_id: parcela.id,
-    });
+    // ✅ 08/09/2026, achado do Márcio: resolve_notification é SECURITY
+    // DEFINER e checa auth.uid() internamente — funciona chamada pelo
+    // navegador (sessão real do usuário), mas essa rota usa o client de
+    // service_role (sem JWT de usuário), então auth.uid() vem null e a
+    // função sempre falhava com NOT_AUTHORIZED (engolido pelo catch,
+    // silenciosamente). Aqui já estamos com acesso total via service_role
+    // e o tenantId já foi validado por requireAdminTenant — update direto,
+    // sem passar pela função pensada pro client autenticado do navegador.
+    await supabase
+      .from("notifications")
+      .update({ resolved_at: new Date().toISOString() })
+      .eq("tenant_id", tenantId)
+      .eq("type", "fin_vencido")
+      .eq("source_id", parcela.id)
+      .is("resolved_at", null);
   } catch {
     // best-effort
   }

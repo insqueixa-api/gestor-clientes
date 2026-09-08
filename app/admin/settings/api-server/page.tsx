@@ -1708,12 +1708,14 @@ export default function ApiServerPage() {
       {renovarGerenciaAppOpen && (
         <RenovarGerenciaAppModal
           onClose={() => setRenovarGerenciaAppOpen(false)}
-          onSuccess={() => {
+          onSuccess={(expireAccount) => {
             setRenovarGerenciaAppOpen(false);
             addToast(
               "success",
               "GerenciaApp renovado",
-              "Parcela confirmada no Financeiro Pessoal e validade atualizada.",
+              expireAccount
+                ? `Válido até ${new Date(`${expireAccount}T12:00:00`).toLocaleDateString("pt-BR")}.`
+                : "Parcela confirmada no Financeiro Pessoal.",
             );
             fetchData();
           }}
