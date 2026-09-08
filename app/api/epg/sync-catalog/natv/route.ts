@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse }   from "next/server";
 import { createClient }                from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
-import { S3Client, PutObjectCommand }  from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
 import * as Sentry from "@sentry/nextjs";
 import { limparOrfaosAposSync } from "@/lib/catalogo/limpar-orfaos";
@@ -142,39 +142,68 @@ export async function POST(req: NextRequest) {
     };
 
     // ── 2. Baixa o M3U ────────────────────────────────────────────────────────
+    // ✅ 08/09/2026: NaTV ativou um bloqueio por país (só aceita IP brasileiro
+    // de verdade — nem a Vercel nem a VM Hetzner passam, testado ao vivo).
+    // Sem proxy residencial funcional disponível (o único configurado na VM já
+    // está ocupado pela sessão do WhatsApp — "dial failed" em toda tentativa
+    // concorrente) e sem CORS liberado pelo NaTV (não dá pra baixar direto do
+    // navegador do admin), a saída é o Márcio rodar um script local (seu IP
+    // residencial de verdade) que baixa o M3U, sobe pro R2 e chama esta rota
+    // passando só a chave do R2 — ver scripts/sync-natv-manual.cjs. Cron
+    // automático pausado (cron.job.active=false) até haver uma forma
+    // automática de novo; download direto (fetch) mantido abaixo pra quando
+    // isso for reativado.
     console.log(`[CATALOG-NATV] Baixando M3U...`);
     let m3uText = "";
-    const MAX_TENTATIVAS = 3;
-    let ultimoErro: any = null;
 
-    for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+    const body = await req.json().catch(() => ({} as any));
+    const fromR2Key = typeof body?.fromR2Key === "string" ? body.fromR2Key : null;
+
+    if (fromR2Key) {
+      console.log(`[CATALOG-NATV] Lendo M3U pré-baixado do R2: ${fromR2Key}`);
       try {
-        console.log(`[CATALOG-NATV] Tentativa ${tentativa}/${MAX_TENTATIVAS}...`);
-        const resp = await fetch(m3uUrl, {
-          signal:  AbortSignal.timeout(180_000),
-          headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
-        });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        m3uText = await resp.text();
-        ultimoErro = null;
-        break; // sucesso, sai do loop
+        const obj = await s3.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: fromR2Key }));
+        m3uText = (await obj.Body?.transformToString()) || "";
+        if (!m3uText) throw new Error("Objeto vazio no R2");
       } catch (e: any) {
-        ultimoErro = e;
-        console.warn(`[CATALOG-NATV] Tentativa ${tentativa} falhou: ${e.message}`);
-        if (tentativa < MAX_TENTATIVAS) {
-          await new Promise(r => setTimeout(r, 5_000)); // espera 5s antes de tentar de novo
+        log.erro = `Falha ao ler M3U do R2 (${fromR2Key}): ${e.message}`;
+        await salvarLog(log);
+        finishCheckIn("error");
+        return NextResponse.json({ error: log.erro }, { status: 502 });
+      }
+    } else {
+      const MAX_TENTATIVAS = 3;
+      let ultimoErro: any = null;
+
+      for (let tentativa = 1; tentativa <= MAX_TENTATIVAS; tentativa++) {
+        try {
+          console.log(`[CATALOG-NATV] Tentativa ${tentativa}/${MAX_TENTATIVAS}...`);
+          const resp = await fetch(m3uUrl, {
+            signal:  AbortSignal.timeout(180_000),
+            headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
+          });
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          m3uText = await resp.text();
+          ultimoErro = null;
+          break; // sucesso, sai do loop
+        } catch (e: any) {
+          ultimoErro = e;
+          console.warn(`[CATALOG-NATV] Tentativa ${tentativa} falhou: ${e.message}`);
+          if (tentativa < MAX_TENTATIVAS) {
+            await new Promise(r => setTimeout(r, 5_000)); // espera 5s antes de tentar de novo
+          }
         }
+      }
+
+      if (ultimoErro) {
+        log.erro = `Falha ao baixar M3U após ${MAX_TENTATIVAS} tentativas: ${ultimoErro.message}`;
+        await salvarLog(log);
+        finishCheckIn("error");
+        return NextResponse.json({ error: log.erro }, { status: 502 });
       }
     }
 
-    if (ultimoErro) {
-      log.erro = `Falha ao baixar M3U após ${MAX_TENTATIVAS} tentativas: ${ultimoErro.message}`;
-      await salvarLog(log);
-      finishCheckIn("error");
-      return NextResponse.json({ error: log.erro }, { status: 502 });
-    }
-
-    log.etapas.download = { ok: true, bytes: m3uText.length };
+    log.etapas.download = { ok: true, bytes: m3uText.length, via: fromR2Key ? "r2-manual" : "direto" };
     console.log(`[CATALOG-NATV] ${m3uText.length} bytes baixados`);
 
     // ── 3. Parseia ────────────────────────────────────────────────────────────
