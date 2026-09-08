@@ -250,9 +250,18 @@ function daysUntilSP(dateOnly: string): number {
   return Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-// ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil)
-// ✅ PARA — sem dependência externa, lógica idêntica ao admin
+// ✅ PARA — usa a mesma lógica do admin (meio-dia SP + ceil) pro texto
+// ("hoje"/"amanhã"/"em X dias"), mas quem decide se JÁ venceu de verdade é o
+// horário exato (Date.now() vs o timestamp do vencimento), não o dia
+// calendário. Achado do Márcio (08/09/2026): comparar só a data fazia uma
+// assinatura que vence hoje às 14:55 continuar aparecendo verde ("ainda não
+// venceu") até a virada do dia, mesmo depois das 14:55 já terem passado.
+// Agora "vence hoje" (ainda dentro da janela) fica âmbar, e assim que o
+// minuto exato passa vira vermelho com "venceu hoje às HH:MM".
 function getTimeRemaining(vencimento: string) {
+  const targetMs = new Date(vencimento).getTime();
+  const isPastExactTime = Date.now() >= targetMs;
+
   // ✅ PARA — converte para SP antes de extrair a data
   const isoTarget = new Date(vencimento).toLocaleDateString("sv-SE", {
     timeZone: "America/Sao_Paulo",
@@ -269,21 +278,24 @@ function getTimeRemaining(vencimento: string) {
     (d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24),
   );
 
-  // Vencido
-  if (diffDays < 0) {
-    const expiredDays = Math.abs(diffDays);
-    if (expiredDays === 1)
+  const dueFormatted = new Date(vencimento).toLocaleTimeString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // Já passou o horário exato — vencido de verdade (vermelho)
+  if (isPastExactTime) {
+    if (diffDays === 0)
+      return { expired: true, text: `Assinatura venceu hoje às ${dueFormatted}` };
+    if (diffDays === -1)
       return { expired: true, text: "Assinatura venceu ontem" };
+    const expiredDays = Math.abs(diffDays);
     return { expired: true, text: `Assinatura vencida há ${expiredDays} dias` };
   }
 
-  // Vence hoje
+  // Vence hoje, mas o horário ainda não chegou (âmbar)
   if (diffDays === 0) {
-    const dueFormatted = new Date(vencimento).toLocaleTimeString("pt-BR", {
-      timeZone: "America/Sao_Paulo",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
     return {
       expired: false,
       today: true,
@@ -4153,7 +4165,9 @@ export default function RenewClient() {
                           ? "bg-amber-500/10 border-amber-500/20 text-amber-700"
                           : time?.expired
                             ? "bg-rose-500/10 border-rose-500/20 text-rose-500"
-                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                            : time?.today
+                              ? "bg-amber-500/10 border-amber-500/20 text-amber-600"
+                              : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
                       }`}
                     >
                       <div className="flex flex-wrap items-center justify-center gap-2 px-2">
@@ -5704,9 +5718,11 @@ export default function RenewClient() {
               ? "bg-amber-500/10 border-amber-500/30"
               : timeRemaining?.expired
                 ? "bg-rose-500/10 border-rose-500/20"
-                : selectedAccount.is_trial
-                  ? "bg-sky-500/10 border-sky-500/20"
-                  : "bg-emerald-500/10 border-emerald-500/20"
+                : timeRemaining?.today
+                  ? "bg-amber-500/10 border-amber-500/20"
+                  : selectedAccount.is_trial
+                    ? "bg-sky-500/10 border-sky-500/20"
+                    : "bg-emerald-500/10 border-emerald-500/20"
           }`}
         >
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
@@ -5719,9 +5735,11 @@ export default function RenewClient() {
                   ? "bg-amber-500"
                   : timeRemaining?.expired
                     ? "bg-rose-500"
-                    : selectedAccount.is_trial
-                      ? "bg-sky-500"
-                      : "bg-emerald-500"
+                    : timeRemaining?.today
+                      ? "bg-amber-500"
+                      : selectedAccount.is_trial
+                        ? "bg-sky-500"
+                        : "bg-emerald-500"
               }`}
             />
             <span
@@ -5730,9 +5748,11 @@ export default function RenewClient() {
                   ? "text-amber-600"
                   : timeRemaining?.expired
                     ? "text-rose-500"
-                    : selectedAccount.is_trial
-                      ? "text-sky-500"
-                      : "text-emerald-500"
+                    : timeRemaining?.today
+                      ? "text-amber-600"
+                      : selectedAccount.is_trial
+                        ? "text-sky-500"
+                        : "text-emerald-500"
               }`}
             >
               {selectedAccount.has_pending_manual_renewal ? (
