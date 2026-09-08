@@ -25,7 +25,7 @@ import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { getWAContextOrCron, proxyVM } from "@/lib/whatsapp/wa-context";
 import { getActiveProxyOrder } from "@/lib/proxybr";
-import { sessionHealthCheckResult, notifySessionHealthAlert, resolveSessionHealthAlert, shouldClearSessionHealthAlert } from "@/lib/whatsapp/session-health-alert";
+import { sessionHealthCheckResult, resolveSessionHealthAlert, shouldClearSessionHealthAlert } from "@/lib/whatsapp/session-health-alert";
 
 export const dynamic = "force-dynamic";
 // ✅ 02/09/2026: subiu de 30s pra 60s — o novo check do Downdetector
@@ -335,23 +335,16 @@ async function checkWhatsAppSessionErrors(req: Request): Promise<CheckResult> {
     const health = {
       libsignalErrors: Number(result.json?.libsignalErrors) || 0,
       decryptRetries: Number(result.json?.decryptRetries) || 0,
-      shouldAlert: !!result.json?.shouldAlert,
-      consecutiveWindows: Number(result.json?.consecutiveWindows) || 0,
     };
 
-    // ✅ Sino + e-mail só quando sustentado/pico alto — a gravação do card
-    // em si acontece pelo retorno normal desta função (mesmo upsert em lote
-    // de todas as outras checagens, logo abaixo em handle()).
+    // ❌ 08/09/2026: sino+e-mail daqui removido (Márcio: "essa informação é
+    // irrelevante" — ruído agregado sem contato/impacto real, ver nota em
+    // lib/whatsapp/session-health-alert.ts). A gravação do card em si
+    // continua acontecendo pelo retorno normal desta função (mesmo upsert
+    // em lote de todas as outras checagens, logo abaixo em handle()); só
+    // resolve um alerta antigo que ainda esteja aberto de antes disso.
     const { status, detail } = sessionHealthCheckResult("default", health);
-    if (health.shouldAlert) {
-      await notifySessionHealthAlert(ctx.tenantId, "default", health).catch(() => {});
-    } else if (shouldClearSessionHealthAlert(health)) {
-      // ✅ 06/09/2026, bug real achado: nada nunca resolvia esse alerta —
-      // ficava no sino pra sempre mesmo depois do erro parar de acontecer.
-      // ✅ 07/09/2026: exigia total===0 (via status "ok"), mas depois do
-      // limite de alerta subir pra 30, ruído residual normal (0-13 por
-      // janela) nunca mais batia zero exato — ficava numa "zona morta"
-      // presa. Resolve quando volta claramente normal, não só em zero.
+    if (shouldClearSessionHealthAlert(health)) {
       await resolveSessionHealthAlert(ctx.tenantId, "default").catch(() => {});
     }
 

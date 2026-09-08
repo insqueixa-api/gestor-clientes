@@ -10,24 +10,25 @@
 // checam a resposta da VM pra outras coisas — mesmo espírito do cache de
 // conectividade em disconnect-alert.ts).
 //
-// Alerta de verdade (sino+e-mail) só quando SUSTENTADO (3+ checagens
-// seguidas com erro, decidido na própria VM) ou um pico isolado alto — um
-// erro pontual costuma se autocorrigir sozinho via retry do Baileys, e
-// avisar sem ter uma ação real pra recomendar só gera alarme falso (achado
-// pelo Márcio ao receber o primeiro alerta real).
+// ❌ 08/09/2026: o sino+e-mail que existia aqui (SUSTENTADO ou pico isolado
+// alto) foi removido — contava ruído agregado sem dizer qual contato foi
+// afetado nem se algo de fato deixou de chegar (achado real: "34 erros + 0
+// pedidos de reenvio" disparou alerta num envio que teve sucesso). Ver nota
+// grande mais abaixo, onde notifySessionHealthAlert existia. Só resta o
+// card passivo do Sistema (sob consulta) + a resolução de alertas antigos
+// que ainda estejam abertos.
 import { adminSupabase } from "@/lib/api/auth";
-import { notify, resolveNotification } from "@/lib/notifications/notify";
-import { sendAdminEmail } from "@/lib/notifications/send-admin-email";
+import { resolveNotification } from "@/lib/notifications/notify";
 
+// ❌ 08/09/2026: `shouldAlert`/`consecutiveWindows`/`autoReconnectTriggered`
+// removidos do tipo — só existiam pra alimentar notifySessionHealthAlert
+// (removida acima). A VM continua calculando e usando esses valores
+// internamente pra decidir seu PRÓPRIO auto-reconnect (ver
+// getAndResetSessionHealth em sessionManager.js), só o app parou de
+// precisar deles.
 export type SessionHealthPayload = {
   libsignalErrors?: number;
   decryptRetries?: number;
-  shouldAlert?: boolean;
-  consecutiveWindows?: number;
-  // ✅ 05/09/2026, pedido do Márcio ("com toda certeza preciso"): quando
-  // sustentado, a própria VM já tenta reconectar sozinha (soft, sem QR
-  // novo) antes de avisar — ver getAndResetSessionHealth em sessionManager.js.
-  autoReconnectTriggered?: boolean;
 };
 
 // "default"/"session2" → mesmo rótulo usado em Configurações > WhatsApp
@@ -102,50 +103,20 @@ export async function upsertSessionHealthTile(sessionLabel: string, health: Sess
   }
 }
 
-// Sino + e-mail — só quando `shouldAlert` (decidido na VM: sustentado ou
-// pico alto). Best-effort, nunca lança.
-export async function notifySessionHealthAlert(tenantId: string, sessionLabel: string, health: SessionHealthPayload) {
-  if (!health.shouldAlert) return;
-
-  const libsignalErrors = Math.max(0, Number(health.libsignalErrors) || 0);
-  const decryptRetries = Math.max(0, Number(health.decryptRetries) || 0);
-  const consecutiveWindows = Math.max(0, Number(health.consecutiveWindows) || 0);
-  const humanLabel = humanSessionLabel(sessionLabel);
-
-  const detailMsg = `${libsignalErrors} erro(s) de sessão + ${decryptRetries} pedido(s) de reenvio`;
-  const durationMsg =
-    consecutiveWindows >= 3
-      ? `persistindo em ${consecutiveWindows} checagens seguidas (não se autocorrigiu sozinho)`
-      : "num pico isolado bem acima do normal";
-  // ✅ Quando a VM já tentou reconectar sozinha (auto-recuperação), a
-  // recomendação muda: não pede pra tentar "Reconectar" de novo (acabou de
-  // acontecer), só orienta escalar pro Hard Reset se persistir.
-  const actionMsg = health.autoReconnectTriggered
-    ? 'A própria sessão já tentou reconectar sozinha automaticamente. Verifique se algum cliente reclamou de não receber mensagem recentemente; se o problema voltar a acontecer logo em seguida, use "Hard Reset" em Configurações > WhatsApp (vai exigir escanear o QR de novo).'
-    : 'Verifique se algum cliente reclamou de não receber mensagem recentemente. Se sim, tente primeiro "Reconectar" em Configurações > WhatsApp; se voltar a acontecer logo em seguida, use "Hard Reset" (vai exigir escanear o QR de novo).';
-  const sourceId = sessionHealthSourceId(sessionLabel);
-
-  try {
-    await notify({
-      tenantId,
-      type: "whatsapp_erros_sessao",
-      title: "⚠️ WhatsApp — erros de sessão persistentes",
-      message: `${detailMsg} na "${humanLabel}", ${durationMsg}. ${actionMsg}`,
-      link: "/admin/settings/whatsapp",
-      sourceId,
-    });
-    await sendAdminEmail(
-      `⚠️ WhatsApp — erros de sessão persistentes (${humanLabel})`,
-      `<div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-        <p><strong>${detailMsg}</strong> na "${humanLabel}", ${durationMsg}.</p>
-        <p>Isso costuma ser o sintoma de mensagens que chegam como "Aguardando mensagem" ou vazias pro destinatário.</p>
-        <p><strong>O que fazer:</strong> ${actionMsg}</p>
-      </div>`,
-    );
-  } catch (e: any) {
-    console.error("[session-health-alert] falha ao notificar erro sustentado:", e?.message);
-  }
-}
+// ❌ 08/09/2026, removido a pedido do Márcio: esse alerta (sino+e-mail)
+// contava ruído AGREGADO de sessão (Bad MAC/Closing session) sem dizer qual
+// contato foi afetado nem se alguma mensagem de fato deixou de chegar — o
+// caso real que expôs isso foi um pico de "34 erros + 0 pedidos de reenvio"
+// disparando o alerta durante um envio que teve SUCESSO, sem nenhuma
+// mensagem realmente afetada (zero pedido de reenvio = ninguém precisou de
+// reenvio). "Informação irrelevante", nas palavras dele. Substituído de
+// vez pela escada por contato em whatsapp-service/src/sessionManager.js
+// (ESCALATION_LADDER) + notificação whatsapp_contato_persistente em
+// app/api/whatsapp/session-alert/route.ts, que só avisa quando um contato
+// específico realmente insiste (15+ pedidos de reenvio sem se resolver
+// sozinho) — aí sim com nome/número, informação acionável de verdade.
+// O card passivo em Admin > Sistema (upsertSessionHealthTile) continua de
+// pé — é informação disponível sob consulta, não um push.
 
 // Some do sino quando uma checagem volta a um nível claramente normal —
 // chamar sempre que shouldClearSessionHealthAlert() der true, nos dois
@@ -160,14 +131,13 @@ export async function resolveSessionHealthAlert(tenantId: string, sessionLabel: 
 }
 
 // Usado pelos 3 envios reais (envio_agora/envio_programado/envio_avulso) —
-// combina os dois de uma vez, já que ali não existe nenhum outro mecanismo
-// de upsert em lote pra reaproveitar.
+// atualiza o card passivo do Sistema e resolve o alerta antigo se ele ainda
+// estiver aberto de antes de 08/09/2026 (não cria mais nenhum novo — ver
+// nota acima de notifySessionHealthAlert, removida).
 export async function reportSessionHealthFromSend(tenantId: string, sessionLabel: string, health: SessionHealthPayload | null | undefined) {
   if (!health) return;
   await upsertSessionHealthTile(sessionLabel, health);
   if (shouldClearSessionHealthAlert(health)) {
     await resolveSessionHealthAlert(tenantId, sessionLabel);
-  } else {
-    await notifySessionHealthAlert(tenantId, sessionLabel, health);
   }
 }

@@ -8,6 +8,9 @@ type NotificationType =
   | "whatsapp_falha"
   | "whatsapp_desconectado"
   | "whatsapp_hard_reset"
+  // ❌ 08/09/2026: não é mais criada (ver lib/whatsapp/session-health-alert.ts)
+  // — só segue no union pra resolveNotification conseguir fechar alertas
+  // antigos que ainda estejam abertos de antes da remoção.
   | "whatsapp_erros_sessao"
   | "whatsapp_contato_persistente"
   | "automacao_falha"
