@@ -2235,6 +2235,18 @@ function ClientePageContent() {
                           const diff = getDiffDays(r.dueISODate);
                           let label: string = r.status;
 
+                          // ✅ 08/09/2026, pedido do Márcio: diff (dias de
+                          // calendário) não basta pra distinguir "ainda não
+                          // venceu hoje" de "já venceu hoje" — o status vindo
+                          // do banco (r.status) já vira "Vencido" no dia
+                          // inteiro, mesmo antes do horário exato passar.
+                          // Usa o timestamp completo (rawVencimento) como
+                          // fonte de verdade só pro caso diff===0; nos outros
+                          // dias o próprio diff já é inequívoco.
+                          const isPastExactTime = r.rawVencimento
+                            ? Date.now() >= new Date(r.rawVencimento).getTime()
+                            : diff < 0;
+
                           // 1. A sua regra exata de cálculo de dias
                           let textDiff = "";
                           // ✅ 05/09/2026: mesmo contador de dias, só a
@@ -2248,7 +2260,8 @@ function ClientePageContent() {
                                 : `Venceu há ${Math.abs(diff)} dias`;
                           else if (diff === -2) textDiff = "Venceu há 2 dias";
                           else if (diff === -1) textDiff = "Venceu Ontem";
-                          else if (diff === 0) textDiff = "Vence Hoje";
+                          else if (diff === 0)
+                            textDiff = isPastExactTime ? "Venceu Hoje" : "Vence Hoje";
                           else if (diff === 1) textDiff = "Vence Amanhã";
                           else if (diff === 2) textDiff = "Vence em 2 dias";
                           else if (diff > 2)
@@ -2264,19 +2277,22 @@ function ClientePageContent() {
                             label = textDiff || label;
                           }
 
-                          // 3. Lógica de Cor
+                          // 3. Lógica de Cor — pro dia de hoje, quem manda é
+                          // isPastExactTime, não r.status (que só enxerga o
+                          // dia inteiro, não o horário).
                           let colorTone: "green" | "red" | "amber" | "blue" =
                             "blue";
 
-                          if (r.status === "Vencido") {
-                            colorTone = "red";
-                          } else if (r.status === "Ativo") {
-                            if (diff === 0) colorTone = "amber";
-                            else colorTone = "green";
-                          } else if (r.status === "Arquivado") {
+                          if (r.status === "Arquivado") {
                             colorTone = "red"; // Mantém vermelho para alerta de exclusão
-                          } else {
+                          } else if (r.status === "Teste") {
                             colorTone = "blue";
+                          } else if (diff === 0) {
+                            colorTone = isPastExactTime ? "red" : "amber";
+                          } else if (r.status === "Vencido") {
+                            colorTone = "red";
+                          } else {
+                            colorTone = "green";
                           }
 
                           return (
