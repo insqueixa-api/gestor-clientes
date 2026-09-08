@@ -121,6 +121,7 @@ type TrialRow = {
   dueISODate: string;
   dueLabelDate: string;
   dueTime: string;
+  rawVencimento?: string | null; // ✅ Timestamp original completo (ver cliente/page.tsx)
   planPeriod: string;
   rawPlanName: string;
   valueCents: number;
@@ -261,6 +262,7 @@ function mapVwTrialRow(r: VwClientRow): TrialRow {
     dueISODate: due.dueISODate,
     dueLabelDate: due.dueLabelDate,
     dueTime: due.dueTime,
+    rawVencimento: r.vencimento,
 
     planPeriod: extractPeriod(String(r.plan_name ?? "—")),
     rawPlanName: String(r.plan_name ?? "—"),
@@ -1868,12 +1870,23 @@ export default function TrialsPage() {
                           let label = r.status as string;
                           let tone: "green" | "red" | "amber" | "blue" = "blue";
 
+                          // ✅ 08/09/2026, mesmo fix de cliente/page.tsx: diff
+                          // (dia de calendário) não distingue "ainda não
+                          // venceu hoje" de "já venceu hoje" — usa o
+                          // timestamp completo pra decidir só esse caso.
+                          const isPastExactTime = r.rawVencimento
+                            ? Date.now() >= new Date(r.rawVencimento).getTime()
+                            : diff < 0;
+
                           if (r.status === "Arquivado") {
                             label =
                               diff < 0
                                 ? `Lixeira (Venceu há ${Math.abs(diff)}d)`
                                 : "Lixeira";
                             tone = "red";
+                          } else if (diff === 0) {
+                            label = isPastExactTime ? "Venceu Hoje" : "Vence Hoje";
+                            tone = isPastExactTime ? "red" : "amber";
                           } else if (r.status === "Vencido") {
                             if (diff === -1) label = "Venceu Ontem";
                             else if (diff === -2) label = "Venceu há 2 dias";
@@ -1881,10 +1894,7 @@ export default function TrialsPage() {
                               label = `Venceu há ${Math.abs(diff)} dias`;
                             tone = "red";
                           } else {
-                            if (diff === 0) {
-                              label = "Vence Hoje";
-                              tone = "amber";
-                            } else if (diff === 1) {
+                            if (diff === 1) {
                               label = "Vence Amanhã";
                               tone = "green";
                             } else if (diff === 2) {
