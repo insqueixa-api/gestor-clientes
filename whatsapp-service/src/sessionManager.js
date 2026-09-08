@@ -69,11 +69,18 @@ const processedCalls = new Map();
 // uma sessão nova sozinho (assertSessions com force=true, ver messages-recv.js
 // da própria lib) — mas pra saber O QUE reenviar ele chama `getMessage`, que
 // aqui só devolvia texto vazio (só reparava a sessão, nunca entregava o
-// conteúdo de verdade). Guarda o conteúdo de cada envio por 10min (tempo de
-// sobra pro retry, que costuma vir em segundos) pra `getMessage` conseguir
-// devolver a mensagem real quando pedirem de novo.
+// conteúdo de verdade). Guarda o conteúdo de cada envio em memória (nunca em
+// disco — pedido do Márcio, não guardar pra sempre) pra `getMessage`
+// conseguir devolver a mensagem real quando pedirem de novo.
+// ✅ 07/09/2026, revisado contra o código-fonte real do Baileys: o projeto
+// sobrescreve `maxMsgRetryCount` da lib (padrão 5) pra 15 — ou seja, uma
+// retentativa tardia é esperada (o aparelho do cliente controla o
+// espaçamento entre pedidos, pode crescer com backoff). 10min era curto
+// demais pra isso: um pedido depois desse prazo recebia mensagem vazia em
+// vez do conteúdo real. 1h ainda soma da memória rápido, mas cobre a
+// maioria das retentativas tardias.
 const sentMessagesCache = new Map();
-const SENT_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+const SENT_CACHE_MAX_AGE_MS = 60 * 60 * 1000;
 
 function rememberSentMessage(id, content) {
   if (!id) return;
