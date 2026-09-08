@@ -249,30 +249,20 @@ export default function ModalCatalogo({ onClose }: { onClose: () => void }) {
     }
   }
 
-  async function syncNaTV() {
-    setStatus((p) => ({ ...p, natv: "running" }));
-    setServerMessages((p) => ({ ...p, natv: null }));
-    try {
-      const d = await fetch("/api/epg/sync-catalog/natv", {
-        method: "POST",
-      }).then((r) => r.json());
-      if (d.error) throw new Error(d.error);
-      await carregarInfo();
-      setStatus((p) => ({ ...p, natv: "ok" }));
-      const msg = `Novos títulos: ${d.novos_titulos ?? 0} · Concluído em ${d.duracao_s}s`;
-      setServerMessages((p) => ({
-        ...p,
-        natv: { text: msg, type: "success" },
-      }));
-      addToast("success", "NaTV sincronizado", msg);
-    } catch (e: any) {
-      setStatus((p) => ({ ...p, natv: "error" }));
-      setServerMessages((p) => ({
-        ...p,
-        natv: { text: e.message || "Erro desconhecido", type: "error" },
-      }));
-      addToast("error", "Falha ao sincronizar NaTV", e.message);
-    }
+  // ✅ 08/09/2026: NaTV bloqueou qualquer IP não-brasileiro (nem Vercel nem a
+  // VM Hetzner passam) — clicar aqui nunca vai funcionar mais, então nem
+  // tenta a chamada (evita o 403 confuso). Sync precisa rodar local, no PC
+  // de alguém no Brasil: `node scripts/sync-natv-manual.js` na raiz do repo.
+  // Cron automático pausado (cron.job.active=false) até isso mudar.
+  function syncNaTV() {
+    setStatus((p) => ({ ...p, natv: "error" }));
+    setServerMessages((p) => ({
+      ...p,
+      natv: {
+        text: "NaTV bloqueia IP fora do Brasil — não dá mais pra sincronizar por aqui. Rode `node scripts/sync-natv-manual.js` no seu PC.",
+        type: "error",
+      },
+    }));
   }
 
   // ✅ Igual Elite/NaTV: uma chamada só. A Vercel busca o M3U através de um

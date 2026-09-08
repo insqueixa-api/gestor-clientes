@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/auditoria/page.tsx
-import { X, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, Download, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -966,6 +966,45 @@ function AuditoriaPageContent() {
       loadData();
     } catch (e: any) {
       addToast("error", "Erro ao cancelar", e.message);
+    }
+  };
+
+  // ✅ NOVO (08/09/2026): lixeira — apaga um registro específico do log
+  // (pedido do Márcio: testes de pagamento que ele mesmo faz e não paga
+  // ficavam poluindo a Auditoria pra sempre, sem forma de limpar pela tela).
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const handleDeletarRegistro = async (log: LogRow) => {
+    if (!tenantId) return;
+
+    const ok = await confirm({
+      title: "Apagar este registro?",
+      subtitle: "Remove esta linha da Auditoria pra sempre — não afeta o cliente nem a assinatura dele.",
+      tone: "rose",
+      icon: "🗑️",
+      details: [`Cliente: ${log.client_name}`, `Valor: ${fmtMoney(log.price_amount, log.price_currency)}`],
+      confirmText: "Sim, apagar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+
+    setDeletingId(log.id);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      const res = await fetch("/api/admin/payments/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ payment_id: log.id }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(result?.error || "Falha ao apagar.");
+
+      addToast("success", "Registro apagado", "");
+      loadData();
+    } catch (e: any) {
+      addToast("error", "Erro ao apagar", e.message);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -2115,6 +2154,16 @@ function AuditoriaPageContent() {
                                     —
                                   </span>
                                 )}
+
+                                {/* ✅ NOVO (08/09/2026): lixeira — apaga o registro, sempre disponível */}
+                                <button
+                                  onClick={() => handleDeletarRegistro(r)}
+                                  disabled={deletingId === r.id}
+                                  className="p-1.5 bg-muted/40 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 rounded-lg transition-colors border border-border hover:border-rose-500/30 shadow-sm disabled:opacity-50"
+                                  title="Apagar este registro"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             </td>
                           </tr>
