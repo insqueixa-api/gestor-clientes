@@ -397,7 +397,20 @@ const ESCALATION_LADDER = [3, 5, 7, 10, 15];
 // Esquece contagem/degrau se não pintar NENHUM pedido de reenvio novo
 // desse contato por um tempo — sem isso, 1 pedido de meses atrás somava
 // com pedidos de hoje sem relação nenhuma entre si.
-const CONTACT_RETRY_RESET_WINDOW_MS = 10 * 60 * 1000;
+// ⚠️ 07/09/2026, revisado contra o código-fonte real do Baileys (não só
+// suposição): `maxMsgRetryCount: 15` acima (já configurado antes desta
+// escada) faz o próprio Baileys aceitar até 15 pedidos de reenvio da
+// MESMA mensagem antes de desistir dela (padrão da lib é só 5) — então
+// UMA mensagem só já pode, em tese, alimentar a escada inteira. Mas o
+// espaçamento REAL entre esses pedidos é controlado pelo aparelho do
+// cliente (não por nós) e pode crescer com backoff, sem garantia de caber
+// em poucos minutos. Uma janela curta arriscava zerar o nível bem no meio
+// de um caso genuinamente crônico, matando o degrau final (15/aviso no
+// sino) antes dele existir de verdade — por isso 24h (folgado o
+// suficiente pra um dia inteiro de tentativas do mesmo contato, incluindo
+// lembretes reenviados em dias diferentes; ainda limpa sozinho contatos
+// realmente resolvidos há muito tempo).
+const CONTACT_RETRY_RESET_WINDOW_MS = 24 * 60 * 60 * 1000;
 const contactRetryState = new Map(); // contactKey -> { count, level, lastAt }
 
 function resolveContactDigits(sessionKey, remoteJid) {
