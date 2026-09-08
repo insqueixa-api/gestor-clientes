@@ -30,6 +30,10 @@ const RecargaDuplecastModal = dynamic(
   () => import("./recarga_duplecast_modal"),
   { ssr: false },
 );
+const RenovarGerenciaAppModal = dynamic(
+  () => import("./renovar_gerenciaapp_modal"),
+  { ssr: false },
+);
 
 type IntegrationRow = {
   id: string;
@@ -65,6 +69,9 @@ type AppIntegration = {
   icon_url?: string | null;
   is_active: boolean;
   created_at: string;
+  // ✅ GERENCIAAPP (08/09/2026): validade da conta master, lida do painel
+  // deles via sync-validade — ver app/api/admin/gerenciaapp/sync-validade.
+  extra_config?: { expire_account?: string | null; last_sync_at?: string | null } | null;
 };
 
 // ✅ "Parceiros" (24/08/2026) — terceira categoria, separada de aplicativo
@@ -118,6 +125,12 @@ export default function ApiServerPage() {
   const toggleGroup = (groupName: string) =>
     setCollapsedGroups((prev) => ({ ...prev, [groupName]: !prev[groupName] }));
   const [appList, setAppList] = useState<AppIntegration[]>([]);
+  // ✅ GERENCIAAPP (08/09/2026, pedido do Márcio): visualmente vive no grupo
+  // Parceiros agora (tem validade/renovação, igual Appativa/Duplecast) —
+  // continua gravado em app_integrations (a rota de create/delete/renew de
+  // cliente depende desse nome de tabela), só a exibição muda de grupo.
+  const gerenciaAppRow = appList.find((a) => a.app_name === "GERENCIAAPP") ?? null;
+  const appListSemParceiros = appList.filter((a) => a.app_name !== "GERENCIAAPP");
   const [editingApp, setEditingApp] = useState<AppIntegration | null>(null);
   const [showTypeChooser, setShowTypeChooser] = useState(false);
   const [isModalAppOpen, setIsModalAppOpen] = useState(false);
@@ -133,6 +146,9 @@ export default function ApiServerPage() {
     useState<PartnerIntegration | null>(null);
   const [recargaDuplecastFor, setRecargaDuplecastFor] =
     useState<PartnerIntegration | null>(null);
+  const [renovarGerenciaAppOpen, setRenovarGerenciaAppOpen] = useState(false);
+  const [syncingValidadeGerenciaApp, setSyncingValidadeGerenciaApp] =
+    useState(false);
 
   // ✅ Logo dos servidores: HERDADA de `servers.logo_url` por padrão, mas
   // agora também pode ter upload próprio aqui (achado 26/08/2026, pedido do
@@ -645,6 +661,29 @@ export default function ApiServerPage() {
     }
   }
 
+  // ✅ GERENCIAAPP (08/09/2026): lê a validade real da conta master no
+  // painel deles e grava em extra_config — ver
+  // app/api/admin/gerenciaapp/sync-validade.
+  async function handleSyncValidadeGerenciaApp() {
+    setSyncingValidadeGerenciaApp(true);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch("/api/admin/gerenciaapp/sync-validade", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) throw new Error(json?.error || "Falha ao sincronizar.");
+      addToast("success", "Validade sincronizada", "");
+      fetchData();
+    } catch (e: any) {
+      addToast("error", "Erro ao sincronizar validade", e?.message ?? "Falha.");
+    } finally {
+      setSyncingValidadeGerenciaApp(false);
+    }
+  }
+
   function partnerLabel(p: string) {
     const u = String(p || "").toUpperCase();
     if (u === "APPATIVA") return "Appativa";
@@ -1010,17 +1049,17 @@ export default function ApiServerPage() {
       <CollapsibleSection
         icon="🤝"
         label="Parceiros"
-        count={partnerList.length}
+        count={partnerList.length + (gerenciaAppRow ? 1 : 0)}
         collapsed={!!collapsedGroups.parceiros}
         onToggle={() => toggleGroup("parceiros")}
       >
         <>
-          {!loading && partnerList.length === 0 && (
+          {!loading && partnerList.length === 0 && !gerenciaAppRow && (
             <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
               Nenhum parceiro cadastrado.
             </div>
           )}
-          {!loading && partnerList.length > 0 && (
+          {!loading && (partnerList.length > 0 || gerenciaAppRow) && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
               {partnerList.map((row) => (
                 <div
@@ -1244,6 +1283,174 @@ export default function ApiServerPage() {
                   </div>
                 </div>
               ))}
+
+              {/* ✅ GERENCIAAPP (08/09/2026): vive em app_integrations, mas
+                  exibido aqui no grupo Parceiros — tem validade/renovação
+                  igual Appativa/Duplecast, ao contrário dos outros apps
+                  (que só configuram dispositivo do cliente). */}
+              {gerenciaAppRow && (
+                <div className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30">
+                  <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
+                    <div className="flex items-center gap-2 min-w-0 pr-3">
+                      <div
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) handleAppIconUpload(gerenciaAppRow, file);
+                        }}
+                        onPaste={(e) => {
+                          const file = Array.from(e.clipboardData.files).find((f) =>
+                            f.type.startsWith("image/"),
+                          );
+                          if (file) handleAppIconUpload(gerenciaAppRow, file);
+                        }}
+                        onClick={() =>
+                          appIconFileInputs.current[gerenciaAppRow.id]?.click()
+                        }
+                        tabIndex={0}
+                        title="Clique, arraste ou cole (Ctrl+V) uma imagem"
+                        className="relative w-7 h-7 rounded-lg border border-dashed border-border shrink-0 flex items-center justify-center cursor-pointer hover:border-emerald-500/50 transition-colors overflow-hidden"
+                      >
+                        {uploadingIconFor === gerenciaAppRow.id ? (
+                          <span className="text-[9px] text-muted-foreground animate-pulse">
+                            ...
+                          </span>
+                        ) : gerenciaAppRow.icon_url ? (
+                          <img
+                            src={gerenciaAppRow.icon_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-sm">🤝</span>
+                        )}
+                        <input
+                          ref={(el) => {
+                            appIconFileInputs.current[gerenciaAppRow.id] = el;
+                          }}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleAppIconUpload(gerenciaAppRow, f);
+                            e.target.value = "";
+                          }}
+                        />
+                      </div>
+                      <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
+                        {gerenciaAppRow.label}
+                      </h2>
+                      <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                        {appLabel(gerenciaAppRow.app_name)}
+                      </span>
+                      {!gerenciaAppRow.is_active && (
+                        <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                          Inativa
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <IconActionBtn
+                        title="Renovar"
+                        tone="green"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenovarGerenciaAppOpen(true);
+                        }}
+                      >
+                        <IconMoney />
+                      </IconActionBtn>
+                      <IconActionBtn
+                        title="Sincronizar validade"
+                        tone="blue"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSyncValidadeGerenciaApp();
+                        }}
+                      >
+                        {syncingValidadeGerenciaApp ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <IconSync />
+                        )}
+                      </IconActionBtn>
+                      <IconActionBtn
+                        title="Editar"
+                        tone="amber"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingApp(gerenciaAppRow);
+                          setIsModalAppOpen(true);
+                        }}
+                      >
+                        <IconEdit />
+                      </IconActionBtn>
+                      <IconActionBtn
+                        title={gerenciaAppRow.is_active ? "Desativar" : "Ativar"}
+                        tone={gerenciaAppRow.is_active ? "red" : "green"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAppToggle(gerenciaAppRow);
+                        }}
+                      >
+                        {gerenciaAppRow.is_active ? <IconPause /> : <IconPlay />}
+                      </IconActionBtn>
+                      <IconActionBtn
+                        title="Remover"
+                        tone="red"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAppDelete(gerenciaAppRow);
+                        }}
+                      >
+                        <IconTrash />
+                      </IconActionBtn>
+                    </div>
+                  </div>
+                  <div className="p-4 sm:p-5 text-sm space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">📅 Validade</span>
+                      <span
+                        className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
+                          gerenciaAppRow.extra_config?.expire_account
+                            ? "text-emerald-500 bg-emerald-500/10"
+                            : "text-muted-foreground bg-muted"
+                        }`}
+                      >
+                        {gerenciaAppRow.extra_config?.expire_account
+                          ? new Date(`${gerenciaAppRow.extra_config.expire_account}T12:00:00`).toLocaleDateString("pt-BR")
+                          : "-- (sincronizar)"}
+                      </span>
+                    </div>
+                    {gerenciaAppRow.api_url && (
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-muted-foreground shrink-0">
+                          🔗 URL
+                        </span>
+                        <a
+                          href={gerenciaAppRow.api_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-sky-500 hover:underline truncate max-w-[200px]"
+                          title={gerenciaAppRow.api_url}
+                        >
+                          {gerenciaAppRow.api_url.replace(/^https?:\/\//, "")}
+                        </a>
+                      </div>
+                    )}
+                    {gerenciaAppRow.login_email && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">📧 Login</span>
+                        <span className="font-medium text-foreground/90">
+                          {gerenciaAppRow.login_email}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -1252,19 +1459,19 @@ export default function ApiServerPage() {
       <CollapsibleSection
         icon="📱"
         label="Aplicativos"
-        count={appList.length}
+        count={appListSemParceiros.length}
         collapsed={!!collapsedGroups.aplicativos}
         onToggle={() => toggleGroup("aplicativos")}
       >
         <>
-          {!loading && appList.length === 0 && (
+          {!loading && appListSemParceiros.length === 0 && (
             <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
               Nenhuma integração de aplicativo cadastrada.
             </div>
           )}
-          {!loading && appList.length > 0 && (
+          {!loading && appListSemParceiros.length > 0 && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
-              {appList.map((row) => (
+              {appListSemParceiros.map((row) => (
                 <div
                   key={row.id}
                   className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
@@ -1492,6 +1699,21 @@ export default function ApiServerPage() {
               "success",
               "Recarga registrada",
               "Despesa lançada no Financeiro Pessoal e saldo sincronizado.",
+            );
+            fetchData();
+          }}
+          onError={(msg) => addToast("error", "Erro", msg)}
+        />
+      )}
+      {renovarGerenciaAppOpen && (
+        <RenovarGerenciaAppModal
+          onClose={() => setRenovarGerenciaAppOpen(false)}
+          onSuccess={() => {
+            setRenovarGerenciaAppOpen(false);
+            addToast(
+              "success",
+              "GerenciaApp renovado",
+              "Parcela confirmada no Financeiro Pessoal e validade atualizada.",
             );
             fetchData();
           }}
