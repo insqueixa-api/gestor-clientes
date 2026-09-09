@@ -502,6 +502,13 @@ export async function findEligibleCoupon(params: {
     if (coupon.starts_at && new Date(coupon.starts_at) > now) continue;
     if (coupon.ends_at && new Date(coupon.ends_at) < now) continue;
 
+    // ✅ 09/09/2026: cupom pessoal restrito a um app (target_app_names) só
+    // vale no pagamento avulso daquele app (findEligibleAppCoupon) — esta
+    // função é sempre sobre a ASSINATURA (mensagem automática, prévia de
+    // impacto, card "Cupons elegíveis"), nunca deve considerar/anunciar um
+    // cupom que na verdade só serve pra renovar um app específico.
+    if (coupon.client_id && coupon.target_app_names?.length) continue;
+
     // Cupom pessoal não usa regra de segmentação, preço override, nem a
     // regra "1 uso pra sempre" — só is_active decide (autodesativa ao ser
     // resgatado, reativado manualmente).
@@ -803,6 +810,18 @@ export async function validateCouponForCharge(params: {
   if (isPersonal) {
     const linkedIds = await resolveLinkedClientIds(supabaseAdmin, tenantId, clientRow);
     if (!linkedIds.includes(coupon.client_id)) {
+      return { ok: false, reason: "Cupom inválido ou inativo." };
+    }
+
+    // ✅ 09/09/2026, achado do Márcio: cupom pessoal com target_app_names
+    // preenchido (ex: só CLOUDDY) valia aqui também pra assinatura, porque
+    // matchesTargeting (que checa target_app_names) só roda pro ramo
+    // GERAL abaixo — cupom pessoal nunca passava por essa checagem. Essa
+    // função só é chamada pelo fluxo de ASSINATURA (create-payment/
+    // validate-coupon); cupom pessoal restrito a um app só pode valer no
+    // pagamento avulso daquele app (findEligibleAppCoupon,
+    // apps/renew-payment), nunca aqui.
+    if (coupon.target_app_names?.length) {
       return { ok: false, reason: "Cupom inválido ou inativo." };
     }
   }
