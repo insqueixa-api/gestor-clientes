@@ -928,6 +928,15 @@ export default function RenewClient() {
     setSelectedAppRenewalIds((prev) =>
       prev.includes(appId) ? prev.filter((id) => id !== appId) : [...prev, appId],
     );
+    // ✅ 09/09/2026, achado do Márcio: um cupom validado (ex: pessoal
+    // restrito a um app) ficava aplicado na tela mesmo depois de
+    // desmarcar/marcar um app — o create-payment corretamente revalidava e
+    // rejeitava na hora de cobrar de verdade (nenhum valor errado foi
+    // cobrado), mas a TELA continuava mostrando o desconto antigo, product
+    // confuso/enganoso. Mudou a seleção de apps → limpa o cupom aplicado,
+    // obriga reaplicar (o botão "Aplicar" já reenvia com a seleção atual).
+    setAppliedCoupon(null);
+    setCouponError(null);
   }
 
   const selectedAppRenewalTotal = useMemo(() => {
