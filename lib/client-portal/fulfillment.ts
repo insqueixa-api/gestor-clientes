@@ -1048,15 +1048,17 @@ export async function resolveAppativaAppRenewal(
   const daysForward = dateOnly ? (new Date(`${dateOnly}T23:59:59`).getTime() - Date.now()) / MS_PER_DAY : -1;
 
   if (!dateOnly || daysForward < APPATIVA_MIN_DAYS_FORWARD) {
-    await supabaseAdmin
-      .from("client_portal_payments")
-      .update({
-        fulfillment_error:
-          "Appativa confirmou a ativação, mas o vencimento devolvido não bateu com o esperado (renovação anual/vitalícia). Verifique e conclua manualmente.",
-      })
-      .eq("id", payment.id)
-      .eq("tenant_id", tenantId);
-    return { outcome: "error" };
+    // ✅ 09/09/2026, mesmo bug real achado do lado do admin (ver
+    // lib/apps/appativa-client-activation.ts): esse "vencimento não bate"
+    // normalmente é só o lado da Appativa ainda propagando o dado certo
+    // (status já veio ativado/aprovado) — não uma rejeição de verdade.
+    // Antes isso virava "error" permanente (fulfillment_error salvo, some
+    // do Log do Portal como resolvido manualmente) mesmo quando a tentativa
+    // seguinte, minutos depois, teria confirmado certinho. "pending" deixa
+    // o próprio retry automático (5s x 1min) e o "Ver status"/webhook
+    // tentarem de novo — appativa_historico_id nunca é apagado nesse
+    // caminho, então nada se perde.
+    return { outcome: "pending" };
   }
 
   // ✅ Persiste o vencimento confirmado em client_apps.field_values (mesmo

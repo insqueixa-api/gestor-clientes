@@ -72,10 +72,18 @@ export async function checkAppativaHistoricoOnce(
   const dateOnly = extractDateOnly(rawExpire);
   const daysForward = dateOnly ? (new Date(`${dateOnly}T23:59:59`).getTime() - Date.now()) / MS_PER_DAY : -1;
   if (!dateOnly || daysForward < APPATIVA_MIN_DAYS_FORWARD) {
-    return {
-      outcome: "error",
-      error: "Appativa confirmou a ativação, mas o vencimento devolvido não bateu com o esperado (renovação anual/vitalícia). Verifique manualmente.",
-    };
+    // ✅ 09/09/2026, bug real achado pelo Márcio (Ninja Plus, ativou de
+    // verdade na Appativa — vencimento 09/09/2027 — mas nosso sistema
+    // desistiu antes disso e apagou o historicoId, perdendo o rastro pra
+    // sempre): esse "vencimento não bate" costuma ser o LADO DELES ainda
+    // não ter terminado de propagar o dado certo (o status já veio
+    // ativado/aprovado, só o campo de data que ainda está provisório/curto)
+    // — não é uma rejeição de verdade. Tratar como "pending" (não "error")
+    // deixa o próprio mecanismo de retry (aqui embaixo, mesma janela) e o
+    // "Ver status" manual tentarem de novo mais tarde, SEM apagar o
+    // historicoId — antes isso descartava a ativação de vez, mesmo ela
+    // tendo dado certo minutos depois do lado da Appativa.
+    return { outcome: "pending" };
   }
   return { outcome: "done", expireDate: dateOnly };
 }
