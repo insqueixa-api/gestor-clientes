@@ -12,7 +12,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 
-function IconSparkle({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+function IconSparkle({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <path
@@ -25,7 +25,7 @@ function IconSparkle({ className = "w-4 h-4 shrink-0" }: { className?: string })
   );
 }
 
-function IconExternalLink({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+function IconExternalLink({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <path
@@ -37,7 +37,7 @@ function IconExternalLink({ className = "w-4 h-4 shrink-0" }: { className?: stri
   );
 }
 
-function IconCheckCircle({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+function IconCheckCircle({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -45,7 +45,7 @@ function IconCheckCircle({ className = "w-4 h-4 shrink-0" }: { className?: strin
   );
 }
 
-function IconTrash({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+function IconTrash({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <path
@@ -57,7 +57,7 @@ function IconTrash({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
   );
 }
 
-function IconMoney({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+function IconMoney({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <circle cx="12" cy="12" r="9" strokeLinecap="round" strokeLinejoin="round" />
@@ -66,7 +66,7 @@ function IconMoney({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
   );
 }
 
-function IconZap({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+function IconZap({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <path strokeLinecap="round" strokeLinejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
@@ -74,7 +74,7 @@ function IconZap({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
   );
 }
 
-function IconGift({ className = "w-4 h-4 shrink-0" }: { className?: string }) {
+function IconGift({ className = "w-3.5 h-3.5 shrink-0" }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
       <path
@@ -174,13 +174,13 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => setShowReconfigure(true)}
             disabled={loading}
-            className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+            className="h-9 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-[11px] font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
             title="Configura TV + VOD com o M3U do cliente e pega o vencimento"
           >
-            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconSparkle />}
+            {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconSparkle />}
             Configurar
           </button>
-          <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
+          <div className="h-9 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
             <button
               type="button"
               onClick={onOpenPanel}
@@ -197,17 +197,17 @@ export default function AppIntegrationActions({
               className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors flex items-center justify-center"
               title="Verificar vencimento (sem mexer em TV/VOD)"
             >
-              {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconCheckCircle />}
+              {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconCheckCircle />}
             </button>
           </div>
           <button
             type="button"
             onClick={() => onClouddyDelete()}
             disabled={loading}
-            className="h-10 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+            className="h-9 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white text-[11px] font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
             title="Remove TV + VOD"
           >
-            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconTrash />}
+            {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconTrash />}
             Remover
           </button>
         </div>
@@ -240,10 +240,10 @@ export default function AppIntegrationActions({
           type="button"
           onClick={() => onCheckAppativaStatus()}
           disabled={loading}
-          className="w-full h-10 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+          className="w-full h-9 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-[11px] font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
           title="Ativação em andamento — consulta o status agora na Appativa"
         >
-          {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
+          {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconZap />}
           Ver status
         </button>
       );
@@ -253,10 +253,10 @@ export default function AppIntegrationActions({
         type="button"
         onClick={() => onActivateAppativa()}
         disabled={loading}
-        className="w-full h-10 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+        className="w-full h-9 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white text-[11px] font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
         title="Solicita a ativação/renovação da licença via Appativa"
       >
-        {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
+        {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconZap />}
         Ativar via Appativa
       </button>
     );
@@ -290,16 +290,16 @@ export default function AppIntegrationActions({
           type="button"
           onClick={() => setShowReconfigure(true)}
           disabled={loading}
-          className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+          className="h-9 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:opacity-60 text-white text-[11px] font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
           title="Enviar dados para o painel"
         >
-          {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconSparkle />}
+          {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconSparkle />}
           <span className="hidden sm:inline">Configurar m3u</span>
           <span className="sm:hidden">Configurar</span>
         </button>
 
         {canCheckVencimento ? (
-          <div className="h-10 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
+          <div className="h-9 rounded-lg border border-border overflow-hidden flex divide-x divide-border">
             <button
               type="button"
               onClick={onOpenPanel}
@@ -316,7 +316,7 @@ export default function AppIntegrationActions({
               className="flex-1 bg-transparent text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-60 transition-colors flex items-center justify-center"
               title="Verificar vencimento no painel"
             >
-              {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconCheckCircle />}
+              {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconCheckCircle />}
             </button>
           </div>
         ) : (
@@ -324,11 +324,11 @@ export default function AppIntegrationActions({
             type="button"
             onClick={onOpenPanel}
             disabled={loading}
-            className="h-10 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            className="h-9 rounded-lg bg-transparent border border-border text-muted-foreground hover:bg-muted disabled:opacity-60 transition-colors flex items-center justify-center gap-1"
             title="Abrir painel no navegador"
           >
             <IconExternalLink />
-            <span className="hidden sm:inline text-xs font-medium">Painel</span>
+            <span className="hidden sm:inline text-[11px] font-medium">Painel</span>
           </button>
         )}
 
@@ -337,10 +337,10 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onMarkGpcRokuPaid!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
+            className="h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
             title="Cliente pagou por fora do Portal — marca como pago, validade de 10 anos"
           >
-            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
+            {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconMoney />}
             <span className="hidden sm:inline">Marcar pago</span>
           </button>
         )}
@@ -350,10 +350,10 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onRenewDuplecast!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
+            className="h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
             title="Consome 1 código real da conta de revenda pra renovar esse device agora"
           >
-            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
+            {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconMoney />}
             <span className="hidden sm:inline">Renovar Duplecast</span>
           </button>
         )}
@@ -363,10 +363,10 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onFreeRenewGerenciaApp!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
+            className="h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
             title="Estende o vencimento em +1 ano no painel do parceiro, sem cobrar nada"
           >
-            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconGift />}
+            {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconGift />}
             <span className="hidden sm:inline">Renovar Grátis</span>
           </button>
         )}
@@ -376,10 +376,10 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onCheckAppativaStatus()}
             disabled={loading}
-            className="h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
+            className="h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
             title="Ativação em andamento — consulta o status agora na Appativa"
           >
-            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
+            {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconZap />}
             <span className="hidden sm:inline">Ver status</span>
           </button>
         )}
@@ -389,10 +389,10 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onActivateAppativa!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
+            className="h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
             title="Solicita a ativação/renovação da licença via Appativa"
           >
-            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
+            {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconZap />}
             <span className="hidden sm:inline">Ativar Appativa</span>
           </button>
         )}
@@ -402,10 +402,10 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onRemove!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
+            className="h-9 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
             title="Remover do painel oficial"
           >
-            {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconTrash />}
+            {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconTrash />}
             <span className="hidden sm:inline">Remover m3u</span>
             <span className="sm:hidden">Remover</span>
           </button>
