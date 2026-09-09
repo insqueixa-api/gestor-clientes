@@ -48,6 +48,20 @@ function sessionHealthSourceId(sessionLabel: string): string {
   return `session_health:${sessionLabel}`;
 }
 
+// ❌ 09/09/2026, bug real achado (Márcio: "eu pergunto se está saudável, você
+// diz que sim, mas o card mostra 'atenção' — não entendo"): esse "status"
+// virava "warn" com QUALQUER total > 0 — mas ruído residual normal (Bad
+// MAC/Closing session/retry pontual que o próprio Baileys já autocorrige)
+// roda tipicamente em 0-13 por janela (ver comentário do ALERT_CLEAR_
+// THRESHOLD abaixo) — ou seja, o card ficava "atenção" quase toda hora,
+// mesmo com tudo 100% saudável de verdade (confirmado repetidas vezes:
+// "10 erros + 2 pedidos" não correspondeu a NENHUMA mensagem não entregue).
+// Reaproveita o MESMO patamar que já foi calibrado a sessão inteira como
+// "isso sim é fora do normal" (o antigo gatilho do alerta removido ontem —
+// só o PUSH que sumiu, não o significado do número). Agora "ok" quer dizer
+// de verdade "nada aqui pede sua atenção".
+const HEALTH_WARN_THRESHOLD = 30;
+
 export function sessionHealthCheckResult(sessionLabel: string, health: SessionHealthPayload) {
   const libsignalErrors = Math.max(0, Number(health.libsignalErrors) || 0);
   const decryptRetries = Math.max(0, Number(health.decryptRetries) || 0);
@@ -55,10 +69,10 @@ export function sessionHealthCheckResult(sessionLabel: string, health: SessionHe
   const humanLabel = humanSessionLabel(sessionLabel);
 
   return {
-    status: (total > 0 ? "warn" : "ok") as "ok" | "warn",
+    status: (total >= HEALTH_WARN_THRESHOLD ? "warn" : "ok") as "ok" | "warn",
     detail:
       total > 0
-        ? `${humanLabel}: ${libsignalErrors} erro(s) de sessão + ${decryptRetries} pedido(s) de reenvio desde a última checagem`
+        ? `${humanLabel}: ${libsignalErrors} erro(s) de sessão + ${decryptRetries} pedido(s) de reenvio desde a última checagem${total < HEALTH_WARN_THRESHOLD ? " (dentro do normal)" : ""}`
         : `${humanLabel}: sem erros de sessão/decriptação desde a última checagem`,
   };
 }
