@@ -135,6 +135,13 @@ export type AppIntegrationActionsProps = {
    * pending_id salvo pela última ativação manual disparada. */
   appativaPending?: boolean;
   onCheckAppativaStatus?: () => void | Promise<void>;
+  /** ✅ 09/09/2026, pedido do Márcio: "no admin deveria ficar aguardando
+   * igual o Portal" — quando true (só faz sentido junto com appativaPending),
+   * o botão vira um indicador "Aguardando confirmação..." (o caller já está
+   * reconsultando sozinho em segundo plano, ver lib/apps/appativa-client-
+   * poll.ts) em vez do "Ver status" estático. Continua clicável — clique
+   * força uma checagem manual imediata via onCheckAppativaStatus. */
+  appativaChecking?: boolean;
   /** ClouDDy também é uma automação — segue o mesmo seletor Principal/
    * Secundária das demais antes de mandar pra extensão. */
   onClouddyConfigure: (mode: ReconfigureMode) => void | Promise<void>;
@@ -160,6 +167,7 @@ export default function AppIntegrationActions({
   onActivateAppativa,
   appativaPending = false,
   onCheckAppativaStatus,
+  appativaChecking = false,
   onClouddyConfigure,
   onClouddyCheck,
   onClouddyDelete,
@@ -234,6 +242,20 @@ export default function AppIntegrationActions({
     // componente inteiro sumia (return null logo abaixo) e o botão de
     // ativar nunca aparecia pra eles.
     if (!onActivateAppativa) return null;
+    if (appativaPending && appativaChecking && onCheckAppativaStatus) {
+      return (
+        <button
+          type="button"
+          onClick={() => onCheckAppativaStatus()}
+          disabled={loading}
+          className="w-full h-9 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-white text-[11px] font-bold transition-colors flex items-center justify-center gap-1 shadow-sm"
+          title="Aguardando a Appativa confirmar — reconsultando sozinho a cada alguns segundos"
+        >
+          <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
+          Aguardando confirmação...
+        </button>
+      );
+    }
     if (appativaPending && onCheckAppativaStatus) {
       return (
         <button
@@ -371,7 +393,20 @@ export default function AppIntegrationActions({
           </button>
         )}
 
-        {showActivateAppativa && appativaPending && onCheckAppativaStatus && (
+        {showActivateAppativa && appativaPending && appativaChecking && onCheckAppativaStatus && (
+          <button
+            type="button"
+            onClick={() => onCheckAppativaStatus()}
+            disabled={loading}
+            className="h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
+            title="Aguardando a Appativa confirmar — reconsultando sozinho a cada alguns segundos"
+          >
+            <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" />
+            <span className="hidden sm:inline">Aguardando...</span>
+          </button>
+        )}
+
+        {showActivateAppativa && appativaPending && !appativaChecking && onCheckAppativaStatus && (
           <button
             type="button"
             onClick={() => onCheckAppativaStatus()}

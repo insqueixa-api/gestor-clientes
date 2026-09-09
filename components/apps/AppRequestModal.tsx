@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -18,6 +18,7 @@ import type { ConfirmDialogProps } from "@/components/ui/ConfirmDialog";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
+import { runAppativaAutoPoll } from "@/lib/apps/appativa-client-poll";
 
 type ToastFn = (
   type: "success" | "error" | "warning",
@@ -107,6 +108,24 @@ export default function AppRequestModal({
   } | null>(null);
   const [retryingAppativa, setRetryingAppativa] = useState(false);
   const [checkingAppativa, setCheckingAppativa] = useState(false);
+  // ✅ 09/09/2026, pedido do Márcio: "no admin deveria ficar aguardando
+  // igual o Portal... se der erro, lá no log do portal o botão concluir tbm
+  // tem que ter esse mesmo comportamento" — enquanto a renovação está "em
+  // andamento" (sem erro definitivo), reconsulta sozinho por ~2min em vez
+  // de depender só do "Ver status" manual (lib/apps/appativa-client-poll.ts).
+  // Não se aplica ao card de erro: um erro aqui agora só aparece pra
+  // rejeição de verdade (APPATIVA_FAILURE_STATUSES) — o falso positivo de
+  // "vencimento não bateu" foi corrigido na raiz (resolveAppativaAppRenewal
+  // devolve "pending", não mais "error", nesse caso) e precisa de ação
+  // manual (corrigir o MAC e "Reenviar"), não de auto-retry.
+  const [autoCheckingAppativa, setAutoCheckingAppativa] = useState(false);
+  const appativaAutoPollCancelRef = useRef(false);
+  const appativaAutoPollStartedRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      appativaAutoPollCancelRef.current = true;
+    };
+  }, []);
 
   async function loadAppativaInfo() {
     if (action !== "renewal" || !paymentLogId) {
@@ -147,6 +166,10 @@ export default function AppRequestModal({
         throw new Error(json?.error || "Falha ao reenviar a ativação.");
       }
       addToast("success", "Reenviado!", "Aguardando confirmação da Appativa.");
+      // ✅ Reabre a porta pro auto-poll (efeito abaixo) pro novo historicoId
+      // — sem isso, ficaria travado no "Ver status" manual pra sempre depois
+      // do 1º reenvio, já que appativaAutoPollStartedRef só destrava uma vez.
+      appativaAutoPollStartedRef.current = false;
       await loadAppativaInfo();
     } catch (e: any) {
       addToast("error", "Erro", e?.message || "Falha ao reenviar.");
@@ -160,9 +183,14 @@ export default function AppRequestModal({
   // markAppRenewalPaid cobrem o caso comum, isso cobre o resto sem precisar
   // entrar no painel/app da Appativa). Mesma lógica de conclusão do
   // webhook (resolveAppativaAppRenewal), nunca duplicada.
-  async function handleCheckAppativaStatus() {
-    if (!paymentLogId || !tenantId) return;
-    setCheckingAppativa(true);
+  //
+  // ✅ silent (09/09/2026) — usado pelo auto-poll abaixo: pula o toast de
+  // "ainda em andamento" a cada tentativa (senão spamaria a cada 5s por até
+  // 2min), só avisa quando resolve de verdade. Devolve o outcome pra
+  // runAppativaAutoPoll decidir se continua tentando.
+  async function checkAppativaStatusOnce(silent: boolean): Promise<"done" | "pending" | "error"> {
+    if (!paymentLogId || !tenantId) return "error";
+    if (!silent) setCheckingAppativa(true);
     try {
       const { data: session } = await supabaseBrowser.auth.getSession();
       const token = session.session?.access_token;
@@ -179,20 +207,45 @@ export default function AppRequestModal({
         throw new Error(json?.error || "Falha ao verificar status.");
       }
       if (json.outcome === "done") {
+        setAutoCheckingAppativa(false);
         addToast("success", "Concluído!", "Vencimento confirmado e cliente avisado.");
         onResolved();
-      } else if (json.outcome === "error") {
-        addToast("warning", "Ainda pendente", "Veja o motivo no aviso abaixo.");
-      } else {
-        addToast("warning", "Ainda em andamento", "A Appativa ainda não confirmou essa ativação.");
+        return "done";
       }
+      if (json.outcome === "error") {
+        setAutoCheckingAppativa(false);
+        if (!silent) addToast("warning", "Ainda pendente", "Veja o motivo no aviso abaixo.");
+        await loadAppativaInfo();
+        return "error";
+      }
+      if (!silent) addToast("warning", "Ainda em andamento", "A Appativa ainda não confirmou essa ativação.");
       await loadAppativaInfo();
+      return "pending";
     } catch (e: any) {
-      addToast("error", "Erro", e?.message || "Falha ao verificar status.");
+      if (!silent) addToast("error", "Erro", e?.message || "Falha ao verificar status.");
+      return "pending";
     } finally {
-      setCheckingAppativa(false);
+      if (!silent) setCheckingAppativa(false);
     }
   }
+
+  async function handleCheckAppativaStatus() {
+    await checkAppativaStatusOnce(false);
+  }
+
+  useEffect(() => {
+    if (action !== "renewal") return;
+    if (!appativaInfo?.historicoId || appativaInfo?.error) return;
+    if (appativaAutoPollStartedRef.current) return;
+    appativaAutoPollStartedRef.current = true;
+    appativaAutoPollCancelRef.current = false;
+    setAutoCheckingAppativa(true);
+    runAppativaAutoPoll({
+      isCancelled: () => appativaAutoPollCancelRef.current,
+      checkOnce: () => checkAppativaStatusOnce(true),
+      onTimeout: () => setAutoCheckingAppativa(false),
+    });
+  }, [action, appativaInfo?.historicoId, appativaInfo?.error]);
 
   useEffect(() => {
     if (action !== "renewal") return;
@@ -948,11 +1001,19 @@ export default function AppRequestModal({
             )}
             {action === "renewal" && !appativaInfo?.error && appativaInfo?.historicoId && (
               <div className="rounded-lg border border-sky-500/40 bg-sky-500/10 p-3 text-xs text-sky-700 dark:text-sky-400 space-y-2">
-                <p>
-                  🔄 Ativação em andamento via Appativa — aguardando confirmação. O pagamento
-                  será concluído e o cliente avisado sozinho assim que a Appativa confirmar e o
-                  vencimento novo for verificado.
-                </p>
+                <div className="flex items-center gap-2">
+                  {autoCheckingAppativa && (
+                    <div className="w-3.5 h-3.5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                  )}
+                  <p>
+                    🔄{" "}
+                    {autoCheckingAppativa
+                      ? "Aguardando a Appativa confirmar — reconsultando sozinho a cada alguns segundos."
+                      : "Ativação em andamento via Appativa — aguardando confirmação."}{" "}
+                    O pagamento será concluído e o cliente avisado sozinho assim que a Appativa
+                    confirmar e o vencimento novo for verificado.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={handleCheckAppativaStatus}

@@ -19,6 +19,7 @@ import {
 } from "@/lib/apps/panel";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
 import { dispatchIbosolAction } from "@/lib/apps/ibosol-extension";
+import { runAppativaAutoPoll } from "@/lib/apps/appativa-client-poll";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
@@ -621,6 +622,22 @@ export default function NovoCliente({
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(""); // ✅ NOVO: Guarda o texto do passo atual
   const [fetchingAux, setFetchingAux] = useState(true);
+
+  // ✅ 09/09/2026, pedido do Márcio: "no admin deveria ficar aguardando
+  // igual o Portal" — instanceIds sendo reconsultados automaticamente em
+  // segundo plano (ver lib/apps/appativa-client-poll.ts), pra mostrar
+  // "Aguardando confirmação..." em vez do "Ver status" estático. O ref
+  // cancela um polling em andamento se o admin fechar o modal ou disparar
+  // outra ativação pro mesmo instanceId antes de resolver.
+  const [appativaChecking, setAppativaChecking] = useState<Record<string, boolean>>({});
+  const appativaPollCancelRef = useRef<Record<string, boolean>>({});
+  useEffect(() => {
+    return () => {
+      for (const key of Object.keys(appativaPollCancelRef.current)) {
+        appativaPollCancelRef.current[key] = true;
+      }
+    };
+  }, []);
 
   // --- TOAST STATE ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -2820,8 +2837,9 @@ export default function NovoCliente({
         addToast(
           "success",
           "Ativação solicitada",
-          apiJson.message || "Confirmando automaticamente nos próximos ~1 min.",
+          apiJson.message || "Aguardando confirmação automática...",
         );
+        startAppativaAutoPoll(instanceId);
       } else {
         addToast("error", "Não foi possível ativar", apiJson?.error || "Falha desconhecida.");
       }
@@ -2836,30 +2854,48 @@ export default function NovoCliente({
   // status no admin, no caso quando tem a ativação em andamento") — consulta
   // na hora o historicoId da última ativação manual disparada, sem esperar
   // o polling de 1 min em segundo plano terminar sozinho.
-  async function handleCheckAppativaStatus(instanceId: string) {
+  //
+  // ✅ silent (09/09/2026, pedido do Márcio: "no admin deveria ficar
+  // aguardando igual o Portal") — usado pelo auto-poll (startAppativaAutoPoll
+  // abaixo): pula loading global/toast de "ainda em andamento" a cada
+  // tentativa (senão spamaria um toast a cada 5s por até 2min), só avisa
+  // quando resolve de verdade. Devolve o outcome pra runAppativaAutoPoll
+  // decidir se continua tentando.
+  async function handleCheckAppativaStatus(
+    instanceId: string,
+    opts?: { silent?: boolean },
+  ): Promise<"done" | "pending" | "error"> {
+    const silent = !!opts?.silent;
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
-    if (!currentApp?.client_app_id) return;
+    if (!currentApp?.client_app_id) return "error";
 
-    setLoading(true);
-    setLoadingStep("Consultando status na Appativa...");
+    if (!silent) {
+      setLoading(true);
+      setLoadingStep("Consultando status na Appativa...");
+    }
     try {
       const apiJson = await callAdminAppApi("/api/admin/apps/appativa/status", {
         client_app_id: currentApp.client_app_id,
       });
-      setLoading(false);
-      setLoadingStep("");
+      if (!silent) {
+        setLoading(false);
+        setLoadingStep("");
+      }
 
       if (!apiJson?.ok) {
-        addToast("error", "Não foi possível consultar", apiJson?.error || "Falha desconhecida.");
-        return;
+        if (!silent) addToast("error", "Não foi possível consultar", apiJson?.error || "Falha desconhecida.");
+        return "pending"; // falha passageira na consulta — não é rejeição
       }
 
       if (apiJson.pending) {
-        addToast("warning", "Ainda em andamento", "A Appativa ainda não confirmou essa ativação — tente de novo em instantes.");
-        return;
+        if (!silent) {
+          addToast("warning", "Ainda em andamento", "A Appativa ainda não confirmou essa ativação — tente de novo em instantes.");
+        }
+        return "pending";
       }
 
       setAppativaPending(instanceId, false);
+      setAppativaChecking((s) => ({ ...s, [instanceId]: false }));
 
       if (apiJson.expireDate) {
         const dateField = currentApp?.fields_config?.find(
@@ -2874,6 +2910,7 @@ export default function NovoCliente({
           "Ativação confirmada",
           `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
         );
+        return "done";
       } else if (apiJson.alreadyResolved) {
         // ⚠️ Não é sucesso nem erro confirmado — só não há mais nada
         // pendente pra checar (pode ter resolvido em segundo plano entre o
@@ -2883,14 +2920,36 @@ export default function NovoCliente({
           "Nada pendente agora",
           "Essa ativação não está mais em andamento — recarregue a página pra ver o vencimento atual.",
         );
+        return "done"; // encerra o auto-poll — insistir não ajuda aqui
       } else {
         addToast("error", "Ativação falhou", apiJson.error || "A Appativa recusou a ativação.");
+        return "error";
       }
     } catch (err: any) {
-      setLoading(false);
-      setLoadingStep("");
-      addToast("error", "Não foi possível consultar", err.message || "Falha.");
+      if (!silent) {
+        setLoading(false);
+        setLoadingStep("");
+        addToast("error", "Não foi possível consultar", err.message || "Falha.");
+      }
+      return "pending";
     }
+  }
+
+  // ✅ 09/09/2026, pedido do Márcio: "no admin deveria ficar aguardando
+  // igual o Portal" — reconsulta sozinho por ~2min (lib/apps/appativa-
+  // client-poll.ts) em vez de depender só do "Ver status" manual; se passar
+  // da janela sem resolver, volta pro botão estático (a ativação continua
+  // rastreável, só para de reconsultar sozinho).
+  function startAppativaAutoPoll(instanceId: string) {
+    appativaPollCancelRef.current[instanceId] = false;
+    setAppativaChecking((s) => ({ ...s, [instanceId]: true }));
+    runAppativaAutoPoll({
+      isCancelled: () => !!appativaPollCancelRef.current[instanceId],
+      checkOnce: () => handleCheckAppativaStatus(instanceId, { silent: true }),
+      onTimeout: () => {
+        setAppativaChecking((s) => ({ ...s, [instanceId]: false }));
+      },
+    });
   }
 
   // ✅ ClouDDy (console.clouddy.online) — sem INTEGRATION_REGISTRY/rota de
@@ -6482,9 +6541,12 @@ export default function NovoCliente({
                                         : undefined
                                     }
                                     appativaPending={!!app.appativaPending}
+                                    appativaChecking={!!appativaChecking[app.instanceId]}
                                     onCheckAppativaStatus={
                                       catApp?.appativa_app_id
-                                        ? () => handleCheckAppativaStatus(app.instanceId)
+                                        ? () => {
+                                            void handleCheckAppativaStatus(app.instanceId);
+                                          }
                                         : undefined
                                     }
                                     onOpenPanel={() => {
