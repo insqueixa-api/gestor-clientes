@@ -556,6 +556,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: true,
+        // ✅ 09/09/2026, achado do Márcio: esse bloco (MP "puro", criação
+        // nova) nunca tinha esses campos — só os blocos Stripe/FastDePix e
+        // o de reaproveitar pending já tinham. Por isso "Tentar outra
+        // forma" nunca aparecia pagando só o app quando caía bem aqui.
+        payment_method: "online",
+        gateway_name: gateway.name,
+        gateway_type: gateway.type,
+        has_alternate_gateway: gateways.length > 1,
         payment_id: String(mpData.id),
         internal_payment_id: inserted.id,
         price_amount: chargeAmount,

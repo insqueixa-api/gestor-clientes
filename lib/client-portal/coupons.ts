@@ -780,8 +780,13 @@ export async function validateCouponForCharge(params: {
   planPriceOnly: number;
   currency: string;
   isOverrideActive: boolean;
+  // ✅ 09/09/2026, pedido do Márcio: apps embutidos (bundled_app_renewals)
+  // nesta MESMA cobrança — um cupom pessoal restrito a um app
+  // (target_app_names) é aceito aqui SE esse app estiver entre eles (o
+  // desconto passa a incidir sobre o preço daquele app, não do plano).
+  bundledApps?: { app_name: string; price_amount: number }[];
 }): Promise<CouponValidationResult> {
-  const { supabaseAdmin, tenantId, clientRow, code, planPriceOnly, currency, isOverrideActive } = params;
+  const { supabaseAdmin, tenantId, clientRow, code, planPriceOnly, currency, isOverrideActive, bundledApps } = params;
 
   const normalizedCode = String(code || "").trim().toUpperCase();
   if (!normalizedCode) return { ok: false, reason: "Informe um código de cupom." };
@@ -814,15 +819,17 @@ export async function validateCouponForCharge(params: {
     }
 
     // ✅ 09/09/2026, achado do Márcio: cupom pessoal com target_app_names
-    // preenchido (ex: só CLOUDDY) valia aqui também pra assinatura, porque
-    // matchesTargeting (que checa target_app_names) só roda pro ramo
-    // GERAL abaixo — cupom pessoal nunca passava por essa checagem. Essa
-    // função só é chamada pelo fluxo de ASSINATURA (create-payment/
-    // validate-coupon); cupom pessoal restrito a um app só pode valer no
-    // pagamento avulso daquele app (findEligibleAppCoupon,
-    // apps/renew-payment), nunca aqui.
+    // preenchido (ex: só CLOUDDY) valia aqui também pra assinatura pura,
+    // porque matchesTargeting (que checa target_app_names) só roda pro
+    // ramo GERAL abaixo — cupom pessoal nunca passava por essa checagem.
+    // Só é aceito aqui se o app-alvo estiver embutido NESTA MESMA cobrança
+    // (bundledApps, vindo de bundled_app_renewals) — nesse caso o desconto
+    // passa a incidir sobre o preço do app, não do plano (ver mais abaixo).
+    // Sem bundle nenhum batendo, cupom pessoal restrito a app só vale no
+    // pagamento avulso daquele app (findEligibleAppCoupon, apps/renew-payment).
     if (coupon.target_app_names?.length) {
-      return { ok: false, reason: "Cupom inválido ou inativo." };
+      const matched = (bundledApps || []).find((a) => coupon.target_app_names!.includes(a.app_name));
+      if (!matched) return { ok: false, reason: "Cupom inválido ou inativo." };
     }
   }
 
@@ -865,15 +872,24 @@ export async function validateCouponForCharge(params: {
     }
   }
 
+  // ✅ 09/09/2026: cupom pessoal restrito a um app embutido incide sobre o
+  // preço DAQUELE app (não do plano) — só muda a base do cálculo/teto; a
+  // subtração final continua saindo do total combinado do mesmo jeito
+  // (soma é associativa, não importa de qual "balde" lógico é descontado).
+  const discountBase =
+    isPersonal && coupon.target_app_names?.length
+      ? (bundledApps || []).find((a) => coupon.target_app_names!.includes(a.app_name))?.price_amount ?? planPriceOnly
+      : planPriceOnly;
+
   let discountAmount: number;
   if (coupon.discount_type === "percent") {
-    discountAmount = Number((planPriceOnly * (Number(coupon.discount_value) / 100)).toFixed(2));
+    discountAmount = Number((discountBase * (Number(coupon.discount_value) / 100)).toFixed(2));
   } else {
     // Sem conversão de câmbio: cupom e cliente são sempre BRL nesse ponto.
     discountAmount = Number(coupon.discount_value);
   }
 
-  discountAmount = Math.min(discountAmount, planPriceOnly);
+  discountAmount = Math.min(discountAmount, discountBase);
 
   // ⚠️ Fase 2 (ainda não implementada, mora dentro do runFulfillment):
   // ao gravar o resgate em coupon_redemptions, cupom pessoal

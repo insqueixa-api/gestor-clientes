@@ -346,6 +346,15 @@ let couponId: string | null = null;
 let couponCodeApplied: string | null = null;
 let couponDiscountAmount = 0;
 
+// ✅ 09/09/2026, achado do Márcio: precisa ser resolvido ANTES do cupom —
+// um cupom pessoal restrito a um app (target_app_names) só é aceito aqui
+// se esse app estiver embutido (bundled_app_renewals) neste mesmo
+// pagamento. Antes ficava dentro do Promise.all mais abaixo, depois do
+// cupom já ter sido validado.
+const appRenewalCharges = client_app_ids.length
+  ? await getAppRenewalCharges(supabaseAdmin, sess.tenant_id, client_id, client_app_ids, currency)
+  : { items: [] as Awaited<ReturnType<typeof getAppRenewalCharges>>["items"], total: 0 };
+
 if (coupon_code_raw) {
   // ✅ Mesmo rate limit anti-abuso do validate-coupon (achado em auditoria
   // de segurança, ajustado 24/08/2026 — janela de 24h, só conta tentativa
@@ -376,6 +385,7 @@ if (coupon_code_raw) {
       planPriceOnly,
       currency,
       isOverrideActive,
+      bundledApps: appRenewalCharges.items,
     });
 
     if (couponResult.ok) {
@@ -393,10 +403,11 @@ if (coupon_code_raw) {
   }
 }
 
-    // ✅ Pendências financeiras, gateway ativo e renovação de app embutida
-    // são independentes entre si (nenhum usa o resultado do outro) — rodam
-    // juntos em vez de sequenciais.
-    const [pendingCharges, gatewaysResult, appRenewalCharges] = await Promise.all([
+    // ✅ Pendências financeiras e gateway ativo são independentes entre si
+    // (nenhum usa o resultado do outro) — rodam juntos em vez de
+    // sequenciais. appRenewalCharges saiu daqui (09/09/2026) — precisa
+    // estar pronto ANTES do cupom, ver comentário mais acima.
+    const [pendingCharges, gatewaysResult] = await Promise.all([
       getPendingCharges(supabaseAdmin, sess.tenant_id, client_id, currency),
       supabaseAdmin
         .from("payment_gateways")
@@ -406,9 +417,6 @@ if (coupon_code_raw) {
         .eq("is_online", true)
         .contains("currency", [currency])
         .order("priority", { ascending: true }),
-      client_app_ids.length
-        ? getAppRenewalCharges(supabaseAdmin, sess.tenant_id, client_id, client_app_ids, currency)
-        : Promise.resolve({ items: [] as any[], total: 0 }),
     ]);
     if (pendingCharges.total > 0) {
       computedPrice = Number((computedPrice + pendingCharges.total).toFixed(2));
