@@ -1685,6 +1685,11 @@ export default function RenewClient() {
           client_id: selectedAccount.id,
           period: selectedPeriod,
           code: couponInput.trim(),
+          // ✅ 09/09/2026, achado do Márcio: cupom pessoal restrito a um app
+          // (ex: só ClouDDy) só é válido aqui se esse app estiver marcado
+          // pra embutir na mesma cobrança — sem mandar isso, a prévia
+          // sempre rejeitava mesmo com o app selecionado.
+          client_app_ids: selectedAppRenewalIds,
         }),
         cache: "no-store",
       });

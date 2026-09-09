@@ -10,6 +10,7 @@ import {
   COUPON_ABUSE_BLOCKED_MESSAGE,
 } from "@/lib/client-portal/coupons";
 import { touchPortalSession } from "@/lib/client-portal/session";
+import { getAppRenewalCharges } from "@/lib/client-portal/app-renewal-charges";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,12 @@ export async function POST(req: NextRequest) {
     const client_id = normalizeStr(body?.client_id);
     const period = normalizeStr(body?.period);
     const code = normalizeStr(body?.code);
+    // ✅ 09/09/2026, mesmo raciocínio do create-payment: cupom pessoal
+    // restrito a um app só é válido aqui se esse app estiver marcado pra
+    // embutir na mesma cobrança.
+    const client_app_ids = (Array.isArray(body?.client_app_ids) ? body.client_app_ids : [])
+      .map((v: unknown) => String(v ?? "").trim())
+      .filter((v: string) => isUuid(v));
 
     if (!session_token || !client_id || !period || !code) return jsonError("Parâmetros incompletos", 400);
     if (!isPlausibleSessionToken(session_token)) return jsonError("Sessão inválida", 401);
@@ -211,6 +218,10 @@ export async function POST(req: NextRequest) {
       .eq("id", client_id)
       .maybeSingle();
 
+    const appRenewalCharges = client_app_ids.length
+      ? await getAppRenewalCharges(supabaseAdmin, sess.tenant_id, client_id, client_app_ids, currency)
+      : { items: [], total: 0 };
+
     const result = await validateCouponForCharge({
       supabaseAdmin,
       tenantId: sess.tenant_id,
@@ -219,6 +230,7 @@ export async function POST(req: NextRequest) {
       planPriceOnly,
       currency,
       isOverrideActive,
+      bundledApps: appRenewalCharges.items,
     });
 
     if (!result.ok) {
