@@ -928,15 +928,21 @@ export default function RenewClient() {
     setSelectedAppRenewalIds((prev) =>
       prev.includes(appId) ? prev.filter((id) => id !== appId) : [...prev, appId],
     );
-    // ✅ 09/09/2026, achado do Márcio: um cupom validado (ex: pessoal
-    // restrito a um app) ficava aplicado na tela mesmo depois de
-    // desmarcar/marcar um app — o create-payment corretamente revalidava e
-    // rejeitava na hora de cobrar de verdade (nenhum valor errado foi
-    // cobrado), mas a TELA continuava mostrando o desconto antigo, product
-    // confuso/enganoso. Mudou a seleção de apps → limpa o cupom aplicado,
-    // obriga reaplicar (o botão "Aplicar" já reenvia com a seleção atual).
-    setAppliedCoupon(null);
-    setCouponError(null);
+    // ✅ 09/09/2026, achado do Márcio: um cupom pessoal restrito a um app
+    // ficava aplicado na tela mesmo depois de desmarcar o app do qual ele
+    // depende (create-payment já revalidava e rejeitava certinho na hora
+    // de cobrar — nenhum valor errado foi cobrado — mas a tela continuava
+    // mostrando o desconto antigo). Corrigido primeiro limpando SEMPRE, mas
+    // isso também limpava cupom geral/sem relação nenhuma com apps — só
+    // limpa agora se o cupom aplicado realmente depender do app que
+    // acabou de ser marcado/desmarcado.
+    if (appliedCoupon?.targetAppNames?.length) {
+      const app = expiringAppsForAlert.find((a) => a.id === appId);
+      if (app && appliedCoupon.targetAppNames.includes(app.name)) {
+        setAppliedCoupon(null);
+        setCouponError(null);
+      }
+    }
   }
 
   const selectedAppRenewalTotal = useMemo(() => {
@@ -955,6 +961,10 @@ export default function RenewClient() {
     planPriceOnly: number;
     discountType: "percent" | "fixed" | null;
     discountValue: number | null;
+    // ✅ 09/09/2026: null = cupom geral/sem restrição de app, nunca
+    // invalidado por marcar/desmarcar app. Preenchido = só continua válido
+    // enquanto pelo menos 1 desses apps estiver marcado pra renovar junto.
+    targetAppNames: string[] | null;
   } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponChecking, setCouponChecking] = useState(false);
@@ -1710,6 +1720,7 @@ export default function RenewClient() {
           planPriceOnly: result.planPriceOnly,
           discountType: result.discountType ?? null,
           discountValue: result.discountValue ?? null,
+          targetAppNames: result.targetAppNames ?? null,
         });
         setCouponInput("");
       } else {

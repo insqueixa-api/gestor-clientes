@@ -252,6 +252,10 @@ export async function POST(req: NextRequest) {
         discountAmount: result.discountAmount,
         discountType: result.coupon.discount_type,
         discountValue: Number(result.coupon.discount_value),
+        // ✅ 09/09/2026: front usa isso pra só limpar o cupom aplicado se o
+        // app marcado/desmarcado for exatamente o que este cupom depende —
+        // cupom geral/sem restrição de app (null aqui) nunca é afetado.
+        targetAppNames: result.coupon.target_app_names || null,
         planPriceOnly,
         currency,
       },
