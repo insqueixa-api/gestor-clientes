@@ -337,7 +337,7 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onMarkGpcRokuPaid!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            className="h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
             title="Cliente pagou por fora do Portal — marca como pago, validade de 10 anos"
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
@@ -350,7 +350,7 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onRenewDuplecast!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            className="h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
             title="Consome 1 código real da conta de revenda pra renovar esse device agora"
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconMoney />}
@@ -363,7 +363,7 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onFreeRenewGerenciaApp!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            className="h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
             title="Estende o vencimento em +1 ano no painel do parceiro, sem cobrar nada"
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconGift />}
@@ -376,7 +376,7 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onCheckAppativaStatus()}
             disabled={loading}
-            className="h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            className="h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
             title="Ativação em andamento — consulta o status agora na Appativa"
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
@@ -389,7 +389,7 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onActivateAppativa!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            className="h-10 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
             title="Solicita a ativação/renovação da licença via Appativa"
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconZap />}
@@ -402,7 +402,7 @@ export default function AppIntegrationActions({
             type="button"
             onClick={() => onRemove!()}
             disabled={loading}
-            className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
+            className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5 text-xs font-medium"
             title="Remover do painel oficial"
           >
             {loading ? <Loader2 className="w-4 h-4 shrink-0 animate-spin" /> : <IconTrash />}
