@@ -462,6 +462,11 @@ export default function RenewClient() {
     gateway_type?: string;
     gateway_name?: string;
     has_alternate_gateway?: boolean;
+    // ✅ 08/09/2026, cupom pessoal por app — quando aplicado, price_amount
+    // já vem com desconto; plan_price_only é o valor cheio (pra mostrar o
+    // "de/por" no resumo, igual a assinatura já faz).
+    coupon_discount_amount?: number;
+    plan_price_only?: number;
   };
   const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
   const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(
@@ -594,7 +599,7 @@ export default function RenewClient() {
     setRenewPollInterval(interval);
   }
 
-  async function handleRenewPayment(clientAppId: string, excludeGatewayType?: string) {
+  async function handleRenewPayment(clientAppId: string, excludeGatewayType?: string, applyCoupon?: boolean) {
     if (!selectedAccountId || !session) return;
     setRenewPaymentBusyId(clientAppId);
     try {
@@ -606,6 +611,7 @@ export default function RenewClient() {
           client_id: selectedAccountId,
           client_app_id: clientAppId,
           ...(excludeGatewayType ? { exclude_gateway_type: excludeGatewayType } : {}),
+          ...(applyCoupon ? { apply_coupon: true } : {}),
         }),
       });
       const result = await res.json().catch(() => null);
@@ -621,6 +627,8 @@ export default function RenewClient() {
         pix_qr_code: result.pix_qr_code,
         pix_qr_code_base64: result.pix_qr_code_base64,
         price_amount: result.price_amount,
+        coupon_discount_amount: result.coupon_discount_amount,
+        plan_price_only: result.plan_price_only,
         currency: result.currency || "BRL",
         payment_method: isStripe ? "stripe" : "mercadopago",
         client_secret: result.client_secret,
@@ -649,6 +657,39 @@ export default function RenewClient() {
     } finally {
       setRenewPaymentBusyId(null);
     }
+  }
+
+  // ✅ 08/09/2026, pedido do Márcio: cupom pessoal restrito a um app —
+  // checa em silêncio (nunca revela o código) antes de gerar o PIX; se
+  // existir, pergunta se quer aplicar. "Não" segue o pagamento no valor
+  // cheio normalmente.
+  async function handleRenewPaymentClick(clientAppId: string) {
+    if (!selectedAccountId || !session) return;
+    let applyCoupon = false;
+    try {
+      const res = await fetch("/api/client-portal/apps/eligible-coupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: clientAppId,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (result?.ok && result.available) {
+        applyCoupon = await confirm({
+          title: "🎁 Você tem um desconto!",
+          subtitle: `Você tem ${formatMoney(result.discountAmount, result.currency || "BRL")} de desconto disponível nesta renovação. Deseja aplicar?`,
+          tone: "emerald",
+          confirmText: "Aplicar desconto",
+          cancelText: "Não, obrigado",
+        });
+      }
+    } catch {
+      // falha na checagem não deve travar o pagamento — segue sem desconto
+    }
+    handleRenewPayment(clientAppId, undefined, applyCoupon);
   }
 
   // ✅ "Problemas com o pagamento? Tente outra forma" (pedido do Márcio,
@@ -5088,7 +5129,7 @@ export default function RenewClient() {
                                   isExpiringSoon) && (
                                   <button
                                     disabled={renewPaymentBusyId === app.id}
-                                    onClick={() => handleRenewPayment(app.id)}
+                                    onClick={() => handleRenewPaymentClick(app.id)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
                                   >
                                     {renewPaymentBusyId === app.id && (
@@ -5277,6 +5318,24 @@ export default function RenewClient() {
                               <span>{payingApp?.name || "Aplicativo"}</span>
                               <span>{licenseLabel}</span>
                             </div>
+                            {renewPayment.coupon_discount_amount != null &&
+                              renewPayment.coupon_discount_amount > 0 &&
+                              renewPayment.plan_price_only != null && (
+                                <>
+                                  <div className="flex justify-between text-foreground/60 text-xs">
+                                    <span>Valor cheio</span>
+                                    <span>
+                                      {formatMoney(renewPayment.plan_price_only, renewPayment.currency)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-emerald-600">
+                                    <span>Desconto aplicado</span>
+                                    <span>
+                                      -{formatMoney(renewPayment.coupon_discount_amount, renewPayment.currency)}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
                             <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
                               <span>Total a Pagar</span>
                               <span>

@@ -524,6 +524,60 @@ export async function findEligibleCoupon(params: {
   return null;
 }
 
+/**
+ * Cupom pessoal restrito a UM app específico (target_app_names), pra
+ * pagamento avulso de licença de app (client_apps) — pedido do Marcio,
+ * 08/09/2026: "se o cupom é pra aplicativo, tem que valer só pra
+ * aplicativo". Só considera cupom pessoal com target_app_names PREENCHIDO
+ * e contendo exatamente `appName` (a renovação de app não tem
+ * `matchesTargeting`/apps_names do cliente pra checar — é sempre "este app
+ * específico sendo pago agora", não "qualquer app que o cliente tenha").
+ * Cupom pessoal SEM target_app_names continua sendo só pra assinatura
+ * (findEligibleCoupon), nunca aparece aqui.
+ */
+export async function findEligibleAppCoupon(params: {
+  supabaseAdmin: any;
+  tenantId: string;
+  clientRow: any;
+  appName: string;
+  appPriceOnly: number;
+}): Promise<{ coupon: CouponRow; discountAmount: number } | null> {
+  const { supabaseAdmin, tenantId, clientRow, appName, appPriceOnly } = params;
+  if (!appName || appPriceOnly <= 0) return null;
+  if (getClientCurrency(clientRow) !== "BRL") return null;
+
+  const linkedIds = await resolveLinkedClientIds(supabaseAdmin, tenantId, clientRow);
+  if (!linkedIds.length) return null;
+
+  const { data: rows, error } = await supabaseAdmin
+    .from("coupons")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("is_active", true)
+    .in("client_id", linkedIds)
+    .not("target_app_names", "is", null);
+  if (error || !rows?.length) return null;
+
+  const now = new Date();
+  const coupon = (rows as CouponRow[]).find((c) => {
+    if (!c.target_app_names?.includes(appName)) return false;
+    if (c.starts_at && new Date(c.starts_at) > now) return false;
+    if (c.ends_at && new Date(c.ends_at) < now) return false;
+    return true;
+  });
+  if (!coupon) return null;
+
+  let discountAmount: number;
+  if (coupon.discount_type === "percent") {
+    discountAmount = Number((appPriceOnly * (Number(coupon.discount_value) / 100)).toFixed(2));
+  } else {
+    discountAmount = Number(coupon.discount_value);
+  }
+  discountAmount = Math.min(discountAmount, appPriceOnly);
+
+  return { coupon, discountAmount };
+}
+
 export type EligibleCouponInfo = { coupon: CouponRow; kind: "personal" | "general" };
 
 /**

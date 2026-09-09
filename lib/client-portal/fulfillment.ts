@@ -208,7 +208,7 @@ export async function markAppRenewalPaid(
 ) {
   const { data: payment } = await supabaseAdmin
     .from("client_portal_payments")
-    .select("client_id, client_app_id, price_amount, price_currency, app_name_snapshot, mp_payment_id")
+    .select("client_id, client_app_id, price_amount, price_currency, app_name_snapshot, mp_payment_id, coupon_id, coupon_discount_amount")
     .eq("tenant_id", tenantId)
     .eq("id", paymentRowId)
     .maybeSingle();
@@ -260,6 +260,44 @@ export async function markAppRenewalPaid(
 
   if (!wasUpdated) {
     return; // já tinha sido processado por outra chamada — não notifica de novo
+  }
+
+  // ✅ 08/09/2026, pedido do Márcio: cupom pessoal por app (target_app_names)
+  // — mesmo registro de resgate + autodesativação que já existe pra
+  // assinatura (ver bloco equivalente mais abaixo, no runFulfillment), só
+  // que aqui pro pagamento avulso de licença de app. Dentro do guard
+  // `wasUpdated` de propósito — nunca grava resgate 2x pro mesmo pagamento.
+  const appCouponId = (payment as any)?.coupon_id || null;
+  const appCouponDiscountAmount = Number((payment as any)?.coupon_discount_amount || 0);
+  if (appCouponId && appCouponDiscountAmount > 0 && payment?.client_id) {
+    try {
+      const { error: redeemErr } = await supabaseAdmin.from("coupon_redemptions").insert({
+        tenant_id: tenantId,
+        coupon_id: appCouponId,
+        client_id: payment.client_id,
+        payment_id: paymentRowId,
+        discount_amount: appCouponDiscountAmount,
+        currency: payment.price_currency || "BRL",
+      });
+      if (redeemErr) {
+        prodLog("markAppRenewalPaid.coupon_redemption_insert_failed", {
+          payment_id: String(paymentRowId).slice(-6),
+          coupon_id: String(appCouponId).slice(-6),
+          code: (redeemErr as any)?.code,
+          message: redeemErr.message,
+        });
+        Sentry.captureMessage("markAppRenewalPaid: coupon_redemption insert failed", {
+          level: "warning",
+          tags: { kind: "client_portal_error", where: "app_coupon_redemption_insert" },
+          extra: { paymentRowId, coupon_id: appCouponId, message: redeemErr.message },
+        });
+      } else {
+        // Cupom pessoal se autodesativa ao ser usado — mesma regra da assinatura.
+        await supabaseAdmin.from("coupons").update({ is_active: false }).eq("id", appCouponId);
+      }
+    } catch (e: any) {
+      Sentry.captureException(e, { tags: { kind: "client_portal_error", where: "app_coupon_redemption_insert" } });
+    }
   }
 
   // ============================================================

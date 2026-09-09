@@ -27,6 +27,7 @@ import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/ses
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
 import { convertAmount } from "@/lib/fx";
 import { createFastDepixTransaction, getFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
+import { findEligibleAppCoupon } from "@/lib/client-portal/coupons";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,11 @@ export async function POST(req: NextRequest) {
     // ✅ 07/09/2026, mesmo pedido/motivo de create-payment/route.ts — botão
     // "Tentar outra forma de pagamento" no portal.
     const exclude_gateway_type = normalizeStr(body?.exclude_gateway_type);
+    // ✅ 08/09/2026, pedido do Márcio: cupom pessoal restrito a ESTE app
+    // (coupons.target_app_names) — popup "você tem desconto, aplicar?" no
+    // portal, front só manda true/false, nunca o código (nunca revelado).
+    // Sempre resolvido de novo aqui (nunca confia em valor vindo do front).
+    const apply_coupon = Boolean(body?.apply_coupon);
 
     const ctx = await validatePortalClient(supabaseAdmin, session_token, client_id);
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
@@ -97,10 +103,27 @@ export async function POST(req: NextRequest) {
     const currency = String(client?.price_currency || "BRL").trim() || "BRL";
     // ✅ Pra BRL é o mesmo número, sem conversão (mantém centavos exatos,
     // igual sempre foi). Pra USD/EUR, convertAmount já arredonda pra cima.
-    const chargeAmount =
+    const appPriceOnly =
       currency === "BRL"
         ? licensePrice
         : await convertAmount(supabaseAdmin, ctx.tenant_id, licensePrice, "BRL", currency);
+
+    let couponId: string | null = null;
+    let couponDiscountAmount = 0;
+    if (apply_coupon) {
+      const couponResult = await findEligibleAppCoupon({
+        supabaseAdmin,
+        tenantId: ctx.tenant_id,
+        clientRow: client,
+        appName,
+        appPriceOnly,
+      });
+      if (couponResult) {
+        couponId = couponResult.coupon.id;
+        couponDiscountAmount = couponResult.discountAmount;
+      }
+    }
+    const chargeAmount = Number((appPriceOnly - couponDiscountAmount).toFixed(2));
 
     const { data: gateways, error: gwErr } = await supabaseAdmin
       .from("payment_gateways")
@@ -209,6 +232,8 @@ export async function POST(req: NextRequest) {
             payment_type: "app_renewal",
             client_app_id,
             app_name_snapshot: appName,
+            coupon_id: couponId,
+            coupon_discount_amount: couponDiscountAmount || null,
           },
           { onConflict: "tenant_id,gateway_type,mp_payment_id" },
         )
@@ -232,6 +257,8 @@ export async function POST(req: NextRequest) {
           client_secret: stripeData.client_secret,
           publishable_key: publishableKey,
           price_amount: chargeAmount,
+          coupon_discount_amount: couponDiscountAmount || undefined,
+          plan_price_only: appPriceOnly,
           currency,
           beneficiary_name: String(gateway?.config?.beneficiary_name || "").trim() || null,
           institution: String(gateway?.config?.institution || "").trim() || "Stripe",
@@ -259,7 +286,7 @@ export async function POST(req: NextRequest) {
       try {
         const { data: existingFdPending } = await supabaseAdmin
           .from("client_portal_payments")
-          .select("id, mp_payment_id")
+          .select("id, mp_payment_id, coupon_id")
           .eq("tenant_id", ctx.tenant_id)
           .eq("client_id", client_id)
           .eq("gateway_type", gateway.type)
@@ -270,7 +297,12 @@ export async function POST(req: NextRequest) {
           .limit(1)
           .maybeSingle();
 
-        if (existingFdPending?.mp_payment_id) {
+        // ✅ 08/09/2026: nunca reaproveita um pending criado ANTES de decidir
+        // sobre o cupom (ex: recusou o popup, depois voltou e aceitou, ou
+        // vice-versa) — senão devolveria o PIX antigo com o valor errado.
+        if (existingFdPending && (existingFdPending as any).coupon_id !== couponId) {
+          // segue pro fluxo de criação normal, ignora este pending.
+        } else if (existingFdPending?.mp_payment_id) {
           const existingTx = await getFastDepixTransaction(apiKey, existingFdPending.mp_payment_id);
           if (String(existingTx.status || "").toLowerCase() === "pending") {
             const qrBase64 = existingTx.qr_code ? await fetchQrCodeAsBase64(existingTx.qr_code) : null;
@@ -322,6 +354,8 @@ export async function POST(req: NextRequest) {
               payment_type: "app_renewal",
               client_app_id,
               app_name_snapshot: appName,
+              coupon_id: couponId,
+              coupon_discount_amount: couponDiscountAmount || null,
             },
             { onConflict: "tenant_id,gateway_type,mp_payment_id" },
           )
@@ -343,6 +377,8 @@ export async function POST(req: NextRequest) {
             payment_id: String(tx.id),
             internal_payment_id: inserted.id,
             price_amount: chargeAmount,
+            coupon_discount_amount: couponDiscountAmount || undefined,
+            plan_price_only: appPriceOnly,
             currency,
             pix_qr_code: tx.qr_code_text || undefined,
             pix_qr_code_base64: qrBase64 || undefined,
@@ -374,7 +410,7 @@ export async function POST(req: NextRequest) {
     // anterior realmente morreu (cancelado/expirado/rejeitado no MP).
     const { data: existingPending } = await supabaseAdmin
       .from("client_portal_payments")
-      .select("id, mp_payment_id, price_amount, price_currency, created_at")
+      .select("id, mp_payment_id, price_amount, price_currency, created_at, coupon_id")
       .eq("tenant_id", ctx.tenant_id)
       .eq("client_id", client_id)
       .eq("client_app_id", client_app_id)
@@ -392,7 +428,12 @@ export async function POST(req: NextRequest) {
         );
         const getData = await getRes.json().catch(() => ({} as any));
 
-        if (getRes.ok && getData?.status === "pending") {
+        // ✅ 08/09/2026: só reaproveita o QR se a decisão de cupom bater com
+        // a atual (senão devolveria o PIX antigo com o valor errado) — mas o
+        // bloqueio de "já aprovado/processando" abaixo continua valendo
+        // SEMPRE, cupom ou não (nunca deixa criar um 2º pagamento em cima de
+        // um que já pode ter sido cobrado de verdade no MP).
+        if (getRes.ok && getData?.status === "pending" && (existingPending as any).coupon_id === couponId) {
           return NextResponse.json(
             {
               ok: true,
@@ -499,6 +540,8 @@ export async function POST(req: NextRequest) {
           payment_type: "app_renewal",
           client_app_id,
           app_name_snapshot: appName,
+          coupon_id: couponId,
+          coupon_discount_amount: couponDiscountAmount || null,
         },
         { onConflict: "tenant_id,gateway_type,mp_payment_id" },
       )
@@ -516,6 +559,8 @@ export async function POST(req: NextRequest) {
         payment_id: String(mpData.id),
         internal_payment_id: inserted.id,
         price_amount: chargeAmount,
+        coupon_discount_amount: couponDiscountAmount || undefined,
+        plan_price_only: appPriceOnly,
         currency,
         pix_qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
         pix_qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,

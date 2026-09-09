@@ -421,8 +421,10 @@ export default function CupomModal({
           !hasPersonalClient && targetPlanLabels.length
             ? targetPlanLabels
             : null,
-        target_app_names:
-          !hasPersonalClient && targetAppNames.length ? targetAppNames : null,
+        // ✅ 08/09/2026, pedido do Márcio: cupom pessoal TAMBÉM pode ser
+        // restrito a um app (renovação de licença avulsa) — deixando vazio,
+        // continua valendo só pra renovação da assinatura, como sempre foi.
+        target_app_names: targetAppNames.length ? targetAppNames : null,
         rule_date_field: !hasPersonalClient ? dateRule.ruleDateField : null,
         rule_days_min: !hasPersonalClient ? dateRule.ruleDaysMin : null,
         rule_days_max: !hasPersonalClient ? dateRule.ruleDaysMax : null,
@@ -571,10 +573,26 @@ export default function CupomModal({
             )}
           </div>
           {hasPersonalClient && (
-            <p className="text-[11px] text-foreground/70 -mt-1.5">
-              Cupom pessoal (indicação) — preso a 1 cliente, autodesativa
-              depois de usado uma vez.
-            </p>
+            <>
+              <p className="text-[11px] text-foreground/70 -mt-1.5">
+                Cupom pessoal (indicação) — preso a 1 cliente, autodesativa
+                depois de usado uma vez.
+              </p>
+              <div className="max-w-xs">
+                <MultiSelectDropdown
+                  label="Restringir a um app (opcional)"
+                  options={auxApps}
+                  selected={targetAppNames}
+                  onChange={setTargetAppNames}
+                  emptyLabel="Vale na renovação da assinatura"
+                />
+                <p className="text-[10px] text-foreground/60 mt-1">
+                  {targetAppNames.length > 0
+                    ? "Só vale ao renovar a licença deste app — o portal mostra um popup perguntando se quer aplicar."
+                    : "Sem app marcado, vale pra renovação da assinatura (padrão de sempre)."}
+                </p>
+              </div>
+            </>
           )}
 
           <button
