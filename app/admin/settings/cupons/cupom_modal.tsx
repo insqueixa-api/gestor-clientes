@@ -263,6 +263,41 @@ export default function CupomModal({
     };
   }, [tenantId]);
 
+  // ✅ 08/09/2026, pedido do Márcio: "Restringir a um app" do cupom PESSOAL
+  // deve listar só os apps que ESSE cliente realmente tem instalado (não o
+  // catálogo inteiro do tenant — não faz sentido restringir a um app que
+  // ele nem possui). auxApps continua sendo o catálogo cheio, usado como
+  // fallback (ex: personalClient ainda não carregou) e pela segmentação de
+  // cupom GERAL, que não é presa a 1 cliente.
+  const [clientAppOptions, setClientAppOptions] = useState<
+    { id: string; label: string }[] | null
+  >(null);
+  useEffect(() => {
+    if (!hasPersonalClient || !personalClient?.id) {
+      setClientAppOptions(null);
+      return;
+    }
+    let alive = true;
+    (async () => {
+      const { data } = await supabaseBrowser
+        .from("client_apps")
+        .select("apps(name)")
+        .eq("client_id", personalClient.id);
+      if (!alive) return;
+      const names = Array.from(
+        new Set(
+          ((data as any[]) || [])
+            .map((row) => (Array.isArray(row.apps) ? row.apps[0]?.name : row.apps?.name))
+            .filter(Boolean),
+        ),
+      );
+      setClientAppOptions(names.map((n) => ({ id: n as string, label: n as string })));
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [hasPersonalClient, personalClient?.id]);
+
   useEffect(() => {
     if (!coupon?.client_id) return;
     let alive = true;
@@ -581,15 +616,17 @@ export default function CupomModal({
               <div className="max-w-xs">
                 <MultiSelectDropdown
                   label="Restringir a um app (opcional)"
-                  options={auxApps}
+                  options={clientAppOptions ?? auxApps}
                   selected={targetAppNames}
                   onChange={setTargetAppNames}
                   emptyLabel="Vale na renovação da assinatura"
                 />
                 <p className="text-[10px] text-foreground/60 mt-1">
-                  {targetAppNames.length > 0
-                    ? "Só vale ao renovar a licença deste app — o portal mostra um popup perguntando se quer aplicar."
-                    : "Sem app marcado, vale pra renovação da assinatura (padrão de sempre)."}
+                  {clientAppOptions?.length === 0
+                    ? "Esse cliente não tem nenhum app com licença cadastrado."
+                    : targetAppNames.length > 0
+                      ? "Só vale ao renovar a licença deste app — o portal mostra um popup perguntando se quer aplicar."
+                      : "Sem app marcado, vale pra renovação da assinatura (padrão de sempre)."}
                 </p>
               </div>
             </>
