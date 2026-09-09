@@ -30,6 +30,7 @@ const NovoCliente = dynamic(() => import("../novo_cliente"), { ssr: false });
 const RecargaCliente = dynamic(() => import("../recarga_cliente"), {
   ssr: false,
 });
+import type { CouponEditPayload } from "../../settings/cupons/cupom_modal";
 const CupomModal = dynamic(
   () => import("../../settings/cupons/cupom_modal"),
   { ssr: false },
@@ -340,6 +341,9 @@ export default function ClientDetailsPage() {
   );
   const [loadingCoupons, setLoadingCoupons] = useState(false);
   const [showCupomModal, setShowCupomModal] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<CouponEditPayload | null>(
+    null,
+  );
 
   // --- FOTO DA AGENDA (principal/secundário) ---
   type AgendaContactRef = {
@@ -786,6 +790,45 @@ export default function ClientDetailsPage() {
       setEligibleCoupons([]);
     } finally {
       setLoadingCoupons(false);
+    }
+  }
+
+  // ✅ 08/09/2026, pedido do Márcio: editar/apagar cupom pessoal direto da
+  // ficha do cliente. eligible-coupons devolve só campos já formatados
+  // (discount_label/rule) — busca a linha crua de "coupons" pra editar,
+  // mesmo padrão de app/admin/settings/cupons/page.tsx.
+  async function handleEditCoupon(couponId: string) {
+    const { data, error } = await supabaseBrowser
+      .from("coupons")
+      .select("*")
+      .eq("id", couponId)
+      .single();
+    if (error || !data) {
+      addToast("error", "Erro ao carregar cupom", error?.message ?? "Falha.");
+      return;
+    }
+    setEditingCoupon(data as CouponEditPayload);
+  }
+
+  async function handleDeleteCoupon(couponId: string, code: string) {
+    const ok = await confirm({
+      title: "Apagar cupom?",
+      subtitle: `O cupom "${code}" será removido permanentemente.`,
+      tone: "rose",
+      confirmText: "Apagar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+    try {
+      const { error } = await supabaseBrowser
+        .from("coupons")
+        .delete()
+        .eq("id", couponId);
+      if (error) throw error;
+      addToast("success", "Cupom apagado", "");
+      if (clientIdSafe) loadEligibleCoupons(clientIdSafe);
+    } catch (e: any) {
+      addToast("error", "Erro ao apagar cupom", e?.message ?? "Falha.");
     }
   }
 
@@ -1546,6 +1589,26 @@ export default function ClientDetailsPage() {
                             {c.kind === "personal" ? "· pessoal" : "· geral"}
                           </span>
                         </div>
+                        {c.kind === "personal" && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleEditCoupon(c.id)}
+                              title="Editar cupom"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCoupon(c.id, c.code)}
+                              title="Apagar cupom"
+                              className="p-1.5 rounded-md text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                       {chips.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
@@ -1802,17 +1865,27 @@ export default function ClientDetailsPage() {
           }}
         />
       )}
-      {showCupomModal && client && (
+      {(showCupomModal || editingCoupon) && client && (
         <CupomModal
+          coupon={editingCoupon}
           lockedClient={{
             id: client.id,
             display_name: client.client_name,
             username: client.username,
           }}
-          onClose={() => setShowCupomModal(false)}
-          onSuccess={() => {
+          onClose={() => {
             setShowCupomModal(false);
-            addToast("success", "Cupom criado", `Cupom pessoal criado para ${client.client_name}.`);
+            setEditingCoupon(null);
+          }}
+          onSuccess={() => {
+            const wasEdit = !!editingCoupon;
+            setShowCupomModal(false);
+            setEditingCoupon(null);
+            addToast(
+              "success",
+              wasEdit ? "Cupom atualizado" : "Cupom criado",
+              wasEdit ? "" : `Cupom pessoal criado para ${client.client_name}.`,
+            );
             loadEligibleCoupons(client.id);
           }}
           onError={(msg) => addToast("error", "Erro ao salvar cupom", msg)}
