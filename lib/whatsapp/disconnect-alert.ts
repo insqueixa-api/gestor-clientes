@@ -88,6 +88,12 @@ export async function reportWhatsAppDisconnected(
     "Desconectado — precisa escanear QR Code",
   );
 
+  // ❌ 09/09/2026, pedido explícito do Márcio: Sessão Secundária não é usada
+  // de propósito — desconectada é o estado CORRETO dela, não um problema
+  // (mesmo raciocínio já aplicado ao whatsapp_hard_reset em
+  // app/api/whatsapp/session-alert/route.ts).
+  if (sessionLabel === "session2") return;
+
   try {
     const supabase = adminSupabase();
     const sourceId = sourceIdFor(sessionLabel);

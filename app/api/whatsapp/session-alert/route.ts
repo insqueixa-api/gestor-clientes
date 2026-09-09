@@ -129,6 +129,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
+    // ❌ 09/09/2026, pedido explícito do Márcio: a Sessão Secundária não é
+    // usada de propósito (nunca vai ser reconectada) — "Hard Reset" no
+    // painel sempre reseta as 2 sessões juntas (ver app/api/whatsapp/
+    // hard-reset/route.ts), então todo Hard Reset gerava TAMBÉM um aviso
+    // sobre a Secundária, que nunca resolve sozinho (só resolveria com um
+    // "connected" que nunca vai acontecer) — ficava pra sempre no sino
+    // pedindo pra escanear QR de uma sessão que ele não quer conectar.
+    // Desconectada é o estado CORRETO dela, não um problema.
+    if (sessionLabel === "session2") {
+      return NextResponse.json({ ok: true });
+    }
+
     await notify({
       tenantId: selection.tenantId,
       type: "whatsapp_hard_reset",
