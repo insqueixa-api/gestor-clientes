@@ -142,7 +142,13 @@ export function Dropdown({
         right: pos.right,
         width: pos.width,
       }}
-      className={`fixed z-[9999] ${matchTriggerWidth ? "" : width} rounded-xl border border-border ${panelBg} shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${className}`}
+      // ✅ 08/09/2026, achado do Márcio: z-[9999] ficava ATRÁS do fundo
+      // escuro do <Modal> (components/ui/Modal.tsx, z-[99990]) — o dropdown
+      // abria de verdade, só que invisível/inclicável atrás do backdrop.
+      // z-[999999] é o mesmo valor já usado em todo o app pra overlay que
+      // precisa ficar acima de um Modal (ver ConfirmDialog/PromptDialog,
+      // z-[100000], e as dezenas de páginas com z-[999999] pra isso).
+      className={`fixed z-[999999] ${matchTriggerWidth ? "" : width} rounded-xl border border-border ${panelBg} shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 ${className}`}
     >
       {children}
     </div>,
