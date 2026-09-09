@@ -39,6 +39,25 @@ const supabaseAdmin = createAdmin(
 
 export type JobConfig = { name: string; kind: "sql" | "http"; maxAgeHours: number };
 
+// pg_cron.jobname -> nome usado em JOBS acima, pros jobs "http" que existem
+// nas 2 fontes (pg_cron dispara, a rota Next.js reporta saúde de verdade —
+// ver reportCronHealth). Fonte única: app/api/cron/status/route.ts (painel
+// "Crons" do sino) importa DAQUI em vez de manter cópia própria — achado
+// real (09/09/2026): sync-catalog-natv foi desativado de propósito pelo
+// Márcio no pg_cron, mas o vigia (computeStaleJobs, sem essa informação)
+// continuava achando "velho demais" todo dia — reabrindo o mesmo alerta
+// (sino + Sentry) pra um job que nunca mais vai rodar por decisão dele.
+export const PGCRON_TO_APP_NAME: Record<string, string> = {
+  epg_sync_daily: "sync-claro",
+  sync_catalog_elite_daily: "sync-catalog-elite",
+  sync_catalog_natv_daily: "sync-catalog-natv",
+  sync_tmdb_daily: "sync-tmdb",
+  sync_catalog_limpar_daily: "catalogo-limpar",
+  condominio_pdf_purge_daily: "condominio-pdf-purge",
+  fx_sync_daily: "fx-sync",
+  "fin-snapshot-previsao-mensal": "fin-snapshot-previsao",
+};
+
 // job_name aqui = jobname exato em cron.job pros "sql", e o mesmo valor
 // passado em reportCronHealth() pelas rotas pros "http". Fonte única —
 // tanto o vigia (watchdog) quanto o resolve instantâneo (reportCronHealth)
@@ -96,11 +115,38 @@ export async function getLastOk(job: JobConfig): Promise<string | null> {
   return data?.last_ok_at ?? null;
 }
 
+// Nomes de JOBS (acima) cujo job correspondente no pg_cron está com
+// active=false agora — desativado de propósito (painel Configurações >
+// Crons, ou direto no SQL), não travado/quebrado. Best-effort: se a RPC
+// falhar por qualquer motivo, devolve vazio (mantém o comportamento
+// antigo — melhor um falso alarme raro do que nunca detectar um cron
+// travado de verdade por causa disso).
+async function getDeactivatedAppJobNames(): Promise<Set<string>> {
+  try {
+    const { data, error } = await supabaseAdmin.rpc("admin_cron_dashboard_raw");
+    if (error) throw error;
+    const pgcronRows: Array<{ jobname: string; active: boolean }> = data?.pgcron || [];
+    const names = new Set<string>();
+    for (const row of pgcronRows) {
+      if (row.active) continue;
+      const appName = PGCRON_TO_APP_NAME[row.jobname];
+      if (appName) names.add(appName);
+    }
+    return names;
+  } catch (e) {
+    console.error("[cron-health] falha ao checar jobs desativados no pg_cron:", e);
+    return new Set();
+  }
+}
+
 // Recalcula do zero quais jobs estão velhos demais agora — usado tanto pelo
-// vigia diário quanto pelo resolve instantâneo em reportCronHealth().
+// vigia diário quanto pelo resolve instantâneo em reportCronHealth(). Pula
+// jobs desativados de propósito no pg_cron (ver getDeactivatedAppJobNames).
 export async function computeStaleJobs(): Promise<string[]> {
+  const deactivated = await getDeactivatedAppJobNames();
   const staleJobs: string[] = [];
   for (const job of JOBS) {
+    if (deactivated.has(job.name)) continue;
     const lastOkAt = await getLastOk(job);
     const staleMs = job.maxAgeHours * 60 * 60 * 1000;
     const isStale = !lastOkAt || Date.now() - new Date(lastOkAt).getTime() > staleMs;

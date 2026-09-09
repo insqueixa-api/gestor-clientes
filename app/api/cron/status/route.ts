@@ -11,22 +11,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminTenant } from "@/lib/api/auth";
-import { JOBS } from "@/lib/cron-health";
+import { JOBS, PGCRON_TO_APP_NAME } from "@/lib/cron-health";
 
 export const dynamic = "force-dynamic";
-
-// pg_cron.jobname -> nome usado em JOBS (lib/cron-health.ts) quando o
-// mesmo job aparece nas 2 fontes — sem isso, apareceria 2x na tela.
-const PGCRON_TO_APP_NAME: Record<string, string> = {
-  epg_sync_daily: "sync-claro",
-  sync_catalog_elite_daily: "sync-catalog-elite",
-  sync_catalog_natv_daily: "sync-catalog-natv",
-  sync_tmdb_daily: "sync-tmdb",
-  sync_catalog_limpar_daily: "catalogo-limpar",
-  condominio_pdf_purge_daily: "condominio-pdf-purge",
-  fx_sync_daily: "fx-sync",
-  "fin-snapshot-previsao-mensal": "fin-snapshot-previsao",
-};
 
 const GROUPS: Record<string, { label: string; order: number }> = {
   catalogo: { label: "Sincronização de Catálogo/EPG", order: 1 },
