@@ -2155,15 +2155,21 @@ function AuditoriaPageContent() {
                                   </span>
                                 )}
 
-                                {/* ✅ NOVO (08/09/2026): lixeira — apaga o registro, sempre disponível */}
-                                <button
-                                  onClick={() => handleDeletarRegistro(r)}
-                                  disabled={deletingId === r.id}
-                                  className="p-1.5 bg-muted/40 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 rounded-lg transition-colors border border-border hover:border-rose-500/30 shadow-sm disabled:opacity-50"
-                                  title="Apagar este registro"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                {/* ✅ 08/09/2026: lixeira — só pra pagamento
+                                    recusado (testes/tentativas que não vão
+                                    ser pagas). Concluído manual/automático
+                                    nunca ganha lixeira — é histórico real,
+                                    pedido do Márcio 09/09/2026. */}
+                                {matchesPayment(r, "recusado") && (
+                                  <button
+                                    onClick={() => handleDeletarRegistro(r)}
+                                    disabled={deletingId === r.id}
+                                    className="p-1.5 bg-muted/40 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 rounded-lg transition-colors border border-border hover:border-rose-500/30 shadow-sm disabled:opacity-50"
+                                    title="Apagar este registro"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
