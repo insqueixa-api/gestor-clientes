@@ -2,6 +2,7 @@
 //app/api/whatsapp/envio_programado
 
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { isCronRequest } from "@/lib/internal-auth";
@@ -646,6 +647,35 @@ export async function POST(req: Request) {
             if (isWhatsAppDisconnectedResponse(res.status, lastError)) {
               await reportWhatsAppDisconnected(String(job.tenant_id), targetSession, "envio_programado");
             }
+            // ❌ 09/09/2026, achado investigando um caso do Márcio (acabou
+            // não sendo bug de entrega — a mensagem tinha chegado certinho
+            // pro contato secundário, só não existia NENHUM jeito de
+            // consultar isso depois): client_message_jobs é 1 linha por
+            // CLIENTE/dia, não por contato — o resultado do contato que NÃO
+            // vira o checkpoint (normalmente o secundário) nunca ficava
+            // gravado em lugar nenhum, sucesso ou falha. Sentry aqui (mesmo
+            // padrão do vigia de crons, lib/cron-health.ts) cobre falha de
+            // verdade; secondary_sent_at/secondary_error_message abaixo
+            // cobrem os dois casos de forma consultável no próprio job.
+            if (contact.is_secondary) {
+              await sb.from("client_message_jobs").update({ secondary_error_message: lastError.slice(0, 500) }).eq("id", job.id);
+            }
+            Sentry.captureMessage(
+              `Falha ao enviar pra contato ${contact.is_secondary ? "secundário" : "primário"} (${wa.phones.length > 1 ? "conta com múltiplos contatos" : "contato único"})`,
+              {
+                level: "warning",
+                tags: { kind: "billing_contact_send_failed", is_secondary: String(!!contact.is_secondary) },
+                extra: {
+                  clientId: job.client_id,
+                  automationId: (job as any).automation_id,
+                  jobId: job.id,
+                  phoneSuffix: contact.number?.slice(-4),
+                  status: res.status,
+                  error: lastError.slice(0, 300),
+                  alreadyCheckpointed: checkpointed,
+                },
+              },
+            );
           } else {
             successCount++;
             await reportWhatsAppReconnected(String(job.tenant_id), targetSession);
@@ -655,6 +685,12 @@ export async function POST(req: Request) {
             let okParsed: any = null;
             try { okParsed = okRaw ? JSON.parse(okRaw) : null; } catch {}
             await reportSessionHealthFromSend(String(job.tenant_id), targetSession, okParsed?.sessionHealth);
+            // ✅ 09/09/2026: ver comentário grande acima — registra o
+            // sucesso do secundário também (o do primário já é o próprio
+            // sent_at/status do job via writeSentCheckpoint abaixo).
+            if (contact.is_secondary) {
+              await sb.from("client_message_jobs").update({ secondary_sent_at: new Date().toISOString(), secondary_error_message: null }).eq("id", job.id);
+            }
           }
 
           // ✅ Checkpoint no PRIMEIRO sucesso — ver comentário grande acima
@@ -707,6 +743,19 @@ export async function POST(req: Request) {
         // como falha (e ainda dispararia notificação de falha indevida).
         if (checkpointed) {
           safeServerLog("[BILLING] job já tinha checkpoint SENT, erro depois disso (contato seguinte?):", errorMsg);
+          // ❌ 09/09/2026: mesmo achado do "!res.ok" acima, mas pro caminho de
+          // EXCEÇÃO (ex: generatePortalLink/coupon lançando pro contato
+          // seguinte) — sem isso, ficava só no console.error (sem
+          // integração de captura de console aqui, nunca chegava no
+          // Sentry) e o contato que falhou desaparecia sem deixar rastro.
+          Sentry.captureMessage(
+            "Falha ao processar contato seguinte após checkpoint SENT (provável secundário)",
+            {
+              level: "warning",
+              tags: { kind: "billing_contact_send_failed" },
+              extra: { clientId: job.client_id, automationId: (job as any).automation_id, jobId: job.id, error: errorMsg },
+            },
+          );
           continue;
         }
 
