@@ -760,8 +760,9 @@ function WhatsAppSessionCard({
             </button>
             <button
               onClick={() => void handleReconnect()}
-              disabled={reconnecting}
-              className="py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 flex items-center justify-center gap-1.5 disabled:opacity-50"
+              disabled={reconnecting || connected}
+              title={connected ? "Já está conectada — reconectar uma sessão saudável derruba ela (achado real: provoca logout de verdade no WhatsApp)" : undefined}
+              className="py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {reconnecting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
