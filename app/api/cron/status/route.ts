@@ -157,8 +157,8 @@ export async function GET(req: Request) {
     }
   }
 
-  // ✅ Jobs só de app (sem pg_cron) — ex: sync-catalog-fast, dispara pela VM
-  // Hetzner via crontab, não pelo Supabase.
+  // ✅ Jobs só de app (sem pg_cron), disparados fora do Supabase (ex: por
+  // crontab de alguma VM) — nenhum hoje, mas o merge continua cobrindo o caso.
   for (const job of JOBS) {
     if (consumedAppNames.has(job.name)) continue;
     // ✅ Jobs "sql" têm o MESMO nome no pg_cron e em JOBS (ex:
