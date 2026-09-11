@@ -30,7 +30,12 @@ import { limparOrfaosAposSync } from "@/lib/catalogo/limpar-orfaos";
 import { reportCronHealth } from "@/lib/cron-health";
 
 export const dynamic     = "force-dynamic";
-export const maxDuration = 300;
+// ⚠️ 11/09/2026: 300→60s (obrigatório pra desligar o Fluid Compute, Hobby
+// trava em 60s sem ele). Decisão consciente do Márcio: essa rota pode
+// passar a falhar/travar por timeout (é o maior catálogo dos três) —
+// aceito por enquanto, ele roda por fora (PC local) se necessário. Sem
+// redesenho.
+export const maxDuration = 60;
 
 // ─── R2 ───────────────────────────────────────────────────────────────────────
 const s3 = new S3Client({

@@ -13,7 +13,12 @@ const supabaseAdmin = createAdmin(
 )
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300
+// ⚠️ 11/09/2026: 300→60s (obrigatório pra desligar o Fluid Compute, Hobby
+// trava em 60s sem ele). Decisão consciente do Márcio: essa rota pode
+// passar a falhar/travar por timeout em dias de muitos jogos — aceito por
+// enquanto, ele mesmo roda por fora (PC local, mesmo padrão do
+// scripts/sync-natv-manual.js) se/quando isso acontecer. Sem redesenho.
+export const maxDuration = 60
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 

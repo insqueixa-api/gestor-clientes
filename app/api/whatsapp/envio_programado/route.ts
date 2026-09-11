@@ -33,16 +33,21 @@ function safeServerLog(...args: any[]) {
 }
 
 export const dynamic = "force-dynamic";
-// ✅ Rede de segurança contra invocação presa (achado em 04/08/2026: sem
-// isso, a função herdava o timeout padrão da Vercel e podia ficar pendurada
-// indefinidamente se algo travasse no meio do processamento).
-// ✅ 30/08/2026: 120s → 300s. O checkpoint de SENT (ver loop abaixo) já
-// elimina o risco de DUPLICAR mensagem se a função for morta pelo timeout
-// — mas com só 120s, o delay entre contato principal/secundário (até 120s,
-// configurável) sozinho já quase estourava o orçamento, fazendo o contato
-// secundário frequentemente nem ser tentado. Mais fôlego reduz isso sem
-// reintroduzir risco de duplicar (esse risco já não existe mais).
-export const maxDuration = 300;
+// ✅ 11/09/2026 (projeto de tirar o Fluid Compute — Hobby trava em 60s sem
+// ele): 300s → 60s. O delay entre contato principal/secundário (até 120s,
+// configurável) NUNCA MAIS roda como `sleep()` dentro desta invocação — ao
+// invés disso, o contato secundário vira uma NOVA linha na própria fila
+// (`secondary_only=true`, `send_at` = agora + delay sorteado), que uma
+// invocação FUTURA deste mesmo cron (agora rodando a cada 1 minuto, ver
+// Grupo 1) processa sozinha, do zero — reaproveitando 100% do mecanismo de
+// trava/auto-recuperação que já existe e já é seguro (SENDING + self-
+// healing depois de 5min), sem precisar tocar nele. Ver comentário grande
+// mais abaixo (perto do loop de contatos) pra o histórico completo do
+// incidente que motivou isso. Lote também caiu de 5 pra 1 job por tick —
+// cada job agora só manda pra 1 contato (nunca mais 2 na mesma invocação),
+// pior caso realista ~30-35s (timeout do /send), cabe com folga em 60s
+// mesmo sozinho; a cadência de 1/min garante vazão sem precisar de lote.
+export const maxDuration = 60;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -238,6 +243,7 @@ export async function POST(req: Request) {
       reseller_id,
       whatsapp_session,
       message,
+      secondary_only,
       image_url,
       send_at,
       created_at,
@@ -258,10 +264,13 @@ export async function POST(req: Request) {
       .in("status", ["QUEUED", "SCHEDULED"])
       .lte("send_at", new Date().toISOString())
       .order("send_at", { ascending: true })
-      // ✅ Lote pequeno (era 30) — agora que o cron roda de 5 em 5min no
-      // pico, não precisa de uma invocação longa processando dezenas de
-      // jobs; o próprio ritmo do cron cuida do resto da fila no próximo tick.
-      .limit(5);
+      // ✅ 1 job por tick (era 5) — 11/09/2026, projeto de tirar o Fluid
+      // Compute: com maxDuration=60 e cada job podendo levar até ~30-35s
+      // sozinho (timeout do /send), processar mais de 1 por invocação
+      // arriscaria estourar o orçamento. O cron agora roda de 1 em 1 minuto
+      // (Grupo 1) — vazão de até 60 jobs/hora só com isso, de sobra pro
+      // volume real.
+      .limit(1);
 
     if (jobsErr) return NextResponse.json({ error: jobsErr.message }, { status: 500 });
     if (!jobs?.length) return NextResponse.json({ ok: true, processed: 0 });
@@ -459,6 +468,17 @@ export async function POST(req: Request) {
           wa = await fetchClientWhatsApp(sb, job.tenant_id, recipientId);
         }
 
+        // ✅ 11/09/2026: job "secondary_only" (ver comentário grande perto
+        // do loop de contatos, mais abaixo) — só manda pro contato
+        // SECUNDÁRIO, nunca de novo pro principal (já foi enviado e
+        // confirmado por outra linha da fila, antes desta existir). Se o
+        // cliente não tiver mais um contato secundário cadastrado (removido
+        // depois que este job foi agendado), falha graciosamente — nunca
+        // reenvia pro principal por engano.
+        if ((job as any).secondary_only) {
+          wa = { ...wa, phones: (wa.phones || []).filter((p: any) => p.is_secondary) };
+        }
+
         // ✅ validações
         if (!wa.phones || wa.phones.length === 0) {
           await sb.from("client_message_jobs").update({ status: "FAILED", error_message: "Conta sem whatsapp_username" }).eq("id", job.id);
@@ -537,23 +557,39 @@ export async function POST(req: Request) {
         // ✅ 30/08/2026, CRÍTICO — achado real (Erick/João Batista receberam
         // a mesma cobrança 2x): o delay entre contato principal/secundário
         // (configurável, hoje até 120s) rodava ANTES do job ser gravado
-        // como SENT. Como maxDuration é 120s, a função podia ser matada
+        // como SENT. Como maxDuration era 120s, a função podia ser matada
         // pela Vercel bem no meio desse sleep — o job ficava preso em
         // SENDING, a auto-recuperação de 5min devolvia pra fila, e o
         // PRÓXIMO tick reenviava tudo de novo (mensagem duplicada de
-        // verdade, já entregue nas duas vezes). Agora: assim que o
-        // PRIMEIRO envio bem-sucedido acontece, o job já é gravado como
-        // SENT ali mesmo, antes de qualquer sleep — mesmo que a função
-        // morra depois disso (tentando o contato seguinte), o job nunca
-        // mais é repescado (nem pela seleção normal nem pela
-        // auto-recuperação). Pior caso possível agora: o contato seguinte
-        // não recebe naquela rodada — nunca mais um duplicado.
+        // verdade, já entregue nas duas vezes). Correção original: assim
+        // que o PRIMEIRO envio bem-sucedido acontece, o job já é gravado
+        // como SENT ali mesmo, antes de qualquer sleep.
+        //
+        // ✅ 11/09/2026, projeto de tirar o Fluid Compute: o "sleep depois
+        // do checkpoint, antes do contato seguinte" foi embora de vez — o
+        // contato secundário nunca mais roda na MESMA invocação (ver
+        // "agenda o contato secundário" logo abaixo do loop). Isso elimina
+        // até a JANELA pequena que sobrava entre o checkpoint e o fim da
+        // função — não só o risco de duplicar o PRIMÁRIO (já resolvido em
+        // 30/08), mas também qualquer chance de matar a invocação no meio
+        // do envio ao secundário (que segue seu próprio ciclo de vida
+        // completo — QUEUED→SENDING→SENT/FAILED — como job novo e
+        // independente, protegido pelo MESMO lock/auto-recuperação de
+        // sempre, sem precisar de nenhum mecanismo novo).
         async function writeSentCheckpoint() {
           const nowIso = new Date().toISOString();
           const bookkeepingWrites: PromiseLike<any>[] = [
             sb.from("client_message_jobs").update({ status: "SENT", sent_at: nowIso, error_message: null }).eq("id", job.id),
           ];
-          if ((job as any).automation_id) {
+          // ✅ secondary_only não gera um 2º registro em billing_logs pro
+          // mesmo disparo — só o envio ao contato principal (o job
+          // original) contava como "o" envio da automação naquele dia,
+          // mesmo antes desta mudança (o contato secundário nunca teve
+          // billing_logs próprio, só as colunas secondary_sent_at/
+          // secondary_error_message no job original — que continuam
+          // existindo só pra histórico, não são mais escritas por jobs
+          // novos).
+          if ((job as any).automation_id && !(job as any).secondary_only) {
             const cName = String((wa as any).row?.display_name || (wa as any).row?.client_name || "Cliente").trim();
             bookkeepingWrites.push(
               sb.from("billing_logs").insert({
@@ -694,18 +730,52 @@ export async function POST(req: Request) {
           }
 
           // ✅ Checkpoint no PRIMEIRO sucesso — ver comentário grande acima
-          // do loop. Precisa acontecer ANTES do sleep abaixo.
+          // do loop.
           if (successCount === 1 && !checkpointed) {
             await writeSentCheckpoint();
           }
 
-          // ✅ Delay entre telefone primário e secundário do mesmo cliente
-          // (só aplica se houver mais um contato depois deste), sorteado
-          // dentro da faixa configurada em billing_campaign_settings.
-          if (i < wa.phones.length - 1) {
+          // ✅ 11/09/2026, projeto de tirar o Fluid Compute (substituiu o
+          // antigo `sleep(delaySecs)` aqui, que podia segurar a invocação
+          // por até 120s — incompatível com maxDuration=60). O contato
+          // secundário (só existe quando i=0 e há um phones[1]) vira uma
+          // NOVA linha na fila, agendada pra daqui a `delaySecs`
+          // (sorteado dentro da faixa configurada em
+          // billing_campaign_settings, mesma distribuição de antes) — uma
+          // invocação FUTURA deste cron (1x/min) processa ela do zero,
+          // com seu próprio ciclo de vida completo e protegido pelo mesmo
+          // lock/auto-recuperação de sempre. `break` — nunca processa o
+          // secundário na MESMA passada, mesmo se `wa.phones` ainda
+          // tivesse mais itens (não tem, hoje é sempre 2 no máximo, mas
+          // `break` deixa isso explícito em vez de implícito no `i<len-1`).
+          if (!(job as any).secondary_only && i < wa.phones.length - 1) {
             const { minSecs, maxSecs } = await getCachedSecondaryContactDelayRange(String(job.tenant_id));
             const delaySecs = minSecs + Math.floor(Math.random() * Math.max(maxSecs - minSecs + 1, 1));
-            await sleep(delaySecs * 1000);
+            const { error: scheduleErr } = await sb.from("client_message_jobs").insert({
+              tenant_id: job.tenant_id,
+              client_id: job.client_id || null,
+              reseller_id: (job as any).reseller_id || null,
+              whatsapp_session: (job as any).whatsapp_session || "default",
+              message: job.message,
+              image_url: (job as any).image_url || null,
+              send_at: new Date(Date.now() + delaySecs * 1000).toISOString(),
+              status: "SCHEDULED",
+              automation_id: (job as any).automation_id || null,
+              created_by: job.created_by || null,
+              secondary_only: true,
+            });
+            if (scheduleErr) {
+              // ✅ best-effort — se falhar em agendar, o secundário
+              // simplesmente não recebe nesta rodada (mesmo "pior caso"
+              // que já era aceito antes desta mudança). Não derruba o
+              // checkpoint do principal, que já está gravado.
+              Sentry.captureMessage("envio_programado: falha ao agendar contato secundário", {
+                level: "warning",
+                tags: { kind: "billing_secondary_schedule_failed" },
+                extra: { jobId: job.id, message: scheduleErr.message },
+              });
+            }
+            break;
           }
         }
 

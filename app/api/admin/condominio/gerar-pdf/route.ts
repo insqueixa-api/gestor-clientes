@@ -18,7 +18,12 @@ export const dynamic = "force-dynamic";
 // ✅ 30/08/2026: 65s → 160s, pedido do Márcio depois dos timeouts de hoje —
 // a causa raiz (networkidle0 na VM) já foi corrigida, isso aqui é margem
 // extra pra edições com muitas fotos/ações não flertarem com o limite.
-export const maxDuration = 160;
+// ⚠️ 11/09/2026: 160→60s (obrigatório pra desligar o Fluid Compute, Hobby
+// trava em 60s sem ele). Decisão consciente do Márcio: PDFs de edições
+// grandes podem passar a falhar por timeout — aceito por enquanto, sem
+// redesenho (a rota já é só um proxy pra VM, o timeout interno abaixo
+// continua em 150s, mas a Vercel corta em 60s antes disso na prática).
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const auth = await requireAdminTenant(req);

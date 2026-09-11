@@ -23,7 +23,12 @@ import {
 } from "@/lib/catalog/catalog-parser";
 
 export const dynamic     = "force-dynamic";
-export const maxDuration = 300;
+// ⚠️ 11/09/2026: 300→60s (obrigatório pra desligar o Fluid Compute, Hobby
+// trava em 60s sem ele). Decisão consciente do Márcio: essa rota pode
+// passar a falhar/travar por timeout em catálogos grandes — aceito por
+// enquanto (já roda majoritariamente via scripts/sync-natv-manual.js, fora
+// da Vercel, por causa do bloqueio geográfico). Sem redesenho.
+export const maxDuration = 60;
 
 // ─── R2 ───────────────────────────────────────────────────────────────────────
 const s3 = new S3Client({
