@@ -1545,6 +1545,7 @@ export default function ApiServerPage() {
                         <IconActionBtn
                           title="Renovar (debita saldo ProxyBR)"
                           tone="green"
+                          disabled={renewingProxy}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleRenewProxy();
@@ -1977,11 +1978,13 @@ function IconActionBtn({
   title,
   tone,
   onClick,
+  disabled,
 }: {
   children: ReactNode;
   title: string;
   tone: "blue" | "green" | "amber" | "purple" | "red";
   onClick: (e: MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
 }) {
   const colors = {
     blue: "text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20",
@@ -1998,10 +2001,12 @@ function IconActionBtn({
     <button
       onClick={(e) => {
         e.stopPropagation();
+        if (disabled) return;
         onClick(e);
       }}
       title={title}
-      className={`p-1.5 rounded-lg border transition-all ${colors[tone]}`}
+      disabled={disabled}
+      className={`p-1.5 rounded-lg border transition-all ${colors[tone]} disabled:opacity-50 disabled:cursor-not-allowed`}
       type="button"
     >
       {children}
