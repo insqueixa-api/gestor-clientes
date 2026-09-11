@@ -357,11 +357,11 @@ export default function LoginPage() {
         </div>
 
         <div className="mt-2 text-center text-[10px] text-white/40">
-          <Link href="/termos-de-uso" className="hover:text-white/70 hover:underline transition">
+          <Link href="/termos-de-uso" prefetch={false} className="hover:text-white/70 hover:underline transition">
             Termos de Uso
           </Link>
           {" "}·{" "}
-          <Link href="/politica-de-privacidade" className="hover:text-white/70 hover:underline transition">
+          <Link href="/politica-de-privacidade" prefetch={false} className="hover:text-white/70 hover:underline transition">
             Política de Privacidade
           </Link>
         </div>

@@ -1301,7 +1301,19 @@ function AuditoriaPageContent() {
         // também é gravado por renovações 100% automáticas (Appativa/
         // Duplecast/GerenciaApp/GPC Roku) — sem fulfilled_automatically não
         // dava pra diferenciar de um clique real em "Concluir".
-        <span className="gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20">
+        //
+        // ✅ Achado 10/09/2026 (Márcio: "se a renovação foi concluída
+        // automaticamente, ele tem que ficar verde"): a cor ficava sempre
+        // azul aqui, só o texto mudava — mesmo pra automático, que devia ter
+        // a mesma cor de sucesso do bucket "done" (verde). Azul agora é só
+        // pra conclusão manual de verdade.
+        <span
+          className={
+            fulfilledAutomatically
+              ? "gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-emerald-500/10 text-emerald-500 text-[10px] font-medium uppercase border border-emerald-500/20"
+              : "gap-1 px-2 py-1 rounded-lg shadow-sm tracking-tight bg-sky-500/10 text-sky-500 text-[10px] font-medium uppercase border border-sky-500/20"
+          }
+        >
           {fulfilledAutomatically ? "Concluído (Automático)" : "Concluído (Manual)"}
         </span>
       );

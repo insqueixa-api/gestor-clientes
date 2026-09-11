@@ -21,7 +21,7 @@
 //      o resto (parse + upsert no Supabase) exatamente igual ao fluxo
 //      automático de sempre.
 require("dotenv").config({ path: require("path").join(__dirname, "..", ".env.local") });
-const { Client } = require("pg");
+const { createClient } = require("@supabase/supabase-js");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 
 const CLIENT_ID = "f7e0b6e7-e7bb-486f-924c-5fc6704b94e9"; // cliente NaTV
@@ -29,19 +29,26 @@ const API_BASE  = "https://unigestor.net.br";
 const R2_KEY    = "epg/natv_manual_upload.m3u";
 
 async function main() {
-  const dbUrl = process.env.DATABASE_URL;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const cronSecret = process.env.EPG_SYNC_CRON_SECRET;
-  if (!dbUrl || !cronSecret) {
-    console.error("Faltam DATABASE_URL e/ou EPG_SYNC_CRON_SECRET no .env.local");
+  if (!supabaseUrl || !serviceRoleKey || !cronSecret) {
+    console.error("Faltam NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY/EPG_SYNC_CRON_SECRET no .env.local");
     process.exit(1);
   }
 
   console.log("[1/4] Buscando m3u_url do cliente NaTV...");
-  const db = new Client({ connectionString: dbUrl });
-  await db.connect();
-  const { rows } = await db.query("select m3u_url from clients where id = $1", [CLIENT_ID]);
-  await db.end();
-  const m3uUrl = rows[0]?.m3u_url;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const { data: clientRow, error: clientErr } = await supabase
+    .from("clients")
+    .select("m3u_url")
+    .eq("id", CLIENT_ID)
+    .maybeSingle();
+  if (clientErr) {
+    console.error("Falha ao consultar o Supabase:", clientErr.message);
+    process.exit(1);
+  }
+  const m3uUrl = clientRow?.m3u_url;
   if (!m3uUrl) {
     console.error("m3u_url não encontrado pro cliente NaTV.");
     process.exit(1);
