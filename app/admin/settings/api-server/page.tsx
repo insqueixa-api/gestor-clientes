@@ -107,6 +107,7 @@ type ProxyBrOrder = {
   status: string;
   auto_renew_active: boolean;
   expires_at: string;
+  proxies?: { proxy_string_dns?: string }[];
 };
 type ProxyBrStatus = { order: ProxyBrOrder | null; balance: number | null };
 
@@ -165,6 +166,13 @@ export default function ApiServerPage() {
   const [proxyStatus, setProxyStatus] = useState<ProxyBrStatus | null>(null);
   const [loadingProxyStatus, setLoadingProxyStatus] = useState(true);
   const [renewingProxy, setRenewingProxy] = useState(false);
+
+  // ✅ Conexão do proxy (11/09/2026, pedido do Márcio) — string
+  // host:porta:usuario:senha editável, propaga pra Vercel + VM ao salvar.
+  const [proxyConnRaw, setProxyConnRaw] = useState("");
+  const [editingProxyConn, setEditingProxyConn] = useState(false);
+  const [proxyConnInput, setProxyConnInput] = useState("");
+  const [savingProxyConn, setSavingProxyConn] = useState(false);
 
   // ✅ Logo dos servidores: HERDADA de `servers.logo_url` por padrão, mas
   // agora também pode ter upload próprio aqui (achado 26/08/2026, pedido do
@@ -355,6 +363,61 @@ export default function ApiServerPage() {
     }
   }
 
+  async function fetchProxyConnRaw() {
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch("/api/admin/settings/proxybr/connection-string", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json?.ok) setProxyConnRaw(json.raw || "");
+    } catch {
+      // best-effort
+    }
+  }
+
+  function abrirEdicaoProxyConn() {
+    // ✅ Se nunca foi salvo, sugere o valor detectado ao vivo na própria
+    // API da ProxyBR (proxy_string_dns do pedido ativo) — pedido do Márcio,
+    // "seria legal se pudesse colocar isso aqui também".
+    const sugestao = proxyStatus?.order?.proxies?.[0]?.proxy_string_dns || "";
+    setProxyConnInput(proxyConnRaw || sugestao);
+    setEditingProxyConn(true);
+  }
+
+  async function handleSaveProxyConn() {
+    setSavingProxyConn(true);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch("/api/admin/settings/proxybr/connection-string", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ raw: proxyConnInput }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Falha ao salvar.");
+
+      setProxyConnRaw(proxyConnInput.trim());
+      setEditingProxyConn(false);
+      addToast(
+        "success",
+        "Conexão do proxy atualizada",
+        json.vmUpdated
+          ? "Vercel e VM do WhatsApp atualizadas — a VM está reiniciando pra aplicar (leva ~10s)."
+          : `Salvo pro lado da Vercel. VM não foi atualizada: ${json.vmError || "motivo desconhecido"}.`,
+      );
+    } catch (e: any) {
+      addToast("error", "Erro ao salvar", e?.message ?? "Falha ao salvar a conexão do proxy.");
+    } finally {
+      setSavingProxyConn(false);
+    }
+  }
+
   async function handleRenewProxy() {
     const ok = await confirm({
       title: "Renovar o proxy dedicado agora?",
@@ -391,6 +454,7 @@ export default function ApiServerPage() {
   useEffect(() => {
     fetchData();
     fetchProxyStatus();
+    fetchProxyConnRaw();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1602,6 +1666,59 @@ export default function ApiServerPage() {
                           </span>
                         </div>
                       )}
+
+                      {/* ✅ 11/09/2026: conexão (IP/host:porta:usuário:senha)
+                          editável — propaga sozinha pra Vercel + VM ao salvar. */}
+                      <div className="pt-1 border-t border-border/60">
+                        {editingProxyConn ? (
+                          <div className="space-y-1.5 pt-2">
+                            <label className="block text-[10px] uppercase font-medium text-muted-foreground">
+                              Conexão (host:porta:usuario:senha)
+                            </label>
+                            <input
+                              type="text"
+                              value={proxyConnInput}
+                              onChange={(e) => setProxyConnInput(e.target.value)}
+                              placeholder="proxy22-br-hz.ipbr.pro:10001:usuario:senha"
+                              className="w-full h-9 px-2.5 bg-transparent border border-border rounded-lg text-xs font-mono text-foreground outline-none focus:border-emerald-500/50"
+                            />
+                            <div className="flex justify-end gap-2 pt-0.5">
+                              <button
+                                type="button"
+                                onClick={() => setEditingProxyConn(false)}
+                                className="px-3 h-8 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSaveProxyConn}
+                                disabled={savingProxyConn || !proxyConnInput.trim()}
+                                className="px-3 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-medium transition-colors"
+                              >
+                                {savingProxyConn ? "Salvando..." : "Salvar"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between items-center gap-2 pt-2">
+                            <div className="min-w-0">
+                              <span className="text-muted-foreground text-[11px]">🌐 Conexão (IP)</span>
+                              <p className="font-mono text-xs text-foreground/90 truncate" title={proxyConnRaw}>
+                                {proxyConnRaw || "-- (não configurada)"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={abrirEdicaoProxyConn}
+                              className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-sky-500 hover:text-sky-400"
+                            >
+                              <Pencil className="w-3 h-3" /> Editar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex justify-between items-center gap-2">
                         <span className="text-muted-foreground shrink-0">🔗 URL</span>
                         <a

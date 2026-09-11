@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import QRCode from "qrcode";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 import {
@@ -14,6 +15,12 @@ import { runDuplecastAction } from "./duplecastClient.js";
 import { checkDowndetectorStatus } from "./downdetectorClient.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// ✅ 11/09/2026: dentro de auth/ (volume persistido, ver docker-compose.yml
+// — sobrevive a restart e a rebuild) pra sessionManager.js conseguir ler o
+// valor mais recente logo depois de um /system/set-proxy + restart, sem
+// precisar recriar o container pra pegar um .env novo.
+const PROXY_CONFIG_PATH = path.join(__dirname, "..", "auth", "proxy-config.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -447,6 +454,34 @@ const config = updateSessionConfig(sessionKey, { rejectCalls, rejectMessage, all
 app.post("/system/restart", authMiddleware, async (req, res) => {
   console.log("[SYSTEM] Restart solicitado via API");
   res.json({ ok: true, message: "Reiniciando serviço..." });
+  setTimeout(() => process.exit(0), 500);
+});
+
+// ── POST /system/set-proxy ────────────────────────────────────
+// ✅ 11/09/2026, pedido do Márcio: trocar o proxy residencial (IP/host da
+// ProxyBR rotaciona de vez em quando) sem precisar mexer em env var + subir
+// código — o card ProxyBR (Configurações > API de Integrações) chama isto
+// direto. Grava a URL já pronta (http://usuario:senha@host:porta, montada
+// pelo lado da Vercel — ver app/api/admin/settings/proxybr/connection-
+// string/route.ts) no volume persistido e reinicia: mesmo padrão de
+// /system/restart, as sessões em auth/ sobrevivem, só o processo Node sobe
+// de novo e lê o proxy novo (sessionManager.js lê o arquivo ANTES da env
+// var — ver WA_PROXY_URL lá).
+app.post("/system/set-proxy", authMiddleware, async (req, res) => {
+  const { proxyUrl } = req.body || {};
+  if (!proxyUrl || typeof proxyUrl !== "string" || !/^https?:\/\//.test(proxyUrl)) {
+    return res.status(400).json({ error: "proxyUrl inválido (esperado http://usuario:senha@host:porta)." });
+  }
+
+  try {
+    fs.mkdirSync(path.dirname(PROXY_CONFIG_PATH), { recursive: true });
+    fs.writeFileSync(PROXY_CONFIG_PATH, JSON.stringify({ proxyUrl, updatedAt: new Date().toISOString() }, null, 2));
+  } catch (e) {
+    return res.status(500).json({ error: `Falha ao salvar config do proxy: ${e?.message}` });
+  }
+
+  console.log("[SYSTEM] Proxy atualizado via API — reiniciando pra aplicar");
+  res.json({ ok: true, message: "Proxy salvo. Reiniciando serviço pra aplicar..." });
   setTimeout(() => process.exit(0), 500);
 });
 

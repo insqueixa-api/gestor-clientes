@@ -7,16 +7,15 @@
 // partir da Vercel). Separado num helper próprio porque essa rota nunca
 // mexe em MAC/playlist de cliente — só lê `props.auth.user.expire_account`
 // da página inicial do painel deles.
-import { fetch as undiciFetch, ProxyAgent } from "undici";
+import { fetch as undiciFetch } from "undici";
+import { getGerenciaAppProxyDispatcher } from "./gerenciaapp-proxy";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 
-const PROXY_URL = String(process.env.GERENCIAAPP_PROXY_URL || "").trim();
-const proxyDispatcher = PROXY_URL ? new ProxyAgent(PROXY_URL) : undefined;
-
-function pfetch(url: string, opts: Record<string, any> = {}) {
-  return undiciFetch(url, { ...opts, ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}) }) as unknown as Promise<Response>;
+async function pfetch(url: string, opts: Record<string, any> = {}) {
+  const dispatcher = await getGerenciaAppProxyDispatcher();
+  return undiciFetch(url, { ...opts, ...(dispatcher ? { dispatcher } : {}) }) as unknown as Promise<Response>;
 }
 
 function getSetCookies(headers: Headers): string[] {

@@ -26,13 +26,30 @@ import { HttpsProxyAgent } from "https-proxy-agent";
 // `agent`/`fetchAgent` do Baileys (suporte nativo:
 // https://mintlify.wiki/whiskeysockets/Baileys/api/socket-config), a
 // conexão passa a sair de um IP residencial brasileiro fixo em vez do IP da
-// VM. Env var PRÓPRIA (WHATSAPP_PROXY_URL), separada de GERENCIAAPP_PROXY_URL
-// — mesmo provedor/mesma credencial hoje, mas dá pra apontar pra uma
-// sessão/IP diferente se precisar (ex: não competir com o scraping do
-// GerenciaApp). Único IP pra todas as sessões WhatsApp da VM — ver auditoria
-// de 05/08/2026 (memória de projeto) sobre o risco de correlação entre
-// números que isso implica; decisão do Márcio foi manter assim por ora.
-const WA_PROXY_URL = String(process.env.WHATSAPP_PROXY_URL || "").trim();
+// VM. Único IP pra todas as sessões WhatsApp da VM — ver auditoria de
+// 05/08/2026 (memória de projeto) sobre o risco de correlação entre números
+// que isso implica; decisão do Márcio foi manter assim por ora.
+//
+// ✅ 11/09/2026: lido do arquivo persistido em auth/proxy-config.json
+// PRIMEIRO (gravado por POST /system/set-proxy, index.js — editável direto
+// no card ProxyBR do admin, sem precisar mexer em env var/redeploy),
+// caindo pra WHATSAPP_PROXY_URL (env var, legado) só se o arquivo ainda não
+// existir. Lido 1x na subida do processo — trocar o proxy sempre reinicia
+// o serviço (mesmo padrão do /system/restart) pra aplicar.
+function readProxyUrl() {
+  try {
+    const configPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "auth", "proxy-config.json");
+    if (fs.existsSync(configPath)) {
+      const parsed = JSON.parse(fs.readFileSync(configPath, "utf8"));
+      if (parsed?.proxyUrl) return String(parsed.proxyUrl).trim();
+    }
+  } catch (e) {
+    console.error("[WA] Falha ao ler auth/proxy-config.json, caindo pra env var:", e?.message);
+  }
+  return String(process.env.WHATSAPP_PROXY_URL || "").trim();
+}
+
+const WA_PROXY_URL = readProxyUrl();
 if (WA_PROXY_URL) {
   console.log("[WA] Proxy residencial ativo pra conexão com o WhatsApp");
 }

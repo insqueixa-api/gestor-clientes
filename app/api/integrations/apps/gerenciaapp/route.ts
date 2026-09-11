@@ -42,11 +42,12 @@
 // /users (store) clássico (X-Inertia-Version + array `playlists` no
 // payload).
 import { NextResponse } from "next/server";
-import { fetch as undiciFetch, ProxyAgent } from "undici";
+import { fetch as undiciFetch } from "undici";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 import { extractDateOnly } from "@/lib/apps/panel";
+import { getGerenciaAppProxyDispatcher } from "@/lib/integrations/gerenciaapp-proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,13 +56,13 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
 
 // Mesmo proxy residencial que a VM usava — precisa vir do ambiente da
-// própria Vercel (GERENCIAAPP_PROXY_URL). Sem ele, cai pra chamada direta,
-// que sofre bloqueio/challenge do Cloudflare a partir do IP da Vercel.
-const PROXY_URL = String(process.env.GERENCIAAPP_PROXY_URL || "").trim();
-const proxyDispatcher = PROXY_URL ? new ProxyAgent(PROXY_URL) : undefined;
-
-function pfetch(url: string, opts: Record<string, any> = {}) {
-  return undiciFetch(url, { ...opts, ...(proxyDispatcher ? { dispatcher: proxyDispatcher } : {}) }) as unknown as Promise<Response>;
+// própria Vercel. Sem ele, cai pra chamada direta, que sofre bloqueio/
+// challenge do Cloudflare a partir do IP da Vercel. ✅ 11/09/2026: lido de
+// system_config (editável no card ProxyBR), não mais fixo em env var — ver
+// lib/integrations/gerenciaapp-proxy.ts.
+async function pfetch(url: string, opts: Record<string, any> = {}) {
+  const dispatcher = await getGerenciaAppProxyDispatcher();
+  return undiciFetch(url, { ...opts, ...(dispatcher ? { dispatcher } : {}) }) as unknown as Promise<Response>;
 }
 
 // Sessão em memória por conta — best-effort (só ajuda em invocações

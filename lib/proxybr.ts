@@ -17,6 +17,10 @@ export type ProxyBrOrder = {
   renewal_window: { is_open: boolean; starts_at: string; expires_at: string } | null;
   renewal_policy: { grace_days: number; on_expiry_action: string } | null;
   renewal_price_with_fee: number | null;
+  // ✅ 11/09/2026: proxy_string_dns é o "host:porta:usuário:senha" que o
+  // card usa como sugestão pra preencher a conexão salva em system_config
+  // — sempre via hostname DNS (estável), nunca o IP/IPv6 cru (pode rotacionar).
+  proxies?: { proxy_string_dns?: string }[];
 };
 
 async function proxyBrFetch(path: string, token: string, init: RequestInit = {}): Promise<any> {
