@@ -4356,42 +4356,48 @@ export default function RenewClient() {
   // ========= RENDER: MENU (2 BLOCOS) =========
   if (activeSection === "menu") {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="h-dvh overflow-hidden sm:h-auto sm:min-h-screen sm:overflow-visible bg-background flex flex-col">
         {renderTopBar(
           accounts.length > 1 ? () => setSelectedAccountId(null) : null,
         )}
 
         {/* ✅ 11/09/2026, pedido do Márcio: no celular os 2 blocos viravam 2
             botões pequenos coladinhos no topo — agora preenchem o resto da
-            tela em 2 metades iguais (flex-1 em cada), conteúdo centralizado
-            e maior. Só no celular (sm: volta pro layout horizontal antigo,
-            compacto, sem esticar). */}
-        <div className="flex-1 flex flex-col sm:block max-w-6xl mx-auto w-full px-0 sm:px-4 py-4 sm:py-6 sm:space-y-4">
+            tela em 2 metades iguais (flex-1 em cada), conteúdo centralizado.
+            ❌ 11/09/2026 (mesmo dia), achado do Márcio: com `min-h-screen` os
+            cards "explodiam" e criavam scroll — `100vh` no celular conta
+            espaço por trás da barra de endereço, que não é tela visível de
+            verdade. Trocado pra `h-dvh` (altura real visível) +
+            `overflow-hidden`, e o conteúdo interno dos cards encolhido
+            (ícone/título/padding menores) pra caber com folga descontando
+            TopBar + título. Só no celular (sm: volta pro layout horizontal
+            antigo, compacto, página solta/scrollável normal). */}
+        <div className="flex-1 min-h-0 flex flex-col sm:block max-w-6xl mx-auto w-full px-0 sm:px-4 py-3 sm:py-6 sm:space-y-4">
           <div className="mb-2 px-3 sm:px-0 shrink-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground tracking-tight">
               {getGreeting()}
               {clientFirstName ? `, ${clientFirstName}` : ""}! 👋
             </h1>
-            <p className="text-foreground/70 text-sm mt-1">
+            <p className="text-foreground/70 text-xs sm:text-sm mt-0.5 sm:mt-1">
               Escolha abaixo o que você quer resolver agora.
             </p>
           </div>
 
-          <div className="flex-1 flex flex-col gap-3 px-3 pb-3 sm:block sm:gap-0 sm:space-y-4 sm:px-0 sm:pb-0">
+          <div className="flex-1 min-h-0 flex flex-col gap-2.5 px-3 pb-3 sm:block sm:gap-0 sm:space-y-4 sm:px-0 sm:pb-0">
             {/* Bloco 1 — Pagamentos e Renovação */}
             <button
               onClick={() => setActiveSection("payment")}
-              className="flex-1 sm:flex-none w-full text-left rounded-2xl p-5 border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group"
+              className="flex-1 min-h-0 sm:flex-none w-full text-left rounded-2xl p-4 border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group overflow-hidden"
             >
-              <div className="h-full flex flex-col items-center justify-center text-center gap-3 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20 text-4xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
+              <div className="h-full flex flex-col items-center justify-center text-center gap-2 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20 text-2xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
                   💳
                 </div>
                 <div className="min-w-0 sm:flex-1">
-                  <p className="text-xl font-bold text-foreground sm:text-base">
+                  <p className="text-base font-bold text-foreground sm:text-base">
                     Pagamentos e Renovação
                   </p>
-                  <p className="text-sm text-muted-foreground mt-1 sm:text-xs sm:mt-0.5 sm:line-clamp-2">
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:text-xs sm:mt-0.5">
                     Veja o vencimento, escolha como pagar e acompanhe a
                     renovação até o fim.
                   </p>
@@ -4405,17 +4411,17 @@ export default function RenewClient() {
             {/* Bloco 2 — Configuração de aplicativo */}
             <button
               onClick={() => setActiveSection("apps")}
-              className="flex-1 sm:flex-none w-full text-left rounded-2xl p-5 border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 transition-all shadow-sm hover:shadow-md group"
+              className="flex-1 min-h-0 sm:flex-none w-full text-left rounded-2xl p-4 border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 transition-all shadow-sm hover:shadow-md group overflow-hidden"
             >
-              <div className="h-full flex flex-col items-center justify-center text-center gap-3 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-4xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
+              <div className="h-full flex flex-col items-center justify-center text-center gap-2 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-2xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
                   📱
                 </div>
                 <div className="min-w-0 sm:flex-1">
-                  <p className="text-xl font-bold text-foreground sm:text-base">
+                  <p className="text-base font-bold text-foreground sm:text-base">
                     Meus Aplicativos
                   </p>
-                  <p className="text-sm text-muted-foreground mt-1 sm:text-xs sm:mt-0.5 sm:line-clamp-2">
+                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:text-xs sm:mt-0.5">
                     Diga quais aplicativos você usa, atualize ou instale
                     novos.
                   </p>
