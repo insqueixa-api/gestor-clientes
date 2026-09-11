@@ -33,7 +33,7 @@ import {
 // ela não pegar.
 const FULFILLMENT_APPATIVA_POLL_ATTEMPTS = 5;
 import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
-import { renewDuplecastWithCode, syncDuplecastCredits } from "@/lib/apps/duplecast-renewal";
+import { renewDuplecastWithCode } from "@/lib/apps/duplecast-renewal";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
 
 // ============================================================
@@ -687,18 +687,6 @@ export async function markAppRenewalPaid(
                   .eq("fulfillment_status", "manual_pending")
                   .select("id");
 
-                // ✅ 01/09/2026, achado do Márcio: o decremento local (best-
-                // effort, dentro de renewDuplecastWithCode) pode falhar em
-                // silêncio e o saldo mostrado em Configurações > Parceiros
-                // ficava desatualizado até alguém clicar "Sincronizar" na
-                // mão. Mesmo padrão da Appativa (syncAppativaCredits) —
-                // busca o saldo REAL na VM depois de toda renovação
-                // bem-sucedida. Já estamos dentro de after(), sem motivo
-                // pra aninhar outro — só await direto.
-                await syncDuplecastCredits(supabaseAdmin, tenantId).catch((e: any) =>
-                  prodLog("duplecast_renew.sync_credits_falhou", { message: e?.message }),
-                );
-
                 if (claimedRows && claimedRows.length > 0) {
                   await resolveNotification(tenantId, "manual_pending", paymentRowId);
 
@@ -731,6 +719,49 @@ export async function markAppRenewalPaid(
                     }
                   } catch (e: any) {
                     prodLog("duplecast_renew.post_success_side_effects_failed", { paymentRowId, message: e?.message });
+                  }
+
+                  // ✅ 01/09/2026, achado do Márcio: o decremento local (best-
+                  // effort, dentro de renewDuplecastWithCode) pode falhar em
+                  // silêncio e o saldo mostrado em Configurações > Parceiros
+                  // ficava desatualizado até alguém clicar "Sincronizar" na
+                  // mão. Mesmo padrão da Appativa (syncAppativaCredits) —
+                  // busca o saldo REAL na VM depois de toda renovação
+                  // bem-sucedida.
+                  //
+                  // ⚠️ 11/09/2026 (achado durante o Grupo 2, projeto de
+                  // tirar o Fluid Compute): antes chamava a função direto e
+                  // ESPERAVA o resultado, dentro do mesmo after() que já
+                  // rodou renewDuplecastWithCode — com maxDuration=60, as
+                  // duas chamadas somadas (cada uma pode levar até ~46-58s
+                  // num Cloudflare lento do lado deles) podiam estourar o
+                  // orçamento. Reordenado pra rodar por último (protege as
+                  // etapas mais importantes acima) e, por pedido do Márcio,
+                  // agora só ACIONA a rota interna dedicada
+                  // (app/api/internal/duplecast/sync-credits) — ela
+                  // responde na hora (antes de sincronizar de verdade) e
+                  // termina o sync no PRÓPRIO after() dela, com orçamento
+                  // totalmente separado deste. Só aguarda essa resposta
+                  // rápida (confirma que foi aceito, não que terminou) —
+                  // NÃO espera o sync de verdade acontecer, e sem esperar
+                  // NEM o "aceito" corre o risco de a Vercel congelar esta
+                  // invocação antes do fetch sequer sair (after() não
+                  // garante que uma chamada solta, sem nenhum await, chegue
+                  // a ser despachada). A rota já atualiza api_integrations
+                  // sozinha quando termina, best-effort (mesmo catch de
+                  // sempre) — nada mais a fazer aqui.
+                  if (origin) {
+                    await fetch(`${origin}/api/internal/duplecast/sync-credits`, {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                        "x-internal-secret": String(process.env.INTERNAL_API_SECRET || ""),
+                      },
+                      cache: "no-store",
+                      body: JSON.stringify({ tenant_id: tenantId }),
+                    }).catch((e: any) =>
+                      prodLog("duplecast_renew.sync_credits_trigger_falhou", { message: e?.message }),
+                    );
                   }
                 }
               } else {

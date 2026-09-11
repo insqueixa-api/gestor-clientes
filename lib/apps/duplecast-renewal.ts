@@ -147,9 +147,19 @@ export async function renewDuplecastWithCode(
         macValue: params.macValue,
         deviceKey: params.deviceKey,
       }),
-      // ✅ 58s (mesmo orçamento de app/api/integrations/apps/duplecast/
-      // route.ts) — dá espaço pro retry de 2 tentativas do Cloudflare na VM.
-      signal: AbortSignal.timeout(58000),
+      // ✅ 55s (11/09/2026, projeto de tirar o Fluid Compute — ajustado de
+      // 58s). Era o mesmo orçamento de app/api/integrations/apps/duplecast/
+      // route.ts, mas essa ação (renew_code) é mais pesada que check/
+      // create/delete: faz até 3 solveChallenge na VM (deviceLogin ANTES da
+      // ativação, resellerLogin, deviceLogin DEPOIS pra confirmar), não só
+      // 1 — cada um com o mesmo retry de 2 tentativas do Cloudflare. Os dois
+      // chamadores (app/api/admin/apps/duplecast/activate/route.ts,
+      // maxDuration=60; e o after() de lib/client-portal/fulfillment.ts,
+      // idem) precisam de margem real pro resto do fluxo depois que este
+      // fetch retorna — 55s deixa uns 5s de folga sem cortar quase nada do
+      // orçamento real de retry do Cloudflare (raramente usado por inteiro:
+      // 9/9 renovações reais já feitas nunca deram timeout).
+      signal: AbortSignal.timeout(55000),
     });
     vmJson = await vmRes.json().catch(() => ({} as any));
     if (!vmRes.ok || !vmJson?.ok) {

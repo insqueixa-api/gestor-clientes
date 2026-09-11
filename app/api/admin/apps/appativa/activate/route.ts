@@ -19,7 +19,7 @@ import { triggerAppativaActivationForClient } from "@/lib/apps/appativa-client-a
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 90;
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminTenant(req);

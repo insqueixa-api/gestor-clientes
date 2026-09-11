@@ -18,7 +18,18 @@ import { renewDuplecastWithCode } from "@/lib/apps/duplecast-renewal";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 90;
+// ✅ 11/09/2026, projeto de tirar o Fluid Compute (Hobby trava em 60s sem
+// ele) — Grupo 2 (ativação manual de app). Era 90s sem justificativa
+// documentada (nasceu assim na criação do arquivo, nunca foi revisado).
+// Validado com dados reais antes de mudar: renewDuplecastWithCode já tem
+// seu próprio teto de 55s pro fetch na VM (ver lib/apps/duplecast-renewal.ts)
+// — nenhuma chamada real já feita (9/9 renovações via código, desde
+// 04/08/2026) jamais deu timeout ou erro. O resto desta rota (auth cacheada
+// + loadClientApp + até 2 updates simples em client_apps/api_integrations)
+// é um punhado de queries de linha única no Supabase — mesma região da
+// Vercel desde a correção de região (ver memória), overhead real de
+// centenas de ms, não segundos. 60s cobre os 55s do fetch com folga.
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminTenant(req);

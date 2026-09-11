@@ -26,8 +26,22 @@ import {
   syncAppativaCredits,
   APPATIVA_INITIAL_DELAY_MS,
   APPATIVA_POLL_INTERVAL_MS,
-  APPATIVA_POLL_ATTEMPTS,
 } from "@/lib/integrations/appativa";
+
+// ✅ 11/09/2026, pedido do Márcio (projeto de tirar o Fluid Compute — rotas
+// precisam caber em 60s no total, incluindo o que roda dentro de `after()`,
+// que soma no mesmo orçamento da invocação). O APPATIVA_POLL_ATTEMPTS
+// "cheio" (12 tentativas, ~75s com o delay inicial) é de
+// lib/integrations/appativa.ts, compartilhado com o fluxo de pagamento do
+// Portal (lib/client-portal/fulfillment.ts) — que já foi ajustado (Grupo 1)
+// pro mesmo teto menor, com a mesma medição real por trás: nos únicos 2
+// casos reais já confirmados pela Appativa, NENHUM resolveu dentro da janela
+// cheia de 75s (um levou 124s, outro ~93min). Quem pega o resto agora é o
+// vigia dedicado (app/api/cron/appativa-admin-watchdog), que roda de 1 em 1
+// min só verificando se HÁ pendência (client_apps.field_values com
+// _appativa_pending_id) antes de bater na API da Appativa. Constante local
+// (não mexe em APPATIVA_POLL_ATTEMPTS, que outros lugares ainda usam cheio).
+const ADMIN_ACTIVATION_APPATIVA_POLL_ATTEMPTS = 5;
 
 const APPATIVA_SUCCESS_STATUSES = new Set(["ativado", "aprovado"]);
 const APPATIVA_FAILURE_STATUSES = new Set(["incorreto", "reprovado"]);
@@ -145,7 +159,7 @@ export async function triggerAppativaActivationForClient(
     await syncAppativaCredits(supabaseAdmin, params.tenantId).catch(() => {});
     try {
       await new Promise((resolve) => setTimeout(resolve, APPATIVA_INITIAL_DELAY_MS));
-      for (let i = 0; i < APPATIVA_POLL_ATTEMPTS; i++) {
+      for (let i = 0; i < ADMIN_ACTIVATION_APPATIVA_POLL_ATTEMPTS; i++) {
         const check = await checkAppativaHistoricoOnce(apiKey, historicoId);
         if (check.outcome === "done") {
           const { _appativa_pending_id, ...restFieldValues } = fieldValuesWithPending;
@@ -175,7 +189,7 @@ export async function triggerAppativaActivationForClient(
           }
           return;
         }
-        if (i < APPATIVA_POLL_ATTEMPTS - 1) {
+        if (i < ADMIN_ACTIVATION_APPATIVA_POLL_ATTEMPTS - 1) {
           await new Promise((resolve) => setTimeout(resolve, APPATIVA_POLL_INTERVAL_MS));
         }
       }
