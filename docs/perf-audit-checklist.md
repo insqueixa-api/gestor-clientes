@@ -40,12 +40,6 @@ não auditado
 - ✅ `app/admin/cliente/[id]/page.tsx` — RPC bundle + useEffect corrigido
 - 🔎 `app/admin/cliente/page.tsx` (lista) — já otimizada (RPC único)
 - ✅ `app/admin/auditoria/page.tsx` — Promise.all
-- ✅ `app/api/catalogo/detalhe/route.ts` — Promise.all
-- ✅ `components/guia-tv/GuiaTVView.tsx` (deletar de todos) — Promise.all
-- 🔎 `app/admin/gerenciador/guia-tv/page.tsx` + `components/guia-tv/*` —
-  já bem otimizado no geral (useEffects paralelos, paginação nas listas
-  grandes); só achado de cache de imagem de EPG fica pendente, baixa
-  prioridade
 - 🔎 `app/admin/page.tsx` (Dashboard) — já era o padrão-ouro (2 RPCs em
   paralelo), nada a fazer
 
@@ -172,8 +166,6 @@ não auditado
   session_token por conta própria) → Promise.all, corta a latência
   inicial quase pela metade
 - 🔎 `app/renew/apps/[id]/AppDetailClient.tsx` — já otimizado (fetch único)
-- 🔎 `app/renew/guia-tv/page.tsx` — coberto na varredura do Guia TV, sem
-  achados
 
 ## Pendências residuais (baixa prioridade, não bloqueiam nada)
 

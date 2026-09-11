@@ -44,8 +44,8 @@ const JOB_META: Record<string, { label: string; group: keyof typeof GROUPS }> = 
 };
 
 // ✅ 04/09/2026, pedido do Márcio: botão "Reprocessar" por job — quando um
-// cron falha (ex: EPG Claro), ele quer rodar de novo na hora, sem precisar
-// achar a tela certa. Só os jobs HTTP com uma rota "rodar agora" segura e
+// cron falha, ele quer rodar de novo na hora, sem precisar achar a tela
+// certa. Só os jobs HTTP com uma rota "rodar agora" segura e
 // idempotente entram aqui — jobs SQL puro (vacuum, purge) não têm uma
 // requisição HTTP equivalente pra chamar do browser.
 // URL relativa: o botão chama com a MESMA sessão do admin logado (a rota
