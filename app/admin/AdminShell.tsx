@@ -17,7 +17,6 @@ import {
 import {
   LayoutDashboard,
   Users,
-  Tv,
   Clock,
   Network,
   Settings2,
@@ -49,7 +48,6 @@ const PAGE_NAMES: Record<string, string> = {
   "/admin/teste": "Testes",
   "/admin/auditoria": "Log Portal",
   "/admin/agenda": "Agenda Telefônica",
-  "/admin/gerenciador/guia-tv": "Guia TV",
   "/admin/gerenciador/servidor": "Servidores",
   "/admin/gerenciador/plano": "Planos",
   "/admin/gerenciador/mensagem": "Mensagens",
@@ -133,8 +131,6 @@ function getNotifEmoji(type: string): string {
       return "🔴";
     case "saldo_baixo":
       return "🪫";
-    case "sugestao_conteudo":
-      return "🍿";
     case "cron_falha":
       return "⏰";
     default:
@@ -636,15 +632,6 @@ export default function AdminShell({
               Gestão
             </div>
             <MenuLink
-              href="/admin/gerenciador/guia-tv"
-              label={
-                <span className="flex items-center gap-2">
-                  <Tv className="w-4 h-4 text-rose-400" /> Guia TV
-                </span>
-              }
-              onClick={() => setOpenMenu(null)}
-            />
-            <MenuLink
               href="/admin/gerenciador/servidor"
               label={
                 <span className="flex items-center gap-2">
@@ -784,15 +771,6 @@ export default function AdminShell({
             />
             {mobileGerenciadorOpen && (
               <>
-                <MenuLink
-                  href="/admin/gerenciador/guia-tv"
-                  label={
-                    <span className="flex items-center gap-2">
-                      <Tv className="w-4 h-4 text-rose-400" /> Guia TV
-                    </span>
-                  }
-                  onClick={() => setOpenMenu(null)}
-                />
                 <MenuLink
                   href="/admin/gerenciador/servidor"
                   label={

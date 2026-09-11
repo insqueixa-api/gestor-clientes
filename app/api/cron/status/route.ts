@@ -16,7 +16,6 @@ import { JOBS, PGCRON_TO_APP_NAME } from "@/lib/cron-health";
 export const dynamic = "force-dynamic";
 
 const GROUPS: Record<string, { label: string; order: number }> = {
-  catalogo: { label: "Sincronização de Catálogo/EPG", order: 1 },
   cobranca: { label: "Cobrança (WhatsApp)", order: 2 },
   manutencao: { label: "Limpeza / Manutenção", order: 3 },
   financeiro: { label: "Financeiro", order: 4 },
@@ -25,14 +24,6 @@ const GROUPS: Record<string, { label: string; order: number }> = {
 
 // Nome amigável + grupo pra CADA job (pg_cron.jobname ou nome "só app").
 const JOB_META: Record<string, { label: string; group: keyof typeof GROUPS }> = {
-  epg_sync_daily: { label: "EPG Claro (RJ+SP)", group: "catalogo" },
-  sync_catalog_elite_daily: { label: "Catálogo Elite", group: "catalogo" },
-  sync_catalog_natv_daily: { label: "Catálogo NaTV", group: "catalogo" },
-  "sync-catalog-fast": { label: "Catálogo Fast (VM Hetzner)", group: "catalogo" },
-  sync_tmdb_daily: { label: "Capas/sinopses (TMDB)", group: "catalogo" },
-  sync_catalog_limpar_daily: { label: "Limpeza pós-sync do catálogo", group: "catalogo" },
-  sync_jogos_daily: { label: "Jogos (grade esportiva)", group: "catalogo" },
-
   billing_enqueue_daily: { label: "Enfileirar cobranças (6h/7h/12h)", group: "cobranca" },
   billing_dispatch_check: { label: "Despachar cobranças (2 em 2min)", group: "cobranca" },
   cleanup_old_message_jobs_daily: { label: "Limpeza do histórico de envios", group: "cobranca" },
@@ -44,16 +35,12 @@ const JOB_META: Record<string, { label: string; group: keyof typeof GROUPS }> = 
   force_eternal_tokens_daily: { label: "Renovar tokens eternos do Portal", group: "manutencao" },
   limpeza_diaria_tokens_portal: { label: "Limpeza de tokens órfãos do Portal", group: "manutencao" },
   condominio_pdf_purge_daily: { label: "Purga de PDFs antigos (Condomínio)", group: "manutencao" },
-  vacuum_catalog_availability_weekly: { label: "Vacuum: catalog_availability", group: "manutencao" },
-  vacuum_catalog_episodes_weekly: { label: "Vacuum: catalog_episodes", group: "manutencao" },
-  vacuum_catalog_master_weekly: { label: "Vacuum: catalog_master", group: "manutencao" },
 
   fx_sync_daily: { label: "Cotação USD/EUR → BRL", group: "financeiro" },
   "fin-snapshot-previsao-mensal": { label: "Fotografia mensal do Previsto", group: "financeiro" },
   "check-overdue-transactions": { label: "Transações financeiras em atraso", group: "financeiro" },
 
   cron_watchdog_check: { label: "Vigia dos crons (este painel)", group: "sistema" },
-  "checar-sugestoes-adicionadas": { label: "Notificar sugestões de catálogo adicionadas", group: "sistema" },
 };
 
 // ✅ 04/09/2026, pedido do Márcio: botão "Reprocessar" por job — quando um
@@ -63,15 +50,7 @@ const JOB_META: Record<string, { label: string; group: keyof typeof GROUPS }> = 
 // requisição HTTP equivalente pra chamar do browser.
 // URL relativa: o botão chama com a MESMA sessão do admin logado (a rota
 // já aceita usuário autenticado, sem precisar do secret de cron).
-const REPROCESS_ENDPOINTS: Record<string, { url: string; method: "GET" | "POST"; body?: Record<string, unknown> }> = {
-  epg_sync_daily:            { url: "/api/epg/sync/sync-claro",      method: "POST" },
-  sync_catalog_elite_daily:  { url: "/api/epg/sync-catalog/elite",   method: "POST" },
-  sync_catalog_natv_daily:   { url: "/api/epg/sync-catalog/natv",    method: "POST" },
-  "sync-catalog-fast":       { url: "/api/epg/sync-catalog/fast",    method: "POST" },
-  sync_tmdb_daily:           { url: "/api/epg/sync-tmdb",            method: "POST" },
-  sync_jogos_daily:          { url: "/api/epg/sync/sync-jogos",      method: "POST" },
-  sync_catalog_limpar_daily: { url: "/api/catalogo/limpar",          method: "POST", body: { servidor: "TODOS" } },
-};
+const REPROCESS_ENDPOINTS: Record<string, { url: string; method: "GET" | "POST"; body?: Record<string, unknown> }> = {};
 
 type MergedJob = {
   key: string;

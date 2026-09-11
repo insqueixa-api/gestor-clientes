@@ -15,7 +15,6 @@ RUN npm install --omit=dev
 
 # Copia o código
 COPY src/ ./src/
-COPY fast-sync/ ./fast-sync/
 
 # Cria pasta de auth (será sobreposta pelo volume) e ajusta dono pro usuário non-root
 RUN mkdir -p /app/auth && chown -R node:node /app

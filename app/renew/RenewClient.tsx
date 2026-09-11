@@ -95,13 +95,6 @@ const PERIOD_MONTHS: Record<string, number> = {
   ANNUAL: 12,
 };
 
-const SERVER_GUIA_MAP: Record<string, string> = {
-  EliteTV: "ELITE",
-  NaTV: "NATV",
-  FastTV: "FAST",
-  UniGestor: "TODOS",
-};
-
 function getStoredSession() {
   if (typeof window === "undefined") return "";
   try {
@@ -4362,8 +4355,6 @@ export default function RenewClient() {
 
   // ========= RENDER: MENU (3 BLOCOS) =========
   if (activeSection === "menu") {
-    const srvKey = SERVER_GUIA_MAP[selectedAccount.server_name];
-
     return (
       <div className="min-h-screen bg-background">
         {renderTopBar(
@@ -4404,32 +4395,6 @@ export default function RenewClient() {
               </span>
             </div>
           </button>
-
-          {/* Bloco 2 — Novidades / Conteúdo */}
-          {srvKey && (
-            <a
-              href={`/renew/guia-tv?servidor=${srvKey}&conta=${selectedAccount.id}`}
-              className="block rounded-2xl p-5 border-2 border-sky-500/30 bg-gradient-to-r from-sky-500/10 via-indigo-500/5 to-transparent hover:border-sky-500/60 transition-all shadow-sm hover:shadow-md group"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-sky-500/15 flex items-center justify-center shrink-0 border border-sky-500/20 text-2xl">
-                  🔥
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-base font-bold text-foreground">
-                    Novidades e Conteúdo
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                    Consulte a grade, veja jogos do dia e explore o catálogo de
-                    filmes e séries.
-                  </p>
-                </div>
-                <span className="text-sky-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
-                  →
-                </span>
-              </div>
-            </a>
-          )}
 
           {/* Bloco 3 — Configuração de aplicativo */}
           <button

@@ -16,7 +16,6 @@ type NotificationType =
   | "automacao_falha"
   | "fulfillment_error"
   | "saldo_baixo"
-  | "sugestao_conteudo"
   | "app_setup_pending"
   | "app_removal_pending"
   | "cron_falha";

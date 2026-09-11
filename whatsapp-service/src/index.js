@@ -485,35 +485,6 @@ app.post("/system/hard-reset", authMiddleware, async (req, res) => {
 // /users que motivou essa rota aqui. Ver memória do projeto pro histórico
 // completo (dois bugs de dados reais encontrados no fluxo antigo).
 
-// ── POST /fast-sync/proxy-m3u ─────────────────────────────────
-// Relay puro pro M3U do Fast: a Vercel não consegue baixar direto (IP de
-// datacenter dela é bloqueado, HTTP 403), mas a VM pode. Em vez de logar num
-// storage intermediário (R2 — testado, funciona, mas tem overhead de upload
-// +download), a VM baixa e devolve o conteúdo na hora, na própria resposta —
-// pra Vercel é como se tivesse baixado ela mesma, só que apontando pra cá.
-app.post("/fast-sync/proxy-m3u", authMiddleware, async (req, res) => {
-  const { m3uUrl } = req.body || {};
-  if (!m3uUrl) {
-    return res.status(400).json({ error: "m3uUrl é obrigatório." });
-  }
-  try {
-    console.log("[FAST-PROXY] Baixando M3U...");
-    const upstream = await fetch(m3uUrl, {
-      headers: { "User-Agent": "IPTVSmartersPro", "Accept": "*/*" },
-    });
-    if (!upstream.ok) {
-      return res.status(502).json({ error: `Falha ao baixar M3U: HTTP ${upstream.status}` });
-    }
-    const text = await upstream.text();
-    console.log(`[FAST-PROXY] ${text.length} bytes — devolvendo pra Vercel`);
-    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-    res.send(text);
-  } catch (e) {
-    console.error("[FAST-PROXY] erro:", e?.message);
-    res.status(502).json({ error: e?.message || "Falha ao baixar M3U do Fast." });
-  }
-});
-
 // ── POST /duplecast/action ────────────────────────────────────
 // A Vercel não consegue passar do Cloudflare do duplecast.com (desafio
 // "Just a moment", bloqueia qualquer requisição sem motor de JS — testado de

@@ -22,7 +22,6 @@ Sessão WhatsApp Web (Baileys, multi-device) rodando numa VM própria — não e
 | `CALL_REJECT_MESSAGE` | Texto enviado quando alguém liga e a sessão está configurada pra rejeitar chamadas. | Texto livre. |
 | `UNIGESTOR_APP_URL` | URL do app Next.js — usado pra montar a `notification_url` de gateways de pagamento e pra `reportSessionAlert` (hard reset) chamar `/api/whatsapp/session-alert` de volta. | `https://unigestor.net.br`. |
 | `NEXT_PUBLIC_APP_URL` | Idem, usado em outro ponto do código (legado, mesmo valor). | `https://unigestor.net.br`. |
-| `EPG_SYNC_CRON_SECRET` | Não usado pelo `whatsapp-service` em si — sobra de uma variável compartilhada com outro serviço da VM (`fast-sync/sync-fast.cjs`, cron do crontab do sistema). | Ver `docs/sql`/memória do EPG. |
 | `WHATSAPP_PROXY_URL` | Proxy residencial dedicado (ipbr.pro) — todo tráfego do socket WhatsApp (`agent`/`fetchAgent` do Baileys) sai por ele, IP fixo brasileiro em vez do IP de datacenter da Hetzner (evita logout forçado por "padrão de datacenter"). | Painel do provedor (ipbr.pro/"Proxy BR"). |
 
 ## Como fazer deploy de uma atualização

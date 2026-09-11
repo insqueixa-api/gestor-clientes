@@ -48,11 +48,6 @@ export type JobConfig = { name: string; kind: "sql" | "http"; maxAgeHours: numbe
 // continuava achando "velho demais" todo dia — reabrindo o mesmo alerta
 // (sino + Sentry) pra um job que nunca mais vai rodar por decisão dele.
 export const PGCRON_TO_APP_NAME: Record<string, string> = {
-  epg_sync_daily: "sync-claro",
-  sync_catalog_elite_daily: "sync-catalog-elite",
-  sync_catalog_natv_daily: "sync-catalog-natv",
-  sync_tmdb_daily: "sync-tmdb",
-  sync_catalog_limpar_daily: "catalogo-limpar",
   condominio_pdf_purge_daily: "condominio-pdf-purge",
   fx_sync_daily: "fx-sync",
   "fin-snapshot-previsao-mensal": "fin-snapshot-previsao",
@@ -69,12 +64,6 @@ export const PGCRON_TO_APP_NAME: Record<string, string> = {
 // o alerta.
 export const JOBS: JobConfig[] = [
   // HTTP — rota Next.js faz o trabalho, pg_cron (ou a VM Hetzner) só dispara
-  { name: "sync-claro", kind: "http", maxAgeHours: 30 },
-  { name: "sync-catalog-elite", kind: "http", maxAgeHours: 30 },
-  { name: "sync-catalog-natv", kind: "http", maxAgeHours: 30 },
-  { name: "sync-catalog-fast", kind: "http", maxAgeHours: 30 }, // dispara via crontab da VM Hetzner, não pg_cron
-  { name: "sync-tmdb", kind: "http", maxAgeHours: 30 },
-  { name: "catalogo-limpar", kind: "http", maxAgeHours: 30 },
   { name: "condominio-pdf-purge", kind: "http", maxAgeHours: 30 },
   { name: "fx-sync", kind: "http", maxAgeHours: 30 },
   { name: "fin-snapshot-previsao", kind: "http", maxAgeHours: 24 * 35 }, // mensal
@@ -83,7 +72,6 @@ export const JOBS: JobConfig[] = [
   { name: "auto_archive_expired_clients_daily", kind: "sql", maxAgeHours: 30 },
   { name: "auto_purge_expired_clients_daily", kind: "sql", maxAgeHours: 30 },
   { name: "cancel_expired_portal_payments", kind: "sql", maxAgeHours: 30 },
-  { name: "checar-sugestoes-adicionadas", kind: "sql", maxAgeHours: 30 },
   { name: "check-overdue-transactions", kind: "sql", maxAgeHours: 30 },
   { name: "cleanup-old-notifications", kind: "sql", maxAgeHours: 30 },
   { name: "force_eternal_tokens_daily", kind: "sql", maxAgeHours: 30 },
@@ -92,9 +80,6 @@ export const JOBS: JobConfig[] = [
   // ✅ 29/08/2026: substituem o cron-job.org externo (ver docs/sql/billing_native_cron_migration.sql).
   { name: "billing_enqueue_daily", kind: "sql", maxAgeHours: 30 },
   { name: "billing_dispatch_check", kind: "sql", maxAgeHours: 30 },
-  { name: "vacuum_catalog_episodes_weekly", kind: "sql", maxAgeHours: 24 * 8.5 },
-  { name: "vacuum_catalog_master_weekly", kind: "sql", maxAgeHours: 24 * 8.5 },
-  { name: "vacuum_catalog_availability_weekly", kind: "sql", maxAgeHours: 24 * 8.5 },
 ];
 
 export async function getLastOk(job: JobConfig): Promise<string | null> {
