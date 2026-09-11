@@ -8,13 +8,10 @@
 //
 // ✅ 05/09/2026 (mesmo dia): o "kind: session_health" que existia aqui foi
 // REMOVIDO — pedido do Márcio pra não ter nenhum timer rodando sozinho na
-// VM. Essa checagem virou pull sob demanda (Sincronizar agora/cron de 5min
-// que já existe pras outras checagens do Sistema — ver checkWhatsAppSession
-// Errors em system-health-check/route.ts) ou embutida na resposta de um
-// envio real (ver reportSessionHealthFromSend em envio_agora/envio_
-// programado/envio_avulso) — nenhum dos dois precisa desta rota, porque
-// já rodam dentro do próprio Next.js e podem chamar notify()/
-// sendAdminEmail() direto, sem round-trip HTTP.
+// VM. Essa checagem virou embutida na resposta de um envio real (ver
+// reportSessionHealthFromSend em envio_agora/envio_programado/envio_avulso)
+// — não precisa desta rota, porque já roda dentro do próprio Next.js e pode
+// chamar notify()/sendAdminEmail() direto, sem round-trip HTTP.
 //
 // Autenticação: reaproveita o segredo que JÁ é compartilhado especificamente
 // entre app e VM nos dois sentidos — UNIGESTOR_WA_TOKEN no app é o MESMO

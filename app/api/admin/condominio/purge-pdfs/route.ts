@@ -10,7 +10,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
-import { reportCronHealth } from "@/lib/cron-health";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +71,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  reportCronHealth("condominio-pdf-purge", "ok").catch(() => {});
   return NextResponse.json({ ok: true, apagados, total: edicoes?.length || 0, falhas });
 }

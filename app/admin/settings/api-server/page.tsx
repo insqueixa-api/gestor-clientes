@@ -99,6 +99,17 @@ type PartnerIntegration = {
   created_at: string;
 };
 
+// ✅ ProxyBR (11/09/2026) — não vive em tabela nenhuma (é só a API real da
+// ProxyBR, ver lib/proxybr.ts), então o card busca direto por fetch em vez
+// de vir junto de fetchData(). Migrado do painel "Sistema" (removido).
+type ProxyBrOrder = {
+  uuid: string;
+  status: string;
+  auto_renew_active: boolean;
+  expires_at: string;
+};
+type ProxyBrStatus = { order: ProxyBrOrder | null; balance: number | null };
+
 export type RechargeMeta = {
   amountMode?: "total" | "unit";
   qty?: number;
@@ -149,6 +160,11 @@ export default function ApiServerPage() {
   const [renovarGerenciaAppOpen, setRenovarGerenciaAppOpen] = useState(false);
   const [syncingValidadeGerenciaApp, setSyncingValidadeGerenciaApp] =
     useState(false);
+
+  // ✅ ProxyBR (11/09/2026) — ver comentário do tipo ProxyBrStatus acima.
+  const [proxyStatus, setProxyStatus] = useState<ProxyBrStatus | null>(null);
+  const [loadingProxyStatus, setLoadingProxyStatus] = useState(true);
+  const [renewingProxy, setRenewingProxy] = useState(false);
 
   // ✅ Logo dos servidores: HERDADA de `servers.logo_url` por padrão, mas
   // agora também pode ter upload próprio aqui (achado 26/08/2026, pedido do
@@ -320,8 +336,57 @@ export default function ApiServerPage() {
     }
   }
 
+  async function fetchProxyStatus() {
+    try {
+      setLoadingProxyStatus(true);
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch("/api/admin/settings/proxybr/status", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json?.ok) {
+        setProxyStatus({ order: json.order ?? null, balance: json.balance ?? null });
+      }
+    } catch {
+      // best-effort — card mostra "--" se falhar, sem toast (não é ação do usuário)
+    } finally {
+      setLoadingProxyStatus(false);
+    }
+  }
+
+  async function handleRenewProxy() {
+    const ok = await confirm({
+      title: "Renovar o proxy dedicado agora?",
+      subtitle: "Isso debita do saldo da conta na ProxyBR (custo do plano atual) e estende a validade — use só se realmente precisar renovar antes do vencimento normal.",
+      tone: "amber",
+      confirmText: "Renovar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setRenewingProxy(true);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch("/api/admin/settings/proxybr/renew", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Falha ao renovar.");
+      addToast("success", "Proxy renovado", "");
+      await fetchProxyStatus();
+    } catch (e: any) {
+      addToast("error", "Erro ao renovar", e?.message ?? "Falha ao renovar o proxy.");
+    } finally {
+      setRenewingProxy(false);
+    }
+  }
+
   useEffect(() => {
     fetchData();
+    fetchProxyStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1049,17 +1114,12 @@ export default function ApiServerPage() {
       <CollapsibleSection
         icon="🤝"
         label="Parceiros"
-        count={partnerList.length + (gerenciaAppRow ? 1 : 0)}
+        count={partnerList.length + (gerenciaAppRow ? 1 : 0) + 1}
         collapsed={!!collapsedGroups.parceiros}
         onToggle={() => toggleGroup("parceiros")}
       >
         <>
-          {!loading && partnerList.length === 0 && !gerenciaAppRow && (
-            <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
-              Nenhum parceiro cadastrado.
-            </div>
-          )}
-          {!loading && (partnerList.length > 0 || gerenciaAppRow) && (
+          {!loading && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
               {partnerList.map((row) => (
                 <div
@@ -1451,6 +1511,107 @@ export default function ApiServerPage() {
                   </div>
                 </div>
               )}
+
+              {/* ✅ ProxyBR (11/09/2026) — não vem de tabela, é a API real da
+                  ProxyBR (lib/proxybr.ts). Migrado do painel "Sistema"
+                  removido — só validade/saldo/renovação, que era a única
+                  parte que o Márcio realmente usava de lá. */}
+              {(() => {
+                const order = proxyStatus?.order ?? null;
+                const diasRestantes = order
+                  ? Math.ceil((new Date(order.expires_at).getTime() - Date.now()) / 86_400_000)
+                  : null;
+                const vencido = diasRestantes !== null && diasRestantes < 0;
+                const pertoDeVencer = diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 5;
+                return (
+                  <div className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30">
+                    <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
+                      <div className="flex items-center gap-2 min-w-0 pr-3">
+                        <div className="relative w-7 h-7 rounded-lg border border-border shrink-0 flex items-center justify-center overflow-hidden">
+                          <span className="text-sm">🌐</span>
+                        </div>
+                        <h2 className="text-base font-medium truncate text-foreground/90 tracking-tight">
+                          ProxyBR
+                        </h2>
+                        <span className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full uppercase">
+                          Proxy
+                        </span>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <IconActionBtn
+                          title="Renovar (debita saldo ProxyBR)"
+                          tone="green"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRenewProxy();
+                          }}
+                        >
+                          {renewingProxy ? <Loader2 className="w-4 h-4 animate-spin" /> : <IconMoney />}
+                        </IconActionBtn>
+                        <IconActionBtn
+                          title="Atualizar"
+                          tone="blue"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fetchProxyStatus();
+                          }}
+                        >
+                          {loadingProxyStatus ? <Loader2 className="w-4 h-4 animate-spin" /> : <IconSync />}
+                        </IconActionBtn>
+                      </div>
+                    </div>
+                    <div className="p-4 sm:p-5 text-sm space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">📅 Validade</span>
+                        <span
+                          className={`font-medium px-2 py-0.5 rounded-lg text-xs ${
+                            !order
+                              ? "text-muted-foreground bg-muted"
+                              : vencido
+                                ? "text-rose-500 bg-rose-500/10"
+                                : pertoDeVencer
+                                  ? "text-amber-500 bg-amber-500/10"
+                                  : "text-emerald-500 bg-emerald-500/10"
+                          }`}
+                        >
+                          {order
+                            ? `${vencido ? "venceu" : "expira"} em ${new Date(order.expires_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} (${diasRestantes}d)`
+                            : loadingProxyStatus
+                              ? "carregando..."
+                              : "-- (sem pedido ativo)"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">💰 Saldo</span>
+                        <span className="font-medium text-foreground/90">
+                          {proxyStatus?.balance != null
+                            ? proxyStatus.balance.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                            : "--"}
+                        </span>
+                      </div>
+                      {order && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">🔄 Auto-renovação</span>
+                          <span className="font-medium text-foreground/90">
+                            {order.auto_renew_active ? "ligada" : "desligada"}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center gap-2">
+                        <span className="text-muted-foreground shrink-0">🔗 URL</span>
+                        <a
+                          href="https://portal.proxybr.com.br"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-xs text-sky-500 hover:underline truncate max-w-[200px]"
+                        >
+                          portal.proxybr.com.br
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </>

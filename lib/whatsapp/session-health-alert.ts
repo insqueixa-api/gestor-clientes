@@ -1,23 +1,19 @@
 // lib/whatsapp/session-health-alert.ts
-// ✅ 05/09/2026, pedido do Márcio: nada de timer de 5 em 5 minutos rodando
-// sozinho — a checagem de erros de sessão/decriptação (Bad MAC/Failed to
-// decrypt/Closing session/recv retry request na VM, ver
-// whatsapp-service/src/sessionManager.js::getAndResetSessionHealth) só deve
-// acontecer quando: (1) alguém clica "Sincronizar agora" no painel Sistema
-// (ou o cron de 5min que JÁ existia pra outras checagens dessa tela chama a
-// mesma rota — ver system-health-check/route.ts), ou (2) um envio real de
-// mensagem acontece (envio_agora/envio_programado/envio_avulso, que já
-// checam a resposta da VM pra outras coisas — mesmo espírito do cache de
-// conectividade em disconnect-alert.ts).
+// ✅ 05/09/2026, pedido do Márcio: checagem de erros de sessão/decriptação
+// (Bad MAC/Failed to decrypt/Closing session/recv retry request na VM, ver
+// whatsapp-service/src/sessionManager.js::getAndResetSessionHealth) só
+// acontece embutida num envio real (envio_agora/envio_programado/
+// envio_avulso, que já checam a resposta da VM pra outras coisas — mesmo
+// espírito do cache de conectividade em disconnect-alert.ts). ❌ 11/09/2026:
+// o painel "Sistema" (removido) também chamava essa checagem sob consulta —
+// só restou a resolução de alerta antigo via envio real.
 //
 // ❌ 08/09/2026: o sino+e-mail que existia aqui (SUSTENTADO ou pico isolado
 // alto) foi removido — contava ruído agregado sem dizer qual contato foi
 // afetado nem se algo de fato deixou de chegar (achado real: "34 erros + 0
 // pedidos de reenvio" disparou alerta num envio que teve sucesso). Ver nota
-// grande mais abaixo, onde notifySessionHealthAlert existia. Só resta o
-// card passivo do Sistema (sob consulta) + a resolução de alertas antigos
-// que ainda estejam abertos.
-import { adminSupabase } from "@/lib/api/auth";
+// grande mais abaixo, onde notifySessionHealthAlert existia. Só resta a
+// resolução de alertas antigos que ainda estejam abertos.
 import { resolveNotification } from "@/lib/notifications/notify";
 
 // ❌ 08/09/2026: `shouldAlert`/`consecutiveWindows`/`autoReconnectTriggered`
@@ -31,12 +27,6 @@ export type SessionHealthPayload = {
   decryptRetries?: number;
 };
 
-// "default"/"session2" → mesmo rótulo usado em Configurações > WhatsApp
-// (ver disconnect-alert.ts::humanSessionLabel, mesmo padrão).
-export function humanSessionLabel(sessionLabel: string): string {
-  return sessionLabel === "session2" ? "Sessão Secundária" : "Sessão Principal";
-}
-
 // ✅ 06/09/2026, bug real achado (Márcio: "se já resolveu, pq não some do
 // sino?"): estável por sessão, não por tentativa — precisa ser sempre o
 // mesmo pra resolveNotification (abaixo) conseguir achar e fechar a MESMA
@@ -46,35 +36,6 @@ export function humanSessionLabel(sessionLabel: string): string {
 // sempre no sino mesmo depois do erro parar.
 function sessionHealthSourceId(sessionLabel: string): string {
   return `session_health:${sessionLabel}`;
-}
-
-// ❌ 09/09/2026, bug real achado (Márcio: "eu pergunto se está saudável, você
-// diz que sim, mas o card mostra 'atenção' — não entendo"): esse "status"
-// virava "warn" com QUALQUER total > 0 — mas ruído residual normal (Bad
-// MAC/Closing session/retry pontual que o próprio Baileys já autocorrige)
-// roda tipicamente em 0-13 por janela (ver comentário do ALERT_CLEAR_
-// THRESHOLD abaixo) — ou seja, o card ficava "atenção" quase toda hora,
-// mesmo com tudo 100% saudável de verdade (confirmado repetidas vezes:
-// "10 erros + 2 pedidos" não correspondeu a NENHUMA mensagem não entregue).
-// Reaproveita o MESMO patamar que já foi calibrado a sessão inteira como
-// "isso sim é fora do normal" (o antigo gatilho do alerta removido ontem —
-// só o PUSH que sumiu, não o significado do número). Agora "ok" quer dizer
-// de verdade "nada aqui pede sua atenção".
-const HEALTH_WARN_THRESHOLD = 30;
-
-export function sessionHealthCheckResult(sessionLabel: string, health: SessionHealthPayload) {
-  const libsignalErrors = Math.max(0, Number(health.libsignalErrors) || 0);
-  const decryptRetries = Math.max(0, Number(health.decryptRetries) || 0);
-  const total = libsignalErrors + decryptRetries;
-  const humanLabel = humanSessionLabel(sessionLabel);
-
-  return {
-    status: (total >= HEALTH_WARN_THRESHOLD ? "warn" : "ok") as "ok" | "warn",
-    detail:
-      total > 0
-        ? `${humanLabel}: ${libsignalErrors} erro(s) de sessão + ${decryptRetries} pedido(s) de reenvio desde a última checagem${total < HEALTH_WARN_THRESHOLD ? " (dentro do normal)" : ""}`
-        : `${humanLabel}: sem erros de sessão/decriptação desde a última checagem`,
-  };
 }
 
 // ✅ 07/09/2026, bug real achado (Márcio: "2+2 enviou e zerou, 9+1 enviou e
@@ -93,30 +54,6 @@ export function shouldClearSessionHealthAlert(health: SessionHealthPayload): boo
   return total < ALERT_CLEAR_THRESHOLD;
 }
 
-// Grava direto em system_health_checks — usado por quem NÃO já tem um
-// mecanismo próprio de upsert em lote (os 3 envios reais; a rota de
-// Sincronizar/cron já faz isso sozinha pra TODAS as checagens, incluindo
-// esta, então não chama esta função).
-export async function upsertSessionHealthTile(sessionLabel: string, health: SessionHealthPayload) {
-  const { status, detail } = sessionHealthCheckResult(sessionLabel, health);
-  try {
-    const supabase = adminSupabase();
-    await supabase.from("system_health_checks").upsert(
-      {
-        check_key: "whatsapp_session_health",
-        label: "WhatsApp — Erros de sessão",
-        group_key: "whatsapp",
-        status,
-        detail,
-        checked_at: new Date().toISOString(),
-      },
-      { onConflict: "check_key" },
-    );
-  } catch (e: any) {
-    console.error("[session-health-alert] falha ao atualizar card do Sistema:", e?.message);
-  }
-}
-
 // ❌ 08/09/2026, removido a pedido do Márcio: esse alerta (sino+e-mail)
 // contava ruído AGREGADO de sessão (Bad MAC/Closing session) sem dizer qual
 // contato foi afetado nem se alguma mensagem de fato deixou de chegar — o
@@ -129,8 +66,6 @@ export async function upsertSessionHealthTile(sessionLabel: string, health: Sess
 // app/api/whatsapp/session-alert/route.ts, que só avisa quando um contato
 // específico realmente insiste (15+ pedidos de reenvio sem se resolver
 // sozinho) — aí sim com nome/número, informação acionável de verdade.
-// O card passivo em Admin > Sistema (upsertSessionHealthTile) continua de
-// pé — é informação disponível sob consulta, não um push.
 
 // Some do sino quando uma checagem volta a um nível claramente normal —
 // chamar sempre que shouldClearSessionHealthAlert() der true, nos dois
@@ -145,12 +80,11 @@ export async function resolveSessionHealthAlert(tenantId: string, sessionLabel: 
 }
 
 // Usado pelos 3 envios reais (envio_agora/envio_programado/envio_avulso) —
-// atualiza o card passivo do Sistema e resolve o alerta antigo se ele ainda
-// estiver aberto de antes de 08/09/2026 (não cria mais nenhum novo — ver
-// nota acima de notifySessionHealthAlert, removida).
+// resolve o alerta antigo se ele ainda estiver aberto de antes de
+// 08/09/2026 (não cria mais nenhum novo — ver nota acima de
+// notifySessionHealthAlert, removida).
 export async function reportSessionHealthFromSend(tenantId: string, sessionLabel: string, health: SessionHealthPayload | null | undefined) {
   if (!health) return;
-  await upsertSessionHealthTile(sessionLabel, health);
   if (shouldClearSessionHealthAlert(health)) {
     await resolveSessionHealthAlert(tenantId, sessionLabel);
   }

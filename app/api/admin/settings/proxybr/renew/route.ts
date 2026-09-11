@@ -1,8 +1,9 @@
-// app/api/system-health/proxy-renew/route.ts
-// ✅ 31/08/2026 — botão "Renovar agora" do painel Sistema. Chama a API real
-// da ProxyBR (POST /orders/:uuid/renew, ver lib/proxybr.ts) — DEBITA do
-// saldo da conta ProxyBR de verdade, por isso fica atrás de confirmação no
-// front (useConfirm) antes de chamar essa rota.
+// app/api/admin/settings/proxybr/renew/route.ts
+// ✅ 11/09/2026 — movida de app/api/system-health/proxy-renew (painel
+// "Sistema" removido). Chama a API real da ProxyBR (POST /orders/:uuid/
+// renew, ver lib/proxybr.ts) — DEBITA do saldo da conta ProxyBR de verdade,
+// por isso fica atrás de confirmação no front (useConfirm) antes de chamar
+// essa rota.
 import { NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { getActiveProxyOrder, renewProxyOrder } from "@/lib/proxybr";

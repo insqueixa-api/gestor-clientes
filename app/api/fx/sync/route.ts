@@ -9,7 +9,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isCronRequest } from "@/lib/internal-auth";
-import { reportCronHealth } from "@/lib/cron-health";
 
 export const dynamic = "force-dynamic";
 
@@ -105,7 +104,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  reportCronHealth("fx-sync", "ok").catch(() => {});
   return NextResponse.json({ ok: true, results });
 }
 

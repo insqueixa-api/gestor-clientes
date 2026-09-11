@@ -20,8 +20,7 @@ export interface WAContext {
   sessionKey: string;
   headers: Record<string, string>;
   // ✅ 05/09/2026: expostos pra quem precisa gravar algo no banco associado
-  // ao tenant (ex: checkWhatsAppSessionErrors em system-health-check/
-  // route.ts) sem ter que resolver o tenant de novo separadamente.
+  // ao tenant sem ter que resolver o tenant de novo separadamente.
   tenantId: string;
   userId: string;
 }

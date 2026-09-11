@@ -689,10 +689,9 @@ export async function POST(req: Request) {
             // consultar isso depois): client_message_jobs é 1 linha por
             // CLIENTE/dia, não por contato — o resultado do contato que NÃO
             // vira o checkpoint (normalmente o secundário) nunca ficava
-            // gravado em lugar nenhum, sucesso ou falha. Sentry aqui (mesmo
-            // padrão do vigia de crons, lib/cron-health.ts) cobre falha de
-            // verdade; secondary_sent_at/secondary_error_message abaixo
-            // cobrem os dois casos de forma consultável no próprio job.
+            // gravado em lugar nenhum, sucesso ou falha. Sentry aqui cobre
+            // falha de verdade; secondary_sent_at/secondary_error_message
+            // abaixo cobrem os dois casos de forma consultável no próprio job.
             if (contact.is_secondary) {
               await sb.from("client_message_jobs").update({ secondary_error_message: lastError.slice(0, 500) }).eq("id", job.id);
             }
