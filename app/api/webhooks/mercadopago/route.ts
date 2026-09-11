@@ -24,13 +24,15 @@ function verifyMpWebhook(req: NextRequest, paymentId: string, secret: string) {
 }
 
 export const dynamic = "force-dynamic";
-// ✅ Cobre as 2 checagens automáticas da Appativa agendadas via after() em
-// markAppRenewalPaid (5s + 30s + margem) — roda depois da resposta ao MP já
-// ter sido enviada, não atrasa o ack do webhook.
-// ✅ 120s (achado 26/08/2026): a checagem automática da Appativa (after(), em
-// markAppRenewalPaid) espera 15s e então tenta de 5 em 5s por até 1 min —
-// precisa de espaço extra pra rodar até o fim antes do Vercel matar a function.
-export const maxDuration = 120;
+// ✅ 60s (11/09/2026, projeto de tirar o Fluid Compute — Hobby trava em 60s
+// sem ele). Era 120s pra caber a checagem automática da Appativa (after())
+// de até ~75s — encurtada pra ~35s (FULFILLMENT_APPATIVA_POLL_ATTEMPTS em
+// lib/client-portal/fulfillment.ts) e o envio de WhatsApp de confirmação
+// deixou de ser síncrono (agora só grava na fila client_message_jobs e
+// termina). Rede de segurança pro que não resolver aqui: webhook da
+// Appativa (independente) + vigia app/api/cron/appativa-payment-watchdog
+// (1x/min, só age se achar pendência).
+export const maxDuration = 60;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

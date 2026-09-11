@@ -23,7 +23,15 @@ import {
 } from "@/lib/client-portal/fulfillment";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+// ✅ 60s (11/09/2026, projeto de tirar o Fluid Compute — Hobby trava em 60s
+// sem ele). Era 120s (copiado do padrão MP/Stripe) pra caber a checagem
+// automática da Appativa (after()) de até ~75s — encurtada pra ~35s
+// (FULFILLMENT_APPATIVA_POLL_ATTEMPTS em lib/client-portal/fulfillment.ts)
+// e o envio de WhatsApp de confirmação deixou de ser síncrono. Rede de
+// segurança pro que não resolver aqui: webhook da Appativa (independente) +
+// vigia app/api/cron/appativa-payment-watchdog (1x/min, só age se achar
+// pendência).
+export const maxDuration = 60;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

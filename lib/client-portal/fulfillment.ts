@@ -12,8 +12,26 @@ import {
   syncAppativaCredits,
   APPATIVA_INITIAL_DELAY_MS,
   APPATIVA_POLL_INTERVAL_MS,
-  APPATIVA_POLL_ATTEMPTS,
 } from "@/lib/integrations/appativa";
+
+// ✅ 11/09/2026, pedido do Márcio (projeto de tirar o Fluid Compute — rotas
+// de pagamento precisam caber em 60s no total, incluindo o que roda dentro
+// de `after()`, que soma no mesmo orçamento da invocação). O
+// APPATIVA_POLL_ATTEMPTS "cheio" (12 tentativas, ~75s com o delay inicial)
+// é de `lib/integrations/appativa.ts`, compartilhado com a ativação manual
+// do admin (lib/apps/appativa-client-activation.ts) — que ainda não foi
+// ajustada pro mesmo teto (fica pra depois, é outro grupo de rotas). Aqui
+// no fluxo de pagamento, um teto MENOR e só deste arquivo: 15s de delay +
+// 5 tentativas de 5s = ~35s no pior caso, cabendo com folga em 60s.
+// Achado por medição real (11/09/2026): nos únicos 2 casos reais já
+// confirmados pela Appativa, NENHUM resolveu dentro da janela cheia de 75s
+// (um levou 124s, outro ~93min) — ou seja, encurtar aqui não piora a taxa
+// de acerto na prática (já era ~0% de qualquer forma). Quem realmente pega
+// o resto agora é o vigia dedicado (app/api/cron/appativa-payment-watchdog),
+// que roda de 1 em 1 min só verificando se HÁ pendência antes de bater na
+// API da Appativa — nunca substituiu essa tentativa rápida, só cobre o que
+// ela não pegar.
+const FULFILLMENT_APPATIVA_POLL_ATTEMPTS = 5;
 import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
 import { renewDuplecastWithCode, syncDuplecastCredits } from "@/lib/apps/duplecast-renewal";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
@@ -421,13 +439,13 @@ export async function markAppRenewalPaid(
                   // ativação manual do admin).
                   await new Promise((resolve) => setTimeout(resolve, APPATIVA_INITIAL_DELAY_MS));
                   let resolved = false;
-                  for (let i = 0; i < APPATIVA_POLL_ATTEMPTS; i++) {
+                  for (let i = 0; i < FULFILLMENT_APPATIVA_POLL_ATTEMPTS; i++) {
                     const check = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
                     if (check.outcome === "done") {
                       resolved = true;
                       break;
                     }
-                    if (i < APPATIVA_POLL_ATTEMPTS - 1) {
+                    if (i < FULFILLMENT_APPATIVA_POLL_ATTEMPTS - 1) {
                       await new Promise((resolve) => setTimeout(resolve, APPATIVA_POLL_INTERVAL_MS));
                     }
                   }
@@ -733,13 +751,13 @@ export async function markAppRenewalPaid(
                 // 26/08/2026) — constantes compartilhadas de lib/integrations/appativa.ts.
                 await new Promise((resolve) => setTimeout(resolve, APPATIVA_INITIAL_DELAY_MS));
                 let resolved = false;
-                for (let i = 0; i < APPATIVA_POLL_ATTEMPTS; i++) {
+                for (let i = 0; i < FULFILLMENT_APPATIVA_POLL_ATTEMPTS; i++) {
                   const check = await resolveAppativaAppRenewal(supabaseAdmin, tenantId, paymentRowId);
                   if (check.outcome === "done") {
                     resolved = true;
                     break;
                   }
-                  if (i < APPATIVA_POLL_ATTEMPTS - 1) {
+                  if (i < FULFILLMENT_APPATIVA_POLL_ATTEMPTS - 1) {
                     await new Promise((resolve) => setTimeout(resolve, APPATIVA_POLL_INTERVAL_MS));
                   }
                 }
@@ -907,30 +925,52 @@ async function sendAppRenewalWhatsapp(
     );
     if (pool.length > 0) pickedContent = pool[Math.floor(Math.random() * pool.length)].trim();
 
-    const res = await fetch(`${params.origin}/api/whatsapp/envio_agora`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-internal-secret": String(process.env.INTERNAL_API_SECRET || ""),
-      },
-      cache: "no-store",
-      body: JSON.stringify({
-        tenant_id: params.tenantId,
-        client_id: params.clientId,
-        message: pickedContent,
-        image_url: tmpl.image_url || null,
-        message_template_id: tmpl.id,
-        whatsapp_session: params.whatsappSession,
-        app_nome: params.appName,
-        app_vencimento: params.appVencimento,
-        // ✅ 01/09/2026: NÃO passa skip_failure_notify — este caminho nunca
-        // notificava o sino em falha (só gravava whatsapp_status="error" na
-        // auditoria), diferente do fluxo de renovação de assinatura abaixo.
-      }),
+    // ⚠️ Achado 11/09/2026: {app_nome}/{app_vencimento} eram substituídos
+    // dentro de app/api/whatsapp/envio_agora/route.ts (recebia os 2 valores
+    // no body e renderizava na hora do envio) — como esse caminho não é
+    // mais chamado (vira fila direto), a substituição precisa acontecer
+    // AQUI antes de gravar, senão o cliente recebia o texto cru
+    // "{app_nome}"/"{app_vencimento}". Os demais placeholders (nome do
+    // cliente, link do portal, etc.) continuam funcionando normalmente —
+    // esses `envio_programado` já resolve sozinho pra qualquer job da fila,
+    // igual sempre fez pro "Plano B" antigo.
+    const appVencimentoFormatted = params.appVencimento
+      ? (() => {
+          const m = String(params.appVencimento).match(/^(\d{4})-(\d{2})-(\d{2})/);
+          return m ? `${m[3]}/${m[2]}/${m[1]}` : String(params.appVencimento);
+        })()
+      : "";
+    pickedContent = pickedContent
+      .replace(/\{app_nome\}/g, params.appName)
+      .replace(/\{app_vencimento\}/g, appVencimentoFormatted);
+
+    // ✅ 11/09/2026, pedido do Márcio (projeto de tirar o Fluid Compute —
+    // rotas de pagamento precisam caber em 60s): antes esperava o envio de
+    // verdade aqui dentro (`fetch` síncrono pro envio imediato, medido em
+    // produção chegando a 111-115s em ~3% dos casos reais — sleeps de
+    // anti-detecção da VM, não rede). Agora só GRAVA na fila que já existe
+    // (`client_message_jobs`, mesma fila que `envio_programado` processa)
+    // e termina — o envio de verdade acontece em segundo plano, fora do
+    // orçamento desta função. `billing_dispatch_check` (pg_cron) passou a
+    // rodar 24h (não só 11h-22h) só pra essa fila não ficar parada fora do
+    // horário comercial da campanha de cobrança.
+    const { error: queueErr } = await supabaseAdmin.from("client_message_jobs").insert({
+      tenant_id: params.tenantId,
+      client_id: params.clientId,
+      message: pickedContent,
+      image_url: tmpl.image_url || null,
+      message_template_id: tmpl.id,
+      whatsapp_session: params.whatsappSession,
+      send_at: new Date().toISOString(),
+      status: "QUEUED",
+      // ⚠️ Achado 11/09/2026: `created_by` é UUID no banco, não texto — um
+      // valor tipo "system_fulfillment" (usado antes só no "Plano B" raro)
+      // sempre falhava aqui (rejeitado pelo Postgres), engolido em silêncio
+      // pelo catch. Omitido de propósito (coluna aceita null; o default
+      // auth.uid() também vira null fora de sessão real de usuário).
     });
-    const json = await res.json().catch(() => ({} as any));
-    if (!res.ok || json?.ok === false) {
-      prodLog("appativa_resolve.whatsapp_send_failed", { status: res.status });
+    if (queueErr) {
+      prodLog("appativa_resolve.whatsapp_queue_failed", { message: queueErr.message });
       await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", params.paymentId);
       return;
     }
@@ -939,8 +979,12 @@ async function sendAppRenewalWhatsapp(
     // via RPC update_whatsapp_status) e a renovação automática de
     // assinatura (mais acima neste arquivo) usam — achado 26/08/2026: sem
     // isso, a coluna WHATSAPP da Auditoria ficava "—" mesmo com a mensagem
-    // realmente entregue (só o envio em si estava sendo feito, nunca
-    // registrado).
+    // realmente entregue. Marca "sent" já ao entrar na fila (não espera o
+    // envio de verdade) — a fila é o mesmo mecanismo confiável usado pra
+    // milhares de mensagens agendadas todo dia; se falhar de verdade lá
+    // dentro, fica registrado como `FAILED` em `client_message_jobs`, só
+    // não reflete mais nesta coluna específica (perda de precisão aceita
+    // conscientemente pelo Márcio em troca de a função não esperar).
     await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", params.paymentId);
   } catch (e: any) {
     prodLog("appativa_resolve.whatsapp_send_error", { message: e?.message });
@@ -1823,72 +1867,56 @@ credits_used: months * qtyScreens,
     templateIdToSend = tmpl?.id || null;   // ✅ Guarda o ID
     if (!messageToSend) throw new Error("Template de pagamento não encontrado.");
 
-    const waRes = await fetch(`${origin}/api/whatsapp/envio_agora`, {
-      method: "POST",
-      headers: { ...headers, Accept: "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({
-        tenant_id: tenantId,
-        client_id: client.id,
-        message: messageToSend,
-        image_url: imageToSend, // ✅ ENVIA A IMAGEM NO ENVIO IMEDIATO
-        message_template_id: templateIdToSend, // ✅ OPCIONAL: Envia o ID para constar no histórico
-        whatsapp_session: targetSession,
-        skip_failure_notify: true, // já notifica no catch abaixo (tipo "whatsapp_falha", 1 por pagamento)
-      }),
+    // ✅ 11/09/2026, pedido do Márcio (projeto de tirar o Fluid Compute —
+    // rotas de pagamento precisam caber em 60s): antes esperava o envio
+    // imediato de verdade aqui (`fetch` síncrono, medido em produção
+    // chegando a 111-115s em ~3% dos casos reais — sleeps de anti-detecção
+    // da VM, não rede/CPU). O "Plano B" (agendar na fila em caso de falha)
+    // vira o ÚNICO caminho agora — sempre grava na fila que já existe
+    // (`client_message_jobs`, mesma fila que `envio_programado` processa) e
+    // termina na hora, sem esperar nada. `billing_dispatch_check` (pg_cron)
+    // passou a rodar 24h (não só 11h-22h) só pra essa fila não ficar parada
+    // fora do horário comercial da campanha de cobrança.
+    const { error: queueErr } = await supabaseAdmin.from("client_message_jobs").insert({
+      tenant_id: tenantId,
+      client_id: client.id,
+      message: messageToSend,
+      image_url: imageToSend,
+      message_template_id: templateIdToSend,
+      send_at: new Date().toISOString(),
+      status: "QUEUED",
+      whatsapp_session: targetSession,
+      // ⚠️ Achado 11/09/2026: `created_by` é UUID no banco, não texto — um
+      // valor tipo "system_fulfillment" (usado antes só no "Plano B" raro)
+      // sempre falhava aqui (rejeitado pelo Postgres), engolido em silêncio
+      // pelo catch abaixo. Omitido de propósito (coluna aceita null; o
+      // default auth.uid() também vira null fora de sessão real de usuário).
     });
+    if (queueErr) throw new Error(`Falha ao agendar envio: ${queueErr.message}`);
 
-    // Avalia se o servidor (VM) estava offline ou se deu erro 500
-    const waJson = await waRes.json().catch(() => null);
-    if (!waRes.ok || waJson?.ok === false) {
-      throw new Error("A API de envio imediato recusou a mensagem ou VM estava offline.");
-    }
-
-    // ✅ NOVO: Se passou sem erros, atualiza a nova coluna whatsapp_status na tabela de auditoria para "sent"
+    // ✅ Marca "sent" já ao entrar na fila (não espera o envio de verdade) —
+    // a fila é o mesmo mecanismo confiável usado pra milhares de mensagens
+    // agendadas todo dia; se falhar de verdade lá dentro, fica registrado
+    // como `FAILED` em `client_message_jobs`, só não reflete mais nesta
+    // coluna específica (perda de precisão aceita conscientemente pelo
+    // Márcio em troca de a função não esperar).
     await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", payment.id);
 
   } catch (e) {
-    safeServerLog("fulfillment: failed whatsapp immediate", (e as any)?.message);
-    
-    // ✅ NOVO: Se caiu no catch, atualiza a tabela de auditoria como "error" (Mesmo o Plano B agendando depois)
+    safeServerLog("fulfillment: failed to queue whatsapp", (e as any)?.message);
+
+    // ✅ Só chega aqui se nem GRAVAR na fila deu certo (falha real de banco)
+    // — o envio em si nunca mais é tentado de forma síncrona aqui.
     await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", payment.id);
 
-    // ✅ NOVO: notificação no sino (tabela notifications)
     await notify({
       tenantId,
       type: "whatsapp_falha",
       title: "💬 Falha no WhatsApp",
-      message: `Uma recarga foi efetuada para ${formatClientLabel(client.display_name, login, srv.name)}, mas o envio do comprovante pelo WhatsApp falhou. Reenvie pela Auditoria.`,
+      message: `Uma recarga foi efetuada para ${formatClientLabel(client.display_name, login, srv.name)}, mas não foi possível agendar o envio do comprovante pelo WhatsApp. Reenvie pela Auditoria.`,
       link: "/admin/auditoria",
       sourceId: payment.id,
     });
-
-    // ✅ PLANO B: Se falhou (mas temos a mensagem montada), salva direto na fila do Cron (+2 min)
-    if (messageToSend) {
-      try {
-        const retryDate = new Date(Date.now() + 2 * 60 * 1000); // Exato momento de agora + 2 minutos
-        
-        await supabaseAdmin.from("client_message_jobs").insert({
-          tenant_id: tenantId,
-          client_id: client.id,
-          message: messageToSend,
-          image_url: imageToSend, // ✅ SALVA A IMAGEM NO AGENDAMENTO DO CRON
-          message_template_id: templateIdToSend, // ✅ SALVA O ID DO TEMPLATE
-          send_at: retryDate.toISOString(), // Salva em UTC corretamente
-          status: "SCHEDULED",
-          whatsapp_session: targetSession,
-          created_by: "system_fulfillment" // Identifica que foi o robô quem agendou
-        });
-        
-        prodLog("fulfillment.whatsapp_retry_scheduled", { 
-          tenant: tenantId.slice(-6),
-          client_id: String(client.id).slice(-6)
-        });
-      } catch (retryErr) {
-        // Se der problema até pra salvar no banco, engole em silêncio. A TV já foi paga e liberada.
-        safeServerLog("fulfillment: failed to schedule retry", (retryErr as any)?.message);
-      }
-    }
   }
 
   prodLog("fulfillment.done", {
