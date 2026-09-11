@@ -375,7 +375,11 @@ export default function ApiServerPage() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) throw new Error(json?.error || "Falha ao renovar.");
-      addToast("success", "Proxy renovado", "");
+      addToast(
+        "success",
+        "Proxy renovado",
+        json.financeUpdated ? "Parcela dada como paga no Financeiro Pessoal." : "",
+      );
       await fetchProxyStatus();
     } catch (e: any) {
       addToast("error", "Erro ao renovar", e?.message ?? "Falha ao renovar o proxy.");

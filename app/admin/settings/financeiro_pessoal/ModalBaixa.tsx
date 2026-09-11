@@ -173,6 +173,34 @@ export default function ModalBaixa({
         } catch {}
       }
 
+      // ✅ 11/09/2026, pedido do Márcio: baixa dada direto por aqui (sem
+      // passar pelo card ProxyBR em Configurações > API de Integrações)
+      // também precisa refletir na ProxyBR de verdade — checa a validade
+      // real e só renova (debita saldo) se ainda não tiver sido renovado
+      // (ex: auto-renovação da própria ProxyBR já resolveu sozinha). Só
+      // pra essa descrição específica, best-effort (nunca bloqueia a baixa
+      // em si, que já foi salva acima).
+      if (novoStatus === "PAGO" && transacao.descricao === "Renovação ProxyBR") {
+        try {
+          const { data: sess } = await supabaseBrowser.auth.getSession();
+          const token = sess?.session?.access_token;
+          const res = await fetch("/api/admin/settings/proxybr/check-and-renew", {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          const json = await res.json().catch(() => ({}));
+          if (res.ok && json?.ok) {
+            addToast(
+              "success",
+              json.renewed ? "ProxyBR renovado automaticamente" : "ProxyBR já estava renovado",
+              json.message || "",
+            );
+          }
+        } catch {
+          // best-effort — não bloqueia a baixa, que já foi confirmada acima
+        }
+      }
+
       // Se valor mudou E escopo = TODAS, atualiza futuras também
       if (valorAlterado && escopo === "TODAS" && transacao.recorrencia_id) {
         const { error: errFuturas } = await supabaseBrowser
