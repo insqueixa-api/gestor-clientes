@@ -1,7 +1,6 @@
 // app/api/webhooks/stripe/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import { verifyStripeWebhookSignature } from "@/lib/webhook-signatures";
 
 // ── IMPORTS IPTV ──────────────────────────────────────────────
@@ -86,10 +85,10 @@ export async function POST(req: NextRequest) {
 
       if (!webhookSecret || !verifyStripeSignature(rawBody, sig, webhookSecret)) {
         prodLog("stripe.webhook.sig_failed", { pi_suffix: paymentIntentId.slice(-6) });
-        Sentry.captureMessage("stripe_webhook_sig_failed", {
-          level: "warning",
-          tags: { kind: "suspicious_access", reason: "stripe_webhook_sig_failed" },
-          extra: { pi_suffix: paymentIntentId.slice(-6) },
+        console.error("[stripe_webhook_sig_failed]", {
+          kind: "suspicious_access",
+          reason: "stripe_webhook_sig_failed",
+          pi_suffix: paymentIntentId.slice(-6),
         });
         return NextResponse.json({ ok: false }, { status: 401 });
       }
@@ -137,7 +136,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
 
   } catch (err) {
-    Sentry.captureException(err, { tags: { kind: "webhook_handler_error", provider: "stripe" } });
+    console.error("[webhook_handler_error:stripe]", { message: (err as any)?.message, kind: "webhook_handler_error", provider: "stripe" });
     return NextResponse.json({ ok: false, error: safeMsg(err) }, { status: 200 });
   }
 }

@@ -1,7 +1,6 @@
 // app/api/client-portal/create-payment/route.ts
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { randomUUID } from "crypto";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
@@ -72,7 +71,7 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) {
       safeServerLog("create-payment: Server misconfigured");
-      Sentry.captureMessage("create-payment: Server misconfigured", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" } });
+      console.error("[create-payment: Server misconfigured]", { kind: "client_portal_error", route: "create-payment" });
       return NextResponse.json(
         { ok: false, error: "Erro interno" },
         { status: 500, headers: NO_STORE_HEADERS }
@@ -427,7 +426,7 @@ if (coupon_code_raw) {
 
     if (gwErr) {
       safeServerLog("create-payment: gateways query error", gwErr?.message);
-      Sentry.captureMessage("create-payment: gateways query error", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" }, extra: { message: gwErr?.message } });
+      console.error("[create-payment: gateways query error]", { kind: "client_portal_error", route: "create-payment", message: gwErr?.message });
       // ✅ sem vazar detalhe
       return jsonError("Erro interno", 500);
     }
@@ -533,7 +532,7 @@ if (coupon_code_raw) {
 
       if (insErr || !inserted) {
         safeServerLog("create-payment: insert manual payment error", insErr?.message);
-        Sentry.captureMessage("create-payment: insert manual payment error", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" }, extra: { message: insErr?.message } });
+        console.error("[create-payment: insert manual payment error]", { kind: "client_portal_error", route: "create-payment", message: insErr?.message });
         return jsonError("Erro interno", 500);
       }
 
@@ -615,7 +614,7 @@ if (coupon_code_raw) {
 const mpToken = String(gateway?.config?.access_token || "").trim();
 if (!mpToken) {
   safeServerLog("create-payment: mercadopago missing access_token");
-  Sentry.captureMessage("create-payment: mercadopago missing access_token", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" } });
+  console.error("[create-payment: mercadopago missing access_token]", { kind: "client_portal_error", route: "create-payment" });
   lastError = "Gateway misconfigured";
   continue;
 }
@@ -625,7 +624,7 @@ if (!mpToken) {
           const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();
           if (!appUrl) {
             safeServerLog("create-payment: missing UNIGESTOR_APP_URL/APP_URL");
-            Sentry.captureMessage("create-payment: missing UNIGESTOR_APP_URL/APP_URL", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" } });
+            console.error("[create-payment: missing UNIGESTOR_APP_URL/APP_URL]", { kind: "client_portal_error", route: "create-payment" });
             return jsonError("Erro interno", 500);
           }
           const webhookUrl = `${appUrl.replace(/\/+$/, "")}/api/webhooks/mercadopago`;
@@ -770,7 +769,7 @@ if (!mpToken) {
 
 if (insErr || !inserted) {
   safeServerLog("create-payment: upsert payment error", insErr?.message);
-  Sentry.captureMessage("create-payment: upsert payment error", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" }, extra: { message: insErr?.message } });
+  console.error("[create-payment: upsert payment error]", { kind: "client_portal_error", route: "create-payment", message: insErr?.message });
   return jsonError("Erro interno", 500);
 }
 
@@ -808,7 +807,7 @@ if (insErr || !inserted) {
 
           if (!secretKey || !publishableKey) {
             safeServerLog("create-payment: stripe missing keys");
-            Sentry.captureMessage("create-payment: stripe missing keys", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" } });
+            console.error("[create-payment: stripe missing keys]", { kind: "client_portal_error", route: "create-payment" });
             lastError = "Gateway misconfigured";
             continue;
           }
@@ -885,7 +884,7 @@ if (insErr || !inserted) {
 
       if (insErr || !inserted) {
         safeServerLog("create-payment: insert manual payment error", insErr?.message);
-        Sentry.captureMessage("create-payment: insert manual payment error", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" }, extra: { message: insErr?.message } });
+        console.error("[create-payment: insert manual payment error]", { kind: "client_portal_error", route: "create-payment", message: insErr?.message });
         return jsonError("Erro interno", 500);
       }
 
@@ -921,7 +920,7 @@ return NextResponse.json(
           const apiKey = String(gateway?.config?.api_key || "").trim();
           if (!apiKey) {
             safeServerLog(`create-payment: ${gateway.type} missing api_key`);
-            Sentry.captureMessage(`create-payment: ${gateway.type} missing api_key`, { level: "error", tags: { kind: "client_portal_error", route: "create-payment" } });
+            console.error(`[create-payment: ${gateway.type} missing api_key]`, { kind: "client_portal_error", route: "create-payment" });
             lastError = "Gateway misconfigured";
             continue;
           }
@@ -1029,7 +1028,7 @@ return NextResponse.json(
 
             if (insErr || !inserted) {
               safeServerLog("create-payment: upsert payment error", insErr?.message);
-              Sentry.captureMessage("create-payment: upsert payment error", { level: "error", tags: { kind: "client_portal_error", route: "create-payment" }, extra: { message: insErr?.message } });
+              console.error("[create-payment: upsert payment error]", { kind: "client_portal_error", route: "create-payment", message: insErr?.message });
               return jsonError("Erro interno", 500);
             }
 
@@ -1056,7 +1055,7 @@ return NextResponse.json(
         }
       } catch (err: any) {
         safeServerLog(`create-payment: gateway error (${gateway?.type})`, err?.message);
-        Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "create-payment", gateway: gateway?.type } });
+        console.error("[client_portal_error:create-payment:gateway]", { message: err?.message, kind: "client_portal_error", route: "create-payment", gateway: gateway?.type });
         lastError = "Falha ao criar pagamento no gateway";
         continue;
       }
@@ -1091,7 +1090,7 @@ if (manual && !manErr) {
     return jsonError("Erro ao criar pagamento", 500);
   } catch (err: any) {
     safeServerLog("create-payment: unexpected error", err?.message);
-    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "create-payment" } });
+    console.error("[client_portal_error:create-payment]", { message: err?.message, kind: "client_portal_error", route: "create-payment" });
     // ✅ não vaza detalhe nenhum
     return NextResponse.json(
       { ok: false, error: "Erro interno" },

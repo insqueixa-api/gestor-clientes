@@ -1,7 +1,6 @@
 // lib/client-portal/fulfillment.ts
 import { after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import { notify, resolveNotification, formatClientLabel } from "@/lib/notifications/notify";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 import { extractFieldByType, findFieldByType, extractDateOnly } from "@/lib/apps/panel";
@@ -144,17 +143,19 @@ export async function markFulfillmentError(
 
   // ✅ Pagamento aprovado que não conseguiu renovar sozinho — antes disso só
   // ficava visível pra quem abrisse a Auditoria por acaso (foi assim que 12
-  // pagamentos ficaram presos meses sem ninguém notar). Agora dispara alerta
-  // real via Sentry no momento em que acontece.
-  Sentry.captureMessage(`fulfillment_error: ${message}`, {
-    level: "error",
-    tags: { kind: "fulfillment_error", tenant_id: tenantId },
-    extra: { paymentRowId, message },
+  // pagamentos ficaram presos meses sem ninguém notar). Loga no momento em
+  // que acontece (visível nos logs da Vercel); o alerta que importa de
+  // verdade (sino + e-mail) é o bloco logo abaixo.
+  console.error(`[fulfillment_error: ${message}]`, {
+    kind: "fulfillment_error",
+    tenant_id: tenantId,
+    paymentRowId,
+    message,
   });
 
-  // ✅ NOVO (achado 08/08/2026, revisão do bot de atendimento): Sentry é
-  // ferramenta de monitoramento técnico, NÃO é o sino nem o e-mail do
-  // painel — o Márcio não via isso no fluxo normal. Pedido dele: erro de
+  // ✅ NOVO (achado 08/08/2026, revisão do bot de atendimento): log técnico
+  // sozinho NÃO é o sino nem o e-mail do painel — o Márcio não via isso no
+  // fluxo normal. Pedido dele: erro de
   // integração/renovação de verdade precisa de sino E e-mail, sempre —
   // mesmo padrão já usado em manual_pending (notifyManual, mais acima
   // neste arquivo). Envolto em try/catch pra nunca quebrar o fluxo de
@@ -253,15 +254,15 @@ export async function markAppRenewalPaid(
   // quebra — e o mesmo UPDATE via SQL puro funciona perfeito, então é bug/
   // limitação do PostgREST, não do Postgres). O código só olhava `data`, não
   // `error` — a falha do PostgREST fazia `data` vir null, e o guard tratava
-  // isso EXATAMENTE igual a "já processado" — silencioso, sem log, sem
-  // Sentry, indistinguível de comportamento normal. Um pagamento real
+  // isso EXATAMENTE igual a "já processado" — silencioso, sem log nenhum,
+  // indistinguível de comportamento normal. Um pagamento real
   // (Adenilson, DupleCast, R$30) ficou "processando" pra sempre até o
   // Márcio notar o badge "Travada" na Auditoria. Trocado pra uma função SQL
   // (mark_app_renewal_manual_pending, docs/sql/
   // fix_mark_app_renewal_postgrest_or_bug.sql) que faz o mesmo UPDATE
   // condicional via SQL puro dentro do Postgres — sem passar pelo filtro
-  // .or() do PostgREST — e agora captura qualquer erro real no Sentry em
-  // vez de engolir.
+  // .or() do PostgREST — e agora loga qualquer erro real em vez de
+  // engolir.
   const { data: wasUpdated, error: updateErr } = await supabaseAdmin.rpc(
     "mark_app_renewal_manual_pending",
     { p_payment_id: paymentRowId, p_tenant_id: tenantId },
@@ -269,10 +270,13 @@ export async function markAppRenewalPaid(
 
   if (updateErr) {
     safeServerLog("markAppRenewalPaid: update failed", updateErr.message);
-    Sentry.captureException(
-      new Error(`markAppRenewalPaid: falha ao marcar manual_pending — ${updateErr.message}`),
-      { tags: { kind: "fulfillment_error", payment_type: "app_renewal" }, extra: { paymentRowId, tenantId } },
-    );
+    console.error("[markAppRenewalPaid: falha ao marcar manual_pending]", {
+      message: `markAppRenewalPaid: falha ao marcar manual_pending — ${updateErr.message}`,
+      kind: "fulfillment_error",
+      payment_type: "app_renewal",
+      paymentRowId,
+      tenantId,
+    });
     return;
   }
 
@@ -304,17 +308,23 @@ export async function markAppRenewalPaid(
           code: (redeemErr as any)?.code,
           message: redeemErr.message,
         });
-        Sentry.captureMessage("markAppRenewalPaid: coupon_redemption insert failed", {
-          level: "warning",
-          tags: { kind: "client_portal_error", where: "app_coupon_redemption_insert" },
-          extra: { paymentRowId, coupon_id: appCouponId, message: redeemErr.message },
+        console.error("[markAppRenewalPaid: coupon_redemption insert failed]", {
+          kind: "client_portal_error",
+          where: "app_coupon_redemption_insert",
+          paymentRowId,
+          coupon_id: appCouponId,
+          message: redeemErr.message,
         });
       } else {
         // Cupom pessoal se autodesativa ao ser usado — mesma regra da assinatura.
         await supabaseAdmin.from("coupons").update({ is_active: false }).eq("id", appCouponId);
       }
     } catch (e: any) {
-      Sentry.captureException(e, { tags: { kind: "client_portal_error", where: "app_coupon_redemption_insert" } });
+      console.error("[client_portal_error:app_coupon_redemption_insert]", {
+        message: e?.message,
+        kind: "client_portal_error",
+        where: "app_coupon_redemption_insert",
+      });
     }
   }
 
@@ -467,10 +477,12 @@ export async function markAppRenewalPaid(
                 .update({ fulfillment_error: `Appativa: ${result.error}` })
                 .eq("id", paymentRowId)
                 .eq("tenant_id", tenantId);
-              Sentry.captureMessage("markAppRenewalPaid: solicitar-ativacao falhou", {
-                level: "warning",
-                tags: { kind: "client_portal_error", where: "appativa_solicitar_ativacao" },
-                extra: { paymentRowId, tenantId, error: result.error },
+              console.error("[markAppRenewalPaid: solicitar-ativacao falhou]", {
+                kind: "client_portal_error",
+                where: "appativa_solicitar_ativacao",
+                paymentRowId,
+                tenantId,
+                error: result.error,
               });
             }
           }
@@ -1071,16 +1083,17 @@ export async function resolveAppativaAppRenewal(
     // pegou, se a Appativa confirmou em 23s?"): sem isso, uma falha real na
     // chamada (timeout, 5xx, lag de leitura logo após o solicitar-ativacao)
     // virava "pending" em silêncio — indistinguível de "ainda em fila do
-    // lado deles" e só visível no console.log do Vercel (que não dá pra
-    // consultar depois). Sentry (level warning, não crash) dá rastro
-    // consultável via API pra próxima vez que isso acontecer. Esperado
-    // aparecer 1-2x logo após o solicitar-ativacao (undocumented lag do
-    // ?id= deles) — só vira sinal de alerta de verdade se repetir toda
-    // tentativa de um mesmo pagamento.
-    Sentry.captureMessage("appativa_resolve: consultar-ativacao falhou", {
-      level: "warning",
-      tags: { kind: "client_portal_error", where: "appativa_consultar_ativacao" },
-      extra: { paymentId, tenantId, historicoId: payment.appativa_historico_id, error: result.error },
+    // lado deles". Log de propósito aqui, com os dados que ajudam a
+    // diagnosticar. Esperado aparecer 1-2x logo após o solicitar-ativacao
+    // (undocumented lag do ?id= deles) — só vira sinal de alerta de
+    // verdade se repetir toda tentativa de um mesmo pagamento.
+    console.error("[appativa_resolve: consultar-ativacao falhou]", {
+      kind: "client_portal_error",
+      where: "appativa_consultar_ativacao",
+      paymentId,
+      tenantId,
+      historicoId: payment.appativa_historico_id,
+      error: result.error,
     });
     return { outcome: "pending" };
   }
@@ -1304,10 +1317,13 @@ export async function runFulfillment(params: FulfillmentParams) {
           code: (redeemErr as any)?.code,
           message: redeemErr.message,
         });
-        Sentry.captureMessage("fulfillment: coupon_redemption insert failed", {
-          level: "warning",
-          tags: { kind: "client_portal_error", where: "coupon_redemption_insert" },
-          extra: { payment_id: payment.id, coupon_id: couponId, message: redeemErr.message, code: (redeemErr as any)?.code },
+        console.error("[fulfillment: coupon_redemption insert failed]", {
+          kind: "client_portal_error",
+          where: "coupon_redemption_insert",
+          payment_id: payment.id,
+          coupon_id: couponId,
+          message: redeemErr.message,
+          code: (redeemErr as any)?.code,
         });
       } else {
         // Cupom pessoal se autodesativa ao ser usado - o Marcio reativa
@@ -1387,10 +1403,12 @@ export async function runFulfillment(params: FulfillmentParams) {
         client_app_id: clientAppId.slice(-6),
         message: childErr?.message,
       });
-      Sentry.captureMessage("fulfillment: bundled app renewal child insert failed", {
-        level: "warning",
-        tags: { kind: "client_portal_error", where: "bundled_app_renewal_insert" },
-        extra: { payment_id: payment.id, client_app_id: clientAppId, message: childErr?.message },
+      console.error("[fulfillment: bundled app renewal child insert failed]", {
+        kind: "client_portal_error",
+        where: "bundled_app_renewal_insert",
+        payment_id: payment.id,
+        client_app_id: clientAppId,
+        message: childErr?.message,
       });
       continue; // não trava o fulfillment do plano por causa disso
     }

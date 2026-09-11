@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { isInternalRequest } from "@/lib/internal-auth";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
-import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -154,7 +153,7 @@ let updateQuery = supabaseForUpdate
       e?.name === "AbortError"
         ? "Timeout ao chamar FAST."
         : "Erro inesperado no sync do FAST.";
-    Sentry.captureException(e, { tags: { kind: "integration_error", provider: "fast", action: "sync" } });
+    console.error("[integration_error:fast:sync]", { message: e?.message, kind: "integration_error", provider: "fast", action: "sync" });
     return jsonError(500, msg);
   }
 }

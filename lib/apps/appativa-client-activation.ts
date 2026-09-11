@@ -176,7 +176,7 @@ export async function triggerAppativaActivationForClient(
         if (check.outcome === "error") {
           // ✅ Best-effort — sem sino aqui (foi o próprio admin quem
           // acionou, na tela do cliente; ele confere o resultado voltando
-          // nessa mesma tela). Sentry.captureMessage seria redundante com
+          // nessa mesma tela). Um console.error aqui seria redundante com
           // o que solicitar-ativacao/consultar-ativacao já registram.
           const { _appativa_pending_id, ...restFieldValues } = fieldValuesWithPending;
           try {

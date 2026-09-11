@@ -10,7 +10,6 @@
 // anti-fraude, pronto pra ser enviado", ainda não é a confirmação final.
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import { verifyFastDepixSignature } from "@/lib/webhook-signatures";
 import { getFastDepixTransaction, isFastDepixGatewayType } from "@/lib/fastdepix";
 import {
@@ -81,10 +80,10 @@ export async function POST(req: NextRequest) {
 
     if (!webhookSecret || !verifyFastDepixSignature({ signatureHeader, rawBody, secret: webhookSecret })) {
       prodLog("fastdepix_webhook.sig_failed", { transaction_id_suffix: transactionId.slice(-6) });
-      Sentry.captureMessage("fastdepix_webhook_sig_failed", {
-        level: "warning",
-        tags: { kind: "suspicious_access", reason: "fastdepix_webhook_sig_failed" },
-        extra: { transaction_id_suffix: transactionId.slice(-6) },
+      console.error("[fastdepix_webhook_sig_failed]", {
+        kind: "suspicious_access",
+        reason: "fastdepix_webhook_sig_failed",
+        transaction_id_suffix: transactionId.slice(-6),
       });
       return NextResponse.json({ ok: false }, { status: 401 });
     }
@@ -141,7 +140,7 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
-    Sentry.captureException(err, { tags: { kind: "webhook_handler_error", provider: "fastdepix" } });
+    console.error("[webhook_handler_error:fastdepix]", { message: (err as any)?.message, kind: "webhook_handler_error", provider: "fastdepix" });
     return NextResponse.json({ ok: false, error: safeMsg(err) }, { status: 200 });
   }
 }

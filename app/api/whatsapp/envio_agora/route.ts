@@ -3,7 +3,6 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { isInternalRequest } from "@/lib/internal-auth";
 import { makeSessionKey } from "@/lib/whatsapp/wa-context";
@@ -544,7 +543,7 @@ export async function POST(req: Request) {
     await sb.from("client_message_jobs").insert(insertPayload);
   } catch (err) {
     safeServerLog("[WA][send_now] falha ao gravar log em client_message_jobs", err);
-    Sentry.captureException(err, { tags: { kind: "data_loss_risk", where: "client_message_jobs_insert" } });
+    console.error("[data_loss_risk:client_message_jobs_insert]", { message: (err as any)?.message, kind: "data_loss_risk", where: "client_message_jobs_insert" });
   }
 
   // ✅ 01/09/2026, pedido do Márcio: antes só a confirmação de pagamento

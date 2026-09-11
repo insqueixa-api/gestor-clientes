@@ -2,7 +2,6 @@
 //app/api/whatsapp/envio_programado
 
 import { NextResponse } from "next/server";
-import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { isCronRequest } from "@/lib/internal-auth";
@@ -689,26 +688,24 @@ export async function POST(req: Request) {
             // consultar isso depois): client_message_jobs é 1 linha por
             // CLIENTE/dia, não por contato — o resultado do contato que NÃO
             // vira o checkpoint (normalmente o secundário) nunca ficava
-            // gravado em lugar nenhum, sucesso ou falha. Sentry aqui cobre
+            // gravado em lugar nenhum, sucesso ou falha. Log aqui cobre
             // falha de verdade; secondary_sent_at/secondary_error_message
             // abaixo cobrem os dois casos de forma consultável no próprio job.
             if (contact.is_secondary) {
               await sb.from("client_message_jobs").update({ secondary_error_message: lastError.slice(0, 500) }).eq("id", job.id);
             }
-            Sentry.captureMessage(
-              `Falha ao enviar pra contato ${contact.is_secondary ? "secundário" : "primário"} (${wa.phones.length > 1 ? "conta com múltiplos contatos" : "contato único"})`,
+            console.error(
+              `[Falha ao enviar pra contato ${contact.is_secondary ? "secundário" : "primário"} (${wa.phones.length > 1 ? "conta com múltiplos contatos" : "contato único"})]`,
               {
-                level: "warning",
-                tags: { kind: "billing_contact_send_failed", is_secondary: String(!!contact.is_secondary) },
-                extra: {
-                  clientId: job.client_id,
-                  automationId: (job as any).automation_id,
-                  jobId: job.id,
-                  phoneSuffix: contact.number?.slice(-4),
-                  status: res.status,
-                  error: lastError.slice(0, 300),
-                  alreadyCheckpointed: checkpointed,
-                },
+                kind: "billing_contact_send_failed",
+                is_secondary: String(!!contact.is_secondary),
+                clientId: job.client_id,
+                automationId: (job as any).automation_id,
+                jobId: job.id,
+                phoneSuffix: contact.number?.slice(-4),
+                status: res.status,
+                error: lastError.slice(0, 300),
+                alreadyCheckpointed: checkpointed,
               },
             );
           } else {
@@ -768,10 +765,10 @@ export async function POST(req: Request) {
               // simplesmente não recebe nesta rodada (mesmo "pior caso"
               // que já era aceito antes desta mudança). Não derruba o
               // checkpoint do principal, que já está gravado.
-              Sentry.captureMessage("envio_programado: falha ao agendar contato secundário", {
-                level: "warning",
-                tags: { kind: "billing_secondary_schedule_failed" },
-                extra: { jobId: job.id, message: scheduleErr.message },
+              console.error("[envio_programado: falha ao agendar contato secundário]", {
+                kind: "billing_secondary_schedule_failed",
+                jobId: job.id,
+                message: scheduleErr.message,
               });
             }
             break;
@@ -814,15 +811,17 @@ export async function POST(req: Request) {
           safeServerLog("[BILLING] job já tinha checkpoint SENT, erro depois disso (contato seguinte?):", errorMsg);
           // ❌ 09/09/2026: mesmo achado do "!res.ok" acima, mas pro caminho de
           // EXCEÇÃO (ex: generatePortalLink/coupon lançando pro contato
-          // seguinte) — sem isso, ficava só no console.error (sem
-          // integração de captura de console aqui, nunca chegava no
-          // Sentry) e o contato que falhou desaparecia sem deixar rastro.
-          Sentry.captureMessage(
-            "Falha ao processar contato seguinte após checkpoint SENT (provável secundário)",
+          // seguinte) — log estruturado de propósito aqui (não só a linha
+          // solta acima), pra não desaparecer sem deixar rastro do que
+          // exatamente falhou.
+          console.error(
+            "[Falha ao processar contato seguinte após checkpoint SENT (provável secundário)]",
             {
-              level: "warning",
-              tags: { kind: "billing_contact_send_failed" },
-              extra: { clientId: job.client_id, automationId: (job as any).automation_id, jobId: job.id, error: errorMsg },
+              kind: "billing_contact_send_failed",
+              clientId: job.client_id,
+              automationId: (job as any).automation_id,
+              jobId: job.id,
+              error: errorMsg,
             },
           );
           continue;

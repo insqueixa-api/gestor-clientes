@@ -1,7 +1,6 @@
 // app/api/client-portal/validate-coupon/route.ts
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import {
   validateCouponForCharge,
   couponRejectReason,
@@ -263,7 +262,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err: any) {
     console.error("[validate-coupon]", err?.message);
-    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "validate-coupon" } });
+    console.error("[client_portal_error:validate-coupon]", { message: err?.message, kind: "client_portal_error", route: "validate-coupon" });
     return jsonError("Erro interno", 500);
   }
 }

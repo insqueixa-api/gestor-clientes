@@ -3,17 +3,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { isInternalRequest } from "@/lib/internal-auth";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
-import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function safeServerLog(...args: any[]) {
   console.error(...args);
-  Sentry.captureMessage(String(args[0] ?? "safeServerLog"), {
-    level: "warning",
-    tags: { kind: "integration_error", provider: "natv" },
-    extra: { args },
+  console.error(`[${String(args[0] ?? "safeServerLog")}]`, {
+    kind: "integration_error",
+    provider: "natv",
+    args,
   });
 }
 
@@ -192,7 +191,7 @@ const tenant_id = String(body?.tenant_id ?? "").trim();
         : "Token validado. Não encontrei usuários para inferir owner/saldo ainda.",
     });
   } catch (e) {
-    Sentry.captureException(e, { tags: { kind: "integration_error", provider: "natv", action: "sync" } });
+    console.error("[integration_error:natv:sync]", { message: (e as any)?.message, kind: "integration_error", provider: "natv", action: "sync" });
     return jsonError(500, "Erro interno");
   }
 }

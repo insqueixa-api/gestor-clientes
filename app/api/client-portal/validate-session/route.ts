@@ -1,7 +1,6 @@
 // app/api/client-portal/validate-session/route.ts
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest) {
     const supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) {
       safeServerLog("validate-session: Server misconfigured");
-      Sentry.captureMessage("validate-session: Server misconfigured", { level: "error", tags: { kind: "client_portal_error", route: "validate-session" } });
+      console.error("[validate-session: Server misconfigured]", { kind: "client_portal_error", route: "validate-session" });
       return NextResponse.json(
         { ok: false, error: "Erro interno" },
         { status: 500, headers: NO_STORE_HEADERS }
@@ -107,7 +106,7 @@ export async function POST(req: NextRequest) {
       }
     } catch (adminLookupErr) {
       safeServerLog("validate-session: falha ao buscar whatsapp do admin");
-      Sentry.captureException(adminLookupErr, { tags: { kind: "client_portal_error", route: "validate-session", where: "admin_whatsapp_lookup" } });
+      console.error("[client_portal_error:validate-session:admin_whatsapp_lookup]", { message: (adminLookupErr as any)?.message, kind: "client_portal_error", route: "validate-session", where: "admin_whatsapp_lookup" });
     }
 
     return NextResponse.json(
@@ -123,7 +122,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (err: any) {
     safeServerLog("validate-session: unexpected error", err?.message);
-    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "validate-session" } });
+    console.error("[client_portal_error:validate-session]", { message: err?.message, kind: "client_portal_error", route: "validate-session" });
 
     // ✅ NUNCA devolve err.message pro cliente (zero leak)
     return NextResponse.json(

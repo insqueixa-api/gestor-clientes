@@ -34,7 +34,6 @@
 // ?token=<APPATIVA_WEBHOOK_TOKEN>, sem quebrar nada até lá.
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import crypto from "crypto";
 import { resolveAppativaAppRenewal, prodLog } from "@/lib/client-portal/fulfillment";
 import { flagSuspiciousAccess } from "@/lib/observability";
@@ -78,9 +77,10 @@ export async function POST(req: NextRequest) {
 
     // Sem match — evento de outra coisa (ou replay de algo já limpo).
     // Mesmo espírito "silencioso" dos webhooks MP/Stripe (a resposta não
-    // muda, pra não virar um oráculo de "esse id existe?"), mas registra
-    // no Sentry pra dar visibilidade caso alguém fique testando ids ao
-    // acaso (achado 26/08/2026, revisão de segurança pedida pelo Márcio).
+    // muda, pra não virar um oráculo de "esse id existe?"), mas loga (ver
+    // lib/observability.ts) pra dar visibilidade caso alguém fique testando
+    // ids ao acaso (achado 26/08/2026, revisão de segurança pedida pelo
+    // Márcio).
     if (!payment) {
       flagSuspiciousAccess("appativa_webhook_id_desconhecido", {
         id_cobranca_suffix: idCobranca.slice(-6),
@@ -93,9 +93,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    Sentry.captureException(err, {
-      tags: { kind: "webhook_handler_error", provider: "appativa" },
-    });
+    console.error("[webhook_handler_error:appativa]", { message: err?.message, kind: "webhook_handler_error", provider: "appativa" });
     return NextResponse.json({ ok: false }, { status: 200 });
   }
 }

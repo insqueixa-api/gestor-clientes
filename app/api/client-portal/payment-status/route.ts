@@ -1,7 +1,6 @@
 // app/api/client-portal/payment-status/route.ts
 import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import * as Sentry from "@sentry/nextjs";
 import {
   runFulfillment,
   markFulfillmentDone,
@@ -154,7 +153,7 @@ async function refreshMercadoPagoStatusIfNotApproved(
     return { payment, statusChanged: false };
   } catch (e) {
     safeServerLog("payment-status: error consulting Mercado Pago", (e as any)?.message);
-    Sentry.captureException(e, { tags: { kind: "client_portal_error", route: "payment-status", where: "mp_status_refresh" } });
+    console.error("[client_portal_error:payment-status:mp_status_refresh]", { message: (e as any)?.message, kind: "client_portal_error", route: "payment-status", where: "mp_status_refresh" });
     return { payment, statusChanged: false };
   }
 }
@@ -178,7 +177,7 @@ export async function POST(req: NextRequest) {
   const supabaseAdmin = makeSupabaseAdmin();
   if (!supabaseAdmin) {
     safeServerLog("payment-status: Server misconfigured");
-    Sentry.captureMessage("payment-status: Server misconfigured", { level: "error", tags: { kind: "client_portal_error", route: "payment-status" } });
+    console.error("[payment-status: Server misconfigured]", { kind: "client_portal_error", route: "payment-status" });
     return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 
@@ -225,7 +224,7 @@ export async function POST(req: NextRequest) {
     const origin = getAppOrigin();
     if (!origin) {
       safeServerLog("payment-status: missing UNIGESTOR_APP_URL/APP_URL");
-      Sentry.captureMessage("payment-status: missing UNIGESTOR_APP_URL/APP_URL", { level: "error", tags: { kind: "client_portal_error", route: "payment-status" } });
+      console.error("[payment-status: missing UNIGESTOR_APP_URL/APP_URL]", { kind: "client_portal_error", route: "payment-status" });
       return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
@@ -443,7 +442,7 @@ if (!lock.acquired) {
     }
   } catch (err: any) {
     safeServerLog("payment-status: unexpected error", err?.message);
-    Sentry.captureException(err, { tags: { kind: "client_portal_error", route: "payment-status" } });
+    console.error("[client_portal_error:payment-status]", { message: err?.message, kind: "client_portal_error", route: "payment-status" });
     return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
