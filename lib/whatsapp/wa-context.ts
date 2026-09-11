@@ -146,19 +146,6 @@ export async function getWAContextOrCron(
   return buildWAContext(baseUrl, token, tenantContext.tenantId, tenantContext.userId, session);
 }
 
-// ✅ checagem segura pra rotas que não usam WAContext (reboot, restart-service)
-// — aceita sessão de navegador admin OU o segredo do cron com tenant explícito
-// ou tenant único na tabela.
-export async function requireUserOrCron(req: Request): Promise<boolean> {
-  if (isCronRequest(req)) {
-    const cronCtx = await getCronTenantContext(req);
-    return !!cronCtx;
-  }
-
-  const ctx = await getAdminTenantContext();
-  return ctx.ok;
-}
-
 interface ProxyResult {
   ok: boolean;
   status: number;

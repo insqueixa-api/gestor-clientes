@@ -6,7 +6,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 
 import {
-  createSession, disconnectSession, reconnectSession, hardResetSession, sendMessage, validateNumber,
+  createSession, disconnectSession, hardResetSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
   getAndResetSessionHealth,
@@ -344,33 +344,28 @@ app.post("/disconnect", authMiddleware, async (req, res) => {
 });
 
 // ── POST /reconnect ──────────────────────────────────────────
-// ❌ 10/09/2026, causa raiz real achada (Márcio: "toda vez que clico em
-// Reconectar, ele desloga e pede QR"): reproduzido 2x seguidas, sempre com
-// a MESMA assinatura no log — a sessão estava conectada e SAUDÁVEL (envio
-// de mensagem real segundos antes), o clique em "Reconectar" fecha esse
-// socket vivo (reconnectSession → safeCloseSocket) pra abrir um novo, e é
-// EXATAMENTE esse fechar-e-reabrir imediato do mesmo dispositivo vinculado
-// que o WhatsApp responde com 401 (logout de verdade, exige QR novo) — não
-// era o WhatsApp derrubando sozinho, era a reconexão manual provocando.
-// O botão nunca checava se já estava conectado antes de mandar reconectar
-// (diferente do botão "Desconectar", que já vem desabilitado nesse caso).
-// Guarda aqui, na rota — não dentro de reconnectSession() em si, que
-// continua sendo chamada de propósito pela auto-recuperação de erro
-// sustentado (getAndResetSessionHealth) numa sessão ainda tecnicamente
-// "conectada" mas com problema real de decriptação; ali faz sentido
-// reconectar mesmo já conectado, aqui (clique manual sem motivo) não.
+// ❌ 10/09/2026: causa raiz achada (clicar em Reconectar numa sessão já
+// SAUDÁVEL fechava um socket vivo pra reabrir na hora, e isso fazia o
+// WhatsApp responder com 401 de verdade) — guard "já conectado" adicionado.
+// ❌ 11/09/2026, mesmo dia, tentativa de "zera as conversas mas reconecta
+// sozinho sem QR" (wipeAllContactSessionFiles + reconnectSession):
+// testado ao vivo e reproduziu o MESMO 401 (3 de 3 tentativas forçando
+// reconexão numa sessão já viva terminaram em logout de verdade) — o
+// WhatsApp parece rejeitar esse padrão quase sempre, não é algo que dê
+// pra contornar do nosso lado.
+// ✅ Decisão final do Márcio: "reconectar" como conceito saiu da tela dele
+// de vez (só Hard Reset fica, por sessão) — esta rota agora FAZ o hard
+// reset de verdade (apaga credencial + todas as sessões de contato desta
+// UMA sessão, exige QR novo sempre) em vez de tentar evitar o QR. Sem
+// meio-termo: previsível e confiável, como o Hard Reset "de verdade" já
+// era, só que sem precisar apagar a Principal e a Secundária juntas.
 app.post("/reconnect", authMiddleware, async (req, res) => {
   const sessionKey = getSessionKey(req);
   if (!sessionKey) return res.status(400).json({ error: "x-session-key obrigatório" });
 
-  const sess = getSession(sessionKey);
-  if (sess?.status === "connected") {
-    return res.json({ success: true, status: "already_connected", message: "Sessão já está conectada — nada foi feito." });
-  }
-
   try {
-    await reconnectSession(sessionKey);
-    return res.json({ success: true, status: "reconnecting" });
+    await hardResetSession(sessionKey);
+    return res.json({ success: true, status: "reset", message: "Sessão apagada por completo — escaneie o QR novamente." });
   } catch (e) {
     return res.status(500).json({ error: e?.message || "Falha ao reconectar" });
   }

@@ -1,14 +1,13 @@
 ﻿"use client";
 // app/admin/settings/whatsapp/page.tsx
 import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import {
   Loader2,
   RefreshCcw,
   Plug,
   Ban,
   CheckCircle2,
-  Wrench,
+  Trash2,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -16,10 +15,6 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import { usePrompt } from "@/hooks/usePrompt";
 import { useTenantId } from "@/lib/tenant-context";
-
-const VmMaintenanceModal = dynamic(() => import("./VmMaintenanceModal"), {
-  ssr: false,
-});
 
 // ── Ícone WhatsApp ────────────────────────────────────────────
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -425,10 +420,10 @@ function WhatsAppSessionCard({
   }
   async function handleReconnect() {
     const ok = await confirm({
-      title: "Reconectar?",
-      subtitle: "A sessão será reiniciada.",
-      tone: "amber",
-      confirmText: "Reconectar",
+      title: `Hard Reset — apagar a sessão ${label}?`,
+      subtitle: "Apaga por completo a credencial e as conversas salvas SÓ desta sessão (a outra não é afetada). Sempre exige escanear um QR Code novo. Use quando mensagens ficam \"Aguardando\" sem se resolver sozinhas.",
+      tone: "rose",
+      confirmText: "Apagar e resetar",
       cancelText: "Voltar",
     });
     if (!ok) return;
@@ -760,16 +755,16 @@ function WhatsAppSessionCard({
             </button>
             <button
               onClick={() => void handleReconnect()}
-              disabled={reconnecting || connected}
-              title={connected ? "Já está conectada — reconectar uma sessão saudável derruba ela (achado real: provoca logout de verdade no WhatsApp)" : undefined}
-              className="py-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium text-xs hover:bg-amber-500/20 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={reconnecting}
+              title="Apaga por completo a credencial e as conversas desta sessão — sempre exige QR novo. Use se mensagens ficam 'Aguardando' sem se resolver sozinhas."
+              className="py-2 rounded-xl bg-rose-600/10 text-rose-600 border border-rose-600/20 font-medium text-xs hover:bg-rose-600/20 flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               {reconnecting ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <RefreshCcw className="w-3.5 h-3.5" />
+                <Trash2 className="w-3.5 h-3.5" />
               )}{" "}
-              Reconectar
+              Hard Reset
             </button>
             <button
               onClick={() => void handleDisconnect()}
@@ -790,8 +785,6 @@ function WhatsAppSessionCard({
 export default function WhatsAppPage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastSeq = useRef(1);
-  const [showVmMenu, setShowVmMenu] = useState(false);
-
   const addToast = (
     type: "success" | "error",
     title: string,
@@ -811,22 +804,13 @@ export default function WhatsAppPage() {
       <ToastNotifications toasts={toasts} removeToast={removeToast} />
 
       {/* Header */}
-      <div className="flex items-center justify-between px-3 sm:px-0">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
-            <WhatsAppIcon className="w-5 h-5 text-emerald-500" /> WhatsApp
-          </h1>
-          <p className="text-xs text-muted-foreground mt-1">
-            Sessões de envio (usadas pelas automações de cobrança).
-          </p>
-        </div>
-        <button
-          onClick={() => setShowVmMenu(true)}
-          className="h-9 px-3 shrink-0 rounded-xl border font-medium text-xs flex items-center gap-2 bg-card border-border text-muted-foreground hover:bg-muted transition-all shadow-sm"
-        >
-          <Wrench className="w-4 h-4" />
-          <span className="hidden sm:inline">Manutenção VM</span>
-        </button>
+      <div className="px-3 sm:px-0">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight flex items-center gap-2">
+          <WhatsAppIcon className="w-5 h-5 text-emerald-500" /> WhatsApp
+        </h1>
+        <p className="text-xs text-muted-foreground mt-1">
+          Sessões de envio (usadas pelas automações de cobrança).
+        </p>
       </div>
 
       {/* Sessões */}
@@ -842,13 +826,6 @@ export default function WhatsAppPage() {
           addToast={addToast}
         />
       </div>
-
-      {showVmMenu && (
-        <VmMaintenanceModal
-          onClose={() => setShowVmMenu(false)}
-          addToast={addToast}
-        />
-      )}
     </div>
   );
 }
