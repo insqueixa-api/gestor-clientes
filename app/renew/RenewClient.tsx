@@ -4353,16 +4353,21 @@ export default function RenewClient() {
     );
   }
 
-  // ========= RENDER: MENU (3 BLOCOS) =========
+  // ========= RENDER: MENU (2 BLOCOS) =========
   if (activeSection === "menu") {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background flex flex-col">
         {renderTopBar(
           accounts.length > 1 ? () => setSelectedAccountId(null) : null,
         )}
 
-        <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6 space-y-4">
-          <div className="mb-2 px-3 sm:px-0">
+        {/* ✅ 11/09/2026, pedido do Márcio: no celular os 2 blocos viravam 2
+            botões pequenos coladinhos no topo — agora preenchem o resto da
+            tela em 2 metades iguais (flex-1 em cada), conteúdo centralizado
+            e maior. Só no celular (sm: volta pro layout horizontal antigo,
+            compacto, sem esticar). */}
+        <div className="flex-1 flex flex-col sm:block max-w-6xl mx-auto w-full px-0 sm:px-4 py-4 sm:py-6 sm:space-y-4">
+          <div className="mb-2 px-3 sm:px-0 shrink-0">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               {getGreeting()}
               {clientFirstName ? `, ${clientFirstName}` : ""}! 👋
@@ -4372,52 +4377,55 @@ export default function RenewClient() {
             </p>
           </div>
 
-          {/* Bloco 1 — Pagamentos e Renovação */}
-          <button
-            onClick={() => setActiveSection("payment")}
-            className="w-full text-left rounded-2xl p-5 border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20 text-2xl">
-                💳
+          <div className="flex-1 flex flex-col gap-3 px-3 pb-3 sm:block sm:gap-0 sm:space-y-4 sm:px-0 sm:pb-0">
+            {/* Bloco 1 — Pagamentos e Renovação */}
+            <button
+              onClick={() => setActiveSection("payment")}
+              className="flex-1 sm:flex-none w-full text-left rounded-2xl p-5 border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group"
+            >
+              <div className="h-full flex flex-col items-center justify-center text-center gap-3 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20 text-4xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
+                  💳
+                </div>
+                <div className="min-w-0 sm:flex-1">
+                  <p className="text-xl font-bold text-foreground sm:text-base">
+                    Pagamentos e Renovação
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1 sm:text-xs sm:mt-0.5 sm:line-clamp-2">
+                    Veja o vencimento, escolha como pagar e acompanhe a
+                    renovação até o fim.
+                  </p>
+                </div>
+                <span className="text-emerald-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:inline">
+                  →
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-bold text-foreground">
-                  Pagamentos e Renovação
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                  Veja o vencimento, escolha como pagar e acompanhe a renovação
-                  até o fim.
-                </p>
-              </div>
-              <span className="text-emerald-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
-                →
-              </span>
-            </div>
-          </button>
+            </button>
 
-          {/* Bloco 3 — Configuração de aplicativo */}
-          <button
-            onClick={() => setActiveSection("apps")}
-            className="w-full text-left rounded-2xl p-5 border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 transition-all shadow-sm hover:shadow-md group"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-2xl">
-                📱
+            {/* Bloco 2 — Configuração de aplicativo */}
+            <button
+              onClick={() => setActiveSection("apps")}
+              className="flex-1 sm:flex-none w-full text-left rounded-2xl p-5 border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 transition-all shadow-sm hover:shadow-md group"
+            >
+              <div className="h-full flex flex-col items-center justify-center text-center gap-3 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-4xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
+                  📱
+                </div>
+                <div className="min-w-0 sm:flex-1">
+                  <p className="text-xl font-bold text-foreground sm:text-base">
+                    Meus Aplicativos
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1 sm:text-xs sm:mt-0.5 sm:line-clamp-2">
+                    Diga quais aplicativos você usa, atualize ou instale
+                    novos.
+                  </p>
+                </div>
+                <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:inline">
+                  →
+                </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-bold text-foreground">
-                  Meus Aplicativos
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                  Diga quais aplicativos você usa, atualize ou instale novos.
-                </p>
-              </div>
-              <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0">
-                →
-              </span>
-            </div>
-          </button>
+            </button>
+          </div>
         </div>
       </div>
     );

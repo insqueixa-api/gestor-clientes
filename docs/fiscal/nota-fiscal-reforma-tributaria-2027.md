@@ -37,7 +37,8 @@ não é uma API por município, é um padrão nacional.
 3. Guardar o comprovante/nota por **5 anos** no R2, vinculado ao registro de pagamento
    (o pagamento já existe hoje — a nota fica "do lado" desse registro).
 4. **Mudança de retenção de dados**: hoje o cliente é apagado após 60 dias de inatividade
-   (ver `auto_purge_expired_clients_daily` em `lib/cron-health.ts`). Isso não pode mais
+   (ver a função SQL `auto_purge_expired_clients()` no Supabase, agendada via pg_cron
+   `auto_purge_expired_clients_daily`). Isso não pode mais
    acontecer se existir nota fiscal vinculada — precisa reter o registro (cliente e/ou só
    o comprovante fiscal) pelos 5 anos, mesmo que o cliente em si seja arquivado/inativo.
 5. Possíveis deduções na base de cálculo (não declarar o valor bruto de venda) — Márcio
@@ -65,8 +66,8 @@ não é uma API por município, é um padrão nacional.
 - [ ] CPF/CNPJ do cliente — onde fica armazenado (tabela `clients` ganha campo, ou tabela
       nova `client_portal_invoices`/similar ligada ao pagamento)? Criptografado em repouso?
 - [ ] Fluxo de erro: se a emissão falhar (fora do ar, CPF inválido etc.) o pagamento já foi
-      confirmado — precisa de um mecanismo de retry/reprocessamento (mesmo espírito do
-      botão "Reprocessar agora" que já existe na tela Sistema).
+      confirmado — precisa de um mecanismo de retry/reprocessamento (mesmo espírito de
+      um botão manual de reprocessamento).
 
 ## Esboço técnico (não implementar ainda — só orientação pra quando começar)
 
@@ -78,9 +79,9 @@ não é uma API por município, é um padrão nacional.
 - Upload do PDF/XML da nota pro R2 (mesmo padrão de storage já usado no projeto —
   `R2_BUCKET_NAME`/`R2_VAULT_BUCKET_NAME`), com retenção mínima de 5 anos (sem purge
   automático antes disso).
-- Ajustar `auto_purge_expired_clients_daily` (`lib/cron-health.ts` +
-  função SQL correspondente) pra NUNCA apagar um cliente com nota fiscal emitida nos
-  últimos 5 anos — ou separar "apagar dados de contato" de "manter registro fiscal",
+- Ajustar a função SQL `auto_purge_expired_clients()` no Supabase (agendada via pg_cron
+  `auto_purge_expired_clients_daily`) pra NUNCA apagar um cliente com nota fiscal emitida
+  nos últimos 5 anos — ou separar "apagar dados de contato" de "manter registro fiscal",
   dependendo da resposta da pergunta em aberto acima.
 - Job de emissão assíncrona (não travar o checkout esperando a Receita/prefeitura
   responder) — dispara depois do pagamento confirmado, com retry em caso de falha.
