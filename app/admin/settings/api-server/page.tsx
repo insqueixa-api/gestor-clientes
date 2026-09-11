@@ -1644,7 +1644,7 @@ export default function ApiServerPage() {
                           }`}
                         >
                           {order
-                            ? `${vencido ? "venceu" : "expira"} em ${new Date(order.expires_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} (${diasRestantes}d)`
+                            ? `${vencido ? "venceu " : ""}${new Date(order.expires_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} (${diasRestantes}d)`
                             : loadingProxyStatus
                               ? "carregando..."
                               : "-- (sem pedido ativo)"}
