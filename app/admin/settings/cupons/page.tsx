@@ -1,6 +1,6 @@
 "use client";
 // app/admin/settings/cupons/page.tsx
-import { Pencil, Play, Pause, Trash2 } from "lucide-react";
+import { Pencil, Play, Pause, Trash2, History, X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
@@ -9,7 +9,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
-import { Modal, ModalHeader } from "@/components/ui/Modal";
+import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 const CupomModal = dynamic(() => import("./cupom_modal"), { ssr: false });
 import type { CouponEditPayload } from "./cupom_modal";
 import {
@@ -45,7 +45,7 @@ export type CouponRow = {
   rule_days_max: number | null;
 };
 
-type CouponTab = "ativos" | "inativos" | "arquivados" | "historico";
+type CouponTab = "ativos" | "inativos" | "arquivados";
 type CouponBucket = "ativo" | "inativo" | "arquivado";
 
 /**
@@ -123,6 +123,7 @@ export default function CuponsPage() {
   const [usageCoupon, setUsageCoupon] = useState<CouponRow | null>(null);
   const [activeTab, setActiveTab] = useState<CouponTab>("ativos");
   const [search, setSearch] = useState("");
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -273,9 +274,7 @@ export default function CuponsPage() {
       ? bucketed.ativo
       : activeTab === "inativos"
         ? bucketed.inativo
-        : activeTab === "arquivados"
-          ? bucketed.arquivado
-          : [];
+        : bucketed.arquivado;
 
   const term = search.trim().toLowerCase();
   const visibleCoupons = !term
@@ -381,16 +380,29 @@ export default function CuponsPage() {
           </p>
         </div>
 
-        <button
-          onClick={() => {
-            setEditingCoupon(null);
-            setIsModalOpen(true);
-          }}
-          className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all shrink-0"
-          type="button"
-        >
-          <span>+</span> Novo Cupom
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setHistoryModalOpen(true)}
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg border border-border bg-card hover:bg-muted text-foreground/80 font-bold text-xs md:text-sm flex items-center gap-2 shadow-sm transition-all"
+            type="button"
+          >
+            <History className="w-4 h-4" /> Histórico
+            {totalHistorico > 0 && (
+              <span className="opacity-70">({totalHistorico})</span>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setEditingCoupon(null);
+              setIsModalOpen(true);
+            }}
+            className="h-9 md:h-10 px-3 md:px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs md:text-sm flex items-center gap-2 shadow-lg shadow-emerald-900/20 transition-all"
+            type="button"
+          >
+            <span>+</span> Novo Cupom
+          </button>
+        </div>
       </div>
 
       <div className="px-3 sm:px-0 space-y-3">
@@ -400,7 +412,6 @@ export default function CuponsPage() {
               { id: "ativos", label: "Ativos", count: bucketed.ativo.length },
               { id: "inativos", label: "Inativos", count: bucketed.inativo.length },
               { id: "arquivados", label: "Arquivados", count: bucketed.arquivado.length },
-              { id: "historico", label: "Histórico", count: totalHistorico },
             ] as const
           ).map((tab) => (
             <button
@@ -421,11 +432,7 @@ export default function CuponsPage() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={
-            activeTab === "historico"
-              ? "Buscar por cliente ou cupom..."
-              : "Buscar por código, descrição ou cliente..."
-          }
+          placeholder="Buscar por código, descrição ou cliente..."
           className="w-full sm:max-w-sm h-9 rounded-lg border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
         />
       </div>
@@ -436,17 +443,13 @@ export default function CuponsPage() {
         </div>
       )}
 
-      {!loading && activeTab === "historico" && (
-        <CouponHistoryPanel search={search} />
-      )}
-
-      {!loading && activeTab !== "historico" && coupons.length === 0 && (
+      {!loading && coupons.length === 0 && (
         <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
           Nenhum cupom cadastrado ainda.
         </div>
       )}
 
-      {!loading && activeTab !== "historico" && coupons.length > 0 && visibleCoupons.length === 0 && (
+      {!loading && coupons.length > 0 && visibleCoupons.length === 0 && (
         <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
           {term
             ? "Nenhum cupom encontrado."
@@ -458,7 +461,7 @@ export default function CuponsPage() {
         </div>
       )}
 
-      {!loading && activeTab !== "historico" && visibleCoupons.length > 0 && (
+      {!loading && visibleCoupons.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
           {visibleCoupons.map((row) => {
             const usedCount = redemptionCounts[row.id] || 0;
@@ -663,6 +666,10 @@ export default function CuponsPage() {
           coupon={usageCoupon}
           onClose={() => setUsageCoupon(null)}
         />
+      )}
+
+      {historyModalOpen && (
+        <CouponHistoryModal onClose={() => setHistoryModalOpen(false)} />
       )}
 
       {ConfirmUI}
@@ -1156,17 +1163,25 @@ type HistoryRow = {
 };
 
 /**
- * Aba "Histórico" — log de todos os usos de cupom do tenant, não só de 1
- * cupom (diferente de UsageLogModal, que é por cupom). Mesmo espírito de um
- * log de auditoria (ex: Log do Portal), pedido do Márcio 12/09/2026.
+ * Botão "Histórico" (12/09/2026, pedido do Márcio: a aba antiga virou uma
+ * lista "horrível", sem título de coluna nem contexto — trocada por este
+ * popup, mesmo espírito do modal de Logs de Envio do WhatsApp
+ * (app/admin/gerenciador/cobranca/LogsModal.tsx: filtro rápido + tabela).
+ * Log de TODOS os usos de cupom do tenant, não só de 1 cupom (diferente de
+ * UsageLogModal, que é por cupom). O detalhe de "o que foi pago" (plano,
+ * renovação x app avulso) já mora no Log do Portal (Auditoria) — lá agora
+ * tem a coluna "Desconto" com o nome do cupom; este popup é só o registro
+ * de uso do cupom em si, pra não duplicar contexto entre as duas telas.
  */
-function CouponHistoryPanel({ search }: { search: string }) {
+function CouponHistoryModal({ onClose }: { onClose: () => void }) {
   const tenantId = useTenantId();
   const { confirm, ConfirmUI } = useConfirm();
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [resetError, setResetError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [couponFilter, setCouponFilter] = useState("Todos");
 
   useEffect(() => {
     let alive = true;
@@ -1214,72 +1229,163 @@ function CouponHistoryPanel({ search }: { search: string }) {
     }
   }
 
+  const uniqueCoupons = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((r) => {
+      if (r.coupons?.code) set.add(r.coupons.code);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [rows]);
+
   const term = search.trim().toLowerCase();
-  const filtered = !term
-    ? rows
-    : rows.filter((r) => {
+  const filtered = useMemo(() => {
+    return rows.filter((r) => {
+      if (couponFilter !== "Todos" && r.coupons?.code !== couponFilter) return false;
+      if (term) {
         const name = String(r.clients?.display_name || "").toLowerCase();
         const username = String(r.clients?.username || "").toLowerCase();
         const code = String(r.coupons?.code || "").toLowerCase();
-        return name.includes(term) || username.includes(term) || code.includes(term);
-      });
+        if (!name.includes(term) && !username.includes(term) && !code.includes(term)) return false;
+      }
+      return true;
+    });
+  }, [rows, term, couponFilter]);
 
-  if (loading) {
-    return (
-      <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
-        Carregando histórico...
-      </div>
-    );
-  }
-
-  if (filtered.length === 0) {
-    return (
-      <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
-        {term ? "Nenhum uso encontrado." : "Nenhum uso registrado ainda."}
-      </div>
-    );
+  const hasActiveFilters = !!search || couponFilter !== "Todos";
+  function clearFilters() {
+    setSearch("");
+    setCouponFilter("Todos");
   }
 
   return (
-    <div className="rounded-none sm:rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
-      {resetError && (
-        <p className="text-rose-500 text-sm px-4 py-2">{resetError}</p>
-      )}
-      {filtered.map((r) => (
-        <div
-          key={r.id}
-          className="flex items-center justify-between gap-2 px-4 py-3 text-sm"
-        >
-          <div className="min-w-0">
-            <div className="text-foreground/90 truncate">
-              {r.clients?.display_name || "—"}{" "}
-              <span className="text-muted-foreground">
-                ({r.clients?.username || "—"})
-              </span>
-            </div>
-            <div className="text-xs text-muted-foreground font-mono mt-0.5">
-              {r.coupons?.code || "cupom removido"}
-            </div>
+    <Modal onClose={onClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={onClose}>
+        <h3 className="text-lg font-medium text-foreground">Histórico de Cupons</h3>
+        <p className="text-xs text-foreground/70">
+          {rows.length} uso(s) registrado(s) no total.
+        </p>
+      </ModalHeader>
+
+      {!loading && rows.length > 0 && (
+        <div className="px-6 py-3 border-b border-border bg-transparent flex items-center gap-2 flex-wrap">
+          <div className="flex-1 min-w-[160px] relative">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente, username ou cupom..."
+              className="w-full h-9 px-3 pr-8 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-rose-500"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-muted-foreground whitespace-nowrap text-right">
-              {new Date(r.created_at).toLocaleString("pt-BR")}
-              <br />
-              {fmtMoney(Number(r.discount_amount))}
-            </span>
-            <button
-              type="button"
-              onClick={() => handleReset(r)}
-              disabled={resettingId === r.id}
-              title="Resetar — permite que este cliente use o cupom de novo"
-              className="text-[10px] font-medium text-amber-500 hover:underline disabled:opacity-50 whitespace-nowrap"
+
+          {uniqueCoupons.length > 1 && (
+            <select
+              value={couponFilter}
+              onChange={(e) => setCouponFilter(e.target.value)}
+              className="h-9 px-2 bg-transparent border border-border rounded-lg text-xs text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors"
             >
-              {resettingId === r.id ? "Resetando..." : "Resetar"}
+              <option value="Todos">Cupom (Todos)</option>
+              {uniqueCoupons.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="h-9 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-xs font-medium hover:bg-rose-500/20 transition-colors flex items-center gap-1.5"
+            >
+              <X className="w-3.5 h-3.5" /> Limpar
             </button>
-          </div>
+          )}
         </div>
-      ))}
+      )}
+
+      <ModalBody className="p-4">
+        {loading ? (
+          <div className="text-center py-10 text-muted-foreground">Carregando...</div>
+        ) : rows.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground">
+            Nenhum uso registrado ainda.
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground">
+            Nenhum registro encontrado para os filtros selecionados.
+          </div>
+        ) : (
+          <>
+            {resetError && <p className="text-rose-500 text-sm mb-2">{resetError}</p>}
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground border-b border-border">
+                <tr>
+                  <th className="p-2">Data/Hora</th>
+                  <th className="p-2">Cliente / Login</th>
+                  <th className="p-2">Cupom</th>
+                  <th className="p-2 text-right">Desconto</th>
+                  <th className="p-2 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((r) => (
+                  <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">
+                      {new Date(r.created_at).toLocaleString("pt-BR")}
+                    </td>
+                    <td className="p-2">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-foreground/90">
+                          {r.clients?.display_name || "—"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {r.clients?.username || "—"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-2 font-mono text-xs text-foreground/90">
+                      {r.coupons?.code || "cupom removido"}
+                    </td>
+                    <td className="p-2 text-right font-medium text-emerald-500 whitespace-nowrap">
+                      {fmtMoney(Number(r.discount_amount))}
+                    </td>
+                    <td className="p-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleReset(r)}
+                        disabled={resettingId === r.id}
+                        title="Resetar — permite que este cliente use o cupom de novo"
+                        className="text-[10px] font-medium text-amber-500 hover:underline disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {resettingId === r.id ? "Resetando..." : "Resetar"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </ModalBody>
+
+      <ModalFooter className="flex justify-end">
+        <button
+          onClick={onClose}
+          className="px-5 py-2.5 rounded-lg border border-border bg-muted text-foreground/80 font-medium text-xs uppercase hover:bg-muted/80 hover:text-foreground transition-colors shadow-sm"
+        >
+          Fechar
+        </button>
+      </ModalFooter>
       {ConfirmUI}
-    </div>
+    </Modal>
   );
 }

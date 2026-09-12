@@ -333,6 +333,7 @@ function AuditoriaPageContent() {
   const [filterPayment, setFilterPayment] = useState("Todos");
   const [filterGateway, setFilterGateway] = useState("Todos");
   const [filterWhatsapp, setFilterWhatsapp] = useState("Todos");
+  const [filterCoupon, setFilterCoupon] = useState("Todos");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // ✅ Botão "Atualizar" ao lado do toggle IPTV/Aplicativos (pedido do
@@ -783,6 +784,9 @@ function AuditoriaPageContent() {
       if (filterWhatsapp !== "Todos" && !matchesWhatsapp(r, filterWhatsapp))
         return false;
 
+      if (filterCoupon === "Com cupom" && !r.coupon_code) return false;
+      if (filterCoupon === "Sem cupom" && r.coupon_code) return false;
+
       if (q) {
         const hay = [
           r.client_name,
@@ -806,13 +810,15 @@ function AuditoriaPageContent() {
     filterGateway,
     filterPayment,
     filterWhatsapp,
+    filterCoupon,
   ]);
 
   const hasActiveFilters =
     filterFulfillment !== "Todos" ||
     filterGateway !== "Todos" ||
     filterPayment !== "Todos" ||
-    filterWhatsapp !== "Todos";
+    filterWhatsapp !== "Todos" ||
+    filterCoupon !== "Todos";
 
   function clearFilters() {
     setSearch("");
@@ -820,6 +826,7 @@ function AuditoriaPageContent() {
     setFilterGateway("Todos");
     setFilterPayment("Todos");
     setFilterWhatsapp("Todos");
+    setFilterCoupon("Todos");
     loadData("");
   }
 
@@ -1740,6 +1747,18 @@ function AuditoriaPageContent() {
                 </select>
               </div>
 
+              <div className="w-[150px]">
+                <select
+                  value={filterCoupon}
+                  onChange={(e) => setFilterCoupon(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">Cupom (Todos)</option>
+                  <option value="Com cupom">Com cupom</option>
+                  <option value="Sem cupom">Sem cupom</option>
+                </select>
+              </div>
+
               <button
                 onClick={clearFilters}
                 className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
@@ -1803,6 +1822,16 @@ function AuditoriaPageContent() {
                   ))}
                 </select>
 
+                <select
+                  value={filterCoupon}
+                  onChange={(e) => setFilterCoupon(e.target.value)}
+                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
+                >
+                  <option value="Todos">Cupom (Todos)</option>
+                  <option value="Com cupom">Com cupom</option>
+                  <option value="Sem cupom">Sem cupom</option>
+                </select>
+
                 <button
                   onClick={() => {
                     clearFilters();
@@ -1835,6 +1864,7 @@ function AuditoriaPageContent() {
                       <th className="px-4 py-3 text-center">Renovação</th>
                       <th className="px-4 py-3 text-center">WhatsApp</th>
                       <th className="px-4 py-3 text-center">Valor</th>
+                      <th className="px-4 py-3 text-center">Desconto</th>
                       <th className="px-4 py-3 text-center">Ações</th>
                     </tr>
                   </thead>
@@ -1842,7 +1872,7 @@ function AuditoriaPageContent() {
                     {visible.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={10}
                           className="p-8 text-center text-muted-foreground italic"
                         >
                           Nenhum registro encontrado.
@@ -2040,19 +2070,10 @@ function AuditoriaPageContent() {
                               </span>
                               {/* ✅ Resumo do valor — só aparece quando não é "só assinatura"
                               (tem cupom e/ou pendência quitada junto), pra dar pra auditar
-                              a diferença entre o total e o desconto/pendência aplicados. */}
-                              {(r.coupon_code || r.pendencies.length > 0) && (
+                              a diferença entre o total e a pendência quitada junto (cupom
+                              agora tem coluna própria, ver "Desconto" abaixo). */}
+                              {r.pendencies.length > 0 && (
                                 <div className="mt-1 space-y-0.5 finance-value">
-                                  {r.coupon_code && (
-                                    <div className="text-[10px] text-emerald-500 leading-tight">
-                                      Cupom: {r.coupon_code} (-
-                                      {fmtMoney(
-                                        r.coupon_discount_amount || 0,
-                                        r.price_currency,
-                                      )}
-                                      )
-                                    </div>
-                                  )}
                                   {r.pendencies.map((p, idx) => (
                                     <div
                                       key={idx}
@@ -2064,6 +2085,24 @@ function AuditoriaPageContent() {
                                     </div>
                                   ))}
                                 </div>
+                              )}
+                            </td>
+
+                            {/* Desconto — cupom aplicado nesta cobrança (12/09/2026, pedido
+                            do Márcio: separado da Valor pra ficar claro o que foi pago vs
+                            o que foi descontado e por qual cupom). */}
+                            <td className="px-4 py-3 text-center">
+                              {r.coupon_code ? (
+                                <>
+                                  <span className="font-medium text-emerald-500 finance-value">
+                                    -{fmtMoney(r.coupon_discount_amount || 0, r.price_currency)}
+                                  </span>
+                                  <div className="text-[10px] text-muted-foreground mt-0.5">
+                                    {r.coupon_code}
+                                  </div>
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">—</span>
                               )}
                             </td>
 
