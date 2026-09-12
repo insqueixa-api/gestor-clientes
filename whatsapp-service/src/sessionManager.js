@@ -1479,12 +1479,35 @@ async function sendMessageInternal(sessionKey, phone, message, imageUrl = null, 
   // chegar, precisa ter o conteúdo real pra devolver.
   rememberSentMessage(messageId, result?.message);
 
-  // ❌ 06/09/2026, decisão explícita do Márcio (3ª rodada): apagar a sessão
-  // a cada envio (2ª rodada) foi substituído por zerar tudo só quando a
-  // CONEXÃO reabre (ver wipeAllContactSessions, chamado no connection.update
-  // deste arquivo) — evita renegociar toda vez com quem já recebeu mensagem
-  // no mesmo dia (ex: aviso 9h + confirmação de pagamento 10h), mantendo o
-  // ganho real (nunca herda sessão de antes de uma reconexão malfeita).
+  // ✅ 12/09/2026, decisão explícita do Márcio (4ª rodada — volta a apagar a
+  // cada envio, revertendo a 3ª rodada de 06/09/2026): mesmo com sessão só
+  // zerada na reconexão, "Aguardando mensagem" continuou voltando pra
+  // contatos específicos entre uma reconexão e outra (caso real: Jackeline,
+  // duas mensagens seguidas no mesmo dia — nem a 1ª nem a 2ª chegaram,
+  // porque a sessão já tinha corrompido antes da 1ª e ficou corrompida pra
+  // 2ª também, sem nenhuma reconexão no meio pra limpar). O motivo da 3ª
+  // rodada (ruído de renegociação toda mensagem virando alarme falso) não
+  // se aplica mais como antes — o alerta agregado de erros de sessão foi
+  // removido de vez em 08/09/2026 e o card informativo hoje só acusa
+  // "atenção" acima de 30 (ver lib/whatsapp/session-health-alert.ts), não
+  // mais em qualquer ruído pontual. "Sempre envia e apaga": todo próximo
+  // envio (ou pedido de reenvio) renegocia 100% do zero, nunca herda
+  // corrupção de um envio anterior. Só a sessão Signal do CONTATO — nunca
+  // credencial/identidade da conta.
+  try {
+    const digits = String(phone).replace(/\D/g, "");
+    const sessDir = getSessionDir(sessionKey);
+    if (fs.existsSync(sessDir)) {
+      const prefix = `session-${digits}.`;
+      const files = fs.readdirSync(sessDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
+      for (const f of files) {
+        const id = f.slice("session-".length, -".json".length);
+        await sess.socket.authState.keys.set({ session: { [id]: null } });
+      }
+    }
+  } catch (e) {
+    console.error(`[WA][${sessionKey.slice(0, 8)}] Falha ao zerar sessão pós-envio de ${phone}: ${e?.message}`);
+  }
 
   // ✅ 05/09/2026, pedido do Márcio: "durante o envio de qualquer mensagem
   // já checa e grava" — em vez de um timer separado, embute o resultado da
