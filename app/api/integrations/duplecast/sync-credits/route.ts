@@ -25,7 +25,10 @@ import { notify, resolveNotification } from "@/lib/notifications/notify";
 const LOW_CREDITS_THRESHOLD = 5;
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// ✅ 12/09/2026: 60s → 120s, Fluid Compute mantido de vez — sem mais teto de
+// 60s do Hobby. Timeout do fetch na VM abaixo também ampliado de 58s pra
+// 100s (mesmo motivo de lib/apps/duplecast-renewal.ts).
+export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminTenant(req);
@@ -85,7 +88,7 @@ export async function POST(req: NextRequest) {
         username: integ.login_email,
         password: integ.login_password,
       }),
-      signal: AbortSignal.timeout(58000),
+      signal: AbortSignal.timeout(100_000),
     });
     vmJson = await vmRes.json().catch(() => ({}));
     if (!vmRes.ok || !vmJson?.ok) {

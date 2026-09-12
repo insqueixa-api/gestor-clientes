@@ -26,7 +26,12 @@ import { isInternalRequest } from "@/lib/internal-auth";
 import { syncDuplecastCredits } from "@/lib/apps/duplecast-renewal";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// ✅ 12/09/2026: 60s → 120s, Fluid Compute mantido de vez — sem mais teto de
+// 60s do Hobby. Continua desacoplado por completo de quem chama (orçamento
+// só desta invocação); syncDuplecastCredits agora pode levar até ~100s no
+// pior caso (timeout do fetch na VM ampliado, ver lib/apps/
+// duplecast-renewal.ts), 120s cobre isso com folga.
+export const maxDuration = 120;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

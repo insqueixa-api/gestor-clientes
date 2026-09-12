@@ -19,7 +19,13 @@ import { triggerAppativaActivationForClient } from "@/lib/apps/appativa-client-a
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// ✅ 12/09/2026: 60s → 120s. Fluid Compute foi mantido ligado de vez (decisão
+// definitiva do Márcio) — o teto de 60s do Hobby sem Fluid não existe mais,
+// então não há mais motivo pra deixar essa rota no limite. O polling em
+// segundo plano (after(), ~35s) continua igual — dado real (11/09/2026)
+// mostra que ampliar a janela não muda a taxa de acerto — só a rota ganhou
+// mais folga pro resto do fluxo.
+export const maxDuration = 120;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminTenant(req);

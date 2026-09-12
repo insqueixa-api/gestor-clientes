@@ -59,7 +59,11 @@ export async function syncDuplecastCredits(
         username: integ.login_email,
         password: integ.login_password,
       }),
-      signal: AbortSignal.timeout(58000),
+      // ✅ 58s → 100s (12/09/2026, Fluid Compute mantido de vez — sem mais
+      // teto de 60s do Hobby forçando esse fetch a ficar quase no limite da
+      // própria função). Mais folga real pro retry do Cloudflare do lado da
+      // VM (FlareSolverr).
+      signal: AbortSignal.timeout(100_000),
     });
     vmJson = await vmRes.json().catch(() => ({} as any));
     if (!vmRes.ok || !vmJson?.ok) {
@@ -147,19 +151,17 @@ export async function renewDuplecastWithCode(
         macValue: params.macValue,
         deviceKey: params.deviceKey,
       }),
-      // ✅ 55s (11/09/2026, projeto de tirar o Fluid Compute — ajustado de
-      // 58s). Era o mesmo orçamento de app/api/integrations/apps/duplecast/
-      // route.ts, mas essa ação (renew_code) é mais pesada que check/
-      // create/delete: faz até 3 solveChallenge na VM (deviceLogin ANTES da
-      // ativação, resellerLogin, deviceLogin DEPOIS pra confirmar), não só
-      // 1 — cada um com o mesmo retry de 2 tentativas do Cloudflare. Os dois
-      // chamadores (app/api/admin/apps/duplecast/activate/route.ts,
-      // maxDuration=60; e o after() de lib/client-portal/fulfillment.ts,
-      // idem) precisam de margem real pro resto do fluxo depois que este
-      // fetch retorna — 55s deixa uns 5s de folga sem cortar quase nada do
-      // orçamento real de retry do Cloudflare (raramente usado por inteiro:
-      // 9/9 renovações reais já feitas nunca deram timeout).
-      signal: AbortSignal.timeout(55000),
+      // ✅ 55s → 100s (12/09/2026, Fluid Compute mantido de vez — sem mais
+      // teto de 60s do Hobby). Essa ação (renew_code) é a mais pesada do
+      // Duplecast: até 3 solveChallenge na VM (deviceLogin ANTES da
+      // ativação, resellerLogin, deviceLogin DEPOIS pra confirmar), cada um
+      // com retry de 2 tentativas do Cloudflare — 9/9 renovações reais já
+      // feitas nunca deram timeout mesmo com o teto antigo de 55s, isso aqui
+      // é margem extra de verdade, não uma necessidade medida. Os dois
+      // chamadores (app/api/admin/apps/duplecast/activate/route.ts e
+      // app/api/client-portal/payment-status/route.ts) já foram ampliados
+      // pra 120s/150s, cobrindo esse teto com folga.
+      signal: AbortSignal.timeout(100_000),
     });
     vmJson = await vmRes.json().catch(() => ({} as any));
     if (!vmRes.ok || !vmJson?.ok) {

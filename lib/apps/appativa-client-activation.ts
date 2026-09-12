@@ -28,17 +28,17 @@ import {
   APPATIVA_POLL_INTERVAL_MS,
 } from "@/lib/integrations/appativa";
 
-// ✅ 11/09/2026, pedido do Márcio (projeto de tirar o Fluid Compute — rotas
-// precisam caber em 60s no total, incluindo o que roda dentro de `after()`,
-// que soma no mesmo orçamento da invocação). O APPATIVA_POLL_ATTEMPTS
-// "cheio" (12 tentativas, ~75s com o delay inicial) é de
-// lib/integrations/appativa.ts, compartilhado com o fluxo de pagamento do
-// Portal (lib/client-portal/fulfillment.ts) — que já foi ajustado (Grupo 1)
-// pro mesmo teto menor, com a mesma medição real por trás: nos únicos 2
-// casos reais já confirmados pela Appativa, NENHUM resolveu dentro da janela
-// cheia de 75s (um levou 124s, outro ~93min). Quem pega o resto agora é o
-// vigia dedicado (app/api/cron/appativa-admin-watchdog), que roda de 1 em 1
-// min só verificando se HÁ pendência (client_apps.field_values com
+// ✅ 11/09/2026, nasceu junto com o corte de maxDuration pra 60s (rotas
+// precisavam caber isso tudo, incluindo o que roda dentro de `after()`).
+// ⚠️ 12/09/2026: o maxDuration de app/api/admin/apps/appativa/activate/
+// route.ts voltou a subir (120s, Fluid Compute mantido de vez) — mas esta
+// constante continua em 5 DE PROPÓSITO, mesmo motivo documentado em
+// lib/client-portal/fulfillment.ts (FULFILLMENT_APPATIVA_POLL_ATTEMPTS):
+// medição real mostrou que a janela cheia de 75s (APPATIVA_POLL_ATTEMPTS)
+// também não resolve os casos reais (um levou 124s, outro ~93min) —
+// ampliar aqui não ajudaria. Quem pega o resto é o vigia dedicado
+// (app/api/cron/appativa-admin-watchdog), que roda de 1 em 1 min só
+// verificando se HÁ pendência (client_apps.field_values com
 // _appativa_pending_id) antes de bater na API da Appativa. Constante local
 // (não mexe em APPATIVA_POLL_ATTEMPTS, que outros lugares ainda usam cheio).
 const ADMIN_ACTIVATION_APPATIVA_POLL_ATTEMPTS = 5;

@@ -44,7 +44,11 @@ import { getAppativaApiKey } from "@/lib/integrations/appativa";
 import { findFieldByType } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// ✅ 12/09/2026: 60s → 120s, Fluid Compute mantido de vez — sem mais teto de
+// 60s do Hobby. Na prática quase sempre roda "vazio" (sai antes de bater na
+// Appativa), então isso é só folga extra pro caso raro do lote de até 20
+// pendências demorar mais que o normal.
+export const maxDuration = 120;
 
 const supabaseAdmin = createAdmin(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

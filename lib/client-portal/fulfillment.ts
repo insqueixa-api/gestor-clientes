@@ -13,23 +13,19 @@ import {
   APPATIVA_POLL_INTERVAL_MS,
 } from "@/lib/integrations/appativa";
 
-// ✅ 11/09/2026, pedido do Márcio (projeto de tirar o Fluid Compute — rotas
-// de pagamento precisam caber em 60s no total, incluindo o que roda dentro
-// de `after()`, que soma no mesmo orçamento da invocação). O
-// APPATIVA_POLL_ATTEMPTS "cheio" (12 tentativas, ~75s com o delay inicial)
-// é de `lib/integrations/appativa.ts`, compartilhado com a ativação manual
-// do admin (lib/apps/appativa-client-activation.ts) — que ainda não foi
-// ajustada pro mesmo teto (fica pra depois, é outro grupo de rotas). Aqui
-// no fluxo de pagamento, um teto MENOR e só deste arquivo: 15s de delay +
-// 5 tentativas de 5s = ~35s no pior caso, cabendo com folga em 60s.
-// Achado por medição real (11/09/2026): nos únicos 2 casos reais já
-// confirmados pela Appativa, NENHUM resolveu dentro da janela cheia de 75s
-// (um levou 124s, outro ~93min) — ou seja, encurtar aqui não piora a taxa
-// de acerto na prática (já era ~0% de qualquer forma). Quem realmente pega
-// o resto agora é o vigia dedicado (app/api/cron/appativa-payment-watchdog),
-// que roda de 1 em 1 min só verificando se HÁ pendência antes de bater na
-// API da Appativa — nunca substituiu essa tentativa rápida, só cobre o que
-// ela não pegar.
+// ✅ 11/09/2026, nasceu junto com o corte de maxDuration pra 60s (rotas de
+// pagamento tinham que caber isso tudo, incluindo o que roda dentro de
+// `after()`). Teto MENOR só deste arquivo: 15s de delay + 5 tentativas de
+// 5s = ~35s no pior caso.
+// ⚠️ 12/09/2026: o maxDuration de app/api/client-portal/payment-status/
+// route.ts voltou a subir (150s, Fluid Compute mantido de vez) — mas esta
+// constante continua em 5 DE PROPÓSITO, não por limite de orçamento. Achado
+// por medição real (11/09/2026): nos únicos 2 casos reais já confirmados
+// pela Appativa, NENHUM resolveu dentro da janela cheia de 75s (um levou
+// 124s, outro ~93min) — ampliar aqui não muda a taxa de acerto na prática
+// (já era ~0% de qualquer forma). Quem realmente pega o resto é o vigia
+// dedicado (app/api/cron/appativa-payment-watchdog), que roda de 1 em 1 min
+// só verificando se HÁ pendência antes de bater na API da Appativa.
 const FULFILLMENT_APPATIVA_POLL_ATTEMPTS = 5;
 import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
 import { renewDuplecastWithCode } from "@/lib/apps/duplecast-renewal";

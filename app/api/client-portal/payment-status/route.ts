@@ -12,16 +12,16 @@ import {
 import { touchPortalSession } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
-// ✅ 60s (11/09/2026, projeto de tirar o Fluid Compute — Hobby trava em 60s
-// sem ele). Era 120s pra caber a checagem automática da Appativa (after())
-// de até ~75s — encurtada pra ~35s (FULFILLMENT_APPATIVA_POLL_ATTEMPTS em
-// lib/client-portal/fulfillment.ts) e o envio de WhatsApp de confirmação
-// deixou de ser síncrono. Rede de segurança pro que não resolver aqui:
-// webhook da Appativa (independente) + vigia app/api/cron/
-// appativa-payment-watchdog (1x/min, só age se achar pendência) — e a
-// própria trava de "zumbi" desta rota (3min) já é resiliente a uma
-// execução cortada no meio.
-export const maxDuration = 60;
+// ✅ 12/09/2026: 60s → 150s. Fluid Compute foi mantido ligado de vez (decisão
+// definitiva do Márcio) — não existe mais o teto de 60s do Hobby que forçou
+// o corte em 11/09. Essa rota cobre tanto o fluxo de assinatura (poll da
+// Appativa síncrono, ~35s, ver FULFILLMENT_APPATIVA_POLL_ATTEMPTS em
+// lib/client-portal/fulfillment.ts) quanto renovação de app avulsa
+// (renewDuplecastWithCode, síncrono, até ~100s no pior caso — ver
+// lib/apps/duplecast-renewal.ts) — 150s dá folga real pros dois casos mais
+// pesados, sem precisar mexer na trava de "zumbi" (3min, continua sendo a
+// rede de segurança de verdade pra execução cortada no meio).
+export const maxDuration = 150;
 
 // ✅ Nunca cachear respostas do portal
 const NO_STORE_HEADERS = {

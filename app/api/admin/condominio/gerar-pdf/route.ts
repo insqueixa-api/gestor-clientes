@@ -12,7 +12,7 @@ import { requireAdminTenant } from "@/lib/api/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 // ✅ Sem isso, o Vercel mata a function no limite padrão do plano (bem
-// menor que os 60s que já damos pro AbortController abaixo) antes da VM
+// menor que os 280s que já damos pro AbortController abaixo) antes da VM
 // terminar o Puppeteer — mesmo padrão usado nas outras rotas que fazem
 // proxy pra VM (ex: app/api/integrations/apps/*).
 // ✅ 30/08/2026: 65s → 160s, pedido do Márcio depois dos timeouts de hoje —
@@ -20,10 +20,18 @@ export const dynamic = "force-dynamic";
 // extra pra edições com muitas fotos/ações não flertarem com o limite.
 // ⚠️ 11/09/2026: 160→60s (obrigatório pra desligar o Fluid Compute, Hobby
 // trava em 60s sem ele). Decisão consciente do Márcio: PDFs de edições
-// grandes podem passar a falhar por timeout — aceito por enquanto, sem
-// redesenho (a rota já é só um proxy pra VM, o timeout interno abaixo
-// continua em 150s, mas a Vercel corta em 60s antes disso na prática).
-export const maxDuration = 60;
+// grandes podiam passar a falhar por timeout — aceito temporariamente, sem
+// redesenho.
+// ✅ 12/09/2026: 60s → 280s. Fluid Compute foi mantido ligado de vez
+// (decisão definitiva do Márcio) — o teto de 60s do Hobby sem Fluid não
+// existe mais, então a limitação de 11/09 deixou de fazer sentido. Pedido
+// explícito do Márcio: "podemos voltar pra 2min, condomínio principalmente,
+// talvez até mais se possível... posso manter o condomínio como está" — ou
+// seja, sem redesenhar a rota (continua um proxy simples pra VM), só dando
+// bem mais orçamento de tempo. 280s fica a 20s do teto absoluto do Hobby
+// com Fluid Compute (300s), cobrindo com folga real qualquer edição com
+// muitas fotos/ações.
+export const maxDuration = 280;
 
 export async function POST(req: Request) {
   const auth = await requireAdminTenant(req);
@@ -50,8 +58,9 @@ export async function POST(req: Request) {
   }
 
   const controller = new AbortController();
-  // ✅ 150s (era 60s) — folga abaixo do maxDuration (160s) da própria rota.
-  const timeout = setTimeout(() => controller.abort(), 150_000);
+  // ✅ 270s (12/09/2026, era 150s) — folga de 10s abaixo do maxDuration
+  // (280s) da própria rota.
+  const timeout = setTimeout(() => controller.abort(), 270_000);
 
   try {
     const vmRes = await fetch(`${baseUrl}/gerar-pdf`, {
