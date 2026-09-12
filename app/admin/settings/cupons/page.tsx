@@ -270,10 +270,12 @@ export default function CuponsPage() {
     ? tabCoupons
     : tabCoupons.filter((row) => {
         const clientName = String(row.clients?.display_name || "").toLowerCase();
+        const clientUsername = String(row.clients?.username || "").toLowerCase();
         return (
           row.code.toLowerCase().includes(term) ||
           String(row.description || "").toLowerCase().includes(term) ||
-          clientName.includes(term)
+          clientName.includes(term) ||
+          clientUsername.includes(term)
         );
       });
 
@@ -480,10 +482,17 @@ export default function CuponsPage() {
                       )}
                       {row.client_id && (
                         <span
-                          className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full truncate max-w-[160px]"
-                          title={row.clients?.display_name || undefined}
+                          className="inline-flex items-center text-[10px] font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2.5 py-0.5 rounded-full truncate max-w-[220px]"
+                          title={
+                            row.clients
+                              ? `${row.clients.display_name || "—"} (${row.clients.username || "—"})`
+                              : undefined
+                          }
                         >
                           👤 {row.clients?.display_name || "Cliente removido"}
+                          {row.clients?.username && (
+                            <span className="opacity-70"> · {row.clients.username}</span>
+                          )}
                         </span>
                       )}
                     </div>
