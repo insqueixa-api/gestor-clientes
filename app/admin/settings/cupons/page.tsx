@@ -202,16 +202,28 @@ export default function CuponsPage() {
     return `R$ ${Number(row.discount_value).toFixed(2).replace(".", ",")}`;
   }
 
-  /** Preview real da frase que sai em {cupom_frase} — bem mais útil aqui
-   * do que só dizer "Padrão"/"Customizada" sem mostrar o texto de verdade. */
-  function previewPhrase(row: CouponRow) {
-    const desconto = formatDiscount(row);
-    if (row.message_template) {
-      return row.message_template
-        .replace(/\{codigo\}/g, row.code)
-        .replace(/\{desconto\}/g, desconto);
+  /**
+   * Quem o cupom afeta — pedido do Márcio 12/09/2026 (substituiu a prévia
+   * da frase no card): pessoal mostra o username exato da conta (um
+   * cliente pode ter várias contas, "Nome" sozinho não diz qual delas é
+   * compatível); geral sem nenhuma segmentação mostra "Todos"; geral
+   * segmentado mostra quantos clientes ativos (BRL) batem agora, mesma
+   * contagem do botão "Ver clientes impactados" (ruleMatchCounts).
+   */
+  function affectedLabel(row: CouponRow): string {
+    if (row.client_id) {
+      return row.clients?.username || row.clients?.display_name || "Cliente removido";
     }
-    return `🎁 Use o cupom *${row.code}* e ganhe ${desconto} de desconto na sua próxima renovação!`;
+    const hasRestriction = !!(
+      row.target_status?.length ||
+      row.target_server_ids?.length ||
+      row.target_plan_labels?.length ||
+      row.target_app_names?.length ||
+      row.rule_date_field
+    );
+    if (!hasRestriction) return "Todos";
+    const count = ruleMatchCounts[row.id];
+    return count != null ? `${count} cliente(s)` : "Restrito";
   }
 
   // Quantos clientes ativos (BRL) batem na segmentação de cada cupom geral
@@ -589,12 +601,12 @@ export default function CuponsPage() {
                     </div>
 
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground shrink-0">💬 Frase</span>
+                      <span className="text-muted-foreground shrink-0">👥 Afetados</span>
                       <span
                         className="font-medium text-foreground/90 text-right truncate max-w-[160px]"
-                        title={previewPhrase(row)}
+                        title={affectedLabel(row)}
                       >
-                        {previewPhrase(row)}
+                        {affectedLabel(row)}
                       </span>
                     </div>
                   </div>
