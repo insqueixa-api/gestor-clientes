@@ -45,6 +45,43 @@ export type CouponRow = {
   rule_days_max: number | null;
 };
 
+type CouponTab = "ativos" | "inativos" | "arquivados" | "historico";
+type CouponBucket = "ativo" | "inativo" | "arquivado";
+
+/**
+ * Classifica o cupom pra abas de página inteira (pedido do Márcio,
+ * 12/09/2026 — mesmo espírito de Ativos/Lixeira do cliente, mas com 1
+ * categoria a mais). "Arquivado" é sempre sobre a REGRA do cupom já ter se
+ * esgotado, tem prioridade sobre o estado manual (is_active):
+ * - Validade (ends_at) já passou.
+ * - Cupom geral que bateu o limite de usos (max_total_redemptions).
+ * - Cupom pessoal (client_id) que se autodesativou ao ser usado (ver
+ *   lib/client-portal/fulfillment.ts) — is_active=false só por causa disso,
+ *   não por pausa manual do admin.
+ * Sem nenhuma dessas condições, is_active decide Ativo/Inativo normalmente
+ * (pausa manual pelo botão ⏸️).
+ */
+function classifyCoupon(row: CouponRow, usedCount: number): CouponBucket {
+  const expired = !!row.ends_at && new Date(row.ends_at) < new Date();
+  if (expired) return "arquivado";
+  if (!row.client_id && row.max_total_redemptions != null && usedCount >= row.max_total_redemptions) {
+    return "arquivado";
+  }
+  if (row.client_id && !row.is_active && usedCount > 0) {
+    return "arquivado";
+  }
+  return row.is_active ? "ativo" : "inativo";
+}
+
+/** Motivo do arquivamento, pro badge do card — mesma ordem de prioridade de classifyCoupon. */
+function archivedReasonLabel(row: CouponRow, usedCount: number): string {
+  if (row.ends_at && new Date(row.ends_at) < new Date()) return "Expirado";
+  if (!row.client_id && row.max_total_redemptions != null && usedCount >= row.max_total_redemptions) {
+    return "Limite atingido";
+  }
+  return "Usado";
+}
+
 function fmtMoney(value: number) {
   return `R$ ${Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -84,6 +121,8 @@ export default function CuponsPage() {
   );
   const [impactCoupon, setImpactCoupon] = useState<CouponRow | null>(null);
   const [usageCoupon, setUsageCoupon] = useState<CouponRow | null>(null);
+  const [activeTab, setActiveTab] = useState<CouponTab>("ativos");
+  const [search, setSearch] = useState("");
 
   const { confirm, ConfirmUI } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -197,6 +236,47 @@ export default function CuponsPage() {
     return counts;
   }, [coupons, ruleClients]);
 
+  // Agrupa por aba (Ativos/Inativos/Arquivados) uma vez só — reaproveitado
+  // pelos contadores da barra de abas e pela lista filtrada abaixo.
+  const bucketed = useMemo(() => {
+    const groups: Record<CouponBucket, CouponRow[]> = {
+      ativo: [],
+      inativo: [],
+      arquivado: [],
+    };
+    for (const row of coupons) {
+      const bucket = classifyCoupon(row, redemptionCounts[row.id] || 0);
+      groups[bucket].push(row);
+    }
+    return groups;
+  }, [coupons, redemptionCounts]);
+
+  const totalHistorico = useMemo(
+    () => Object.values(redemptionCounts).reduce((sum, n) => sum + n, 0),
+    [redemptionCounts],
+  );
+
+  const tabCoupons =
+    activeTab === "ativos"
+      ? bucketed.ativo
+      : activeTab === "inativos"
+        ? bucketed.inativo
+        : activeTab === "arquivados"
+          ? bucketed.arquivado
+          : [];
+
+  const term = search.trim().toLowerCase();
+  const visibleCoupons = !term
+    ? tabCoupons
+    : tabCoupons.filter((row) => {
+        const clientName = String(row.clients?.display_name || "").toLowerCase();
+        return (
+          row.code.toLowerCase().includes(term) ||
+          String(row.description || "").toLowerCase().includes(term) ||
+          clientName.includes(term)
+        );
+      });
+
   function formatDate(d: string | null) {
     if (!d) return null;
     return new Date(d).toLocaleDateString("pt-BR");
@@ -210,10 +290,6 @@ export default function CuponsPage() {
     if (end) return `Até ${end}`;
     if (start) return `A partir de ${start}`;
     return "Sem validade";
-  }
-
-  function isExpired(row: CouponRow) {
-    return !!row.ends_at && new Date(row.ends_at) < new Date();
   }
 
   function ruleSummary(row: CouponRow): string {
@@ -303,23 +379,76 @@ export default function CuponsPage() {
         </button>
       </div>
 
+      <div className="px-3 sm:px-0 space-y-3">
+        <div className="flex gap-1 p-1 bg-muted/50 border border-border rounded-lg w-fit overflow-x-auto max-w-full">
+          {(
+            [
+              { id: "ativos", label: "Ativos", count: bucketed.ativo.length },
+              { id: "inativos", label: "Inativos", count: bucketed.inativo.length },
+              { id: "arquivados", label: "Arquivados", count: bucketed.arquivado.length },
+              { id: "historico", label: "Histórico", count: totalHistorico },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+                activeTab === tab.id
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label} ({tab.count})
+            </button>
+          ))}
+        </div>
+
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={
+            activeTab === "historico"
+              ? "Buscar por cliente ou cupom..."
+              : "Buscar por código, descrição ou cliente..."
+          }
+          className="w-full sm:max-w-sm h-9 rounded-lg border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+        />
+      </div>
+
       {loading && (
         <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
           Carregando cupons...
         </div>
       )}
 
-      {!loading && coupons.length === 0 && (
+      {!loading && activeTab === "historico" && (
+        <CouponHistoryPanel search={search} />
+      )}
+
+      {!loading && activeTab !== "historico" && coupons.length === 0 && (
         <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
           Nenhum cupom cadastrado ainda.
         </div>
       )}
 
-      {!loading && coupons.length > 0 && (
+      {!loading && activeTab !== "historico" && coupons.length > 0 && visibleCoupons.length === 0 && (
+        <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
+          {term
+            ? "Nenhum cupom encontrado."
+            : activeTab === "ativos"
+              ? "Nenhum cupom ativo."
+              : activeTab === "inativos"
+                ? "Nenhum cupom inativo."
+                : "Nenhum cupom arquivado."}
+        </div>
+      )}
+
+      {!loading && activeTab !== "historico" && visibleCoupons.length > 0 && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
-          {coupons.map((row) => {
-            const expired = isExpired(row);
+          {visibleCoupons.map((row) => {
             const usedCount = redemptionCounts[row.id] || 0;
+            const bucket = classifyCoupon(row, usedCount);
             return (
               <div
                 key={row.id}
@@ -339,14 +468,14 @@ export default function CuponsPage() {
                         {formatDiscount(row)}
                       </span>
 
-                      {!row.is_active && (
+                      {bucket === "inativo" && (
                         <span className="inline-flex items-center text-[10px] font-medium bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2.5 py-0.5 rounded-full uppercase">
                           Inativo
                         </span>
                       )}
-                      {row.is_active && expired && (
+                      {bucket === "arquivado" && (
                         <span className="inline-flex items-center text-[10px] font-medium bg-rose-500/10 text-rose-500 border border-rose-500/20 px-2.5 py-0.5 rounded-full uppercase">
-                          Expirado
+                          {archivedReasonLabel(row, usedCount)}
                         </span>
                       )}
                       {row.client_id && (
@@ -993,5 +1122,143 @@ function UsageLogModal({
         </div>
       {ConfirmUI}
     </Modal>
+  );
+}
+
+type HistoryRow = {
+  id: string;
+  discount_amount: number;
+  currency: string;
+  created_at: string;
+  clients: { display_name: string | null; username: string | null } | null;
+  coupons: { code: string } | null;
+};
+
+/**
+ * Aba "Histórico" — log de todos os usos de cupom do tenant, não só de 1
+ * cupom (diferente de UsageLogModal, que é por cupom). Mesmo espírito de um
+ * log de auditoria (ex: Log do Portal), pedido do Márcio 12/09/2026.
+ */
+function CouponHistoryPanel({ search }: { search: string }) {
+  const tenantId = useTenantId();
+  const { confirm, ConfirmUI } = useConfirm();
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<HistoryRow[]>([]);
+  const [resettingId, setResettingId] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!tenantId) return;
+      setLoading(true);
+      const { data } = await supabaseBrowser
+        .from("coupon_redemptions")
+        .select(
+          "id, discount_amount, currency, created_at, clients(display_name, username:server_username), coupons(code)",
+        )
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (!alive) return;
+      setRows((data as any[]) || []);
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
+  async function handleReset(row: HistoryRow) {
+    const ok = await confirm({
+      title: "Resetar cupom deste cliente?",
+      subtitle: `${row.clients?.display_name || "Este cliente"} vai poder usar o cupom ${row.coupons?.code || ""} de novo.`,
+      tone: "amber",
+      confirmText: "Resetar",
+      cancelText: "Cancelar",
+    });
+    if (!ok) return;
+
+    setResettingId(row.id);
+    setResetError(null);
+    try {
+      if (!tenantId) throw new Error("Tenant não encontrado.");
+      const result = await resetCouponRedemption(tenantId, row.id);
+      if (!result.ok) throw new Error(result.error);
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch (e: any) {
+      setResetError(e?.message || "Falha ao resetar o cupom deste cliente.");
+    } finally {
+      setResettingId(null);
+    }
+  }
+
+  const term = search.trim().toLowerCase();
+  const filtered = !term
+    ? rows
+    : rows.filter((r) => {
+        const name = String(r.clients?.display_name || "").toLowerCase();
+        const username = String(r.clients?.username || "").toLowerCase();
+        const code = String(r.coupons?.code || "").toLowerCase();
+        return name.includes(term) || username.includes(term) || code.includes(term);
+      });
+
+  if (loading) {
+    return (
+      <div className="p-12 text-center text-muted-foreground animate-pulse bg-card rounded-xl border border-border">
+        Carregando histórico...
+      </div>
+    );
+  }
+
+  if (filtered.length === 0) {
+    return (
+      <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
+        {term ? "Nenhum uso encontrado." : "Nenhum uso registrado ainda."}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-none sm:rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
+      {resetError && (
+        <p className="text-rose-500 text-sm px-4 py-2">{resetError}</p>
+      )}
+      {filtered.map((r) => (
+        <div
+          key={r.id}
+          className="flex items-center justify-between gap-2 px-4 py-3 text-sm"
+        >
+          <div className="min-w-0">
+            <div className="text-foreground/90 truncate">
+              {r.clients?.display_name || "—"}{" "}
+              <span className="text-muted-foreground">
+                ({r.clients?.username || "—"})
+              </span>
+            </div>
+            <div className="text-xs text-muted-foreground font-mono mt-0.5">
+              {r.coupons?.code || "cupom removido"}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground whitespace-nowrap text-right">
+              {new Date(r.created_at).toLocaleString("pt-BR")}
+              <br />
+              {fmtMoney(Number(r.discount_amount))}
+            </span>
+            <button
+              type="button"
+              onClick={() => handleReset(r)}
+              disabled={resettingId === r.id}
+              title="Resetar — permite que este cliente use o cupom de novo"
+              className="text-[10px] font-medium text-amber-500 hover:underline disabled:opacity-50 whitespace-nowrap"
+            >
+              {resettingId === r.id ? "Resetando..." : "Resetar"}
+            </button>
+          </div>
+        </div>
+      ))}
+      {ConfirmUI}
+    </div>
   );
 }
