@@ -542,6 +542,20 @@ function AuditoriaPageContent() {
           .order("created_at", { ascending: false })
           .limit(50); // ✅ traz mais histórico; o pageSize é quem decide quanto aparece por vez
 
+        // ✅ 12/09/2026, achado do Márcio: filtro "Com cupom" batia só nesses
+        // 50 pagamentos mais recentes (de QUALQUER tipo) — cupom é raro, então
+        // um uso de semanas atrás ficava fora da janela e o filtro parecia
+        // quebrado (mostrava 0 resultados mesmo tendo uso real no banco, só
+        // não veio nessas 50 linhas). Igual/Sem cupom rodam na própria query
+        // (não só no filtro client-side em `filtered`) pra pegar os 50 mais
+        // recentes DENTRO da condição escolhida, não os 50 mais recentes no
+        // geral.
+        if (filterCoupon === "Com cupom") {
+          query = query.not("coupon_code", "is", null);
+        } else if (filterCoupon === "Sem cupom") {
+          query = query.is("coupon_code", null);
+        }
+
         if (searchTerm) {
           const term = searchTerm.trim();
           const { data: matchedClients } = await supabaseBrowser
@@ -675,6 +689,21 @@ function AuditoriaPageContent() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // ✅ 12/09/2026: "Com cupom"/"Sem cupom" precisam de uma query nova (ver
+  // comentário dentro de loadData) — os outros filtros (Banco/Pagamento/
+  // Renovação/WhatsApp) continuam só client-side, de propósito, porque são
+  // dimensões comuns o bastante pra já aparecerem dentro dos 50 pagamentos
+  // recentes; cupom é raro, não dá.
+  const isFirstCouponFilter = useRef(true);
+  useEffect(() => {
+    if (isFirstCouponFilter.current) {
+      isFirstCouponFilter.current = false;
+      return;
+    }
+    loadData(search);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterCoupon]);
 
   // ✅ NOVO: Escuta os toasts que vieram do Modal quando o loading termina
   useEffect(() => {
