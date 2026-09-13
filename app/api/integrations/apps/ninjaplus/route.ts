@@ -50,11 +50,18 @@ async function authenticate(mac: string, deviceKey: string): Promise<{ token: st
   return { token: json.data.token as string, device: json.data.device || {} };
 }
 
-// Sem passar por new Date() — mesma regra do resto do projeto.
+// ❌ 13/09/2026, bug real achado (Márcio: "configurei o Ninja Plus e não
+// achou vencimento" — testado com o mesmo mac/device_key direto na API
+// real da quickplayer.life, 3x seguidas, resultado estável): o campo do
+// dispositivo pago NÃO se chama "expired" (nunca existiu na resposta real
+// — só existia na nossa suposição ao escrever a integração) — é
+// "activation_expired". Com "expired" undefined, todo dispositivo pago
+// voltava sem vencimento nenhum, sempre. Sem passar por new Date() —
+// mesma regra do resto do projeto.
 function extractExpireFromDevice(dev: any): { expireDate: string | null; isTrial: boolean } {
   const payed = !!dev?.payed;
   const isTrial = !payed && !!dev?.free_trial;
-  const rawDate: string | null = payed ? dev?.expired : dev?.free_trial_expired;
+  const rawDate: string | null = payed ? (dev?.activation_expired ?? dev?.expired) : dev?.free_trial_expired;
   return { expireDate: rawDate ? String(rawDate).slice(0, 10) : null, isTrial };
 }
 
