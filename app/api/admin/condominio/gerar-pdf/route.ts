@@ -1,11 +1,17 @@
 // app/api/admin/condominio/gerar-pdf/route.ts
-// Repassa os dados da Edição (montados no front) pra VM que roda o serviço
-// de PDF (Puppeteer) — mesmo padrão de proxy já usado pra VM do WhatsApp
-// (lib/whatsapp/wa-context.ts: Bearer token fixo, timeout com
-// AbortController, sem fila/webhook), só que com timeout maior porque
-// Puppeteer é mais lento que as chamadas do WhatsApp. Rota stateless — não
-// toca no banco, só encaminha e devolve os bytes do PDF (dá pra
-// pré-visualizar sem salvar nada em condominio_edicoes).
+// Repassa os dados da Edição (montados no front) pro serviço que gera o PDF
+// (Puppeteer). Rota stateless — não toca no banco, só encaminha e devolve os
+// bytes do PDF (dá pra pré-visualizar sem salvar nada em condominio_edicoes).
+//
+// ✅ 15/09/2026 (pedido do Márcio): trocado de VM própria (Google Cloud,
+// e2-micro) pra Cloudflare Worker com Browser Rendering — mesmo Chromium
+// real, mesmo template.js (portado 1:1 pra unigestor-pdf-worker, fora deste
+// repo), zero VM pra manter, dentro do limite grátis do plano Free do
+// Workers (~5h/mês de navegador — uso real medido: poucas edições por mês,
+// folga enorme). Motivo: a VM do Google tinha RAM insuficiente (955MB,
+// e2-micro) pra rodar Chromium com folga, e não valia manter uma VM só pra
+// isso. Ver docs/vm-pdf-service/README.md (histórico, não usado mais) e a
+// nova doc da VM do Google (docs/gcp-vm-disponivel.md).
 import { NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 
@@ -37,9 +43,9 @@ export async function POST(req: Request) {
   const auth = await requireAdminTenant(req);
   if (!auth.ok) return auth.res;
 
-  const baseUrl = String(process.env.PDF_VM_BASE_URL || "").trim();
-  const token = String(process.env.PDF_VM_TOKEN || "").trim();
-  if (!baseUrl || !token) {
+  const workerUrl = String(process.env.PDF_WORKER_URL || "").trim();
+  const token = String(process.env.PDF_WORKER_TOKEN || "").trim();
+  if (!workerUrl || !token) {
     return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
   }
 
@@ -63,7 +69,7 @@ export async function POST(req: Request) {
   const timeout = setTimeout(() => controller.abort(), 270_000);
 
   try {
-    const vmRes = await fetch(`${baseUrl}/gerar-pdf`, {
+    const workerRes = await fetch(workerUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -73,25 +79,25 @@ export async function POST(req: Request) {
       signal: controller.signal,
     });
 
-    if (!vmRes.ok) {
-      const errText = await vmRes.text().catch(() => "");
+    if (!workerRes.ok) {
+      const errText = await workerRes.text().catch(() => "");
       let errMsg = errText;
       try {
         errMsg = JSON.parse(errText)?.error || errText;
       } catch {}
       return NextResponse.json(
-        { error: errMsg || `Falha ao gerar PDF (status ${vmRes.status})` },
+        { error: errMsg || `Falha ao gerar PDF (status ${workerRes.status})` },
         { status: 502 },
       );
     }
 
-    const pdfBuffer = await vmRes.arrayBuffer();
+    const pdfBuffer = await workerRes.arrayBuffer();
     return new NextResponse(pdfBuffer, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition":
-          vmRes.headers.get("content-disposition") ||
+          workerRes.headers.get("content-disposition") ||
           `attachment; filename="informativo.pdf"`,
       },
     });
