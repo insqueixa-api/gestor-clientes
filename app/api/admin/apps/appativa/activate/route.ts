@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { loadClientApp } from "@/lib/apps/orchestration";
-import { extractFieldByType } from "@/lib/apps/panel";
+import { extractAppativaCreds } from "@/lib/integrations/appativa";
 import { triggerAppativaActivationForClient } from "@/lib/apps/appativa-client-activation";
 
 export const dynamic = "force-dynamic";
@@ -44,11 +44,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Esse aplicativo não está mapeado na Appativa." }, { status: 400 });
   }
 
-  const macApp = extractFieldByType(row.fieldsConfig, row.field_values, "mac");
+  const { macApp, keyApp } = extractAppativaCreds(row.fieldsConfig, row.field_values);
   if (!macApp) {
-    return NextResponse.json({ ok: false, error: "Preencha o Device ID (MAC) antes de ativar." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Preencha o Device ID (MAC) ou Email antes de ativar." }, { status: 400 });
   }
-  const keyApp = extractFieldByType(row.fieldsConfig, row.field_values, "device_key");
 
   const result = await triggerAppativaActivationForClient(supabase, {
     tenantId,

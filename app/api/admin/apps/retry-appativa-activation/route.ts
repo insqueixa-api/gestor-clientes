@@ -9,8 +9,7 @@
 // (requireAdminTenant) em vez de sessão de portal do cliente.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
-import { extractFieldByType } from "@/lib/apps/panel";
-import { reenviarAtivacao, solicitarAtivacao, getAppativaApiKey, syncAppativaCredits } from "@/lib/integrations/appativa";
+import { reenviarAtivacao, solicitarAtivacao, getAppativaApiKey, syncAppativaCredits, extractAppativaCreds } from "@/lib/integrations/appativa";
 
 export const dynamic = "force-dynamic";
 
@@ -62,11 +61,10 @@ export async function POST(req: NextRequest) {
 
   const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
   const values = appRow.field_values || {};
-  const macApp = extractFieldByType(fieldsConfig, values, "mac");
-  const keyApp = extractFieldByType(fieldsConfig, values, "device_key");
+  const { macApp, keyApp } = extractAppativaCreds(fieldsConfig, values);
 
   if (!macApp) {
-    return NextResponse.json({ ok: false, error: "Preencha o Device ID (MAC) antes de reenviar." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Preencha o Device ID (MAC) ou Email antes de reenviar." }, { status: 400 });
   }
 
   const apiKey = await getAppativaApiKey(supabaseAdmin, tenantId);

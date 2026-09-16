@@ -9,6 +9,7 @@ import {
   consultarAtivacao,
   getAppativaApiKey,
   syncAppativaCredits,
+  extractAppativaCreds,
   APPATIVA_INITIAL_DELAY_MS,
   APPATIVA_POLL_INTERVAL_MS,
 } from "@/lib/integrations/appativa";
@@ -374,16 +375,16 @@ export async function markAppRenewalPaid(
       if (appativaAppId && !isDuplecastApp) {
         const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
         const values = appRow?.field_values || {};
-        const macApp = extractFieldByType(fieldsConfig, values, "mac");
-        const keyApp = extractFieldByType(fieldsConfig, values, "device_key");
+        const { macApp, keyApp } = extractAppativaCreds(fieldsConfig, values);
 
         if (!macApp) {
-          // ✅ Sem MAC salvo — nem tenta chamar a Appativa, mesma mensagem
-          // que checkClientAppValidity já usa nesse caso (lib/apps/
-          // orchestration.ts) pra manter a linguagem consistente.
+          // ✅ Sem MAC (ou Email, pra apps como ClouDDy) salvo — nem tenta
+          // chamar a Appativa, mesma mensagem que checkClientAppValidity já
+          // usa nesse caso (lib/apps/orchestration.ts) pra manter a
+          // linguagem consistente.
           await supabaseAdmin
             .from("client_portal_payments")
-            .update({ fulfillment_error: "Preencha o Device ID (MAC) antes de renovar." })
+            .update({ fulfillment_error: "Preencha o Device ID (MAC) ou Email antes de renovar." })
             .eq("id", paymentRowId)
             .eq("tenant_id", tenantId);
         } else {

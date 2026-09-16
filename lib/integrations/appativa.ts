@@ -16,8 +16,34 @@
 // mesmo padrão já usado em checkClientAppValidity (lib/apps/orchestration.ts).
 
 import { notify, resolveNotification } from "@/lib/notifications/notify";
+import { extractFieldByType } from "@/lib/apps/panel";
+import type { AppFieldConfig } from "@/lib/apps/types";
 
 const APPATIVA_BASE_URL = "https://api.ativeapp.com";
+
+// ✅ 16/09/2026, achado do Márcio: apesar do nome, os campos mac_app/key_app
+// da API da Appativa são genéricos — pra apps sem MAC de verdade (ex:
+// ClouDDy, que usa email+senha) o painel deles mesmo aceita qualquer
+// identificador nesses dois campos (confirmado olhando o formulário de
+// "Nova Ativação" da própria Appativa, que troca os rótulos pra "E-mail"/
+// "Senha" quando o app selecionado é o ClouDDy). Sem isso, TODA chamada
+// daqui (renovação automática, "Ativar via Appativa", "Reenviar via
+// Appativa") sempre buscava um campo tipo "mac" que esses apps nunca
+// tiveram, e travava pedindo "Preencha o Device ID (MAC)" pra sempre.
+export function extractAppativaCreds(
+  fieldsConfig: AppFieldConfig[],
+  values: Record<string, string>,
+): { macApp: string; keyApp: string } {
+  const mac = extractFieldByType(fieldsConfig, values, "mac");
+  if (mac) {
+    return { macApp: mac, keyApp: extractFieldByType(fieldsConfig, values, "device_key") };
+  }
+  const email = extractFieldByType(fieldsConfig, values, "email");
+  if (email) {
+    return { macApp: email, keyApp: extractFieldByType(fieldsConfig, values, "password") };
+  }
+  return { macApp: "", keyApp: "" };
+}
 
 // ✅ Janela de checagem automática pós-solicitação (achado 26/08/2026,
 // pedido do Márcio — testando ativações reais, percebeu que a Appativa
