@@ -10,6 +10,7 @@ import {
   getAppativaApiKey,
   syncAppativaCredits,
   extractAppativaCreds,
+  appativaIdentifierLabel,
   APPATIVA_INITIAL_DELAY_MS,
   APPATIVA_POLL_INTERVAL_MS,
 } from "@/lib/integrations/appativa";
@@ -378,13 +379,12 @@ export async function markAppRenewalPaid(
         const { macApp, keyApp } = extractAppativaCreds(fieldsConfig, values);
 
         if (!macApp) {
-          // ✅ Sem MAC (ou Email, pra apps como ClouDDy) salvo — nem tenta
-          // chamar a Appativa, mesma mensagem que checkClientAppValidity já
-          // usa nesse caso (lib/apps/orchestration.ts) pra manter a
-          // linguagem consistente.
+          // ✅ Sem identificador salvo (MAC, ou Email pra apps como ClouDDy)
+          // — nem tenta chamar a Appativa. Mensagem com o rótulo certo pro
+          // tipo de campo que esse app realmente usa (appativaIdentifierLabel).
           await supabaseAdmin
             .from("client_portal_payments")
-            .update({ fulfillment_error: "Preencha o Device ID (MAC) ou Email antes de renovar." })
+            .update({ fulfillment_error: `Preencha o ${appativaIdentifierLabel(fieldsConfig)} antes de renovar.` })
             .eq("id", paymentRowId)
             .eq("tenant_id", tenantId);
         } else {
@@ -1070,6 +1070,23 @@ export async function resolveAppativaAppRenewal(
   if (!payment || !payment.appativa_historico_id) return { outcome: "skipped" };
   if (payment.fulfillment_status === "manual_done") return { outcome: "done" };
 
+  // ✅ Só pro rótulo certo na mensagem de rejeição abaixo (MAC vs Email,
+  // achado do Márcio 16/09/2026) — best-effort, nunca bloqueia a resolução.
+  let fieldsConfigForLabel: any[] = [];
+  if (payment.client_app_id) {
+    try {
+      const { data: appRowForLabel } = await supabaseAdmin
+        .from("client_apps")
+        .select("apps(fields_config)")
+        .eq("id", payment.client_app_id)
+        .maybeSingle();
+      const appMetaForLabel = Array.isArray(appRowForLabel?.apps) ? appRowForLabel.apps[0] : appRowForLabel?.apps;
+      fieldsConfigForLabel = Array.isArray(appMetaForLabel?.fields_config) ? appMetaForLabel.fields_config : [];
+    } catch {
+      // best-effort — sem isso, a mensagem só cai no rótulo padrão (MAC)
+    }
+  }
+
   const apiKey = await getAppativaApiKey(supabaseAdmin, tenantId);
   if (!apiKey) return { outcome: "skipped" };
 
@@ -1117,7 +1134,7 @@ export async function resolveAppativaAppRenewal(
     await supabaseAdmin
       .from("client_portal_payments")
       .update({
-        fulfillment_error: `Appativa recusou a ativação (status: "${item.status_transacao}"). Confira o Device ID (MAC) do aplicativo.`,
+        fulfillment_error: `Appativa recusou a ativação (status: "${item.status_transacao}"). Confira o ${appativaIdentifierLabel(fieldsConfigForLabel)} do aplicativo.`,
       })
       .eq("id", payment.id)
       .eq("tenant_id", tenantId);

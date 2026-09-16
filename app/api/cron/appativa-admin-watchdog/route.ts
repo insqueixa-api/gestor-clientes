@@ -95,14 +95,14 @@ async function handle(req: Request) {
     if (!apiKey) continue; // sem chave configurada pro tenant — nada a checar
 
     try {
-      const check = await checkAppativaHistoricoOnce(apiKey, historicoId);
+      const fieldsConfigForRow = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
+      const check = await checkAppativaHistoricoOnce(apiKey, historicoId, fieldsConfigForRow);
       if (check.outcome === "pending") continue;
 
       const { _appativa_pending_id, ...restFieldValues } = row.field_values || {};
 
       if (check.outcome === "done") {
-        const fieldsConfig = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
-        const dateField = findFieldByType(fieldsConfig, "date");
+        const dateField = findFieldByType(fieldsConfigForRow, "date");
         const updated = dateField
           ? { ...restFieldValues, [String(dateField.id || dateField.label)]: check.expireDate }
           : restFieldValues;

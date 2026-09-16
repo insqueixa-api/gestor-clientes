@@ -14,7 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { loadClientApp } from "@/lib/apps/orchestration";
-import { extractAppativaCreds } from "@/lib/integrations/appativa";
+import { extractAppativaCreds, appativaIdentifierLabel } from "@/lib/integrations/appativa";
 import { triggerAppativaActivationForClient } from "@/lib/apps/appativa-client-activation";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   const { macApp, keyApp } = extractAppativaCreds(row.fieldsConfig, row.field_values);
   if (!macApp) {
-    return NextResponse.json({ ok: false, error: "Preencha o Device ID (MAC) ou Email antes de ativar." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: `Preencha o ${appativaIdentifierLabel(row.fieldsConfig)} antes de ativar.` }, { status: 400 });
   }
 
   const result = await triggerAppativaActivationForClient(supabase, {

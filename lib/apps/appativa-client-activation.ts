@@ -24,6 +24,7 @@ import {
   consultarAtivacao,
   getAppativaApiKey,
   syncAppativaCredits,
+  appativaIdentifierLabel,
   APPATIVA_INITIAL_DELAY_MS,
   APPATIVA_POLL_INTERVAL_MS,
 } from "@/lib/integrations/appativa";
@@ -65,6 +66,7 @@ function extractDateOnly(v: unknown): string | null {
 export async function checkAppativaHistoricoOnce(
   apiKey: string,
   historicoId: string,
+  fieldsConfig: any[] = [],
 ): Promise<{ outcome: "done"; expireDate: string } | { outcome: "pending" } | { outcome: "error"; error: string }> {
   const result = await consultarAtivacao(apiKey, historicoId);
   if (!("data" in result)) return { outcome: "pending" };
@@ -75,7 +77,9 @@ export async function checkAppativaHistoricoOnce(
   if (APPATIVA_FAILURE_STATUSES.has(status)) {
     return {
       outcome: "error",
-      error: `Appativa recusou a ativação (status: "${item.status_transacao}"). Confira o Device ID (MAC) do aplicativo.`,
+      // ✅ 16/09/2026, achado do Márcio: rótulo certo pro tipo de campo que
+      // esse app realmente usa (Email pro ClouDDy, MAC pros demais).
+      error: `Appativa recusou a ativação (status: "${item.status_transacao}"). Confira o ${appativaIdentifierLabel(fieldsConfig)} do aplicativo.`,
     };
   }
   if (!APPATIVA_SUCCESS_STATUSES.has(status)) {
@@ -160,7 +164,7 @@ export async function triggerAppativaActivationForClient(
     try {
       await new Promise((resolve) => setTimeout(resolve, APPATIVA_INITIAL_DELAY_MS));
       for (let i = 0; i < ADMIN_ACTIVATION_APPATIVA_POLL_ATTEMPTS; i++) {
-        const check = await checkAppativaHistoricoOnce(apiKey, historicoId);
+        const check = await checkAppativaHistoricoOnce(apiKey, historicoId, params.fieldsConfig);
         if (check.outcome === "done") {
           const { _appativa_pending_id, ...restFieldValues } = fieldValuesWithPending;
           const dateField = findFieldByType(params.fieldsConfig, "date");

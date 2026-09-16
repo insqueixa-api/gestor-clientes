@@ -10,7 +10,7 @@
 // — aqui só reenfileira e limpa o erro anterior.
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
-import { reenviarAtivacao, solicitarAtivacao, getAppativaApiKey, syncAppativaCredits, extractAppativaCreds } from "@/lib/integrations/appativa";
+import { reenviarAtivacao, solicitarAtivacao, getAppativaApiKey, syncAppativaCredits, extractAppativaCreds, appativaIdentifierLabel } from "@/lib/integrations/appativa";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   const { macApp, keyApp } = extractAppativaCreds(fieldsConfig, values);
 
   if (!macApp) {
-    return jsonError("Preencha o Device ID (MAC) ou Email antes de tentar novamente.", 400);
+    return jsonError(`Preencha o ${appativaIdentifierLabel(fieldsConfig)} antes de tentar novamente.`, 400);
   }
 
   const apiKey = await getAppativaApiKey(supabaseAdmin, ctx.tenant_id);

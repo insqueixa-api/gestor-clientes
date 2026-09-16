@@ -16,7 +16,7 @@
 // mesmo padrão já usado em checkClientAppValidity (lib/apps/orchestration.ts).
 
 import { notify, resolveNotification } from "@/lib/notifications/notify";
-import { extractFieldByType } from "@/lib/apps/panel";
+import { extractFieldByType, findFieldByType } from "@/lib/apps/panel";
 import type { AppFieldConfig } from "@/lib/apps/types";
 
 const APPATIVA_BASE_URL = "https://api.ativeapp.com";
@@ -43,6 +43,17 @@ export function extractAppativaCreds(
     return { macApp: email, keyApp: extractFieldByType(fieldsConfig, values, "password") };
   }
   return { macApp: "", keyApp: "" };
+}
+
+// ✅ 16/09/2026, achado do Márcio: as mensagens de erro diziam sempre
+// "Device ID (MAC)", mesmo pra apps como ClouDDy que nunca tiveram esse
+// campo (usam Email/Senha) — confuso pra quem tá resolvendo pela tela.
+// Olha o field type de verdade cadastrado no app pra escolher o rótulo
+// certo na mensagem.
+export function appativaIdentifierLabel(fieldsConfig: AppFieldConfig[]): string {
+  if (findFieldByType(fieldsConfig, "mac")) return "Device ID (MAC)";
+  if (findFieldByType(fieldsConfig, "email")) return "Email";
+  return "Device ID (MAC)";
 }
 
 // ✅ Janela de checagem automática pós-solicitação (achado 26/08/2026,

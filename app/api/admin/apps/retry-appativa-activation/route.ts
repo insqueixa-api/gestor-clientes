@@ -9,7 +9,7 @@
 // (requireAdminTenant) em vez de sessão de portal do cliente.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
-import { reenviarAtivacao, solicitarAtivacao, getAppativaApiKey, syncAppativaCredits, extractAppativaCreds } from "@/lib/integrations/appativa";
+import { reenviarAtivacao, solicitarAtivacao, getAppativaApiKey, syncAppativaCredits, extractAppativaCreds, appativaIdentifierLabel } from "@/lib/integrations/appativa";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   const { macApp, keyApp } = extractAppativaCreds(fieldsConfig, values);
 
   if (!macApp) {
-    return NextResponse.json({ ok: false, error: "Preencha o Device ID (MAC) ou Email antes de reenviar." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: `Preencha o ${appativaIdentifierLabel(fieldsConfig)} antes de reenviar.` }, { status: 400 });
   }
 
   const apiKey = await getAppativaApiKey(supabaseAdmin, tenantId);

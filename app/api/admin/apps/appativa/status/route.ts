@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Parceiro Appativa sem chave configurada (Configurações → Parceiros)." }, { status: 400 });
   }
 
-  const check = await checkAppativaHistoricoOnce(apiKey, historicoId);
+  const check = await checkAppativaHistoricoOnce(apiKey, historicoId, row.fieldsConfig);
 
   if (check.outcome === "pending") {
     return NextResponse.json({ ok: true, pending: true });
