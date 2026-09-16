@@ -466,6 +466,12 @@ export default function RenewClient() {
     null,
   );
   const [renewPaymentDone, setRenewPaymentDone] = useState(false);
+  // ✅ 16/09/2026, pedido do Márcio: a API já devolve a data nova
+  // (new_vencimento) assim que phase vira "done" (renovação automática
+  // realmente confirmada, não só o pagamento) — guarda aqui pra mostrar de
+  // verdade na tela de sucesso, em vez da mensagem genérica "aparece
+  // sozinho em breve" mesmo já sabendo a data certa nesse momento.
+  const [renewPaymentNewDate, setRenewPaymentNewDate] = useState<string | null>(null);
   // ✅ Pix expirado (30min, mesmo prazo real do Mercado Pago) — polling
   // desiste sozinho, mostra aviso em vez de ficar "Aguardando..." parado.
   const [renewPaymentExpired, setRenewPaymentExpired] = useState(false);
@@ -575,6 +581,7 @@ export default function RenewClient() {
         if (phase === "done") {
           clearInterval(interval);
           setRenewPollInterval(null);
+          setRenewPaymentNewDate(result.new_vencimento || null);
           setRenewPaymentDone(true);
         } else if (phase === "manual_pending") {
           // ✅ Pagamento já aprovado — só ainda não é possível dizer se a
@@ -611,6 +618,7 @@ export default function RenewClient() {
       if (!result?.ok)
         throw new Error(result?.error || "Falha ao gerar pagamento.");
       setRenewPaymentDone(false);
+      setRenewPaymentNewDate(null);
       setRenewPaymentProcessing(false);
       setRenewStripeError(null);
       const isStripe = result.payment_method === "stripe";
@@ -733,6 +741,7 @@ export default function RenewClient() {
     setRenewPollInterval(null);
     setRenewPayment(null);
     setRenewPaymentDone(false);
+    setRenewPaymentNewDate(null);
     setRenewStripeError(null);
     setRenewAppGatewayJustSwitched(false);
   }
@@ -5247,10 +5256,12 @@ export default function RenewClient() {
                         <div className="p-6 flex flex-col gap-4">
                           <div className="flex flex-col items-center gap-2 text-center py-4">
                             <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">
-                              ✅
+                              {renewPaymentNewDate ? "🎉" : "✅"}
                             </div>
                             <p className="text-base font-bold text-foreground">
-                              Pagamento confirmado!
+                              {renewPaymentNewDate
+                                ? "Aplicativo renovado com sucesso!"
+                                : "Pagamento confirmado!"}
                             </p>
                             {/* ✅ Achado 07/09/2026 (Márcio, num caso real do
                                 DupleCast): esse texto dizia "renovação é feita
@@ -5262,7 +5273,33 @@ export default function RenewClient() {
                                 cliente. Agora reflete o que realmente vai
                                 acontecer, olhando has_integration do app que
                                 acabou de ser pago. */}
-                            {installedApps.find((a) => a.id === renewPayment.clientAppId)?.has_integration ? (
+                            {/* ✅ 16/09/2026, pedido do Márcio: essa tela só
+                                aparece depois que o polling recebeu phase:
+                                "done" — ou seja, a renovação JÁ terminou de
+                                verdade nesse momento (não é mais "vai
+                                acontecer em breve"). Com a data em mãos
+                                (renewPaymentNewDate), mostra confirmação real
+                                em vez do texto genérico de "aguarde". */}
+                            {renewPaymentNewDate ? (
+                              <>
+                                <p className="text-xs text-muted-foreground">
+                                  Todo o processo foi concluído — o aplicativo já
+                                  está liberado e você já pode usar normalmente.
+                                </p>
+                                <div className="mt-1 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                  <p className="text-[10px] text-emerald-600/80 uppercase font-bold tracking-wide">
+                                    Novo vencimento
+                                  </p>
+                                  <p className="text-sm font-bold text-emerald-600">
+                                    {String(renewPaymentNewDate)
+                                      .split("T")[0]
+                                      .split("-")
+                                      .reverse()
+                                      .join("/")}
+                                  </p>
+                                </div>
+                              </>
+                            ) : installedApps.find((a) => a.id === renewPayment.clientAppId)?.has_integration ? (
                               <p className="text-xs text-muted-foreground">
                                 A renovação é automática — em alguns segundos a
                                 nova validade aparece sozinha na tela do

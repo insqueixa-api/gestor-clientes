@@ -950,6 +950,7 @@ export default function ClientDetailsPage() {
 
   const EVENT_LABELS: Record<string, any> = {
     RENEWAL: "💰 Renovação",
+    APP_RENEWAL_AUTO: "💰 Renovação de aplicativo",
     CLIENT_CREATED: "🆕 Cliente criado",
     TRIAL_CREATED: (
       <span className="flex items-center gap-1.5">

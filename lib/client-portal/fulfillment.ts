@@ -546,7 +546,7 @@ export async function markAppRenewalPaid(
                   tenant_id: tenantId,
                   client_id: payment.client_id,
                   event_type: "APP_RENEWAL_AUTO",
-                  message: `Renovação automática via GerenciaApp (GPC Roku) · ${payment.app_name_snapshot || "Aplicativo"}`,
+                  message: `Renovação automática via GerenciaApp (GPC Roku) · ${payment.app_name_snapshot || "Aplicativo"} · ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment.price_currency || "BRL" }).format(payment.price_amount || 0)}`,
                   meta: { payment_id: paymentRowId, mac: macApp, source: "gpc_roku_renew" },
                 });
 
@@ -704,7 +704,7 @@ export async function markAppRenewalPaid(
                       tenant_id: tenantId,
                       client_id: payment.client_id,
                       event_type: "APP_RENEWAL_AUTO",
-                      message: `Renovação automática via Duplecast (código ${finalResult.code})${usedFallback ? " — fallback, Appativa falhou na hora" : ""} · ${payment.app_name_snapshot || "Aplicativo"}`,
+                      message: `Renovação automática via Duplecast (código ${finalResult.code})${usedFallback ? " — fallback, Appativa falhou na hora" : ""} · ${payment.app_name_snapshot || "Aplicativo"} · ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment.price_currency || "BRL" }).format(payment.price_amount || 0)}`,
                       meta: { payment_id: paymentRowId, mac: macApp, code: finalResult.code, source: "duplecast_renew_code", fallback: usedFallback },
                     });
 
@@ -1222,7 +1222,7 @@ export async function resolveAppativaAppRenewal(
       tenant_id: tenantId,
       client_id: payment.client_id,
       event_type: "APP_RENEWAL_AUTO",
-      message: `Renovação automática via Appativa · ${payment.app_name_snapshot || "Aplicativo"}`,
+      message: `Renovação automática via Appativa · ${payment.app_name_snapshot || "Aplicativo"} · ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment.price_currency || "BRL" }).format(payment.price_amount || 0)}`,
       meta: { payment_id: payment.id, appativa_historico_id: payment.appativa_historico_id, source: "appativa_resolve" },
     });
 
