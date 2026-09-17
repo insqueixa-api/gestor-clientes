@@ -8,6 +8,7 @@
   isJidGroup,
   isJidBroadcast,
   isJidNewsletter,
+  generateMessageIDV2,
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import path from "path";
@@ -450,7 +451,7 @@ function resolveContactDigits(sessionKey, remoteJid) {
   return digits;
 }
 
-async function escalateContactSession(sessionKey, remoteJid, level) {
+async function escalateContactSession(sessionKey, remoteJid, level, messageId) {
   const sess = sessions.get(sessionKey);
   if (!sess?.socket) return;
   const threshold = ESCALATION_LADDER[level];
@@ -469,6 +470,35 @@ async function escalateContactSession(sessionKey, remoteJid, level) {
       await sess.socket.authState.keys.set({ session: { [id]: null } });
     }
     console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 ${remoteJid} pediu reenvio ${threshold}x seguidas (degrau ${level + 1}/${ESCALATION_LADDER.length}) — sessão zerada automaticamente (${files.length} arquivo(s)), próximo envio renegocia do zero`);
+
+    // 🔴 17/09/2026, pedido EXPLÍCITO do Márcio ("não podemos desistir,
+    // temos que entregar"): zerar a sessão sozinho não garante entrega —
+    // o próprio Baileys tem um teto embutido (maxMsgRetryCount:15,
+    // messages-recv.js) depois do qual ele NUNCA MAIS reenvia essa
+    // mensagem específica sozinho, mesmo com sessão nova (loga "will not
+    // send message again, as sent too many times" e para pra sempre). Sem
+    // uma mensagem NOVA qualquer chegando depois, o cliente ficaria sem
+    // essa mensagem de vez. Correção: com a sessão já zerada, força AQUI
+    // MESMO um reenvio de verdade do conteúdo real (cache em
+    // sentMessagesCache pelo id da mensagem que gerou o pedido de retry),
+    // via relayMessage com um id NOVO gerado na hora — pro Baileys isso é
+    // uma entrega diferente, não uma retentativa da mesma, então o teto
+    // de 15 não se aplica.
+    if (messageId) {
+      const cached = sentMessagesCache.get(messageId);
+      if (cached?.content) {
+        try {
+          const newId = generateMessageIDV2(sess.socket.user?.id);
+          await sess.socket.relayMessage(remoteJid, cached.content, { messageId: newId });
+          rememberSentMessage(newId, cached.content);
+          console.log(`[WA][${sessionKey.slice(0, 8)}] 🔁 Reenvio forçado do conteúdo real pra ${remoteJid} com sessão nova (novo id ${newId})`);
+        } catch (e) {
+          console.error(`[WA][${sessionKey.slice(0, 8)}] Falha no reenvio forçado pra ${remoteJid}: ${e?.message}`);
+        }
+      } else {
+        console.log(`[WA][${sessionKey.slice(0, 8)}] ⚠️ Sessão de ${remoteJid} zerada mas conteúdo original (id ${messageId}) não está mais em cache — não dá pra forçar reenvio automático`);
+      }
+    }
 
     // ✅ Pedido do Márcio: "a cada zeragem, reinicia os erros" — sem isso, o
     // contador AGREGADO (sessionErrorCount/decryptRetryCounts, usado pelo
@@ -519,7 +549,7 @@ const baileysLogStream = new Writable({
             const level = state.level;
             state.count = 0;
             state.level = Math.min(level + 1, ESCALATION_LADDER.length - 1);
-            escalateContactSession(line.sessionKey, remoteJid, level).catch(() => {});
+            escalateContactSession(line.sessionKey, remoteJid, level, line.key?.id).catch(() => {});
           }
           contactRetryState.set(contactKey, state);
         }
