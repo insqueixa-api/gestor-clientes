@@ -958,17 +958,20 @@ function FinanceiroPageContent() {
           {/* ✅ 16/09/2026, pedido do Márcio: no mobile, Empréstimos sobe pra
               cá (ao lado de "Exibir Valores", antes dele) — só ícone pra
               caber na linha do título junto com "Hoje". No desktop nada
-              muda (continua só lá embaixo, no bloco de Lançamentos). */}
+              muda (continua só lá embaixo, no bloco de Lançamentos).
+              ✅ 16/09/2026 (ajuste): os 3 botões desta linha (Empréstimos,
+              Exibir/Ocultar Valores, Hoje) padronizados na mesma altura
+              (h-9) — antes tinham 3 alturas diferentes (h-8/auto/h-10). */}
           <button
             onClick={() => setShowEmprestimos(true)}
-            className="md:hidden h-8 w-8 shrink-0 flex items-center justify-center rounded-lg border border-border text-foreground/80"
+            className="md:hidden h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border border-border text-foreground/80"
             title="Empréstimos"
           >
             🤝
           </button>
           <button
             onClick={() => setShowMobileCards(!showMobileCards)}
-            className="md:hidden text-[11px] font-medium text-muted-foreground bg-muted px-2 py-1 rounded-md border border-border hover:text-foreground transition-colors mr-2"
+            className="md:hidden h-9 px-3 shrink-0 flex items-center justify-center text-[11px] font-medium text-muted-foreground bg-muted rounded-lg border border-border hover:text-foreground transition-colors"
           >
             {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
@@ -1002,7 +1005,7 @@ function FinanceiroPageContent() {
           </div>
           <button
             onClick={handleToday}
-            className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors shrink-0"
+            className="h-9 md:h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors shrink-0"
           >
             Hoje
           </button>
@@ -1089,9 +1092,12 @@ function FinanceiroPageContent() {
         <div className="md:hidden flex flex-col gap-2">
           {/* ✅ 16/09/2026, pedido do Márcio: pesquisa e navegador de mês
               (< Mês >) na mesma linha — o navegador de mês saiu da linha do
-              título (só no mobile; no desktop continua lá). */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 relative">
+              título (só no mobile; no desktop continua lá).
+              ✅ 16/09/2026 (ajuste): virou grid 50/50 (era flex-1 + shrink-0,
+              o mês ficava espremido e cortava o ano) — agora cada metade
+              tem a mesma largura e o mês/ano aparece inteiro. */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="relative">
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1108,22 +1114,22 @@ function FinanceiroPageContent() {
               )}
             </div>
 
-            <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg shadow-sm shrink-0">
+            <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg shadow-sm">
               <button
                 onClick={handlePrevMonth}
-                className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <IconChevronLeft />
               </button>
               <button
                 onClick={() => setShowDatePicker(true)}
-                className="px-2 text-sm font-medium capitalize text-center text-foreground/90 hover:text-emerald-500 transition-colors truncate max-w-[104px]"
+                className="flex-1 min-w-0 px-1 text-[13px] font-medium capitalize text-center text-foreground/90 hover:text-emerald-500 transition-colors"
               >
                 {monthName}
               </button>
               <button
                 onClick={handleNextMonth}
-                className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+                className="p-2 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
               >
                 <IconChevronRight />
               </button>
