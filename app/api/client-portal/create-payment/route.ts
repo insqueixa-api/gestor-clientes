@@ -526,6 +526,9 @@ if (coupon_code_raw) {
           coupon_id: couponId,
           coupon_code: couponCodeApplied,
           coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
+          // ✅ 17/09/2026: quem de fato logou e pagou (titular ou
+          // secundário) — Auditoria usa isso pra mostrar o nome certo.
+          payer_whatsapp_username: sess.whatsapp_username,
         })
         .select("id")
         .single();
@@ -761,6 +764,8 @@ if (!mpToken) {
       coupon_code: couponCodeApplied,
       coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
       bundled_app_renewals: bundledAppRenewals,
+      // ✅ 17/09/2026: quem de fato logou e pagou (titular ou secundário).
+      payer_whatsapp_username: sess.whatsapp_username,
     },
     { onConflict: "tenant_id,gateway_type,mp_payment_id" }
   )
@@ -876,6 +881,8 @@ if (insErr || !inserted) {
                   coupon_code: couponCodeApplied,
                   coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
                   bundled_app_renewals: bundledAppRenewals,
+                  // ✅ 17/09/2026: quem de fato logou e pagou.
+                  payer_whatsapp_username: sess.whatsapp_username,
                 },
                 { onConflict: "tenant_id,gateway_type,mp_payment_id" }
               )
@@ -1020,6 +1027,8 @@ return NextResponse.json(
                   coupon_code: couponCodeApplied,
                   coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
                   bundled_app_renewals: bundledAppRenewals,
+                  // ✅ 17/09/2026: quem de fato logou e pagou.
+                  payer_whatsapp_username: sess.whatsapp_username,
                 },
                 { onConflict: "tenant_id,gateway_type,mp_payment_id" }
               )

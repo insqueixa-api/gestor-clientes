@@ -234,6 +234,8 @@ export async function POST(req: NextRequest) {
             app_name_snapshot: appName,
             coupon_id: couponId,
             coupon_discount_amount: couponDiscountAmount || null,
+            // ✅ 17/09/2026: quem de fato logou e pagou (titular ou secundário).
+            payer_whatsapp_username: ctx.whatsapp_username,
           },
           { onConflict: "tenant_id,gateway_type,mp_payment_id" },
         )
@@ -356,6 +358,8 @@ export async function POST(req: NextRequest) {
               app_name_snapshot: appName,
               coupon_id: couponId,
               coupon_discount_amount: couponDiscountAmount || null,
+              // ✅ 17/09/2026: quem de fato logou e pagou.
+              payer_whatsapp_username: ctx.whatsapp_username,
             },
             { onConflict: "tenant_id,gateway_type,mp_payment_id" },
           )
@@ -542,6 +546,8 @@ export async function POST(req: NextRequest) {
           app_name_snapshot: appName,
           coupon_id: couponId,
           coupon_discount_amount: couponDiscountAmount || null,
+          // ✅ 17/09/2026: quem de fato logou e pagou.
+          payer_whatsapp_username: ctx.whatsapp_username,
         },
         { onConflict: "tenant_id,gateway_type,mp_payment_id" },
       )

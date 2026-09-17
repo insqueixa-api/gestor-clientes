@@ -536,8 +536,8 @@ function AuditoriaPageContent() {
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select(
-            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, fulfilled_automatically, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id",
-          ) // ✅ Adicionado whatsapp_status, coupon_code/coupon_discount_amount, settled_alert_ids (resumo do valor)
+            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, fulfilled_automatically, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id, payer_whatsapp_username",
+          ) // ✅ Adicionado whatsapp_status, coupon_code/coupon_discount_amount, settled_alert_ids (resumo do valor); payer_whatsapp_username (17/09/2026, ver abaixo)
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
           .limit(50); // ✅ traz mais histórico; o pageSize é quem decide quanto aparece por vez
@@ -591,14 +591,13 @@ function AuditoriaPageContent() {
             ),
           ),
         ];
-
         const [clientsRes, serversRes, alertsRes] = await Promise.all([
           clientIds.length > 0
             ? supabaseBrowser
                 .from("clients")
                 .select(
-                  "id, display_name, server_username, server_id, screens, technology",
-                ) // ✅ Adicionado technology
+                  "id, display_name, server_username, server_id, screens, technology, secondary_display_name, secondary_whatsapp_username",
+                ) // ✅ Adicionado technology; secondary_display_name/secondary_whatsapp_username (17/09/2026, ver abaixo)
                 .in("id", clientIds)
                 .eq("tenant_id", tid)
             : Promise.resolve({ data: null as any[] | null }),
@@ -635,10 +634,26 @@ function AuditoriaPageContent() {
           };
         });
 
+        const onlyDigits = (v: unknown) => String(v || "").replace(/\D/g, "");
+
         // 4. Junta tudo na linha da tabela
         const mapped: LogRow[] = (paymentsData || []).map((r: any) => {
           const cInfo = clientsMap[r.client_id] || {};
           const serverName = serversMap[cInfo.server_id] || "—";
+          // ✅ 17/09/2026, pedido do Márcio: cada cliente (titular OU
+          // secundário) tem seu próprio link mágico pro Portal e pode pagar
+          // por lá — mas o log sempre mostrava o nome do TITULAR, mesmo
+          // quando quem logou e pagou foi o secundário. payer_whatsapp_
+          // username grava quem autenticou de verdade (nulo em renovação
+          // manual do admin — aí mantém o titular, como pedido).
+          const payerDigits = onlyDigits(r.payer_whatsapp_username);
+          const isSecondaryPayer =
+            !!payerDigits &&
+            !!cInfo.secondary_whatsapp_username &&
+            payerDigits === onlyDigits(cInfo.secondary_whatsapp_username);
+          const effectiveClientName = isSecondaryPayer
+            ? cInfo.secondary_display_name || cInfo.display_name
+            : cInfo.display_name;
           const pendencies = ((r.settled_alert_ids as string[] | null) || [])
             .map((aid) => alertsMap[aid])
             .filter((p): p is { label: string; amount: number } => !!p);
@@ -647,7 +662,7 @@ function AuditoriaPageContent() {
             id: r.id,
             created_at: r.created_at,
             client_id: r.client_id,
-            client_name: cInfo.display_name || "Cliente Excluído",
+            client_name: effectiveClientName || "Cliente Excluído",
             technology: cInfo.technology || "IPTV",
             server_username: cInfo.server_username || "—",
             server_name: serverName,
