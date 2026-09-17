@@ -955,14 +955,30 @@ function FinanceiroPageContent() {
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
+          {/* ✅ 16/09/2026, pedido do Márcio: no mobile, Empréstimos sobe pra
+              cá (ao lado de "Exibir Valores", antes dele) — só ícone pra
+              caber na linha do título junto com "Hoje". No desktop nada
+              muda (continua só lá embaixo, no bloco de Lançamentos). */}
+          <button
+            onClick={() => setShowEmprestimos(true)}
+            className="md:hidden h-8 w-8 shrink-0 flex items-center justify-center rounded-lg border border-border text-foreground/80"
+            title="Empréstimos"
+          >
+            🤝
+          </button>
           <button
             onClick={() => setShowMobileCards(!showMobileCards)}
             className="md:hidden text-[11px] font-medium text-muted-foreground bg-muted px-2 py-1 rounded-md border border-border hover:text-foreground transition-colors mr-2"
           >
             {showMobileCards ? "Ocultar Valores" : "Exibir Valores"}
           </button>
-          {/* Botões do Calendário */}
-          <div className="flex items-center w-full md:w-auto gap-2">
+          {/* Botões do Calendário — ✅ 16/09/2026: no mobile, o navegador de
+              mês (< Mês >) sai daqui e vai pra linha da pesquisa, logo
+              abaixo (ver bloco "md:hidden" mais adiante) — sobrava pouco
+              espaço nesta linha pro título + Empréstimos + Exibir Valores +
+              Hoje juntos. No desktop continua exatamente igual, nesta
+              linha. */}
+          <div className="hidden md:flex items-center w-full md:w-auto gap-2">
             <div className="flex items-center flex-1 md:flex-none justify-between bg-muted/40 border border-border rounded-lg shadow-sm">
               <button
                 onClick={handlePrevMonth}
@@ -983,13 +999,13 @@ function FinanceiroPageContent() {
                 <IconChevronRight />
               </button>
             </div>
-            <button
-              onClick={handleToday}
-              className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors shrink-0"
-            >
-              Hoje
-            </button>
           </div>
+          <button
+            onClick={handleToday}
+            className="h-10 px-4 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted transition-colors shrink-0"
+          >
+            Hoje
+          </button>
 
           {showDatePicker && (
             <ModalDatePicker
@@ -1071,6 +1087,9 @@ function FinanceiroPageContent() {
         </div>
 
         <div className="md:hidden flex flex-col gap-2">
+          {/* ✅ 16/09/2026, pedido do Márcio: pesquisa e navegador de mês
+              (< Mês >) na mesma linha — o navegador de mês saiu da linha do
+              título (só no mobile; no desktop continua lá). */}
           <div className="flex items-center gap-2">
             <div className="flex-1 relative">
               <input
@@ -1089,22 +1108,32 @@ function FinanceiroPageContent() {
               )}
             </div>
 
-            <button
-              onClick={() => setShowEmprestimos(true)}
-              className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border border-border text-foreground/80"
-              title="Empréstimos"
-            >
-              🤝
-            </button>
-
-            <button
-              onClick={() => setModalData({ open: true, transacao: null })}
-              className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg bg-emerald-600 text-white shadow-lg"
-            >
-              <IconPlus />
-            </button>
+            <div className="flex items-center justify-between bg-muted/40 border border-border rounded-lg shadow-sm shrink-0">
+              <button
+                onClick={handlePrevMonth}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <IconChevronLeft />
+              </button>
+              <button
+                onClick={() => setShowDatePicker(true)}
+                className="px-2 text-sm font-medium capitalize text-center text-foreground/90 hover:text-emerald-500 transition-colors truncate max-w-[104px]"
+              >
+                {monthName}
+              </button>
+              <button
+                onClick={handleNextMonth}
+                className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <IconChevronRight />
+              </button>
+            </div>
           </div>
 
+          {/* ✅ 16/09/2026, pedido do Márcio: Empréstimos subiu pra linha do
+              título — aqui entram Pendente/Concluído/filtros + o "+" de
+              lançamento (mais largo que antes, não é mais só ícone) + a
+              lixeira de limpar filtros. */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-hide">
             <button
               onClick={() =>
@@ -1135,6 +1164,12 @@ function FinanceiroPageContent() {
               className={`h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border transition-colors ${mobileFiltersOpen ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500" : "border-border bg-card text-muted-foreground"}`}
             >
               <IconChevronDown />
+            </button>
+            <button
+              onClick={() => setModalData({ open: true, transacao: null })}
+              className="h-9 px-4 shrink-0 flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 text-white shadow-lg text-xs font-medium"
+            >
+              <IconPlus /> Adicionar
             </button>
             <button
               onClick={() => {

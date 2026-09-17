@@ -1479,7 +1479,7 @@ function AuditoriaPageContent() {
               }`}
             >
               <span>📺</span>
-              <span>IPTV</span>
+              <span>Renovações</span>
               {iptvActionableCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center">
                   {iptvActionableCount > 99 ? "99+" : iptvActionableCount}
@@ -1516,13 +1516,18 @@ function AuditoriaPageContent() {
             </span>
             <span className="hidden sm:inline">Atualizar</span>
           </button>
+          {/* ✅ 17/09/2026, pedido do Márcio: no mobile esse botão sai daqui
+              (sobrava pouco espaço pro título com "Renovações" no lugar de
+              "IPTV") e vai pra o lado do "Filtros", dentro do bloco de
+              filtros da aba Renovações — ver mais abaixo. No desktop
+              continua igual, sempre visível aqui. */}
           <button
             onClick={() => setExportModalOpen(true)}
             title="Exportar pagamentos aprovados"
-            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-3 sm:py-1.5 flex items-center justify-center gap-1.5 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-[11px] font-medium shrink-0"
+            className="hidden md:flex h-auto px-3 py-1.5 items-center justify-center gap-1.5 rounded-xl border border-border bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-[11px] font-medium shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Exportar</span>
+            <span>Exportar</span>
           </button>
         </div>
       </div>
@@ -1681,6 +1686,19 @@ function AuditoriaPageContent() {
                 title="Filtros"
               >
                 Filtros
+              </button>
+
+              {/* ✅ 17/09/2026, pedido do Márcio: veio de cima (TOPO da
+                  página) — no mobile ficava disputando espaço com o título
+                  "Auditoria do Portal" + o toggle Renovações/Aplicativos,
+                  cortando o título. Aqui do lado do Filtros sobra espaço lá
+                  em cima. Só ícone (sem o texto "Exportar") pra caber. */}
+              <button
+                onClick={() => setExportModalOpen(true)}
+                title="Exportar pagamentos aprovados"
+                className="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
+              >
+                <Download className="w-4 h-4" />
               </button>
             </div>
 
