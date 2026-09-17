@@ -143,11 +143,7 @@ export async function reenviarAtivacao(
 // webhook deles pode demorar muito ou nunca disparar (o próprio /api/
 // historico tem um campo `enviado_n8n` que ficou `false` minutos depois de
 // uma ativação já confirmada do lado deles). Em vez de confiar só no push,
-// reconsultamos direto: /api/historico aceita um filtro `id` (não
-// documentado, mas testado e funcionando — devolve exatamente o item da
-// ativação, com total:1). Essa é a MESMA fonte que a Appativa mostra no
-// dashboard deles (appativa.store/reseller/activations) — não precisa de
-// login/sessão, só a X-API-Key normal.
+// reconsultamos direto: /api/historico.
 //
 // ⚠️ A resposta desse endpoint especificamente vem envelopada em
 // `success_case.body` (confirmado ao vivo — diferente de solicitar-ativacao/
@@ -163,27 +159,46 @@ export type HistoricoItem = {
   nome_app?: string | null;
 };
 
+// 🔴 17/09/2026, achado do Márcio (auditoria pós-caso Adenilson, testado ao
+// vivo com curl direto): os filtros `id` e `app_uuid` de /api/historico são
+// IGNORADOS pela Appativa — mandar um id/app_uuid completamente inventado
+// devolve `sucesso:true` do mesmo jeito, com a lista INTEIRA (sem filtro
+// nenhum) e `items[0]` sempre é só a ativação mais recente da CONTA TODA,
+// não a pedida. A versão anterior desta função confiava cegamente nesse
+// `items[0]` — bug sério: se duas ativações (de clientes diferentes)
+// acontecessem perto uma da outra, o polling de uma podia ler o status/
+// vencimento da OUTRA por engano e concluir a renovação errada com a data
+// errada. Correção: já que o filtro do lado deles não funciona, busca a
+// lista paginada e filtra pelo `id` de verdade aqui — sempre pega o item
+// certo, custa 1 chamada extra só quando o volume crescer além de 1 página
+// (hoje: ~8 ativações na conta inteira, cabe numa página só).
 export async function consultarAtivacao(
   apiKey: string,
   historicoId: string,
 ): Promise<AppativaResult<HistoricoItem>> {
   try {
-    const res = await fetch(
-      `${APPATIVA_BASE_URL}/api/historico?id=${encodeURIComponent(historicoId)}`,
-      { headers: { "X-API-Key": apiKey }, cache: "no-store" },
-    );
-    const json = await res.json().catch(() => ({} as any));
-    const body = json?.success_case?.body ?? json;
+    const limit = 100;
+    for (let page = 1; page <= 20; page++) {
+      const res = await fetch(
+        `${APPATIVA_BASE_URL}/api/historico?page=${page}&limit=${limit}`,
+        { headers: { "X-API-Key": apiKey }, cache: "no-store" },
+      );
+      const json = await res.json().catch(() => ({} as any));
+      const body = json?.success_case?.body ?? json;
 
-    if (!res.ok || body?.sucesso === false) {
-      const msg = body?.erro || body?.message || `Falha ao consultar histórico (HTTP ${res.status})`;
-      return { ok: false, error: String(msg) };
+      if (!res.ok || body?.sucesso === false) {
+        const msg = body?.erro || body?.message || `Falha ao consultar histórico (HTTP ${res.status})`;
+        return { ok: false, error: String(msg) };
+      }
+
+      const items: HistoricoItem[] = Array.isArray(body?.items) ? body.items : [];
+      const found = items.find((it) => it?.id === historicoId);
+      if (found) return { ok: true, data: found };
+
+      if (!body?.has_more) break;
     }
 
-    const item = Array.isArray(body?.items) ? body.items[0] : null;
-    if (!item) return { ok: false, error: "Ativação não encontrada no histórico da Appativa." };
-
-    return { ok: true, data: item as HistoricoItem };
+    return { ok: false, error: "Ativação não encontrada no histórico da Appativa." };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Falha ao conectar com a Appativa" };
   }
