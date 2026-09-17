@@ -31,23 +31,60 @@ export async function POST(req: NextRequest) {
 
   const { data: payment } = await supabaseAdmin
     .from("client_portal_payments")
-    .select("id, client_id, client_app_id, appativa_historico_id, fulfillment_status, payment_type")
+    .select("id, client_id, client_app_id, app_name_snapshot, appativa_historico_id, fulfillment_status, payment_type")
     .eq("tenant_id", tenantId)
     .eq("id", paymentId)
     .maybeSingle();
 
   if (!payment) return NextResponse.json({ ok: false, error: "Pagamento não encontrado" }, { status: 404 });
-  if (payment.payment_type !== "app_renewal" || !payment.client_app_id) {
+  if (payment.payment_type !== "app_renewal") {
     return NextResponse.json({ ok: false, error: "Este pagamento não é uma renovação de aplicativo." }, { status: 400 });
   }
   if (payment.fulfillment_status === "manual_done") {
     return NextResponse.json({ ok: false, error: "Esta renovação já foi concluída." }, { status: 400 });
   }
 
+  // ✅ 17/09/2026, achado do Márcio: client_app_id pode estar null no
+  // pagamento (ex: app foi removido/reconfigurado depois do pagamento,
+  // ganhando uma linha nova em client_apps) — mesmo "salva-vidas" já usado
+  // em components/apps/AppRequestModal.tsx (handleConcluirAcao): busca de
+  // novo pelo nome salvo no pagamento (app_name_snapshot) em vez de travar
+  // com um erro genérico. Sem isso, um reenvio de correção (o cliente já
+  // pagou, só os dados foram digitados errado) ficava impossível de
+  // completar por aqui.
+  let effectiveClientAppId = payment.client_app_id as string | null;
+  if (!effectiveClientAppId) {
+    if (!payment.app_name_snapshot) {
+      return NextResponse.json(
+        { ok: false, error: "Esse pagamento não tem mais um aplicativo vinculado (foi removido/reconfigurado) e não há nome salvo pra buscar de novo. Abra o cliente e confira manualmente." },
+        { status: 400 },
+      );
+    }
+    const { data: matches } = await supabaseAdmin
+      .from("client_apps")
+      .select("id, apps!inner(name)")
+      .eq("tenant_id", tenantId)
+      .eq("client_id", payment.client_id)
+      .eq("apps.name", payment.app_name_snapshot);
+    if (!matches || matches.length !== 1) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            !matches || matches.length === 0
+              ? `"${payment.app_name_snapshot}" não está mais na conta desse cliente (foi excluído). Abra o cliente pra conferir o que aconteceu.`
+              : `Encontrei mais de um "${payment.app_name_snapshot}" nesse cliente — abra o cliente e reenvie direto pelo card do aplicativo certo.`,
+        },
+        { status: 400 },
+      );
+    }
+    effectiveClientAppId = matches[0].id;
+  }
+
   const { data: appRow } = await supabaseAdmin
     .from("client_apps")
     .select("field_values, apps(appativa_app_id, fields_config)")
-    .eq("id", payment.client_app_id)
+    .eq("id", effectiveClientAppId)
     .eq("client_id", payment.client_id)
     .maybeSingle();
 

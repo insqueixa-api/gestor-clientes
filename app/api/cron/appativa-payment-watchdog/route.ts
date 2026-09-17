@@ -46,6 +46,15 @@ async function handle(req: Request) {
     .select("id, tenant_id")
     .eq("fulfillment_status", "manual_pending")
     .not("appativa_historico_id", "is", null)
+    // ✅ 17/09/2026, achado do Márcio: uma vez que a Appativa já respondeu
+    // com uma rejeição de verdade (fulfillment_error preenchido por
+    // resolveAppativaAppRenewal quando o status é "Incorreto"/"Reprovado"),
+    // continuar consultando de 1 em 1 min é bater à toa na API deles — a
+    // rejeição já é definitiva, só um reenvio manual (admin corrige o dado e
+    // clica "Reenviar via Appativa") gera um historico_id novo pra valer a
+    // pena checar de novo. Isso é exatamente o "não martelar a Appativa"
+    // que esse vigia já promete no comentário do topo do arquivo.
+    .is("fulfillment_error", null)
     .gte("created_at", threeHoursAgo)
     .limit(20);
 
