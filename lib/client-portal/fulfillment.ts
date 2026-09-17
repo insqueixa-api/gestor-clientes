@@ -1070,15 +1070,40 @@ export async function resolveAppativaAppRenewal(
   if (!payment || !payment.appativa_historico_id) return { outcome: "skipped" };
   if (payment.fulfillment_status === "manual_done") return { outcome: "done" };
 
+  // ✅ 17/09/2026, achado real do Márcio (Adenilson/ClouDDy): o app pode ter
+  // sido removido/reconfigurado DEPOIS do pagamento, ganhando uma linha nova
+  // em client_apps — client_app_id do pagamento fica apontando pra um id que
+  // não existe mais. O log do portal e o WhatsApp fecham normalmente (não
+  // dependem disso), mas o vencimento NUNCA era salvo no aplicativo, porque
+  // o bloco de persistência abaixo checava só `payment.client_app_id` e saía
+  // em silêncio quando vinha null — bug irmão do que já foi corrigido em
+  // retry-appativa-activation/route.ts (mesmo dia). Mesmo fallback: busca de
+  // novo por client_id + nome salvo no pagamento (app_name_snapshot), igual
+  // components/apps/AppRequestModal.tsx já faz.
+  let effectiveClientAppId = payment.client_app_id as string | null;
+  if (!effectiveClientAppId && payment.app_name_snapshot) {
+    try {
+      const { data: matches } = await supabaseAdmin
+        .from("client_apps")
+        .select("id, apps!inner(name)")
+        .eq("tenant_id", tenantId)
+        .eq("client_id", payment.client_id)
+        .eq("apps.name", payment.app_name_snapshot);
+      if (matches && matches.length === 1) effectiveClientAppId = matches[0].id;
+    } catch {
+      // best-effort — se não achar, segue o mesmo caminho de "sem app vinculado" (não persiste data, mas não trava a conclusão)
+    }
+  }
+
   // ✅ Só pro rótulo certo na mensagem de rejeição abaixo (MAC vs Email,
   // achado do Márcio 16/09/2026) — best-effort, nunca bloqueia a resolução.
   let fieldsConfigForLabel: any[] = [];
-  if (payment.client_app_id) {
+  if (effectiveClientAppId) {
     try {
       const { data: appRowForLabel } = await supabaseAdmin
         .from("client_apps")
         .select("apps(fields_config)")
-        .eq("id", payment.client_app_id)
+        .eq("id", effectiveClientAppId)
         .maybeSingle();
       const appMetaForLabel = Array.isArray(appRowForLabel?.apps) ? appRowForLabel.apps[0] : appRowForLabel?.apps;
       fieldsConfigForLabel = Array.isArray(appMetaForLabel?.fields_config) ? appMetaForLabel.fields_config : [];
@@ -1165,13 +1190,16 @@ export async function resolveAppativaAppRenewal(
 
   // ✅ Persiste o vencimento confirmado em client_apps.field_values (mesmo
   // campo que checkClientAppValidity usa) — reflete na UI (portal, admin)
-  // mesmo pra apps sem checagem automática própria.
-  if (payment.client_app_id) {
+  // mesmo pra apps sem checagem automática própria. Usa effectiveClientAppId
+  // (com fallback por app_name_snapshot resolvido no topo da função) — sem
+  // isso, um client_app_id nulo/obsoleto deixava a ativação "concluída" (log
+  // + WhatsApp) mas sem NUNCA atualizar o vencimento de verdade no app.
+  if (effectiveClientAppId) {
     try {
       const { data: appRow } = await supabaseAdmin
         .from("client_apps")
         .select("field_values, apps(fields_config)")
-        .eq("id", payment.client_app_id)
+        .eq("id", effectiveClientAppId)
         .maybeSingle();
       const appMeta = Array.isArray(appRow?.apps) ? appRow.apps[0] : appRow?.apps;
       const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
@@ -1181,11 +1209,17 @@ export async function resolveAppativaAppRenewal(
         await supabaseAdmin
           .from("client_apps")
           .update({ field_values: { ...(appRow.field_values || {}), [fieldKey]: dateOnly } })
-          .eq("id", payment.client_app_id);
+          .eq("id", effectiveClientAppId);
       }
     } catch (e: any) {
       prodLog("appativa_resolve.persist_date_failed", { paymentId, message: e?.message });
     }
+  } else {
+    // ✅ Sem client_app_id (nem fallback por nome) pra persistir o
+    // vencimento — não trava a conclusão (log/WhatsApp já valem por si),
+    // mas fica registrado pra investigação manual em vez de falhar em
+    // silêncio total.
+    prodLog("appativa_resolve.no_client_app_to_persist_date", { paymentId, appNameSnapshot: payment.app_name_snapshot });
   }
 
   // ⚠️ Achado 26/08/2026 (revisão de corrida): o webhook e as 2 checagens
