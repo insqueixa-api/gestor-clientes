@@ -2,8 +2,10 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { getAdminTenantContext } from "@/lib/api/auth-server";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 export type LoginState = { error?: string };
 
@@ -20,6 +22,27 @@ function isNextRedirectError(err: unknown): boolean {
   );
 }
 
+// 🔴 18/09/2026, pedido do Márcio (auditoria de segurança): bloqueia o IP
+// por um tempo depois de várias senhas erradas seguidas — antes só existia
+// o Turnstile (freia bot automatizado), nada travava alguém insistindo com
+// senhas erradas manualmente ou por script já "humanizado". Tabela própria
+// (admin_login_attempts) porque a Vercel roda em serverless — não dá pra
+// guardar contador em memória entre invocações.
+const MAX_FAILED_ATTEMPTS = 5;
+const BLOCK_DURATION_MS = 30 * 60 * 1000; // 30 minutos
+
+function adminSupabase() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
+
+async function getClientIp(): Promise<string> {
+  const hdrs = await headers();
+  return hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
 export async function loginAction(
   _prevState: LoginState,
   formData: FormData
@@ -30,6 +53,19 @@ export async function loginAction(
 
     if (!email) return { error: "Informe o e-mail." };
     if (!password || password.length < 6) return { error: "Informe uma senha válida." };
+
+    const ip = await getClientIp();
+    const supabaseAdmin = adminSupabase();
+
+    const { data: attemptRow } = await supabaseAdmin
+      .from("admin_login_attempts")
+      .select("failed_count, blocked_until")
+      .eq("ip", ip)
+      .maybeSingle();
+
+    if (attemptRow?.blocked_until && new Date(attemptRow.blocked_until).getTime() > Date.now()) {
+      return { error: "Muitas tentativas de login sem sucesso. Tente novamente em alguns minutos." };
+    }
 
     // ✅ Validar Turnstile server-side
     const cfToken = String(formData.get("cf-turnstile-response") ?? "").trim();
@@ -54,7 +90,33 @@ export async function loginAction(
     });
 
     if (error || !data.user || !data.session) {
+      // ✅ Registra a falha — ao bater MAX_FAILED_ATTEMPTS, bloqueia o IP
+      // por BLOCK_DURATION_MS e zera a contagem (próxima janela começa do
+      // zero depois que o bloqueio expirar). Best-effort: nunca deixa uma
+      // falha aqui esconder o erro de autenticação real do usuário.
+      try {
+        const newCount = (attemptRow?.failed_count || 0) + 1;
+        const shouldBlock = newCount >= MAX_FAILED_ATTEMPTS;
+        await supabaseAdmin.from("admin_login_attempts").upsert(
+          {
+            ip,
+            failed_count: shouldBlock ? 0 : newCount,
+            blocked_until: shouldBlock ? new Date(Date.now() + BLOCK_DURATION_MS).toISOString() : null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "ip" },
+        );
+      } catch (e: any) {
+        console.error("[login] falha ao registrar tentativa", e?.message);
+      }
       return { error: error?.message || "Erro de autenticação" };
+    }
+
+    // ✅ Login certo — zera a contagem desse IP (best-effort).
+    try {
+      await supabaseAdmin.from("admin_login_attempts").delete().eq("ip", ip);
+    } catch {
+      // não bloqueia o login por causa disso
     }
 
     // 🔴 18/09/2026: MFA (TOTP) opcional — email+senha corretos só dão
