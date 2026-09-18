@@ -43,6 +43,83 @@ async function getClientIp(): Promise<string> {
   return hdrs.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 }
 
+// 🔴 18/09/2026, achado do Márcio na mesma auditoria: a aba "Esqueci a
+// senha" renderizava o widget do Turnstile, mas NUNCA enviava o token pra
+// lugar nenhum — `resetPasswordForEmail` era chamado direto do navegador
+// só com o e-mail, sem nenhuma verificação server-side. E sem passar por
+// nenhuma Server Action, também não tinha como aplicar o mesmo bloqueio de
+// IP do login. Convertido pra Server Action (mesmo padrão do loginAction)
+// pra fechar as duas coisas de uma vez. Resposta sempre genérica pro
+// cliente (preserva o "não revela se o e-mail existe" que já era garantido
+// antes) — a ÚNICA exceção é o aviso de rate limit, que não vaza nada
+// sobre o e-mail (o bloqueio é por IP, não por conta).
+export async function requestPasswordResetAction(
+  email: string,
+  cfToken: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    const safeEmail = email.trim().toLowerCase();
+    if (!safeEmail) return { error: "Informe um e-mail válido." };
+    if (!cfToken) return { error: "Verificação de segurança necessária." };
+
+    const ip = await getClientIp();
+    const supabaseAdmin = adminSupabase();
+
+    const { data: attemptRow } = await supabaseAdmin
+      .from("admin_login_attempts")
+      .select("failed_count, blocked_until")
+      .eq("ip", ip)
+      .maybeSingle();
+
+    if (attemptRow?.blocked_until && new Date(attemptRow.blocked_until).getTime() > Date.now()) {
+      return { error: "Muitas tentativas. Tente novamente em alguns minutos." };
+    }
+
+    const turnstileSecret = String(process.env.TURNSTILE_SECRET_KEY ?? "").trim();
+    if (turnstileSecret) {
+      const verifyRes = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ secret: turnstileSecret, response: cfToken }).toString(),
+      });
+      const verifyJson = await verifyRes.json().catch(() => ({} as any));
+      if (!verifyJson?.success) return { error: "Verificação de segurança falhou. Tente novamente." };
+    }
+
+    // ✅ Conta como "tentativa" já com o Turnstile validado — não temos
+    // como saber se o e-mail existe de verdade (nem devemos saber, por
+    // design), então qualquer pedido de reset legítimo (captcha ok) soma
+    // pro mesmo contador/bloqueio por IP do login.
+    const newCount = (attemptRow?.failed_count || 0) + 1;
+    const shouldBlock = newCount >= MAX_FAILED_ATTEMPTS;
+    try {
+      await supabaseAdmin.from("admin_login_attempts").upsert(
+        {
+          ip,
+          failed_count: shouldBlock ? 0 : newCount,
+          blocked_until: shouldBlock ? new Date(Date.now() + BLOCK_DURATION_MS).toISOString() : null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "ip" },
+      );
+    } catch (e: any) {
+      console.error("[password-reset] falha ao registrar tentativa", e?.message);
+    }
+
+    const supabase = await createClient();
+    await supabase.auth.resetPasswordForEmail(safeEmail, {
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password`,
+    });
+
+    return { ok: true };
+  } catch (e: any) {
+    // ✅ Mascara qualquer erro interno — mesma mensagem de segurança de
+    // sempre, nunca expõe detalhe do que deu errado.
+    console.error("[password-reset] erro inesperado", e?.message);
+    return { ok: true };
+  }
+}
+
 export async function loginAction(
   _prevState: LoginState,
   formData: FormData

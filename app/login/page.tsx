@@ -3,8 +3,7 @@
 
 import { useMemo, useState, useActionState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { supabaseBrowser } from "@/lib/supabase/browser";
-import { loginAction, type LoginState } from "./actions";
+import { loginAction, requestPasswordResetAction, type LoginState } from "./actions";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 function isLikelyEmail(v: string): boolean {
@@ -57,18 +56,24 @@ export default function LoginPage() {
         setIsResetting(false); // ✅ Remove o loading se falhar na validação
         return;
       }
+      if (!turnstileToken) {
+        setMsg("Verificação de segurança necessária.");
+        setIsResetting(false);
+        return;
+      }
 
-      const { error } = await supabaseBrowser.auth.resetPasswordForEmail(
-        safeEmail,
-        {
-          redirectTo: `${location.origin}/reset-password`,
-        },
-      );
+      // 🔴 18/09/2026: virou Server Action (antes chamava o Supabase direto
+      // do navegador, sem validar o Turnstile no servidor nem contar pro
+      // mesmo bloqueio de IP do login — ver comentário em actions.ts).
+      const result = await requestPasswordResetAction(safeEmail, turnstileToken);
 
-      if (error) throw error;
-
+      // ✅ O único caso que foge da mensagem genérica de sempre é o rate
+      // limit — não revela nada sobre o e-mail (o bloqueio é por IP), só
+      // avisa que precisa esperar.
       setMsg(
-        "Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.",
+        result.error === "Muitas tentativas. Tente novamente em alguns minutos."
+          ? result.error
+          : "Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.",
       );
     } catch {
       // ✅ Mascaramos o erro para garantir a mesma mensagem de segurança
@@ -76,6 +81,10 @@ export default function LoginPage() {
         "Se o e-mail existir em nossa base, você receberá um link de redefinição em instantes.",
       );
     } finally {
+      // ✅ Token do Turnstile só vale 1x — reseta pra próxima tentativa não
+      // travar (mesmo padrão já usado no formulário de login).
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
       setIsResetting(false); // ✅ Garante que o loading termine, dando certo ou errado
     }
   }
