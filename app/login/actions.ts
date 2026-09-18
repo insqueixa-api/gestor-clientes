@@ -57,6 +57,15 @@ export async function loginAction(
       return { error: error?.message || "Erro de autenticação" };
     }
 
+    // 🔴 18/09/2026: MFA (TOTP) opcional — email+senha corretos só dão
+    // sessão aal1. Quem tem um fator MFA verificado precisa completar o
+    // 2º passo em /mfa-challenge antes de ver o /admin (o proxy.ts também
+    // reforça isso pra quem tentar pular direto pra uma URL /admin).
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") {
+      redirect("/mfa-challenge");
+    }
+
     // ✅ Resolve e cacheia o contexto admin (tenant/role/nomes) num cookie
     // agora — o layout do admin só vai LER esse cookie depois, sem bater
     // em tenant_members/tenants/profiles em toda navegação (ver

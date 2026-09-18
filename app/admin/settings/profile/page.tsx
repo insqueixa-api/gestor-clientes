@@ -349,6 +349,86 @@ export default function ProfileSettingsPage() {
     "export" | "template" | "import" | null
   >(null);
 
+  // ✅ 18/09/2026, MFA (TOTP) — opcional, pedido do Márcio numa auditoria de
+  // segurança. Usa direto o supabase.auth.mfa.* nativo (sem tabela própria):
+  // enroll() gera o QR+segredo, challenge()+verify() confirma o código do
+  // app autenticador. showMfaModal controla o fluxo em 2 telas (status →
+  // cadastro).
+  const [mfaFactors, setMfaFactors] = useState<any[]>([]);
+  const [showMfaModal, setShowMfaModal] = useState(false);
+  const [mfaEnrollData, setMfaEnrollData] = useState<{ factorId: string; qrCode: string; secret: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const verifiedMfaFactor = mfaFactors.find((f) => f.status === "verified") || null;
+
+  async function loadMfaFactors() {
+    const { data } = await supabaseBrowser.auth.mfa.listFactors();
+    setMfaFactors(data?.totp || []);
+  }
+
+  async function startMfaEnroll() {
+    setMfaBusy(true);
+    try {
+      const { data, error } = await supabaseBrowser.auth.mfa.enroll({ factorType: "totp" });
+      if (error) throw error;
+      setMfaEnrollData({ factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret });
+    } catch (e: any) {
+      addToast("error", "Erro ao iniciar cadastro", e.message);
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  async function verifyMfaEnroll() {
+    if (!mfaEnrollData || mfaCode.length !== 6) return;
+    setMfaBusy(true);
+    try {
+      const { data: challenge, error: challengeErr } = await supabaseBrowser.auth.mfa.challenge({
+        factorId: mfaEnrollData.factorId,
+      });
+      if (challengeErr) throw challengeErr;
+
+      const { error: verifyErr } = await supabaseBrowser.auth.mfa.verify({
+        factorId: mfaEnrollData.factorId,
+        challengeId: challenge.id,
+        code: mfaCode,
+      });
+      if (verifyErr) throw verifyErr;
+
+      addToast("success", "MFA ativado", "A partir do próximo login, vamos pedir o código do app autenticador.");
+      setMfaEnrollData(null);
+      setMfaCode("");
+      setShowMfaModal(false);
+      await loadMfaFactors();
+    } catch (e: any) {
+      addToast("error", "Código inválido", e.message || "Confira o código no app e tente de novo.");
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
+  async function handleUnenrollMfa(factorId: string) {
+    const ok = await confirm({
+      title: "Desativar MFA",
+      subtitle: "Sem o app autenticador, o login volta a exigir só e-mail e senha. Tem certeza?",
+      tone: "rose",
+      confirmText: "Sim, desativar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+    setMfaBusy(true);
+    try {
+      const { error } = await supabaseBrowser.auth.mfa.unenroll({ factorId });
+      if (error) throw error;
+      addToast("success", "MFA desativado", "");
+      await loadMfaFactors();
+    } catch (e: any) {
+      addToast("error", "Erro ao desativar", e.message);
+    } finally {
+      setMfaBusy(false);
+    }
+  }
+
   type WaValidation = {
     loading: boolean;
     exists: boolean;
@@ -391,6 +471,7 @@ export default function ProfileSettingsPage() {
         if (!user) return;
         setUserId(user.id);
         setEmail(user.email || "");
+        loadMfaFactors();
 
         // ✅ Nenhuma das duas depende da outra (só do user.id) — rodar em
         // paralelo em vez de uma atrás da outra.
@@ -1261,13 +1342,32 @@ async function handleSave() {
                       setShowSettingsDropdown(false);
                       handleResetPassword();
                     }}
-                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted flex items-center gap-2.5 transition-colors"
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted flex items-center gap-2.5 transition-colors border-b border-border"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 text-muted-foreground">
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
                     Alterar Senha
+                  </button>
+
+                  {/* Autenticação em 2 Etapas (MFA) */}
+                  <button
+                    onClick={() => {
+                      setShowSettingsDropdown(false);
+                      setShowMfaModal(true);
+                    }}
+                    className="w-full text-left px-3 py-2.5 text-xs font-medium text-muted-foreground hover:bg-muted flex items-center gap-2.5 transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="shrink-0 text-muted-foreground">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <circle cx="12" cy="16" r="1" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                    Autenticação em 2 Etapas
+                    {verifiedMfaFactor && (
+                      <span className="ml-auto text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded">ATIVO</span>
+                    )}
                   </button>
                 </div>
               </>
@@ -2302,6 +2402,88 @@ className="flex-1 h-10 border border-border text-muted-foreground font-medium ro
       <input ref={importMessageFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportMessageFile(f); }} />
       <input ref={importServerFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportServerFile(f); }} />
       <input ref={importFinanceiroFileRef} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleImportFinanceiroFile(f); }} />
+
+      {/* ============================================================================
+          MODAL: Autenticação em 2 Etapas (MFA/TOTP)
+         ============================================================================ */}
+      {showMfaModal && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card w-full max-w-sm rounded-xl border border-border shadow-xl p-6 space-y-4 text-left">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-foreground">🔐 Autenticação em 2 Etapas</h3>
+              <button
+                onClick={() => {
+                  setShowMfaModal(false);
+                  setMfaEnrollData(null);
+                  setMfaCode("");
+                }}
+                className="text-muted-foreground hover:text-foreground text-lg leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            {verifiedMfaFactor ? (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-500">
+                  MFA ativado — o login pede o código do app autenticador depois da senha.
+                </div>
+                <button
+                  onClick={() => handleUnenrollMfa(verifiedMfaFactor.id)}
+                  disabled={mfaBusy}
+                  className="w-full rounded-xl py-2.5 text-sm font-semibold border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 transition disabled:opacity-50"
+                >
+                  {mfaBusy ? "Desativando..." : "Desativar MFA"}
+                </button>
+              </div>
+            ) : !mfaEnrollData ? (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Adiciona uma etapa extra no login: depois da senha, o app pede um código de 6 dígitos gerado por um app autenticador (Google Authenticator, Authy, 1Password...).
+                </p>
+                <button
+                  onClick={startMfaEnroll}
+                  disabled={mfaBusy}
+                  className="w-full rounded-xl py-2.5 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50"
+                >
+                  {mfaBusy ? "Gerando..." : "Ativar MFA"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Escaneie com o app autenticador:</p>
+                <div
+                  className="mx-auto w-fit rounded-lg bg-white p-3"
+                  dangerouslySetInnerHTML={{ __html: mfaEnrollData.qrCode }}
+                />
+                <details className="text-xs text-muted-foreground">
+                  <summary className="cursor-pointer">Não consigo escanear — digitar o código manualmente</summary>
+                  <code className="mt-1 block break-all rounded bg-muted px-2 py-1.5 text-[11px]">{mfaEnrollData.secret}</code>
+                </details>
+                <input
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  inputMode="numeric"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-center text-xl tracking-[0.4em] text-foreground outline-none focus:ring-2 focus:ring-emerald-500/60"
+                />
+                <button
+                  onClick={verifyMfaEnroll}
+                  disabled={mfaCode.length !== 6 || mfaBusy}
+                  className={[
+                    "w-full rounded-xl py-2.5 text-sm font-semibold transition",
+                    mfaCode.length !== 6 || mfaBusy
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-emerald-600 text-white hover:bg-emerald-700",
+                  ].join(" ")}
+                >
+                  {mfaBusy ? "Confirmando..." : "Confirmar e ativar"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ============================================================================
           MODALS DE IMPORT/EXPORT

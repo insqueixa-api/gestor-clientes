@@ -62,6 +62,20 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  // 🔴 18/09/2026: MFA (TOTP) opcional — quem ativou precisa completar o
+  // 2º fator antes de acessar qualquer /admin/*, mesmo já tendo um cookie
+  // de sessão válido (senão o desafio em app/mfa-challenge/page.tsx seria
+  // só uma etapa "de UI" fácil de pular indo direto pra uma URL /admin).
+  // getAuthenticatorAssuranceLevel() olha o JWT atual + fatores cadastrados
+  // — nextLevel só vira "aal2" quando existe um fator TOTP verificado, ou
+  // seja, quem nunca ativou MFA nunca cai aqui (nextLevel fica "aal1").
+  if (user && pathname.startsWith('/admin')) {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      return NextResponse.redirect(new URL('/mfa-challenge', request.url));
+    }
+  }
+
   // 2. REGRA: Se já estiver logado e tentar acessar o /login, manda para /admin.
   // IMPORTANTE: Isso ignora quem está tentando acessar o /renew (que não é /login).
   if (user && pathname === '/login') {
