@@ -549,7 +549,18 @@ const baileysLogStream = new Writable({
             const level = state.level;
             state.count = 0;
             state.level = Math.min(level + 1, ESCALATION_LADDER.length - 1);
-            escalateContactSession(line.sessionKey, remoteJid, level, line.key?.id).catch(() => {});
+            // 🔴 18/09/2026, achado real (Jadson/Raniele nunca receberam o
+            // reenvio forçado da rodada de ontem): `line.key.id` vem SEMPRE
+            // vazio (''), porque o próprio Baileys grava esse campo assim
+            // de propósito nesse log específico (messages-recv.js:494, `id:
+            // ''` fixo — o retry aqui pode cobrir VÁRIAS mensagens de uma
+            // vez, então não faz sentido pra eles fixar um id só ali). O id
+            // de verdade da mensagem que pediu retry vem em `attrs.id`
+            // (confirmado lendo o código-fonte real da lib rodando na VM).
+            // Com o bug antigo, `if (messageId)` em escalateContactSession
+            // sempre dava falso — a sessão era zerada, mas o reenvio
+            // forçado nunca disparava, silenciosamente.
+            escalateContactSession(line.sessionKey, remoteJid, level, line.attrs?.id).catch(() => {});
           }
           contactRetryState.set(contactKey, state);
         }
