@@ -18,11 +18,28 @@ import { useRouter } from "next/navigation";
 // durante a inicialização, antes do primeiro getSession() resolver — não
 // precisa chamar exchangeCodeForSession manualmente.
 
+// ✅ 18/09/2026, pedido do Márcio (auditoria de segurança): mínimo 8
+// caracteres + maiúscula + minúscula + número + caractere especial — mesma
+// política já configurada no lado do Supabase (password_min_length/
+// password_required_characters). Mostrado aqui como checklist que vai
+// ficando verde enquanto a pessoa digita, pra não descobrir só depois de
+// tentar salvar.
+const PASSWORD_RULES: { label: string; test: (pw: string) => boolean }[] = [
+  { label: "Pelo menos 8 caracteres", test: (pw) => pw.length >= 8 },
+  { label: "1 letra maiúscula", test: (pw) => /[A-Z]/.test(pw) },
+  { label: "1 letra minúscula", test: (pw) => /[a-z]/.test(pw) },
+  { label: "1 número", test: (pw) => /[0-9]/.test(pw) },
+  { label: "1 caractere especial (!@#$%...)", test: (pw) => /[^A-Za-z0-9]/.test(pw) },
+];
+
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const passwordChecks = PASSWORD_RULES.map((rule) => ({ ...rule, ok: rule.test(password) }));
+  const passwordValid = passwordChecks.every((c) => c.ok);
 
   // Novos estados para validar o link
   const [isValidating, setIsValidating] = useState(true);
@@ -58,8 +75,8 @@ export default function ResetPasswordPage() {
     setMsg(null);
     setErrorMsg(null);
 
-    if (password.length < 6) {
-      setErrorMsg("A senha deve ter pelo menos 6 caracteres.");
+    if (!passwordValid) {
+      setErrorMsg("A senha ainda não atende todos os critérios abaixo.");
       return;
     }
 
@@ -161,18 +178,44 @@ if (isValidating) {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mínimo de 6 caracteres"
+                    placeholder="Digite a nova senha"
                     autoComplete="new-password"
                     className="mt-1 w-full rounded-xl border border-border bg-card px-4 py-3 text-foreground outline-none transition focus:ring-2 focus:ring-emerald-500/60 dark:border-border dark:bg-black/20 dark:text-white dark:placeholder:text-white/40"
                   />
                 </div>
 
+                {/* ✅ Checklist ao vivo — cada critério fica verde assim que a
+                    senha digitada o atende, sem esperar tentar salvar. */}
+                <ul className="space-y-1.5">
+                  {passwordChecks.map((check) => (
+                    <li
+                      key={check.label}
+                      className={[
+                        "flex items-center gap-2 text-xs transition-colors",
+                        check.ok ? "text-emerald-500" : "text-muted-foreground dark:text-white/50",
+                      ].join(" ")}
+                    >
+                      <span
+                        className={[
+                          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px]",
+                          check.ok
+                            ? "border-emerald-500 bg-emerald-500/20 text-emerald-500"
+                            : "border-muted-foreground/30 dark:border-white/20",
+                        ].join(" ")}
+                      >
+                        {check.ok ? "✓" : ""}
+                      </span>
+                      {check.label}
+                    </li>
+                  ))}
+                </ul>
+
                 <button
                   type="submit"
-                  disabled={loading || password.length < 6}
+                  disabled={loading || !passwordValid}
                   className={[
                     "w-full rounded-xl py-3 font-semibold transition mt-2",
-                    loading || password.length < 6
+                    loading || !passwordValid
                       ? "bg-muted text-muted-foreground cursor-not-allowed"
                       : "bg-emerald-600 text-white hover:bg-emerald-700 active:bg-emerald-800",
                   ].join(" ")}
