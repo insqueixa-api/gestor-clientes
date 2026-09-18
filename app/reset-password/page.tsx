@@ -89,7 +89,21 @@ export default function ResetPasswordPage() {
 
       if (error) throw error;
 
-      setMsg("Senha atualizada com sucesso! Redirecionando para o login...");
+      // ✅ 18/09/2026, pedido do Márcio: trocar a senha precisa derrubar
+      // qualquer outra sessão ativa (outro navegador/dispositivo já
+      // logado) — sem isso, quem trocou a senha por suspeita de acesso
+      // indevido continuaria exposto em qualquer sessão que já estivesse
+      // aberta em outro lugar. scope:"global" invalida TODOS os refresh
+      // tokens do usuário no servidor (inclusive este aqui, mas já vamos
+      // redirecionar pro login de qualquer forma). Best-effort: a senha já
+      // foi trocada com sucesso, não desfaz isso se o signOut falhar.
+      try {
+        await supabase.auth.signOut({ scope: "global" });
+      } catch {
+        // não bloqueia a mensagem de sucesso por causa disso
+      }
+
+      setMsg("Senha atualizada com sucesso! Todas as outras sessões foram encerradas. Redirecionando para o login...");
 
       setTimeout(() => {
         // Redirecionamento absoluto para o endereço correto
