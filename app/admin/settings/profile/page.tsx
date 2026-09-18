@@ -1088,7 +1088,11 @@ async function handleSave() {
     if (!ok) return;
     try {
       await supabaseBrowser.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + "/auth/update-password",
+        // ✅ 18/09/2026, achado em auditoria de segurança: apontava pra
+        // /auth/update-password, rota que não existe (404) — o e-mail
+        // chegava, mas o link caía em página inexistente. /reset-password
+        // é a mesma rota que a tela de login já usa e funciona de verdade.
+        redirectTo: window.location.origin + "/reset-password",
       });
       addToast("success", "Enviado", "Verifique sua caixa de entrada.");
     } catch (e: any) {
