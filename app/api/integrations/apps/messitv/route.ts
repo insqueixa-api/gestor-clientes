@@ -35,6 +35,7 @@ import { Resvg } from "@resvg/resvg-js";
 import { callGemini } from "@/lib/whatsapp/gemini-client";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 import { extractDateOnly } from "@/lib/apps/panel";
+import { cleanupResvgTmpCache } from "@/lib/apps/resvg-tmp-cleanup";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -87,12 +88,19 @@ async function solveCaptcha(siteRoot: string, geminiKey: string): Promise<{ toke
   // (loadSystemFonts:true), o que pode gerar cache de fonte em /tmp a cada
   // execução — confirmado com uma amostra real do captcha (só <path>, sem
   // nenhum <text>/font-family) que fonte nenhuma é necessária aqui.
-  const png = new Resvg(sanitizeCaptchaSvg(data.svg), {
-    fitTo: { mode: "width", value: 400 },
-    font: { loadSystemFonts: false },
-  })
-    .render()
-    .asPng();
+  let png: Buffer;
+  try {
+    png = new Resvg(sanitizeCaptchaSvg(data.svg), {
+      fitTo: { mode: "width", value: 400 },
+      font: { loadSystemFonts: false },
+    })
+      .render()
+      .asPng();
+  } finally {
+    // ✅ 2ª camada de proteção: limpa qualquer resíduo de /tmp mesmo que o
+    // desligamento do loadSystemFonts não seja suficiente sozinho.
+    cleanupResvgTmpCache();
+  }
 
   const geminiRes = await callGemini(
     geminiKey,
