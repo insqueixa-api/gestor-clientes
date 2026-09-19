@@ -82,7 +82,15 @@ async function solveCaptcha(siteRoot: string, geminiKey: string): Promise<{ toke
   const data = await res.json().catch(() => null);
   if (!data?.svg || !data?.token) throw new Error("Falha ao gerar captcha do MessiTV.");
 
-  const png = new Resvg(sanitizeCaptchaSvg(data.svg), { fitTo: { mode: "width", value: 400 } })
+  // ✅ 18/09/2026, achado em investigação de "Functions Storage" da Vercel:
+  // por padrão o Resvg escaneia e carrega TODAS as fontes do sistema
+  // (loadSystemFonts:true), o que pode gerar cache de fonte em /tmp a cada
+  // execução — confirmado com uma amostra real do captcha (só <path>, sem
+  // nenhum <text>/font-family) que fonte nenhuma é necessária aqui.
+  const png = new Resvg(sanitizeCaptchaSvg(data.svg), {
+    fitTo: { mode: "width", value: 400 },
+    font: { loadSystemFonts: false },
+  })
     .render()
     .asPng();
 
