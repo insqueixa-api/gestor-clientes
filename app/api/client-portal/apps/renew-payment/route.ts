@@ -525,6 +525,11 @@ export async function POST(req: NextRequest) {
           client_app_id,
           payment_type: "app_renewal",
           gateway_id: gateway.id,
+          // ✅ 19/09/2026: aparece no relatório/API do Mercado Pago (coluna
+          // METADATA) — quem pagou e de qual conta, sem abrir o painel.
+          server_username: serverUsernameTag || null,
+          payer_name: displayName,
+          app_name: appName,
         },
         date_of_expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
       }),
