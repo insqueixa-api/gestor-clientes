@@ -1049,6 +1049,22 @@ if (connection === "open") {
 
       console.log(`[WA][${sessionKey.slice(0, 8)}] Desconectado (${statusCode}), reconectar: ${shouldReconnect}`);
 
+      // ✅ 19/09/2026, diagnóstico de vínculo (QR) recusado logo após o scan
+      // (500/401 em segundos, sem o 515 normal): o Baileys só expõe o código
+      // numérico acima — o TEXTO do erro e o `data` (quando o servidor do
+      // WhatsApp manda um motivo, ex: dispositivo bloqueado, limite de
+      // aparelhos, conta em modo business/agent) sempre foi descartado.
+      // Loga isso pra próxima falha já vir com o motivo real.
+      try {
+        const err = lastDisconnect?.error;
+        const detail = {
+          message: err?.message,
+          data: err?.data,
+          payload: err?.output?.payload,
+        };
+        console.log(`[WA][${sessionKey.slice(0, 8)}] Motivo bruto da desconexão: ${JSON.stringify(detail).slice(0, 600)}`);
+      } catch {}
+
       if (shouldReconnect) {
         sessData.status = "connecting";
         sessData.retries++;

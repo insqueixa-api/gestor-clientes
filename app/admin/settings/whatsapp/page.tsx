@@ -10,6 +10,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  X,
 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -418,6 +419,26 @@ function WhatsAppSessionCard({
       setLoading(false);
     }
   }
+  // ✅ 19/09/2026, pedido do Márcio: com o QR na tela e a sessão ainda não
+  // conectada, "Desconectar" ficava travado (desabilitado) e não tinha como
+  // parar o ciclo de QR novo a cada minuto — vira "Cancelar" nesse estado.
+  // Mesma rota do desconectar (a VM já apaga a sessão pendente e para de
+  // regerar QR), só sem o diálogo de confirmação: não tem nada conectado
+  // pra perder.
+  async function handleCancelPairing() {
+    setLoading(true);
+    try {
+      await fetch(route("disconnect"), { method: "POST" });
+      setConnected(false);
+      setQrDataUrl(null);
+      setPushName(null);
+      setPictureUrl(null);
+      setIsDormant(true);
+      addToast("success", "Pareamento cancelado");
+    } finally {
+      setLoading(false);
+    }
+  }
   async function handleReconnect() {
     const ok = await confirm({
       title: `Hard Reset — apagar a sessão ${label}?`,
@@ -767,11 +788,19 @@ function WhatsAppSessionCard({
               Hard Reset
             </button>
             <button
-              onClick={() => void handleDisconnect()}
-              disabled={!connected}
+              onClick={() => void (!connected && qrDataUrl ? handleCancelPairing() : handleDisconnect())}
+              disabled={!connected && !qrDataUrl}
               className="py-2 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 font-medium text-xs hover:bg-rose-500/20 flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Plug className="w-3.5 h-3.5" /> Desconectar
+              {!connected && qrDataUrl ? (
+                <>
+                  <X className="w-3.5 h-3.5" /> Cancelar
+                </>
+              ) : (
+                <>
+                  <Plug className="w-3.5 h-3.5" /> Desconectar
+                </>
+              )}
             </button>
           </div>
         </>
