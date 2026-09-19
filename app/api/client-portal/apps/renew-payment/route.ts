@@ -100,6 +100,15 @@ export async function POST(req: NextRequest) {
     const isSecondary = client?.secondary_whatsapp_username === ctx.whatsapp_username;
     const displayName = isSecondary ? (client?.secondary_display_name || "Cliente") : (client?.display_name || "Cliente");
 
+    // ✅ 19/09/2026, pedido do Márcio: o Mercado Pago deixou de mostrar o nome
+    // do pagador no extrato do Pix — sobrou só a "Descrição da venda"
+    // (additional_info.items[].title). Inclui o Username do Servidor ali pra
+    // dar pra saber de quem é olhando só o extrato. Vazio = texto igual ao de
+    // antes.
+    const serverUsernameTag = String((client as any)?.server_username || "").trim();
+    const payerLabel = serverUsernameTag ? `${displayName} (${serverUsernameTag})` : displayName;
+    const withUsername = (text: string) => (serverUsernameTag ? `${text} — ${serverUsernameTag}` : text);
+
     const currency = String(client?.price_currency || "BRL").trim() || "BRL";
     // ✅ Pra BRL é o mesmo número, sem conversão (mantém centavos exatos,
     // igual sempre foi). Pra USD/EUR, convertAmount já arredonda pra cima.
@@ -186,7 +195,7 @@ export async function POST(req: NextRequest) {
       stripeParams.append("amount", String(Math.round(chargeAmount * 100)));
       stripeParams.append("currency", currency.toLowerCase());
       stripeParams.append("payment_method_types[]", "card");
-      stripeParams.append("description", `Renovação de licença — ${appName}`);
+      stripeParams.append("description", withUsername(`Renovação de licença — ${appName}`));
       stripeParams.append("metadata[client_id]", client_id);
       stripeParams.append("metadata[tenant_id]", String(ctx.tenant_id));
       stripeParams.append("metadata[client_app_id]", client_app_id);
@@ -488,7 +497,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         transaction_amount: chargeAmount,
-        description: `Renovação de licença — ${appName}`,
+        description: withUsername(`Renovação de licença — ${appName}`),
         payment_method_id: "pix",
         statement_descriptor: "UNIGESTOR",
         binary_mode: true,
@@ -503,8 +512,8 @@ export async function POST(req: NextRequest) {
           items: [
             {
               id: client_app_id,
-              title: `Licença — ${appName}`,
-              description: `Renovação de licença do aplicativo ${appName}, cliente ${displayName}`,
+              title: withUsername(`Licença — ${appName}`),
+              description: `Renovação de licença do aplicativo ${appName}, cliente ${payerLabel}`,
               quantity: 1,
               unit_price: chargeAmount,
             },

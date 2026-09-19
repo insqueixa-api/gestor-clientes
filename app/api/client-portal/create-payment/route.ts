@@ -188,7 +188,16 @@ const isSecondary = client.secondary_whatsapp_username === sess.whatsapp_usernam
 const displayName = isSecondary 
   ? (client.secondary_display_name || "Cliente") 
   : (client.display_name || "Cliente");
-  
+
+// ✅ 19/09/2026, pedido do Márcio: o Mercado Pago deixou de mostrar o nome
+// do pagador no extrato do Pix — sobrou só a "Descrição da venda", que vem
+// de additional_info.items[].title. Inclui o Username do Servidor ali (e no
+// description do pagamento) pra dar pra saber de quem é olhando só o
+// extrato, sem abrir o painel. Vazio = não muda nada no texto.
+const serverUsernameTag = String((client as any).server_username || "").trim();
+const payerLabel = serverUsernameTag ? `${displayName} (${serverUsernameTag})` : displayName;
+const withUsername = (text: string) => (serverUsernameTag ? `${text} — ${serverUsernameTag}` : text);
+
 let currency = String(client.price_currency || "BRL").trim() || "BRL";
 
 
@@ -658,7 +667,7 @@ if (!mpToken) {
             },
             body: JSON.stringify({
               transaction_amount: Number(finalComputedPrice),
-              description: `${displayName} - Plano ${planLabel}`,
+              description: `${payerLabel} - Plano ${planLabel}`,
               payment_method_id: "pix",
               // ✅ Itens "Descrição da fatura" e "Resposta binária" da
               // Qualidade da Integração. statement_descriptor é o texto que
@@ -683,8 +692,8 @@ if (!mpToken) {
                   ? [
                       {
                         id: String(client_id),
-                        title: `Plano ${planLabel}`,
-                        description: `Renovação de assinatura — Plano ${planLabel}, cliente ${displayName}`,
+                        title: withUsername(`Plano ${planLabel}`),
+                        description: `Renovação de assinatura — Plano ${planLabel}, cliente ${payerLabel}`,
                         quantity: 1,
                         unit_price: Number(
                           (finalComputedPrice - pendingCharges.total - appRenewalCharges.total).toFixed(2),
@@ -699,8 +708,8 @@ if (!mpToken) {
                       })),
                       ...appRenewalCharges.items.map((it) => ({
                         id: it.client_app_id,
-                        title: `Licença — ${it.app_name}`,
-                        description: `Renovação antecipada de licença do aplicativo ${it.app_name}, cliente ${displayName}`,
+                        title: withUsername(`Licença — ${it.app_name}`),
+                        description: `Renovação antecipada de licença do aplicativo ${it.app_name}, cliente ${payerLabel}`,
                         quantity: 1,
                         unit_price: it.price_amount,
                       })),
@@ -708,8 +717,8 @@ if (!mpToken) {
                   : [
                       {
                         id: String(client_id),
-                        title: `Plano ${planLabel}`,
-                        description: `Renovação de assinatura — Plano ${planLabel}, cliente ${displayName}`,
+                        title: withUsername(`Plano ${planLabel}`),
+                        description: `Renovação de assinatura — Plano ${planLabel}, cliente ${payerLabel}`,
                         quantity: 1,
                         unit_price: Number(finalComputedPrice),
                       },
@@ -821,7 +830,7 @@ if (insErr || !inserted) {
           stripeParams.append("amount", String(Math.round(Number(finalComputedPrice) * 100)));
           stripeParams.append("currency", currency.toLowerCase());
           stripeParams.append("payment_method_types[]", "card");
-          stripeParams.append("description", `${displayName} - Plano ${planLabel}`);
+          stripeParams.append("description", `${payerLabel} - Plano ${planLabel}`);
           stripeParams.append("metadata[client_id]", client_id);
           stripeParams.append("metadata[tenant_id]", String(sess.tenant_id));
           stripeParams.append("metadata[period]", period);
