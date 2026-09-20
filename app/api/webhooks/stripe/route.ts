@@ -14,15 +14,19 @@ import {
 } from "@/lib/client-portal/fulfillment";
 
 export const dynamic = "force-dynamic";
-// ✅ 60s (11/09/2026, projeto de tirar o Fluid Compute — Hobby trava em 60s
-// sem ele). Era 120s pra caber a checagem automática da Appativa (after())
-// de até ~75s — encurtada pra ~35s (FULFILLMENT_APPATIVA_POLL_ATTEMPTS em
-// lib/client-portal/fulfillment.ts) e o envio de WhatsApp de confirmação
-// deixou de ser síncrono (agora só grava na fila client_message_jobs e
-// termina). Rede de segurança pro que não resolver aqui: webhook da
-// Appativa (independente) + vigia app/api/cron/appativa-payment-watchdog
-// (1x/min, só age se achar pendência).
-export const maxDuration = 60;
+// ✅ 20/09/2026: 60s → 120s. O corte pra 60s (11/09/2026, projeto de tirar o
+// Fluid Compute) ficou esquecido aqui quando o Fluid Compute foi mantido de
+// vez em 12/09 e as rotas irmãs (admin/apps/duplecast/activate,
+// admin/apps/appativa/activate, client-portal/payment-status) voltaram a
+// subir. Achado real: renovação automática de Duplecast (after() em
+// markAppRenewalPaid → renewDuplecastWithCode, até 100s de fetch na VM)
+// sendo morta no meio do caminho por essa rota ainda estar em 60s — o
+// vencimento chegava a ser gravado no client_apps, mas a função morria
+// antes de marcar o pagamento como concluído (fulfillment_status ficava
+// manual_pending pra sempre, sem fulfillment_error nenhum). A checagem da
+// Appativa continua com a mesma janela curta (FULFILLMENT_APPATIVA_POLL_ATTEMPTS
+// em lib/client-portal/fulfillment.ts), essa folga é só pro Duplecast.
+export const maxDuration = 120;
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -25,15 +25,19 @@ import {
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-// ✅ 60s (11/09/2026, projeto de tirar o Fluid Compute — Hobby trava em 60s
-// sem ele). Era 120s pra caber a checagem automática da Appativa (after())
-// de até ~75s — encurtada pra ~35s (FULFILLMENT_APPATIVA_POLL_ATTEMPTS em
-// lib/client-portal/fulfillment.ts) e o envio de WhatsApp de confirmação
-// deixou de ser síncrono. Rede de segurança pro que não resolver aqui:
-// webhook da Appativa (independente) + vigia app/api/cron/
-// appativa-payment-watchdog (1x/min, só age se achar pendência) — e é
-// ação manual idempotente (via lock), se estourar o admin só clica de novo.
-export const maxDuration = 60;
+// ✅ 20/09/2026: 60s → 120s. O corte pra 60s (11/09/2026, projeto de tirar o
+// Fluid Compute) ficou esquecido aqui quando o Fluid Compute foi mantido de
+// vez em 12/09 e as rotas irmãs (admin/apps/duplecast/activate,
+// admin/apps/appativa/activate, client-portal/payment-status) voltaram a
+// subir. Mesma exposição achada nos webhooks de pagamento: essa rota chama
+// markAppRenewalPaid direto, cujo after() pode rodar renewDuplecastWithCode
+// (até 100s de fetch na VM) — em 60s a função podia morrer no meio,
+// gravando o vencimento no client_apps mas nunca marcando o pagamento como
+// concluído. Rede de segurança de qualquer forma: webhook da Appativa
+// (independente) + vigia app/api/cron/appativa-payment-watchdog (1x/min) —
+// e é ação manual idempotente (via lock), se estourar o admin só clica de
+// novo.
+export const maxDuration = 120;
 
 function getAppOrigin() {
   const appUrl = String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "").trim();
