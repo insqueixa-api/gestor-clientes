@@ -889,19 +889,17 @@ function FinanceiroPageContent() {
     )
     .reduce((acc, t) => acc + t.valor, 0);
 
-  // Previsão = executado + pendentes com vencimento >= hoje (exclui vencidos)
-  // ✅ Usa getTodaySP() (America/Sao_Paulo), não UTC — antes, entre ~21h e
-  // meia-noite no horário de Brasília, toISOString() já retornava a data de
-  // amanhã e uma conta vencendo hoje sumia da Previsão sem motivo aparente.
-  const todayIso = getTodaySP();
-
+  // Previsão = executado + pendentes com vencimento no mês (inclui vencidos)
+  // ✅ 21/09/2026, pedido do Márcio: vencido dentro do mês tem que continuar
+  // contando na Previsão/Pendente naturalmente — não sumir só porque a data
+  // já passou. Antes excluía tudo com data_vencimento < hoje, escondendo
+  // vencidas do total (elas só apareciam na lista/filtro de transações).
   const receitasPendentes = transacoesCards
     .filter(
       (t) =>
         t.tipo === "RECEITA" &&
         t.status !== "PAGO" &&
-        isDateInViewMonth(t.data_vencimento) &&
-        t.data_vencimento >= todayIso,
+        isDateInViewMonth(t.data_vencimento),
     )
     .reduce((acc, t) => acc + t.valor, 0);
 
@@ -910,12 +908,11 @@ function FinanceiroPageContent() {
       (t) =>
         t.tipo === "DESPESA" &&
         t.status !== "PAGO" &&
-        isDateInViewMonth(t.data_vencimento) &&
-        t.data_vencimento >= todayIso,
+        isDateInViewMonth(t.data_vencimento),
     )
     .reduce((acc, t) => acc + t.valor, 0);
 
-  // Previsão total = pago no mês + ainda a pagar/receber (sem vencidos)
+  // Previsão total = pago no mês + ainda a pagar/receber (inclui vencidos)
   const receitasTotal = receitasPagas + receitasPendentes;
   const despesasTotal = despesasPagas + despesasPendentes;
 
