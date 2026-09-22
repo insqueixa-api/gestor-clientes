@@ -4,6 +4,16 @@
 // chamada. Depois disso, o Previsto daquele mês não muda mais — qualquer
 // lançamento novo que aparecer com vencimento nesse mês vira "Ajuste", não
 // entra escondido no Previsto.
+//
+// ✅ 21/09/2026, achado do Márcio: a foto pegava a transação mesmo se ela já
+// estivesse PAGA no momento exato do disparo (ex: lançamento pago um pouco
+// antes da virada rodar), contando como "planejado" algo que já tinha virado
+// execução. "Previsto" tem que ser só o que ainda está pendente na hora da
+// foto — é isso que representa a expectativa do mês. Uma transação que já
+// estava paga não fica invisível: como não entra no snapshot, ela cai
+// naturalmente no balde de "Ajuste" (mesma lógica de app/admin/page.tsx que
+// já trata "não estava na foto" = Ajuste) e o Executado (sempre ao vivo)
+// continua contando ela do mesmo jeito de sempre.
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
@@ -52,11 +62,13 @@ async function snapshotTenant(tenantId: string, anoMes: string, force: boolean) 
 
   const { start, end } = monthRange(anoMes);
 
-  // 1) fin_transacoes com vencimento no mês
+  // 1) fin_transacoes com vencimento no mês — só as PENDENTES no momento da
+  // foto (o que já estava PAGO não é mais "planejado", vira Ajuste).
   const { data: transacoes, error } = await supabaseAdmin
     .from("fin_transacoes")
     .select("id, tipo, valor, categoria_id, data_vencimento")
     .eq("tenant_id", tenantId)
+    .eq("status", "PENDENTE")
     .gte("data_vencimento", start)
     .lte("data_vencimento", end);
 
