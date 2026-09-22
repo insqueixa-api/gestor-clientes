@@ -1168,25 +1168,32 @@ if (connection === "open") {
         continue;
       }
 
-      // ✅ LID sem número real resolvido: chamada já foi rejeitada acima
-      // (correto, usa call.from original) — mas não dá pra saber pra quem
-      // mandar a mensagem, então não manda. Ver comentário na resolução do
-      // LID logo acima do porquê disso ser necessário.
-      if (lidUnresolved) {
-        console.log(`[WA][${sessionKey.slice(0, 8)}] 🔇 LID não resolvido — mensagem de rejeição NÃO enviada (evita mandar pra número errado)`);
-        continue;
-      }
-
+      // ✅ 22/09/2026, achado do Márcio: "as mensagens eram enviadas quando
+      // alguém ligava e agora não é mais enviada" — o fix de 06/09 (não
+      // enviar quando o LID não resolve) parou uma regressão de segurança
+      // real, mas como efeito colateral passou a simplesmente NUNCA mandar
+      // mensagem nenhuma pra qualquer chamada de alguém que não estivesse já
+      // na agenda/histórico de mensagens — cada vez mais comum com o
+      // WhatsApp migrando contatos pra identidade LID por padrão.
+      // A causa raiz do bug de 06/09 nunca foi "responder pelo LID" — foi
+      // FABRICAR um JID de telefone falso a partir dos dígitos internos do
+      // LID (`{lidDigits}@s.whatsapp.net`), que podia coincidir com o número
+      // de outra pessoa de verdade. Enviar direto pro `callerJid` original
+      // (aqui, `call.from`, ainda em formato "xxx@lid" quando não resolvido)
+      // não tem esse risco — é a identidade exata que o WhatsApp informou
+      // como quem ligou, endereçada do jeito que o próprio WhatsApp entende
+      // (ver fix em normalizeJid, que agora repassa qualquer JID já pronto
+      // sem tentar reconstruir nada). lidUnresolved só muda o texto do log
+      // abaixo, não bloqueia mais o envio.
       try {
-        // ✅ Envia mensagem para o JID resolvido (número real, não LID) —
-        // via sendMessage() (mesmo wrapper de todo o resto do sistema), não
-        // mais sock.sendMessage() direto. Achado em auditoria (05/08/2026):
-        // essa era a ÚNICA mensagem do sistema saindo sem a simulação de
-        // "disponível"/"digitando..." — baixo volume, mas era um bypass real
-        // da humanização aplicada em todo o resto dos envios.
+        // ✅ Envia via sendMessage() (mesmo wrapper de todo o resto do
+        // sistema), não mais sock.sendMessage() direto. Achado em auditoria
+        // (05/08/2026): essa era a ÚNICA mensagem do sistema saindo sem a
+        // simulação de "disponível"/"digitando..." — baixo volume, mas era
+        // um bypass real da humanização aplicada em todo o resto dos envios.
         const renderedMessage = renderRejectMessage(config.rejectMessage, callerJid);
         await sendMessage(sessionKey, callerJid, renderedMessage);
-        console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${callerJid}`);
+        console.log(`[WA][${sessionKey.slice(0, 8)}] ✉️  Mensagem enviada para ${callerJid}${lidUnresolved ? " (via LID, número real desconhecido)" : ""}`);
       } catch (e) {
         console.error(`[WA][${sessionKey.slice(0, 8)}] Erro ao enviar mensagem de rejeição:`, e?.message);
       }
@@ -1601,8 +1608,21 @@ async function validateNumber(sessionKey, phone) {
 }
 
 function normalizeJid(phone) {
+  // ✅ 22/09/2026, achado do Márcio: quando quem chama já manda um JID pronto
+  // (ex: "xxxx@lid", a identidade real de quem ligou — não um número de
+  // telefone), NÃO reconstrói nada aqui. Antes disso, qualquer coisa passada
+  // pra sendMessage() virava "dígitos@s.whatsapp.net" à força — se fosse o id
+  // interno de um LID, isso fabricava um JID de telefone falso (que podia
+  // coincidir com o número de OUTRA pessoa, motivo do fix de 06/09 que
+  // passou a simplesmente não mandar mensagem nenhuma quando o LID não
+  // resolvia). Um JID que já veio pronto (contém "@") é reaproveitado como
+  // está — string de telefone/dígitos crus continua indo pelo caminho de
+  // sempre, sem mudança de comportamento.
+  const raw = String(phone);
+  if (raw.includes("@")) return raw;
+
   // Remove tudo que não for dígito
-  const digits = String(phone).replace(/\D/g, "");
+  const digits = raw.replace(/\D/g, "");
 
   // Já tem código de país (começa com 55 para Brasil)
   // Monta o JID padrão do WhatsApp
