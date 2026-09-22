@@ -1234,7 +1234,7 @@ export default function BillingPage() {
           .eq("tenant_id", tid),
 
         // 4. Busca Servidores (srvRes)
-        supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
+        supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid).eq("is_archived", false),
 
         // 5. Busca Apps (appRes)
         supabaseBrowser.from("apps").select("id, name").eq("tenant_id", tid),

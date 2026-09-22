@@ -1149,6 +1149,7 @@ function ClientePageContent() {
       .from("servers")
       .select("id, name")
       .eq("tenant_id", tenantId)
+      .eq("is_archived", false)
       .order("name", { ascending: true })
       .then(({ data }) => {
         if (alive && data)

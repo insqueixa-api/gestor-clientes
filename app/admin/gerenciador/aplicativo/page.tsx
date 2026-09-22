@@ -422,6 +422,7 @@ export default function AppManagerPage() {
           .from("servers")
           .select("id, name")
           .eq("tenant_id", tid)
+          .eq("is_archived", false)
           .order("name", { ascending: true }),
         // ✅ Catálogo já sincronizado da Appativa (achado 25/08/2026, pedido
         // do Márcio) — usado pelo seletor "Appativa" no formulário, pra

@@ -223,7 +223,8 @@ export default function CupomModal({
         supabaseBrowser
           .from("servers")
           .select("id, name")
-          .eq("tenant_id", tenantId),
+          .eq("tenant_id", tenantId)
+          .eq("is_archived", false),
         supabaseBrowser
           .from("apps")
           .select("id, name")
