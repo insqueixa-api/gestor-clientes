@@ -443,11 +443,26 @@ export default function RecargaServidorModal({
   return (
     <Modal onClose={onClose} maxWidth="max-w-3xl">
       <ModalHeader onClose={onClose}>
-        <h2 className="text-lg font-medium text-foreground tracking-tight">
-          Nova Recarga
-        </h2>
-        <div className="text-xs text-emerald-500 font-medium mt-0.5">
-          {server.name}
+        <div className="flex items-center gap-3">
+          {server.logo_url ? (
+            <img
+              src={server.logo_url}
+              alt={server.name}
+              className="w-12 h-12 rounded-xl object-cover border border-border shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-card border border-border flex items-center justify-center text-lg font-medium text-muted-foreground shrink-0">
+              {String(server.name || "?").charAt(0)}
+            </div>
+          )}
+          <div>
+            <h2 className="text-lg font-medium text-foreground tracking-tight">
+              Nova Recarga
+            </h2>
+            <div className="text-sm text-emerald-500 font-medium mt-0.5">
+              {server.name}
+            </div>
+          </div>
         </div>
       </ModalHeader>
 
