@@ -36,6 +36,8 @@ type LogRow = {
   client_name: string;
   server_username: string;
   server_name: string;
+  server_logo_url: string | null; // ✅ NOVO
+  app_icon_url: string | null; // ✅ NOVO — para payment_type === "app_renewal"
   screens: number;
   payment_method: string;
   payment_status: string;
@@ -591,18 +593,28 @@ function AuditoriaPageContent() {
             ),
           ),
         ];
-        const [clientsRes, serversRes, alertsRes] = await Promise.all([
+        // ✅ Só busca o catálogo de apps se houver ao menos um pagamento de
+        // licença avulsa nesta página (evita query desnecessária no caso
+        // comum de só ter renovações de assinatura).
+        const needsAppIcons = (paymentsData || []).some(
+          (p: any) => p.payment_type === "app_renewal",
+        );
+
+        const [clientsRes, serversRes, alertsRes, appsRes] = await Promise.all([
           clientIds.length > 0
             ? supabaseBrowser
                 .from("clients")
                 .select(
                   "id, display_name, server_username, server_id, screens, technology, secondary_display_name, secondary_whatsapp_username",
-                ) // ✅ Adicionado technology; secondary_display_name/secondary_whatsapp_username (17/09/2026, ver abaixo)
+                )
                 .in("id", clientIds)
                 .eq("tenant_id", tid)
             : Promise.resolve({ data: null as any[] | null }),
           // 3. Puxa a lista de servidores para mapear o ID para o Nome real
-          supabaseBrowser.from("servers").select("id, name").eq("tenant_id", tid),
+          supabaseBrowser
+            .from("servers")
+            .select("id, name, logo_url")
+            .eq("tenant_id", tid),
           // 3.5 Pendências quitadas por esses pagamentos — pra montar o
           // resumo "Cupom X / Pendência Y" abaixo do valor total (pedido do
           // Marcio, pra auditar a diferença entre o total e o que foi
@@ -613,6 +625,11 @@ function AuditoriaPageContent() {
                 .select("id, message, amount, client_apps(apps(name))")
                 .in("id", allAlertIds)
             : Promise.resolve({ data: null as any[] | null }),
+          // 3.6 Catálogo de apps — só o ícone, casado por nome via
+          // app_name_snapshot (payment_type='app_renewal').
+          needsAppIcons
+            ? supabaseBrowser.from("apps").select("name, icon_url")
+            : Promise.resolve({ data: null as any[] | null }),
         ]);
 
         const clientsMap: Record<string, any> = {};
@@ -621,8 +638,16 @@ function AuditoriaPageContent() {
         });
 
         const serversMap: Record<string, string> = {};
+        const serversLogoMap: Record<string, string | null> = {};
         (serversRes.data || []).forEach((s: any) => {
           serversMap[s.id] = s.name;
+          serversLogoMap[s.id] = s.logo_url ?? null;
+        });
+
+        const appsIconMap: Record<string, string | null> = {};
+        (appsRes.data || []).forEach((a: any) => {
+          appsIconMap[String(a.name || "").trim().toLowerCase()] =
+            a.icon_url ?? null;
         });
 
         const alertsMap: Record<string, { label: string; amount: number }> = {};
@@ -658,7 +683,7 @@ function AuditoriaPageContent() {
             .map((aid) => alertsMap[aid])
             .filter((p): p is { label: string; amount: number } => !!p);
 
-          return {
+                    return {
             id: r.id,
             created_at: r.created_at,
             client_id: r.client_id,
@@ -666,6 +691,12 @@ function AuditoriaPageContent() {
             technology: cInfo.technology || "IPTV",
             server_username: cInfo.server_username || "—",
             server_name: serverName,
+            server_logo_url: serversLogoMap[cInfo.server_id] ?? null, // ✅ NOVO
+            app_icon_url:
+              r.payment_type === "app_renewal" && r.app_name_snapshot
+                ? appsIconMap[String(r.app_name_snapshot).trim().toLowerCase()] ??
+                  null
+                : null, // ✅ NOVO
             screens: cInfo.screens || 1, // Puxa as telas ou assume 1
             payment_method: r.payment_method,
             payment_status: r.status,
@@ -1990,20 +2021,43 @@ function AuditoriaPageContent() {
 
                             {/* Cliente / Login / Servidor */}
                             <td className="px-4 py-3">
-                              <div className="flex flex-col">
-                                <span className="font-medium text-foreground truncate max-w-[200px]">
-                                  {r.client_name}
-                                </span>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-xs text-muted-foreground">
-                                    {r.server_username}
+                              <div className="flex items-center gap-2">
+                                {(() => {
+                                  const iconUrl =
+                                    r.payment_type === "app_renewal"
+                                      ? r.app_icon_url
+                                      : r.server_logo_url;
+                                  return iconUrl ? (
+                                    <img
+                                      src={iconUrl}
+                                      alt=""
+                                      className="w-7 h-7 rounded-lg object-cover border border-border shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-7 h-7 rounded-lg bg-muted border border-border flex items-center justify-center text-[10px] font-medium text-muted-foreground shrink-0">
+                                      {r.payment_type === "app_renewal"
+                                        ? "📱"
+                                        : String(r.server_name || "?").charAt(
+                                            0,
+                                          )}
+                                    </div>
+                                  );
+                                })()}
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-medium text-foreground truncate max-w-[200px]">
+                                    {r.client_name}
                                   </span>
-                                  <span className="text-muted-foreground/60">
-                                    •
-                                  </span>
-                                  <span className="text-[11px] text-muted-foreground">
-                                    {r.server_name}
-                                  </span>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="text-xs text-muted-foreground">
+                                      {r.server_username}
+                                    </span>
+                                    <span className="text-muted-foreground/60">
+                                      •
+                                    </span>
+                                    <span className="text-[11px] text-muted-foreground">
+                                      {r.server_name}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </td>
@@ -2043,7 +2097,7 @@ function AuditoriaPageContent() {
                               </span>
                             </td>
 
-                            {/* Pagamento (Status + Ref) */}
+                                                        {/* Pagamento (Status + Ref) */}
                             <td className="px-4 py-3 text-center">
                               <div className="flex flex-col gap-1 items-center">
                                 {getPaymentBadge(
@@ -2063,42 +2117,51 @@ function AuditoriaPageContent() {
                                         "Código da transação copiado!",
                                       );
                                     }}
-                                    className="text-[9px] text-muted-foreground bg-transparent px-1.5 py-0.5 rounded border border-border hover:border-emerald-500 hover:text-emerald-500 transition-colors"
+                                    className="text-[10px] text-muted-foreground bg-transparent px-2 py-1 rounded border border-border hover:border-emerald-500 hover:text-emerald-500 transition-colors"
                                     title="Clique para copiar a referência"
                                   >
                                     Ref: {String(r.mp_payment_id).slice(-8)}
                                   </button>
                                 )}
+                                {/* ✅ Movido da coluna Renovação: fluxo manual concluído,
+                                só para renovação de assinatura (não de app). */}
+                                {r.payment_type !== "app_renewal" &&
+                                  (r.fulfillment_status === "manual_pending" ||
+                                    r.fulfillment_status === "manual_done" ||
+                                    r.fulfillment_status ===
+                                      "manual_cancelled") &&
+                                  !r.fulfillment_error && (
+                                    <span className="text-[10px] text-muted-foreground font-medium">
+                                      Renovação de Assinatura
+                                    </span>
+                                  )}
                               </div>
                             </td>
-                            {/* Renovação */}
+                                                        {/* Renovação */}
                             <td className="px-4 py-3 text-center">
                               <div className="flex flex-col gap-1 items-center">
-                                                           {" "}
+                                                           {" "}
                                 {getFulfillmentBadge(
                                   r.fulfillment_status,
                                   r.payment_status,
                                   r.created_at,
                                   r.fulfilled_automatically,
                                 )}
-                                {/* Cor neutra para todos os fluxos manuais (Pendente, Concluído ou Cancelado) */}
+                                {/* ✅ "Renovação de Assinatura" saiu daqui — agora fica
+                                embaixo da badge de Pagamento. "Renovação de Aplicativo"
+                                foi removido de vez, não aparece em lugar nenhum. Aqui só
+                                sobra o erro real, quando existir. */}
                                 {r.fulfillment_status === "manual_pending" ||
                                 r.fulfillment_status === "manual_done" ||
                                 r.fulfillment_status === "manual_cancelled" ? (
-                                  <span
-                                    className="text-[10px] text-muted-foreground leading-tight max-w-[200px] truncate font-medium"
-                                    title={
-                                      r.fulfillment_error ||
-                                      (r.payment_type === "app_renewal"
-                                        ? "Renovação de Aplicativo"
-                                        : "Renovação de Assinatura")
-                                    }
-                                  >
-                                    {r.fulfillment_error ||
-                                      (r.payment_type === "app_renewal"
-                                        ? "Renovação de Aplicativo"
-                                        : "Renovação de Assinatura")}
-                                  </span>
+                                  r.fulfillment_error && (
+                                    <span
+                                      className="text-[10px] text-muted-foreground leading-tight max-w-[200px] truncate font-medium"
+                                      title={r.fulfillment_error}
+                                    >
+                                      {r.fulfillment_error}
+                                    </span>
+                                  )
                                 ) : (
                                   /* Erros reais de API continuam vermelhos */
                                   r.fulfillment_error &&
@@ -2111,7 +2174,7 @@ function AuditoriaPageContent() {
                                     </span>
                                   )
                                 )}
-                                                         {" "}
+                                                         {" "}
                               </div>
                             </td>
 
