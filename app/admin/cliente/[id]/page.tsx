@@ -180,6 +180,7 @@ type ClientDetail = {
 
   server_id: string;
   server_name: string;
+  server_logo_url: string | null; // ✅ NOVO
   technology: string | null; // ✅ NOVO
 
   plan_name: string;
@@ -667,6 +668,7 @@ export default function ClientDetailsPage() {
 
         server_id: String(row.server_id ?? ""),
         server_name: String(row.server_name ?? row.server_id ?? "—"),
+        server_logo_url: null, // ✅ preenchido logo abaixo, fora do bundle
         technology: row.technology ?? "—", // ✅ Mapeia
 
         plan_name: String(row.plan_name ?? "—"),
@@ -754,6 +756,16 @@ export default function ClientDetailsPage() {
             icon_url: catalogApp?.icon_url || null,
           };
         });
+      }
+
+      // ✅ Logo do servidor — busca à parte (não vem no bundle do RPC)
+      if (mapped.server_id) {
+        const { data: srvLogo } = await supabaseBrowser
+          .from("servers")
+          .select("logo_url")
+          .eq("id", mapped.server_id)
+          .maybeSingle();
+        mapped.server_logo_url = srvLogo?.logo_url ?? null;
       }
 
       setClient(mapped);
@@ -1165,6 +1177,17 @@ export default function ClientDetailsPage() {
                   Servidor
                 </span>
                 <span className="inline-flex items-center gap-2">
+                  {client.server_logo_url ? (
+                    <img
+                      src={client.server_logo_url}
+                      alt={client.server_name}
+                      className="w-5 h-5 rounded object-cover border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-5 h-5 rounded bg-card border border-border flex items-center justify-center text-[8px] font-medium text-muted-foreground shrink-0">
+                      {String(client.server_name || "?").charAt(0)}
+                    </div>
+                  )}
                   <span className="font-medium text-foreground text-right">
                     {client.server_name}
                   </span>
