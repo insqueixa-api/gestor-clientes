@@ -1950,8 +1950,8 @@ function AuditoriaPageContent() {
                   <thead>
                     <tr className="border-b border-border text-[11px] font-medium uppercase tracking-wider text-muted-foreground bg-transparent">
                       <th className="px-4 py-3">Data / Hora</th>
-                      <th className="px-4 py-3">Cliente / Login / Servidor</th>
-                      <th className="px-4 py-3 text-center">Plano / Telas</th>
+                      <th className="px-4 py-3">Cliente / Servidor</th>
+                      <th className="px-4 py-3 text-left">Plano / Aplicativo</th>
                       <th className="px-4 py-3 text-center">Banco</th>
                       <th className="px-4 py-3 text-center">Pagamento</th>
                       <th className="px-4 py-3 text-center">Renovação</th>
@@ -2021,7 +2021,27 @@ function AuditoriaPageContent() {
 
                             {/* Cliente / Login / Servidor */}
                             <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col min-w-0">
+                                <span className="font-medium text-foreground truncate max-w-[200px]">
+                                  {r.client_name}
+                                </span>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-xs text-muted-foreground">
+                                    {r.server_username}
+                                  </span>
+                                  <span className="text-muted-foreground/60">
+                                    •
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {r.server_name}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Plano / Aplicativos (ou App, se for licença avulsa) */}
+                            <td className="px-4 py-3 text-left">
+                              <div className="flex items-center gap-3">
                                 {(() => {
                                   const iconUrl =
                                     r.payment_type === "app_renewal"
@@ -2037,55 +2057,34 @@ function AuditoriaPageContent() {
                                     <div className="w-7 h-7 rounded-lg bg-muted border border-border flex items-center justify-center text-[10px] font-medium text-muted-foreground shrink-0">
                                       {r.payment_type === "app_renewal"
                                         ? "📱"
-                                        : String(r.server_name || "?").charAt(
-                                            0,
-                                          )}
+                                        : String(r.server_name || "?").charAt(0)}
                                     </div>
                                   );
                                 })()}
-                                <div className="flex flex-col min-w-0">
-                                  <span className="font-medium text-foreground truncate max-w-[200px]">
-                                    {r.client_name}
-                                  </span>
-                                  <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className="text-xs text-muted-foreground">
-                                      {r.server_username}
+                                
+                                {r.payment_type === "app_renewal" ? (
+                                  <div className="flex flex-col gap-0.5 items-start">
+                                    <span className="text-xs font-medium text-foreground/80">
+                                      Aplicativo
                                     </span>
-                                    <span className="text-muted-foreground/60">
-                                      •
-                                    </span>
-                                    <span className="text-[11px] text-muted-foreground">
-                                      {r.server_name}
+                                    <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                                      {r.app_name_snapshot || "Aplicativo"}
                                     </span>
                                   </div>
-                                </div>
+                                ) : (
+                                  <div className="flex flex-col gap-0.5 items-start">
+                                    <span className="text-xs font-medium text-foreground/80">
+                                      {r.plan_label ||
+                                        PERIOD_LABELS[r.period] ||
+                                        r.period}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {r.screens}{" "}
+                                      {r.screens === 1 ? "tela" : "telas"}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
-                            </td>
-
-                            {/* Plano / Telas (ou App, se for licença avulsa) */}
-                            <td className="px-4 py-3 text-center">
-                              {r.payment_type === "app_renewal" ? (
-                                <div className="flex flex-col gap-0.5 items-center">
-                                  <span className="px-2 py-0.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-[10px] font-bold uppercase">
-                                    📱 Licença de App
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
-                                    {r.app_name_snapshot || "Aplicativo"}
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="flex flex-col gap-0.5 items-center">
-                                  <span className="text-xs font-medium text-foreground/80">
-                                    {r.plan_label ||
-                                      PERIOD_LABELS[r.period] ||
-                                      r.period}
-                                  </span>
-                                  <span className="text-[10px] text-muted-foreground">
-                                    {r.screens}{" "}
-                                    {r.screens === 1 ? "tela" : "telas"}
-                                  </span>
-                                </div>
-                              )}
                             </td>
 
                             {/* Banco */}
@@ -2117,10 +2116,10 @@ function AuditoriaPageContent() {
                                         "Código da transação copiado!",
                                       );
                                     }}
-                                    className="text-[10px] text-muted-foreground bg-transparent px-2 py-1 rounded border border-border hover:border-emerald-500 hover:text-emerald-500 transition-colors"
+                                    className="text-[10px] text-muted-foreground font-medium hover:text-emerald-500 transition-colors"
                                     title="Clique para copiar a referência"
                                   >
-                                    Ref: {String(r.mp_payment_id).slice(-8)}
+                                    Ref: {r.mp_payment_id}
                                   </button>
                                 )}
                                 {/* ✅ Movido da coluna Renovação: fluxo manual concluído,
