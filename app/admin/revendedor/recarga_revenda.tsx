@@ -45,6 +45,7 @@ type ResellerServerRow = {
   server_id: string;
   server_name: string | null;
   server_is_archived: boolean | null;
+  server_logo_url: string | null; // ✅ NOVO
 
   // pode existir no seu view
   unit_price_override?: number | null;
@@ -386,6 +387,7 @@ export default function QuickRechargeModal({
           server_id: String(r.server_id ?? ""),
           server_name: r.server_name ?? null,
           server_is_archived: r.server_is_archived ?? false,
+          server_logo_url: r.server_logo_url ?? null, // ✅ NOVO
 
           unit_price_override:
             r.unit_price_override != null
@@ -724,26 +726,39 @@ export default function QuickRechargeModal({
               {/* Servidor Selecionado */}
               <div className="animate-in slide-in-from-bottom-2 duration-300">
                 <Label>Servidor vinculado</Label>
-                <Select
-                  value={selectedResellerServerId}
-                  disabled={!!lockServer}
-                  onChange={(e) => {
-                    if (lockServer) return;
-                    // Apenas atualiza o ID. O useEffect lá em cima fará toda a mágica (buscar histórico ou aplicar override).
-                    setSelectedResellerServerId(e.target.value);
-                    setNotes("");
-                  }}
-                >
-                  <option value="">Selecione o servidor...</option>
-                  {servers.map((s) => (
-                    <option
-                      key={s.reseller_server_id}
-                      value={s.reseller_server_id}
-                    >
-                      {s.server_name || "Servidor"}
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex items-center gap-2">
+                  {selectedLink?.server_logo_url ? (
+                    <img
+                      src={selectedLink.server_logo_url}
+                      alt={selectedLink.server_name || ""}
+                      className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                      {String(selectedLink?.server_name || "?").charAt(0)}
+                    </div>
+                  )}
+                  <Select
+                    value={selectedResellerServerId}
+                    disabled={!!lockServer}
+                    onChange={(e) => {
+                      if (lockServer) return;
+                      // Apenas atualiza o ID. O useEffect lá em cima fará toda a mágica (buscar histórico ou aplicar override).
+                      setSelectedResellerServerId(e.target.value);
+                      setNotes("");
+                    }}
+                  >
+                    <option value="">Selecione o servidor...</option>
+                    {servers.map((s) => (
+                      <option
+                        key={s.reseller_server_id}
+                        value={s.reseller_server_id}
+                      >
+                        {s.server_name || "Servidor"}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
                 {lockServer && (
                   <p className="text-[10px] text-muted-foreground/60 mt-1 italic">
                     * Servidor travado para este contexto.
