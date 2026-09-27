@@ -31,6 +31,7 @@ import AppInstanceFields from "@/components/apps/AppInstanceFields";
 type SelectOption = {
   id: string;
   name: string;
+  logo_url?: string | null; // ✅ NOVO
 };
 
 export type ClientData = {
@@ -675,6 +676,8 @@ export default function NovoCliente({
     return tables.find((t) => t.id === selectedTableId) || null;
   }, [tables, selectedTableId]);
 
+  
+
   // --- DADOS (TAB 1) ---
   const [salutation, setSalutation] = useState<string>("");
   const [name, setName] = useState("");
@@ -801,6 +804,11 @@ export default function NovoCliente({
   // --- PAGAMENTO (TAB 2) ---
   const [serverId, setServerId] = useState("");
   const [username, setUsername] = useState("");
+
+  const selectedServer = useMemo(
+    () => servers.find((s) => String(s.id) === String(serverId)) || null,
+    [servers, serverId],
+  );
   // ✅ Vira true assim que o admin edita o campo Usuário na mão — trava as
   // sugestões automáticas de username (troca de sufixo no Teste Rápido /
   // montagem nome+servidor na criação do zero) pra não sobrescrever o que
@@ -1314,7 +1322,7 @@ export default function NovoCliente({
           // 1. Servidores
           supabaseBrowser
             .from("servers")
-            .select("id, name")
+            .select("id, name, logo_url")
             .eq("tenant_id", tid)
             .eq("is_archived", false),
           // 2. Apps (Catálogo Completo com Configuração)
@@ -1420,10 +1428,13 @@ export default function NovoCliente({
         // Setters de Auxiliares
         if (srvRes.data) {
           setServers(
-            srvRes.data.map((s: { id: string; name: string }) => ({
-              id: s.id,
-              name: s.name,
-            })),
+            srvRes.data.map(
+              (s: { id: string; name: string; logo_url?: string | null }) => ({
+                id: s.id,
+                name: s.name,
+                logo_url: s.logo_url ?? null,
+              }),
+            ),
           );
         }
 
@@ -5479,7 +5490,7 @@ export default function NovoCliente({
 
                   {/* Inputs Acesso */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="sm:col-span-2">
+                                        <div className="sm:col-span-2">
                       <div className="flex justify-between items-center mb-1">
                         <label className="block text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                           Servidor *
@@ -5497,18 +5508,31 @@ export default function NovoCliente({
                           </button>
                         )}
                       </div>
-                      <Select
-                        value={serverId}
-                        onChange={(e) => setServerId(e.target.value)}
-                        className="mt-0"
-                      >
-                        <option value="">Selecione...</option>
-                        {servers.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </Select>
+                      <div className="flex items-center gap-2">
+                        {selectedServer?.logo_url ? (
+                          <img
+                            src={selectedServer.logo_url}
+                            alt={selectedServer.name}
+                            className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                            {String(selectedServer?.name || "?").charAt(0)}
+                          </div>
+                        )}
+                        <Select
+                          value={serverId}
+                          onChange={(e) => setServerId(e.target.value)}
+                          className="mt-0"
+                        >
+                          <option value="">Selecione...</option>
+                          {servers.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
                     </div>
 
                     <div>
