@@ -12,6 +12,7 @@ type ServerOption = {
   id: string;
   name: string;
   default_currency?: string | null;
+  logo_url?: string | null; // ✅ NOVO
 };
 
 // Interface
@@ -136,7 +137,7 @@ export default function VincularServidor({
         // Busca servidores direto do banco
         const { data, error } = await supabaseBrowser
           .from("servers")
-          .select("id, name, default_currency")
+          .select("id, name, default_currency, logo_url")
           .eq("tenant_id", tid)
           .eq("is_archived", false)
           .order("name");
@@ -163,6 +164,11 @@ export default function VincularServidor({
     if (!username || !username.trim()) return false;
     return true;
   }, [serverId, username]);
+
+    const selectedServer = useMemo(
+    () => servers.find((s) => String(s.id) === String(serverId)) || null,
+    [servers, serverId],
+  );
 
   // 2. Salvar Vínculo (INSERT/UPDATE direto)
   async function onSave() {
@@ -260,21 +266,34 @@ export default function VincularServidor({
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Servidor */}
+                            {/* Servidor */}
               <div>
                 <Label>Servidor</Label>
-                <Select
-                  value={serverId}
-                  onChange={(e) => setServerId(e.target.value)}
-                  disabled={loadingServers || isEdit}
-                >
-                  <option value="">Selecione o servidor...</option>
-                  {servers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
+                <div className="flex items-center gap-2">
+                  {selectedServer?.logo_url ? (
+                    <img
+                      src={selectedServer.logo_url}
+                      alt={selectedServer.name}
+                      className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                      {String(selectedServer?.name || "?").charAt(0)}
+                    </div>
+                  )}
+                  <Select
+                    value={serverId}
+                    onChange={(e) => setServerId(e.target.value)}
+                    disabled={loadingServers || isEdit}
+                  >
+                    <option value="">Selecione o servidor...</option>
+                    {servers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
 
               {/* Grid User/Pass */}
