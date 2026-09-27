@@ -22,6 +22,7 @@ interface ClientFromView {
   external_user_id?: string | null; // ✅ ADICIONADO PARA A ELITE
   server_id: string | null;
   server_name: string | null;
+  server_logo_url: string | null; // ✅ NOVO
 
   plan_name: string | null;
 
@@ -443,7 +444,7 @@ export default function RecargaCliente({
           Promise.resolve(tenantId),
           supabaseBrowser
             .from("clients")
-            .select("*, servers(name)")
+            .select("*, servers(name, logo_url)")
             .eq("id", clientId)
             .single(),
         ]);
@@ -457,12 +458,13 @@ export default function RecargaCliente({
           return;
         }
 
-        // Simula o formato da view antiga para não quebrar nada no seu código
+// Simula o formato da view antiga para não quebrar nada no seu código
         const client = {
           ...rawClient,
           display_name: rawClient.display_name,
           username: rawClient.server_username,
           server_name: rawClient.servers?.name || null,
+          server_logo_url: rawClient.servers?.logo_url || null, // ✅ NOVO
           plan_name: rawClient.plan_label,
           // ✅ Espelha exatamente a CASE de computed_status das views
           // vw_clients_list_* (docs/sql/add_name_prefix_to_list_views.sql) —
@@ -2097,6 +2099,20 @@ export default function RecargaCliente({
                   </svg>
                 )}
               </div>
+
+              {/* ✅ NOVO: Logo do servidor */}
+              {clientData?.server_logo_url ? (
+                <img
+                  src={clientData.server_logo_url}
+                  alt={clientData.server_name || ""}
+                  className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                  {String(clientData?.server_name || "?").charAt(0)}
+                </div>
+              )}
+
               <div>
                 <h2 className="text-base font-medium text-foreground leading-tight">
                   {headerTitle}
