@@ -1181,10 +1181,10 @@ export default function ClientDetailsPage() {
                     <img
                       src={client.server_logo_url}
                       alt={client.server_name}
-                      className="w-5 h-5 rounded object-cover border border-border shrink-0"
+                      className="w-8 h-8 rounded-md object-cover border border-border shrink-0"
                     />
                   ) : (
-                    <div className="w-5 h-5 rounded bg-card border border-border flex items-center justify-center text-[8px] font-medium text-muted-foreground shrink-0">
+                    <div className="w-8 h-8 rounded-md bg-card border border-border flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
                       {String(client.server_name || "?").charAt(0)}
                     </div>
                   )}
@@ -1296,7 +1296,7 @@ export default function ClientDetailsPage() {
                 </div>
 
                 <div className="flex gap-2.5 items-center">
-                  <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
                     {primaryContact?.avatar_url ? (
                       <img
                         src={primaryContact.avatar_url}
@@ -1304,7 +1304,7 @@ export default function ClientDetailsPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <span className="text-muted-foreground text-xs font-medium">
+                      <span className="text-muted-foreground text-lg font-medium">
                         {(client.client_name || "?").charAt(0).toUpperCase()}
                       </span>
                     )}
@@ -1383,7 +1383,7 @@ export default function ClientDetailsPage() {
                   </div>
 
                   <div className="flex gap-2.5 items-center">
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
                       {secondaryContact?.avatar_url ? (
                         <img
                           src={secondaryContact.avatar_url}
@@ -1391,7 +1391,7 @@ export default function ClientDetailsPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-muted-foreground text-xs font-medium">
+                        <span className="text-muted-foreground text-lg font-medium">
                           {(client.secondary_display_name || "?")
                             .charAt(0)
                             .toUpperCase()}

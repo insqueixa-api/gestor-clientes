@@ -274,10 +274,10 @@ export default function VincularServidor({
                     <img
                       src={selectedServer.logo_url}
                       alt={selectedServer.name}
-                      className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+                      className="w-8 h-8 rounded-md object-cover border border-border shrink-0"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                    <div className="w-8 h-8 rounded-md bg-card border border-border flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
                       {String(selectedServer?.name || "?").charAt(0)}
                     </div>
                   )}

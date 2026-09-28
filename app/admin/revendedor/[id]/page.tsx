@@ -709,21 +709,21 @@ export default function ResellerDetailPage() {
                   >
                     {/* Info do Servidor */}
                     <div className="flex items-center gap-4 mb-3 sm:mb-0">
-  {s.server_logo_url ? (
-    <img
-      src={s.server_logo_url}
-      alt={s.server_name}
-      className="w-10 h-10 rounded-lg object-cover border border-border shrink-0"
-    />
-  ) : (
-    <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center font-medium text-muted-foreground shrink-0">
-      {String(s.server_name || "?").charAt(0)}
-    </div>
-  )}
-  <div>
-    <div className="font-medium text-foreground text-sm">
-      {s.server_name}
-    </div>
+                      {s.server_logo_url ? (
+                        <img
+                          src={s.server_logo_url}
+                          alt={s.server_name}
+                          className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-card border border-border flex items-center justify-center text-lg font-medium text-muted-foreground shrink-0">
+                          {String(s.server_name || "?").charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium text-foreground text-sm">
+                          {s.server_name}
+                        </div>
                         <div className="text-xs text-muted-foreground flex items-center gap-2">
                           <span>User: {s.server_username || "—"}</span>
                           {s.server_password && (

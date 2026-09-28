@@ -2051,10 +2051,10 @@ function AuditoriaPageContent() {
   <img
     src={iconUrl}
     alt=""
-    className="w-14 h-14 rounded-lg object-cover border border-border shrink-0"
+    className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
   />
 ) : (
-  <div className="w-14 h-14 rounded-lg bg-muted border border-border flex items-center justify-center text-xl font-medium text-muted-foreground shrink-0">
+  <div className="w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center text-lg font-medium text-muted-foreground shrink-0">
                                       {r.payment_type === "app_renewal"
                                         ? "📱"
                                         : String(r.server_name || "?").charAt(0)}

@@ -5513,10 +5513,10 @@ export default function NovoCliente({
                           <img
                             src={selectedServer.logo_url}
                             alt={selectedServer.name}
-                            className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+                            className="w-10 h-10 rounded-lg object-cover border border-border shrink-0"
                           />
                         ) : (
-                          <div className="w-8 h-8 rounded-lg bg-card border border-border flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                          <div className="w-10 h-10 rounded-lg bg-card border border-border flex items-center justify-center text-base font-medium text-muted-foreground shrink-0">
                             {String(selectedServer?.name || "?").charAt(0)}
                           </div>
                         )}

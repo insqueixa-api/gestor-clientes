@@ -709,10 +709,10 @@ export default function AdminServersPage() {
                       <img
                         src={server.logo_url}
                         alt={server.name}
-                        className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
+                        className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-lg bg-transparent border border-border flex items-center justify-center shrink-0 text-base">
+                      <div className="w-12 h-12 rounded-lg bg-transparent border border-border flex items-center justify-center shrink-0 text-2xl">
                         📡
                       </div>
                     )}

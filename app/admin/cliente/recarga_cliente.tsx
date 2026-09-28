@@ -2074,16 +2074,16 @@ export default function RecargaCliente({
                 <img
                   src={clientData.server_logo_url}
                   alt={clientData.server_name || ""}
-                  className="w-8 h-8 rounded-full object-cover border border-border shrink-0"
+                  className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                 />
               ) : (
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${isFromTrial ? "bg-sky-500/10 text-sky-500" : "bg-emerald-500/10 text-emerald-500"}`}
+                  className={`w-12 h-12 rounded-lg shrink-0 border border-border flex items-center justify-center ${isFromTrial ? "bg-sky-500/10 text-sky-500" : "bg-emerald-500/10 text-emerald-500"}`}
                 >
                   {isFromTrial ? (
                     <svg
-                      width="18"
-                      height="18"
+                      width="24"
+                      height="24"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -2096,8 +2096,8 @@ export default function RecargaCliente({
                     </svg>
                   ) : (
                     <svg
-                      width="18"
-                      height="18"
+                      width="24"
+                      height="24"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"

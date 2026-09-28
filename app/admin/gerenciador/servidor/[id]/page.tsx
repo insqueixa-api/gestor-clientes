@@ -554,10 +554,10 @@ export default function ServerDetailsPage() {
               <img
                 src={server.logo_url}
                 alt={server.name}
-                className="w-10 h-10 rounded-xl object-cover border border-border shrink-0"
+                className="w-12 h-12 rounded-xl object-cover border border-border shrink-0"
               />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-transparent flex items-center justify-center shrink-0 text-xl">
+              <div className="w-12 h-12 rounded-xl bg-transparent flex items-center justify-center shrink-0 text-2xl">
                 📡
               </div>
             )}
