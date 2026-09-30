@@ -180,11 +180,13 @@ export async function syncIptvRecargaServidores(
   }
 }
 
-// ✅ Receita — client_renewals + server_credit_sales são as mesmas 2
-// tabelas brutas que vw_dashboard_finance_cards usa (renewals_amount_daily
-// / sales_daily), só que filtradas por tenantId direto em vez de resolver
-// via auth.uid(). Nenhuma conversão de câmbio necessária aqui — ambas as
-// tabelas já guardam o valor em BRL.
+// ✅ Receita — client_renewals + server_credit_sales + renovações de app
+// pagas (client_portal_payments payment_type=app_renewal, 30/09/2026) são
+// as mesmas tabelas brutas que vw_dashboard_finance_cards usa
+// (renewals_amount_daily / sales_daily / apps_daily), só que filtradas por
+// tenantId direto em vez de resolver via auth.uid(). client_renewals e
+// server_credit_sales já guardam em BRL; app pode vir em USD/EUR e é
+// convertido pela mesma cotação do tenant (tenant_fx_rates) que a view usa.
 export async function syncIptvRendimentos(
   supabaseAdmin: any,
   tenantId: string,
@@ -192,7 +194,7 @@ export async function syncIptvRendimentos(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const { dataVenc, mesStart, mesStartStr, mesEndStr, dataPagamentoMes } = monthBounds(dateObj);
-    const [{ catId, contaMpPj }, { data: renewals }, { data: sales }] = await Promise.all([
+    const [{ catId, contaMpPj }, { data: renewals }, { data: sales }, { data: apps }, { data: fx }] = await Promise.all([
       resolveIptvContext(supabaseAdmin, tenantId),
       supabaseAdmin
         .from("client_renewals")
@@ -206,13 +208,37 @@ export async function syncIptvRendimentos(
         .eq("tenant_id", tenantId)
         .gte("created_at", mesStartStr)
         .lte("created_at", mesEndStr),
+      supabaseAdmin
+        .from("client_portal_payments")
+        .select("price_amount, price_currency")
+        .eq("tenant_id", tenantId)
+        .eq("payment_type", "app_renewal")
+        .in("status", ["approved", "manual_approved"])
+        .gte("paid_at", mesStartStr)
+        .lte("paid_at", mesEndStr),
+      supabaseAdmin
+        .from("tenant_fx_rates")
+        .select("usd_to_brl, eur_to_brl")
+        .eq("tenant_id", tenantId)
+        .maybeSingle(),
     ]);
+
+    const usdToBrl = Number(fx?.usd_to_brl ?? 5);
+    const eurToBrl = Number(fx?.eur_to_brl ?? 6);
+    const appToBrl = (a: any) => {
+      const amount = Number(a.price_amount || 0);
+      const cur = String(a.price_currency || "BRL").toUpperCase();
+      if (cur === "USD") return amount * usdToBrl;
+      if (cur === "EUR") return amount * eurToBrl;
+      return amount;
+    };
 
     if (!catId) return { ok: false, error: 'Categoria "IPTV" não encontrada.' };
 
     const valor =
       (renewals || []).reduce((acc: number, r: any) => acc + Number(r.total_amount || 0), 0) +
-      (sales || []).reduce((acc: number, s: any) => acc + Number(s.total_amount_brl || 0), 0);
+      (sales || []).reduce((acc: number, s: any) => acc + Number(s.total_amount_brl || 0), 0) +
+      (apps || []).reduce((acc: number, a: any) => acc + appToBrl(a), 0);
 
     return upsertIptvLancamento(supabaseAdmin, tenantId, {
       descricao: "IPTV - Rendimentos",

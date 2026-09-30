@@ -467,11 +467,13 @@ function FinanceiroPageContent() {
       if (isMesAtual) {
         valorIptv =
           Number(resF.data?.clients_paid_month_brl_estimated || 0) +
-          Number(resF.data?.reseller_paid_month_brl || 0);
+          Number(resF.data?.reseller_paid_month_brl || 0) +
+          Number(resF.data?.apps_paid_month_brl || 0);
       } else if (isMesAnterior) {
         valorIptv =
           Number(resF.data?.clients_paid_prev_month_brl_estimated || 0) +
-          Number(resF.data?.reseller_paid_prev_month_brl || 0);
+          Number(resF.data?.reseller_paid_prev_month_brl || 0) +
+          Number(resF.data?.apps_paid_prev_month_brl || 0);
       }
       const valorDespesas = (resPurchases.data || []).reduce(
         (acc, row) => acc + Number(row.total_amount_brl),

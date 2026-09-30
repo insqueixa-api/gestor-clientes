@@ -282,6 +282,15 @@ export async function markAppRenewalPaid(
     return; // já tinha sido processado por outra chamada — não notifica de novo
   }
 
+  // ✅ 30/09/2026, pedido do Márcio: renovação de app paga também é
+  // receita — "IPTV - Rendimentos" já soma apps (syncIptvRendimentos),
+  // sincroniza na hora igual à renovação de assinatura. Fail-soft.
+  try {
+    await syncIptvRendimentos(supabaseAdmin, tenantId);
+  } catch (e) {
+    safeServerLog("markAppRenewalPaid: failed to sync IPTV rendimentos", (e as any)?.message);
+  }
+
   // ✅ 08/09/2026, pedido do Márcio: cupom pessoal por app (target_app_names)
   // — mesmo registro de resgate + autodesativação que já existe pra
   // assinatura (ver bloco equivalente mais abaixo, no runFulfillment), só
@@ -1835,21 +1844,56 @@ if (newPassword) updatePayload.server_password = String(newPassword);
   }
 
 try {
-    const { error: renErr } = await supabaseAdmin.from("client_renewals").insert({
-      tenant_id: tenantId,
-      client_id: client.id,
-      server_id: client.server_id,
-      months,
-      screens: qtyScreens,
-      currency: safeCurrency,
-      unit_price: unitPrice,
-      total_amount: totalPaid,
-      credits_per_month: 1,
-credits_used: months * qtyScreens,
-      status: "PAID",
-      // REMOVIDO: new_vencimento (Coluna não existe na tabela client_renewals no banco)
-      notes: `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`,
-    });
+    const renewalNotes = `Renovação via Portal do Cliente · ${clientName} (${login}) · ${months} mês(es) · ${qtyScreens} tela(s) · ${formattedMoney} · MP: ${String(payment.mp_payment_id)}`;
+
+    // ✅ 30/09/2026 (achado do Márcio: "Recebidos Hoje" contando Elite 2x):
+    // se este mesmo pagamento já tinha caído antes no fluxo manual
+    // (notifyManual grava PENDING com "Ref: <mp_payment_id> ·") e agora deu
+    // certo (ex: "Reprocessar" da Auditoria), a linha PENDING vira PAID —
+    // o dinheiro já tinha sido recebido, não cria outra. Mesma regra de
+    // _settle_pending_client_renewal (docs/sql/
+    // fix_client_renewals_pending_duplicado.sql).
+    const { data: pendingRow } = payment.mp_payment_id
+      ? await supabaseAdmin
+          .from("client_renewals")
+          .select("id, notes")
+          .eq("tenant_id", tenantId)
+          .eq("client_id", client.id)
+          .eq("status", "PENDING")
+          .like("notes", `%Ref: ${String(payment.mp_payment_id)} ·%`)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
+
+    const { error: renErr } = pendingRow
+      ? await supabaseAdmin
+          .from("client_renewals")
+          .update({
+            status: "PAID",
+            server_id: client.server_id,
+            months,
+            screens: qtyScreens,
+            credits_per_month: 1,
+            credits_used: months * qtyScreens,
+            notes: `${String(pendingRow.notes || "").replace("[RENOVAÇÃO MANUAL PENDENTE]", "[RENOVAÇÃO MANUAL CONCLUÍDA]")} · Concluída: ${renewalNotes}`,
+          })
+          .eq("id", pendingRow.id)
+      : await supabaseAdmin.from("client_renewals").insert({
+          tenant_id: tenantId,
+          client_id: client.id,
+          server_id: client.server_id,
+          months,
+          screens: qtyScreens,
+          currency: safeCurrency,
+          unit_price: unitPrice,
+          total_amount: totalPaid,
+          credits_per_month: 1,
+          credits_used: months * qtyScreens,
+          status: "PAID",
+          // REMOVIDO: new_vencimento (Coluna não existe na tabela client_renewals no banco)
+          notes: renewalNotes,
+        });
 
     if (renErr) {
       await supabaseAdmin.from("client_events").insert({

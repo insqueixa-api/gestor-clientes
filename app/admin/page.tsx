@@ -54,6 +54,15 @@ type VwFinanceCards = {
 
   to_receive_clients_qty: number | string | null;
   to_receive_brl_estimated: number | string | null;
+
+  // ✅ 30/09/2026: renovações de aplicativo pagas (client_portal_payments
+  // payment_type=app_renewal) — o painel soma junto com Revenda.
+  apps_paid_today_qty?: number | string | null;
+  apps_paid_today_brl?: number | string | null;
+  apps_paid_month_qty?: number | string | null;
+  apps_paid_month_brl?: number | string | null;
+  apps_paid_prev_month_qty?: number | string | null;
+  apps_paid_prev_month_brl?: number | string | null;
 };
 
 type VwNewRegsDaily = {
@@ -559,7 +568,8 @@ export default async function AdminDashboardPage({
   // (mesma fonte do card "Faturamento (Mês)"), nunca da fin_transacoes.
   const iptvExecutadoMes =
     Number(finance?.clients_paid_month_brl_estimated || 0) +
-    Number(finance?.reseller_paid_month_brl || 0);
+    Number(finance?.reseller_paid_month_brl || 0) +
+    Number(finance?.apps_paid_month_brl || 0);
   if (iptvExecutadoMes > 0) {
     catRevExecMap.set(iptvKey, { label: iptvLabel, value: iptvExecutadoMes });
   }
@@ -639,20 +649,34 @@ export default async function AdminDashboardPage({
   // Finance cards
   const clientsTodayQty = toNumber(finance?.clients_paid_today_qty);
   const clientsTodayVal = toNumber(finance?.clients_paid_today_brl_estimated);
-  const resellerTodayQty = toNumber(finance?.reseller_paid_today_qty);
-  const resellerTodayVal = toNumber(finance?.reseller_paid_today_brl);
+  // ✅ 30/09/2026, pedido do Márcio: lado direito dos cards = Revenda +
+  // Aplicativos (renovação de app paga também é dinheiro recebido).
+  const resellerTodayQty =
+    toNumber(finance?.reseller_paid_today_qty) +
+    toNumber(finance?.apps_paid_today_qty);
+  const resellerTodayVal =
+    toNumber(finance?.reseller_paid_today_brl) +
+    toNumber(finance?.apps_paid_today_brl);
 
   const clientsMonthQty = toNumber(finance?.clients_paid_month_qty);
   const clientsMonthVal = toNumber(finance?.clients_paid_month_brl_estimated);
-  const resellerMonthQty = toNumber(finance?.reseller_paid_month_qty);
-  const resellerMonthVal = toNumber(finance?.reseller_paid_month_brl);
+  const resellerMonthQty =
+    toNumber(finance?.reseller_paid_month_qty) +
+    toNumber(finance?.apps_paid_month_qty);
+  const resellerMonthVal =
+    toNumber(finance?.reseller_paid_month_brl) +
+    toNumber(finance?.apps_paid_month_brl);
 
   const clientsPrevMonthQty = toNumber(finance?.clients_paid_prev_month_qty);
   const clientsPrevMonthVal = toNumber(
     finance?.clients_paid_prev_month_brl_estimated,
   );
-  const resellerPrevMonthQty = toNumber(finance?.reseller_paid_prev_month_qty);
-  const resellerPrevMonthVal = toNumber(finance?.reseller_paid_prev_month_brl);
+  const resellerPrevMonthQty =
+    toNumber(finance?.reseller_paid_prev_month_qty) +
+    toNumber(finance?.apps_paid_prev_month_qty);
+  const resellerPrevMonthVal =
+    toNumber(finance?.reseller_paid_prev_month_brl) +
+    toNumber(finance?.apps_paid_prev_month_brl);
 
   const toReceiveQty = toNumber(finance?.to_receive_clients_qty);
   const toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
@@ -847,7 +871,7 @@ export default async function AdminDashboardPage({
                   </span>
                 </>
               }
-              rightLabel={`Revenda (${fmtInt(resellerTodayQty)})`}
+              rightLabel={`Revenda + Apps (${fmtInt(resellerTodayQty)})`}
               rightValue={
                 <>
                   <span className="sm:hidden">
@@ -884,7 +908,7 @@ export default async function AdminDashboardPage({
                   </span>
                 </>
               }
-              rightLabel={`Revenda (${fmtInt(resellerMonthQty)})`}
+              rightLabel={`Revenda + Apps (${fmtInt(resellerMonthQty)})`}
               rightValue={
                 <>
                   <span className="sm:hidden">
@@ -957,7 +981,7 @@ export default async function AdminDashboardPage({
                   </span>
                 </>
               }
-              rightLabel={`Revenda (${fmtInt(resellerPrevMonthQty)})`}
+              rightLabel={`Revenda + Apps (${fmtInt(resellerPrevMonthQty)})`}
               rightValue={
                 <>
                   <span className="sm:hidden">
