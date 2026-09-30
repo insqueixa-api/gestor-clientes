@@ -957,7 +957,7 @@ export default async function AdminDashboardPage({
                 </>
               }
               footer={
-                <div className="flex justify-between items-center w-full">
+                <div className="flex flex-wrap justify-between items-center gap-x-3 w-full">
                   <div>
                     <span className="sm:hidden">
                       Total:{" "}
@@ -965,6 +965,17 @@ export default async function AdminDashboardPage({
                     </span>
                     <span className="hidden sm:inline">
                       Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
+                    </span>
+                  </div>
+                  {/* ✅ 30/09/2026: custos à mostra (recarga de servidor + despesas
+                      pagas da categoria IPTV) — sem isso Total - Lucro parecia
+                      não fechar. */}
+                  <div className="text-rose-500">
+                    <span className="sm:hidden">
+                      Custos: -{fmtBRLNoSymbol(expensesMonthVal)}
+                    </span>
+                    <span className="hidden sm:inline">
+                      Custos: -{fmtBRL(expensesMonthVal)}
                     </span>
                   </div>
                   <div
@@ -1030,7 +1041,7 @@ export default async function AdminDashboardPage({
                 </>
               }
               footer={
-                <div className="flex justify-between items-center w-full">
+                <div className="flex flex-wrap justify-between items-center gap-x-3 w-full">
                   <div>
                     <span className="sm:hidden">
                       Total:{" "}
@@ -1041,6 +1052,17 @@ export default async function AdminDashboardPage({
                     <span className="hidden sm:inline">
                       Total:{" "}
                       {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}
+                    </span>
+                  </div>
+                  {/* ✅ 30/09/2026: custos à mostra (recarga de servidor + despesas
+                      pagas da categoria IPTV) — sem isso Total - Lucro parecia
+                      não fechar. */}
+                  <div className="text-rose-500">
+                    <span className="sm:hidden">
+                      Custos: -{fmtBRLNoSymbol(expensesPrevMonthVal)}
+                    </span>
+                    <span className="hidden sm:inline">
+                      Custos: -{fmtBRL(expensesPrevMonthVal)}
                     </span>
                   </div>
                   <div
