@@ -171,7 +171,12 @@ if (!session_token) {
 
     const mapped = (accounts || []).map((acc: any) => {
       // ✅ Descobre se quem está logado agora é o contato secundário
-      const isSecondary = acc.secondary_whatsapp_username === sess.whatsapp_username;
+      // (só dígitos dos dois lados — o token/sessão guarda o número
+      // normalizado, o cadastro pode ter vindo formatado)
+      const digits = (v: unknown) => String(v ?? "").replace(/\D/g, "");
+      const isSecondary =
+        !!acc.secondary_whatsapp_username &&
+        digits(acc.secondary_whatsapp_username) === digits(sess.whatsapp_username);
       
       return {
         id: acc.id,

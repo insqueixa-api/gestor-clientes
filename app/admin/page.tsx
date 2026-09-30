@@ -318,6 +318,7 @@ export default async function AdminDashboardPage({
     data_vencimento: string;
     data_pagamento: string | null;
     categoria_id: string | null;
+    descricao?: string | null;
   };
   type EvolucaoSnapshotRow = {
     ano_mes: string;
@@ -382,16 +383,50 @@ export default async function AdminDashboardPage({
     .filter((t) => t.tipo === "DESPESA" && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
 
-  // ✅ Achado 26/08/2026 (Márcio, em produção): "Recarga Appativa" é um
-  // lançamento direto em fin_transacoes (sem passar por
-  // server_credit_purchases, que só a recarga de SERVIDOR usa) — sem
-  // isso, ficava invisível pro "Despesas por Categoria" do IPTV e pro
-  // cálculo de Lucro abaixo, que só somavam purchasesRows. Some no mesmo
-  // expensesMonthVal (mês atual, mesma janela/status de finDespesasPagas).
-  const appativaRechargeMonthVal = finTrxRows
-    .filter((t) => t.descricao === "Recarga Appativa" && isFinPagoNoMes(t))
+  // ✅ Lucro líquido do IPTV (30/09/2026, pedido do Márcio): além da
+  // recarga de servidor (server_credit_purchases, acima), entram TODAS as
+  // despesas PAGAS da categoria IPTV do Financeiro Pessoal — custos pra
+  // manter o sistema no ar (domínios, GerenciaApp, ProxyBR, Duplecast,
+  // Appativa...). Fica de fora só "IPTV - Recarga de Servidores", que é o
+  // espelho automático de server_credit_purchases (sync-iptv-lancamentos)
+  // — contaria a recarga 2x. "Recarga Appativa" entra mesmo se estiver
+  // em outra categoria (regra anterior, de 26/08/2026).
+  // Mês atual vem de "transacoes"; mês anterior de "evolucao_transacoes"
+  // (12 meses, com categoria/descrição desde
+  // docs/sql/dashboard_finance_bundle_evolucao_categoria.sql).
+  const isIptvOperatingCost = (t: {
+    tipo: string;
+    categoria_id: string | null;
+    descricao?: string | null;
+  }) =>
+    t.tipo === "DESPESA" &&
+    t.descricao !== "IPTV - Recarga de Servidores" &&
+    (t.categoria_id === iptvKey || t.descricao === "Recarga Appativa");
+
+  expensesMonthVal += finTrxRows
+    .filter((t) => isIptvOperatingCost(t) && isFinPagoNoMes(t))
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
-  expensesMonthVal += appativaRechargeMonthVal;
+
+  const _finPrevMonthStart = isoDateFromYMD(
+    _finMonth === 1 ? _finYear - 1 : _finYear,
+    _finMonth === 1 ? 12 : _finMonth - 1,
+    1,
+  );
+  const _finPrevMonthEnd = isoDateFromYMD(
+    _finMonth === 1 ? _finYear - 1 : _finYear,
+    _finMonth === 1 ? 12 : _finMonth - 1,
+    new Date(_finYear, _finMonth - 1, 0).getDate(),
+  );
+  const seenPrevTrxIds = new Set<string>();
+  for (const t of financeBundle?.evolucao_transacoes ?? []) {
+    if (seenPrevTrxIds.has(t.id)) continue;
+    seenPrevTrxIds.add(t.id);
+    if (!isIptvOperatingCost(t)) continue;
+    if (t.status !== "PAGO" || !t.data_pagamento) continue;
+    const iso = toBRDateStr(t.data_pagamento);
+    if (iso < _finPrevMonthStart || iso > _finPrevMonthEnd) continue;
+    expensesPrevMonthVal += toNumber(t.valor);
+  }
 
   const hasSnapshot = finSnapshotRows.length > 0;
 
