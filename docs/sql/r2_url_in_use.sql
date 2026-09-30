@@ -10,7 +10,39 @@
 -- condominio_edicoes.itens COPIA as URLs das fotos das Ações — trocar a
 -- foto de uma Ação não pode quebrar uma Edição já publicada que usa ela.
 --
--- Quando surgir coluna nova que guarde URL do R2, ela TEM que entrar aqui.
+-- _r2_refs_blob() é a ÚNICA lista de colunas que guardam URL do R2 — usada
+-- tanto pela checagem de troca (r2_url_in_use) quanto pela varredura de
+-- órfãos (app/api/admin/r2/orphans). Coluna nova com URL do R2 TEM que
+-- entrar aqui. Casamento por substring: na dúvida o arquivo FICA (falso
+-- positivo só deixa um órfão, nunca apaga algo em uso).
+create or replace function public._r2_refs_blob()
+returns text
+language sql
+stable
+security definer
+set search_path to 'public'
+as $$
+  select coalesce(string_agg(t, ' '), '') from (
+              select logo_url t from public.servers
+    union all select icon_url from public.apps
+    union all select icon_url from public.server_integrations
+    union all select icon_url from public.api_integrations
+    union all select icon_url from public.app_integrations
+    union all select config->>'icon_url' from public.payment_gateways
+    union all select logo_url from public.condominios
+    union all select fotos::text from public.condominio_acoes
+    union all select pdf_url from public.condominio_edicoes
+    union all select itens::text from public.condominio_edicoes
+    union all select image_url from public.message_templates
+    union all select image_url from public.client_message_jobs
+    union all select logo_url from public.tenants
+    union all select banner_urls::text from public.tenants
+  ) x where t is not null and t <> '';
+$$;
+
+revoke all on function public._r2_refs_blob() from public, anon, authenticated;
+grant execute on function public._r2_refs_blob() to service_role;
+
 create or replace function public.r2_url_in_use(p_url text)
 returns boolean
 language plpgsql
@@ -27,19 +59,7 @@ begin
     return false;
   end if;
 
-  return
-       exists (select 1 from public.servers where logo_url = p_url)
-    or exists (select 1 from public.apps where icon_url = p_url)
-    or exists (select 1 from public.server_integrations where icon_url = p_url)
-    or exists (select 1 from public.api_integrations where icon_url = p_url)
-    or exists (select 1 from public.app_integrations where icon_url = p_url)
-    or exists (select 1 from public.payment_gateways where config->>'icon_url' = p_url)
-    or exists (select 1 from public.condominios where logo_url = p_url)
-    or exists (select 1 from public.condominio_acoes where strpos(fotos::text, p_url) > 0)
-    or exists (select 1 from public.condominio_edicoes where pdf_url = p_url or strpos(itens::text, p_url) > 0)
-    or exists (select 1 from public.message_templates where image_url = p_url)
-    or exists (select 1 from public.client_message_jobs where image_url = p_url)
-    or exists (select 1 from public.tenants where logo_url = p_url or strpos(coalesce(banner_urls::text, ''), p_url) > 0);
+  return strpos(public._r2_refs_blob(), p_url) > 0;
 end;
 $$;
 

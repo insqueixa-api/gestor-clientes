@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { createClient } from "@/lib/supabase/server";
+import { R2_DELETABLE_FOLDERS } from "@/lib/r2-folders";
 
 const s3Client = new S3Client({
   region: "auto",
@@ -72,18 +73,6 @@ export async function POST(req: NextRequest) {
 //   (ex: foto da Ação copiada pra uma Edição publicada, logo repetida em
 //   2 servidores). Quem chama pode pedir sem medo; na dúvida, mantém.
 // Body: { url } ou { urls: [] }.
-const R2_DELETABLE_FOLDERS = new Set([
-  "servers",
-  "apps",
-  "payment_gateways",
-  "server_integrations",
-  "api_integrations",
-  "app_integrations",
-  "condominios",
-  "condominio-acoes",
-  "condominio-pdfs",
-  "geral",
-]);
 
 export async function DELETE(req: NextRequest) {
   try {
