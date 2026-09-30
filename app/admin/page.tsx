@@ -77,6 +77,7 @@ type VwPaymentsDaily = {
   day: string;
   clients_paid_brl_estimated: number | string | null;
   reseller_paid_brl: number | string | null;
+  apps_paid_brl?: number | string | null; // ✅ 30/09/2026: renovações de app pagas
 };
 
 type VwTopServers = {
@@ -711,7 +712,8 @@ export default async function AdminDashboardPage({
     const key = normalizeDayKey(r.day);
     payMap.set(key, {
       clients: toNumber(r.clients_paid_brl_estimated),
-      reseller: toNumber(r.reseller_paid_brl),
+      // ✅ 30/09/2026: Revenda + Apps, igual aos cards de Recebidos
+      reseller: toNumber(r.reseller_paid_brl) + toNumber(r.apps_paid_brl),
     });
   }
 
@@ -725,7 +727,7 @@ export default async function AdminDashboardPage({
         value: totalVal,
         displayValue: totalVal,
         tooltipTitle: spTitleFromISO(iso),
-        tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
+        tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda + Apps: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
       };
     });
 
