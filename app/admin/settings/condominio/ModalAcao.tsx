@@ -9,6 +9,7 @@ import { X } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { uploadToR2, useR2FileTracker } from "@/lib/r2-upload";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import type { AcaoRow, Foto, StatusAcao } from "./shared";
@@ -121,6 +122,15 @@ export default function ModalAcao({
   const [status, setStatus] = useState<StatusAcao>("concluido");
   const [texto, setTexto] = useState("");
   const [fotos, setFotos] = useState<Foto[]>([]);
+  // ✅ 30/09/2026: foto removida da Ação sai do R2 depois de salvar;
+  // fechar sem salvar apaga as enviadas à toa. Foto que alguma Edição
+  // publicada ainda usa (itens copiam a URL) é mantida pela checagem do
+  // servidor (r2_url_in_use).
+  const r2Files = useR2FileTracker();
+  const handleClose = () => {
+    r2Files.discard();
+    onClose();
+  };
   const [uploadingFoto, setUploadingFoto] = useState(false);
 
   const [revisando, setRevisando] = useState(false);
@@ -133,6 +143,7 @@ export default function ModalAcao({
       setStatus(acao.status);
       setTexto(acao.texto || "");
       setFotos(Array.isArray(acao.fotos) ? acao.fotos : []);
+      r2Files.setOriginal(Array.isArray(acao.fotos) ? acao.fotos.map((f) => f?.url) : []);
     }
   }, [acao]);
 
@@ -187,21 +198,13 @@ export default function ModalAcao({
         useWebWorker: true,
       });
 
-      const res = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: compressed.type || file.type,
-          folder: "condominio-acoes",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await res.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: compressed,
-        headers: { "Content-Type": compressed.type || file.type },
-      });
+      const publicUrl = await uploadToR2(
+        compressed,
+        file.name,
+        compressed.type || file.type,
+        "condominio-acoes",
+      );
+      r2Files.trackUpload(publicUrl);
       return { url: publicUrl, legenda: "" };
     } catch (e: any) {
       await alertError(`Erro no upload de "${file.name}": ` + e?.message);
@@ -318,6 +321,7 @@ export default function ModalAcao({
         if (error) throw error;
       }
 
+      r2Files.commit(fotos.map((f) => f.url));
       onSuccess();
     } catch (e: any) {
       await alertError(e?.message || "Erro ao salvar ação.");
@@ -327,8 +331,8 @@ export default function ModalAcao({
   }
 
   return (
-    <Modal onClose={onClose} maxWidth="max-w-2xl">
-      <ModalHeader onClose={onClose}>
+    <Modal onClose={handleClose} maxWidth="max-w-2xl">
+      <ModalHeader onClose={handleClose}>
         <h2 className="text-base font-semibold text-foreground">
           {isEditing ? "Editar Ação" : "Nova Ação"}
         </h2>
@@ -495,7 +499,7 @@ export default function ModalAcao({
       <ModalFooter>
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
         >
           Cancelar

@@ -55,6 +55,10 @@ type LogRow = {
   plan_label: string | null;
   gateway_name: string;
   mp_payment_id: string | null; // ✅ Adicionado
+  // ✅ 30/09/2026: app embutido no pagamento da assinatura (linha filha,
+  // parent_payment_id) não tem mp_payment_id próprio — mostra o Ref do
+  // pagamento principal, que foi a transação de verdade.
+  parent_mp_payment_id?: string | null;
   technology: string; // ✅ Adicionado para controlar qual modal de recarga abrir
   // ✅ Resumo do valor (cupom/pendência) — só preenchido quando o pagamento
   // não é "só assinatura" (ver breakdownLines mais abaixo).
@@ -538,7 +542,7 @@ function AuditoriaPageContent() {
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select(
-            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, fulfilled_automatically, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id, payer_whatsapp_username",
+            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, fulfilled_automatically, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id, payer_whatsapp_username, parent_payment_id",
           ) // ✅ Adicionado whatsapp_status, coupon_code/coupon_discount_amount, settled_alert_ids (resumo do valor); payer_whatsapp_username (17/09/2026, ver abaixo)
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
@@ -578,6 +582,35 @@ function AuditoriaPageContent() {
 
         const { data: paymentsData, error } = await query;
         if (error) throw error;
+
+        // ✅ 30/09/2026, achado do Márcio (Maria pagou sinal + 2 apps numa
+        // transação só): a linha filha de app embutido (parent_payment_id)
+        // é gravada SEM mp_payment_id de propósito — a unique
+        // (tenant_id, gateway_type, mp_payment_id) e os webhooks, que
+        // procuram o pagamento por esse número, quebrariam com 3 linhas
+        // iguais. Só na exibição, a filha herda o Ref da mãe.
+        const parentIds = [
+          ...new Set(
+            (paymentsData || [])
+              .map((p: any) => p.parent_payment_id)
+              .filter(Boolean),
+          ),
+        ] as string[];
+        const parentRefMap: Record<string, string | null> = {};
+        for (const p of paymentsData || []) {
+          parentRefMap[(p as any).id] = (p as any).mp_payment_id || null;
+        }
+        const missingParentIds = parentIds.filter((id) => !(id in parentRefMap));
+        if (missingParentIds.length > 0) {
+          const { data: parents } = await supabaseBrowser
+            .from("client_portal_payments")
+            .select("id, mp_payment_id")
+            .eq("tenant_id", tid)
+            .in("id", missingParentIds);
+          for (const p of parents || []) {
+            parentRefMap[p.id] = p.mp_payment_id || null;
+          }
+        }
 
         // 2. Extrai clientes/pendências referenciados pelos pagamentos —
         // nenhuma das 3 buscas abaixo depende do resultado das outras (só
@@ -710,6 +743,9 @@ function AuditoriaPageContent() {
             plan_label: r.plan_label,
             gateway_name: r.gateway_type,
             mp_payment_id: r.mp_payment_id || null, // ✅ Adicionado ao mapeamento
+            parent_mp_payment_id: r.parent_payment_id
+              ? parentRefMap[r.parent_payment_id] ?? null
+              : null,
             coupon_code: r.coupon_code || null,
             coupon_discount_amount:
               r.coupon_discount_amount != null
@@ -2103,12 +2139,12 @@ function AuditoriaPageContent() {
                                   r.payment_status,
                                   r.payment_method,
                                 )}
-                                {r.mp_payment_id && (
+                                {(r.mp_payment_id || r.parent_mp_payment_id) && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       navigator.clipboard.writeText(
-                                        r.mp_payment_id!,
+                                        (r.mp_payment_id || r.parent_mp_payment_id)!,
                                       );
                                       addToast(
                                         "success",
@@ -2117,9 +2153,14 @@ function AuditoriaPageContent() {
                                       );
                                     }}
                                     className="text-[10px] text-muted-foreground font-medium hover:text-emerald-500 transition-colors"
-                                    title="Clique para copiar a referência"
+                                    title={
+                                      r.mp_payment_id
+                                        ? "Clique para copiar a referência"
+                                        : "Pago junto com a assinatura (mesma transação) — clique para copiar a referência"
+                                    }
                                   >
-                                    Ref: {r.mp_payment_id}
+                                    Ref: {r.mp_payment_id || r.parent_mp_payment_id}
+                                    {!r.mp_payment_id && " (junto)"}
                                   </button>
                                 )}
                                 {/* ✅ Movido da coluna Renovação: fluxo manual concluído,

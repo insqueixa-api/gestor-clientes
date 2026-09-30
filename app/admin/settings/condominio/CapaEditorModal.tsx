@@ -9,6 +9,7 @@
 import { useRef, useState } from "react";
 import { RotateCw } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { uploadToR2, useR2FileTracker } from "@/lib/r2-upload";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import type { AcaoRow, Foto } from "./shared";
 
@@ -30,6 +31,20 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
   const [posY, setPosY] = useState<number>(acao.fotos?.[0]?.posY ?? POS_Y_PADRAO);
   const [saving, setSaving] = useState(false);
   const [rotating, setRotating] = useState(false);
+  // ✅ 30/09/2026: girar a capa sobe uma foto NOVA — a original (e as
+  // giradas intermediárias) saem do R2 depois de salvar; fechar sem salvar
+  // apaga as giradas. Foto ainda usada por Edição publicada fica
+  // (r2_url_in_use no servidor).
+  const r2Files = useR2FileTracker();
+  const r2OriginalSet = useRef(false);
+  if (!r2OriginalSet.current) {
+    r2Files.setOriginal((acao.fotos || []).map((f) => f?.url));
+    r2OriginalSet.current = true;
+  }
+  const handleClose = () => {
+    r2Files.discard();
+    onClose();
+  };
   const draggingRef = useRef<{ startY: number; startPos: number } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -102,23 +117,13 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
         ),
       );
 
-      const presignRes = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: `capa-rotacionada-${Date.now()}.jpg`,
-          contentType: "image/jpeg",
-          folder: "condominio-acoes",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await presignRes.json();
-      if (!presignedUrl || !publicUrl) throw new Error("Falha ao preparar o envio da foto rotacionada.");
-
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: blob,
-        headers: { "Content-Type": "image/jpeg" },
-      });
+      const publicUrl = await uploadToR2(
+        blob,
+        `capa-rotacionada-${Date.now()}.jpg`,
+        "image/jpeg",
+        "condominio-acoes",
+      );
+      r2Files.trackUpload(publicUrl);
 
       setFotos((prev) => {
         const next = [...prev];
@@ -158,6 +163,7 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
         .eq("id", acao.id)
         .eq("tenant_id", tenantId);
       if (error) throw error;
+      r2Files.commit(fotosFinais.map((f) => f.url));
       onSaved();
     } catch (e: any) {
       onError?.(e?.message || "Erro ao salvar capa.");
@@ -169,8 +175,8 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
   if (!capa) return null;
 
   return (
-    <Modal onClose={onClose} maxWidth="max-w-lg">
-      <ModalHeader onClose={onClose}>
+    <Modal onClose={handleClose} maxWidth="max-w-lg">
+      <ModalHeader onClose={handleClose}>
         <h2 className="text-base font-semibold text-foreground">Ajustar capa</h2>
       </ModalHeader>
 
@@ -240,7 +246,7 @@ export default function CapaEditorModal({ acao, tenantId, onClose, onSaved, onEr
       <ModalFooter>
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
         >
           Cancelar

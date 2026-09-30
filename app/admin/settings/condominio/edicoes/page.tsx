@@ -9,6 +9,7 @@ import Link from "next/link";
 import { Download, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { releaseR2Files } from "@/lib/r2-upload";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import CondominioFilterDropdown from "../CondominioFilterDropdown";
@@ -238,6 +239,16 @@ export default function EdicoesPage() {
         .delete()
         .eq("id", edicao.id);
       if (error) throw error;
+      // ✅ 30/09/2026, achado do Márcio (PDFs acumulando no R2): excluir a
+      // edição agora leva o PDF junto. As fotos dos itens também são
+      // oferecidas — o servidor só apaga as que nenhuma Ação/Edição usa
+      // mais (r2_url_in_use), então foto de Ação ativa continua lá.
+      releaseR2Files([
+        edicao.pdf_url,
+        ...(edicao.itens || []).flatMap((it: any) =>
+          Array.isArray(it?.fotos) ? it.fotos.map((f: any) => f?.url) : [],
+        ),
+      ]);
       addToast("success", "Edição excluída", edicao.titulo);
       fetchBundle(selectedCondominioId);
     } catch (e: any) {

@@ -17,6 +17,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { releaseR2Files } from "@/lib/r2-upload";
 const NovoServidorModal = dynamic(() => import("./novo_servidor"), {
   ssr: false,
 });
@@ -573,6 +574,8 @@ export default function AdminServersPage() {
       });
 
       if (error) throw error;
+      // ✅ 30/09/2026: servidor excluído de vez — a logo sai do R2 junto
+      releaseR2Files([server.logo_url]);
 
       addToast("success", "Excluído", "Servidor removido definitivamente.");
       fetchServers();

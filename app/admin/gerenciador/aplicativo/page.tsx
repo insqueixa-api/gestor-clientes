@@ -20,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { uploadToR2, releaseR2Files, useR2FileTracker } from "@/lib/r2-upload";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useTenantId } from "@/lib/tenant-context";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -264,6 +265,13 @@ export default function AppManagerPage() {
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
   );
   const [formIconUrl, setFormIconUrl] = useState<string>("");
+  // ✅ 30/09/2026: troca/remoção de logo apaga a anterior do R2 depois de
+  // salvar; fechar sem salvar apaga o que foi enviado à toa.
+  const r2Files = useR2FileTracker();
+  const closeAppModal = () => {
+    r2Files.discard();
+    setIsModalOpen(false);
+  };
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [formCostType, setFormCostType] = useState<CostType | "">("");
   const [formPartnerServerId, setFormPartnerServerId] = useState<string>("");
@@ -341,21 +349,8 @@ export default function AppManagerPage() {
     }
     try {
       setUploadingIcon(true);
-      const res = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-          folder: "apps",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await res.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
+      const publicUrl = await uploadToR2(file, file.name, file.type, "apps");
+      r2Files.trackUpload(publicUrl);
       setFormIconUrl(publicUrl);
       addToast("success", "Imagem carregada!", "Logo salva com sucesso.");
     } catch (e: any) {
@@ -738,6 +733,7 @@ export default function AppManagerPage() {
     setFormFields([]);
     setFormIntegration("");
     setFormIconUrl("");
+    r2Files.setOriginal([]);
     setFormCostType("");
     setFormPartnerServerId("");
     setFormLicensePrice("");
@@ -776,6 +772,7 @@ export default function AppManagerPage() {
     );
     setFormIntegration(app.integration_type || "");
     setFormIconUrl(app.icon_url || "");
+    r2Files.setOriginal([app.icon_url]);
     setFormCostType((app.cost_type as CostType) || "");
     setFormPartnerServerId(app.partner_server_id || "");
     setFormLicensePrice(
@@ -979,6 +976,7 @@ export default function AppManagerPage() {
         addToast("success", "Criado", "Aplicativo criado com sucesso.");
       }
 
+      r2Files.commit([formIconUrl]);
       setIsModalOpen(false);
       loadData();
     } catch (e: any) {
@@ -1011,12 +1009,14 @@ export default function AppManagerPage() {
         return;
       }
 
+      const iconToRelease = apps.find((a) => a.id === id)?.icon_url;
       const { error } = await supabaseBrowser
         .from("apps")
         .delete()
         .eq("id", id)
         .eq("tenant_id", tid);
       if (error) throw error;
+      releaseR2Files([iconToRelease]);
 
       addToast("success", "Removido", "Aplicativo removido da sua lista.");
       loadData();
@@ -1726,8 +1726,8 @@ export default function AppManagerPage() {
 
       {/* MODAL DE CRIAÇÃO / EDIÇÃO */}
       {isModalOpen && (
-        <Modal onClose={() => setIsModalOpen(false)} maxWidth="max-w-3xl">
-          <ModalHeader onClose={() => setIsModalOpen(false)}>
+        <Modal onClose={closeAppModal} maxWidth="max-w-3xl">
+          <ModalHeader onClose={closeAppModal}>
             <h2 className="text-lg font-medium text-foreground">
               {editingId ? "Editar Aplicativo" : "Novo Aplicativo"}
             </h2>
@@ -2458,7 +2458,7 @@ export default function AppManagerPage() {
 
             <ModalFooter>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeAppModal}
                 className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-sm font-medium transition-colors"
               >
                 Cancelar

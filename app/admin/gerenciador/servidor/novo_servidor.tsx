@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { uploadToR2, useR2FileTracker } from "@/lib/r2-upload";
 import type { ServerRow } from "./page";
 import { useConfirm } from "@/hooks/useConfirm";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
@@ -114,6 +115,13 @@ export default function ServerFormModal({
   // States do Form
   const [name, setName] = useState("");
   const [formIconUrl, setFormIconUrl] = useState("");
+  // ✅ 30/09/2026: troca/remoção de logo apaga a anterior do R2 depois de
+  // salvar; fechar sem salvar apaga o que foi enviado à toa.
+  const r2Files = useR2FileTracker();
+  const handleClose = () => {
+    r2Files.discard();
+    onClose();
+  };
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [slug, setSlug] = useState("");
   const [notes, setNotes] = useState("");
@@ -167,21 +175,8 @@ export default function ServerFormModal({
     }
     try {
       setUploadingIcon(true);
-      const res = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-          folder: "servers",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await res.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
+      const publicUrl = await uploadToR2(file, file.name, file.type, "servers");
+      r2Files.trackUpload(publicUrl);
       setFormIconUrl(publicUrl);
     } catch (e: any) {
       await alertError("Erro no upload: " + e?.message);
@@ -196,6 +191,7 @@ export default function ServerFormModal({
       setName(server.name);
       setSlug(server.slug);
       setFormIconUrl((server as any).logo_url || "");
+      r2Files.setOriginal([(server as any).logo_url]);
       setNotes(server.notes || "");
       setCurrency(server.default_currency as Currency);
 
@@ -579,6 +575,10 @@ export default function ServerFormModal({
         serverId = data?.id ?? null;
       }
 
+      // Linha do servidor gravada — daqui pra frente a logo antiga (ou a
+      // enviada e trocada antes de salvar) já não é usada por ele.
+      r2Files.commit([formIconUrl]);
+
       // ✅ Saldo inicial (somente no CREATE)
       const initialCredits = Number(credits) || 0;
       const initialUnitPrice = Number(unitPrice) || 0;
@@ -733,8 +733,8 @@ export default function ServerFormModal({
   }
 
   return (
-    <Modal onClose={onClose} maxWidth="max-w-3xl">
-      <ModalHeader onClose={onClose}>
+    <Modal onClose={handleClose} maxWidth="max-w-3xl">
+      <ModalHeader onClose={handleClose}>
         <h2 className="text-lg font-medium text-foreground tracking-tight">
           {isEditing ? `Editar: ${server?.name}` : "Novo servidor"}
         </h2>
@@ -1084,7 +1084,7 @@ export default function ServerFormModal({
 
         <ModalFooter>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors text-sm font-semibold"
           >
             Cancelar

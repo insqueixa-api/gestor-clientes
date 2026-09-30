@@ -62,45 +62,79 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ✅ NOVA FUNÇÃO: Deleta o arquivo do Cloudflare R2
+// ✅ Apaga do R2 arquivo(s) que deixaram de ser usados (troca de logo,
+// foto removida, edição excluída...). Reescrito 30/09/2026 (achado do
+// Márcio: trocar logo só acumulava no R2, nunca apagava a anterior):
+// - só aceita URL do bucket PÚBLICO e das pastas que o sistema usa (antes
+//   qualquer usuário logado apagava qualquer chave, inclusive do vault);
+// - só apaga se r2_url_in_use (docs/sql/r2_url_in_use.sql) disser que
+//   nenhuma linha do banco usa mais a URL — protege arquivo compartilhado
+//   (ex: foto da Ação copiada pra uma Edição publicada, logo repetida em
+//   2 servidores). Quem chama pode pedir sem medo; na dúvida, mantém.
+// Body: { url } ou { urls: [] }.
+const R2_DELETABLE_FOLDERS = new Set([
+  "servers",
+  "apps",
+  "payment_gateways",
+  "server_integrations",
+  "api_integrations",
+  "app_integrations",
+  "condominios",
+  "condominio-acoes",
+  "condominio-pdfs",
+  "geral",
+]);
+
 export async function DELETE(req: NextRequest) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { url } = await req.json();
+    const body = await req.json().catch(() => ({} as any));
+    const urls: string[] = [
+      ...(Array.isArray(body?.urls) ? body.urls : []),
+      ...(body?.url ? [body.url] : []),
+    ]
+      .map((u: unknown) => String(u ?? "").trim())
+      .filter(Boolean);
 
-    if (!url) {
+    if (urls.length === 0) {
       return NextResponse.json({ error: "URL não informada." }, { status: 400 });
     }
 
-    // 1. Identifica se o arquivo é público ou privado para escolher o bucket
-    const isPublic = url.startsWith(process.env.NEXT_PUBLIC_R2_DEV_URL || "");
-    const bucketName = isPublic 
-      ? process.env.R2_BUCKET_NAME || "unigestor-media"
-      : process.env.R2_VAULT_BUCKET_NAME || "unigestor-vault";
+    const publicBase = String(process.env.NEXT_PUBLIC_R2_DEV_URL || "").replace(/\/+$/, "");
+    const bucketName = process.env.R2_BUCKET_NAME || "unigestor-media";
 
-    // 2. Extrai a "Key" (caminho do arquivo) da URL
-    let key = url;
-    if (isPublic) {
-      // Remove a parte da URL base para sobrar apenas o caminho: "pasta/arquivo.jpg"
-      key = url.replace(`${process.env.NEXT_PUBLIC_R2_DEV_URL}/`, "");
+    const deleted: string[] = [];
+    const kept: string[] = [];
+    const rejected: string[] = [];
+
+    for (const url of [...new Set(urls)].slice(0, 50)) {
+      if (!publicBase || !url.startsWith(`${publicBase}/`)) {
+        rejected.push(url);
+        continue;
+      }
+      const key = decodeURIComponent(url.slice(publicBase.length + 1));
+      const folder = key.split("/")[0];
+      if (!R2_DELETABLE_FOLDERS.has(folder) || key.includes("..") || key.split("/").length !== 2) {
+        rejected.push(url);
+        continue;
+      }
+
+      const { data: inUse, error: useErr } = await supabase.rpc("r2_url_in_use", { p_url: url });
+      if (useErr || inUse !== false) {
+        // erro na checagem = não apaga (arquivo órfão é barato, arquivo
+        // em uso apagado quebra tela/PDF)
+        kept.push(url);
+        continue;
+      }
+
+      await s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
+      deleted.push(url);
     }
-    
-    // Decodifica caracteres especiais (como espaços ou acentos na URL)
-    key = decodeURIComponent(key);
 
-    // 3. Comando de exclusão
-    await s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: key,
-      })
-    );
-
-    return NextResponse.json({ success: true, message: "Arquivo excluído do R2." });
-
+    return NextResponse.json({ success: true, deleted, kept, rejected });
   } catch {
     return NextResponse.json({ error: "Falha ao excluir arquivo da nuvem." }, { status: 500 });
   }

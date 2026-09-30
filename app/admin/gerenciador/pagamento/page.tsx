@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { uploadToR2, releaseR2Files } from "@/lib/r2-upload";
 import { useTenantId } from "@/lib/tenant-context";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -333,6 +334,7 @@ export default function PagamentosPage() {
         .eq("tenant_id", tenantId);
 
       if (error) throw error;
+      releaseR2Files([gateway.config?.icon_url as string | undefined]);
 
       setGateways((prev) => prev.filter((g) => g.id !== gateway.id));
       addToast("success", "Removido", "Integração excluída com sucesso.");
@@ -355,27 +357,19 @@ export default function PagamentosPage() {
     if (!tenantId) return;
     try {
       setUploadingIconFor(gateway.id);
-      const presignRes = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-          folder: "payment_gateways",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await presignRes.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
+      const publicUrl = await uploadToR2(file, file.name, file.type, "payment_gateways");
       const { error } = await supabaseBrowser
         .from("payment_gateways")
         .update({ config: { ...gateway.config, icon_url: publicUrl } })
         .eq("id", gateway.id)
         .eq("tenant_id", tenantId);
-      if (error) throw error;
+      if (error) {
+        releaseR2Files([publicUrl]); // upload descartado
+        throw error;
+      }
+      // ✅ 30/09/2026: troca de ícone apaga o anterior do R2 (antes acumulava)
+      const prevIcon = gateway.config?.icon_url as string | undefined;
+      if (prevIcon !== publicUrl) releaseR2Files([prevIcon]);
       addToast("success", "Ícone salvo", "Ícone atualizado com sucesso.");
       await fetchGateways();
     } catch (e: any) {

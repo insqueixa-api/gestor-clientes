@@ -9,6 +9,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
+import { uploadToR2, releaseR2Files } from "@/lib/r2-upload";
 const NovaIntegracaoModal = dynamic(() => import("./nova_integracao_modal"), {
   ssr: false,
 });
@@ -604,12 +605,18 @@ export default function ApiServerPage() {
     if (!ok) return;
 
     try {
+      const { data: prevIcon } = await supabaseBrowser
+        .from("server_integrations")
+        .select("icon_url")
+        .eq("id", row.id)
+        .maybeSingle();
       const { error } = await supabaseBrowser
         .from("server_integrations")
         .delete()
         .eq("id", row.id);
 
       if (error) throw error;
+      releaseR2Files([prevIcon?.icon_url]);
 
       addToast("success", "Removido", "Integração removida com sucesso.");
       fetchData();
@@ -640,26 +647,22 @@ export default function ApiServerPage() {
     }
     try {
       setUploadingServerIconFor(row.id);
-      const presignRes = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-          folder: "server_integrations",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await presignRes.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
+      const { data: prevIcon } = await supabaseBrowser
+        .from("server_integrations")
+        .select("icon_url")
+        .eq("id", row.id)
+        .maybeSingle();
+      const publicUrl = await uploadToR2(file, file.name, file.type, "server_integrations");
       const { error } = await supabaseBrowser
         .from("server_integrations")
         .update({ icon_url: publicUrl })
         .eq("id", row.id);
-      if (error) throw error;
+      if (error) {
+        releaseR2Files([publicUrl]); // upload descartado
+        throw error;
+      }
+      // ✅ 30/09/2026: troca de logo apaga a anterior do R2 (antes acumulava)
+      if (prevIcon?.icon_url !== publicUrl) releaseR2Files([prevIcon?.icon_url]);
       addToast("success", "Logo salva", "Ícone atualizado com sucesso.");
       fetchData();
     } catch (e: any) {
@@ -682,26 +685,22 @@ export default function ApiServerPage() {
     }
     try {
       setUploadingPartnerIconFor(row.id);
-      const presignRes = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-          folder: "api_integrations",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await presignRes.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
+      const { data: prevIcon } = await supabaseBrowser
+        .from("api_integrations")
+        .select("icon_url")
+        .eq("id", row.id)
+        .maybeSingle();
+      const publicUrl = await uploadToR2(file, file.name, file.type, "api_integrations");
       const { error } = await supabaseBrowser
         .from("api_integrations")
         .update({ icon_url: publicUrl })
         .eq("id", row.id);
-      if (error) throw error;
+      if (error) {
+        releaseR2Files([publicUrl]); // upload descartado
+        throw error;
+      }
+      // ✅ 30/09/2026: troca de logo apaga a anterior do R2 (antes acumulava)
+      if (prevIcon?.icon_url !== publicUrl) releaseR2Files([prevIcon?.icon_url]);
       addToast("success", "Logo salva", "Ícone atualizado com sucesso.");
       fetchData();
     } catch (e: any) {
@@ -724,26 +723,22 @@ export default function ApiServerPage() {
     }
     try {
       setUploadingIconFor(row.id);
-      const presignRes = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: file.type,
-          folder: "app_integrations",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await presignRes.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: file,
-        headers: { "Content-Type": file.type },
-      });
+      const { data: prevIcon } = await supabaseBrowser
+        .from("app_integrations")
+        .select("icon_url")
+        .eq("id", row.id)
+        .maybeSingle();
+      const publicUrl = await uploadToR2(file, file.name, file.type, "app_integrations");
       const { error } = await supabaseBrowser
         .from("app_integrations")
         .update({ icon_url: publicUrl })
         .eq("id", row.id);
-      if (error) throw error;
+      if (error) {
+        releaseR2Files([publicUrl]); // upload descartado
+        throw error;
+      }
+      // ✅ 30/09/2026: troca de logo apaga a anterior do R2 (antes acumulava)
+      if (prevIcon?.icon_url !== publicUrl) releaseR2Files([prevIcon?.icon_url]);
       addToast("success", "Logo salva", "Ícone atualizado com sucesso.");
       fetchData();
     } catch (e: any) {
@@ -768,11 +763,17 @@ export default function ApiServerPage() {
     });
     if (!ok) return;
     try {
+      const { data: prevIcon } = await supabaseBrowser
+        .from("app_integrations")
+        .select("icon_url")
+        .eq("id", row.id)
+        .maybeSingle();
       const { error } = await supabaseBrowser
         .from("app_integrations")
         .delete()
         .eq("id", row.id);
       if (error) throw error;
+      releaseR2Files([prevIcon?.icon_url]);
       addToast("success", "Removido", "Integração de aplicativo removida.");
       fetchData();
     } catch (e: any) {
@@ -835,11 +836,17 @@ export default function ApiServerPage() {
     });
     if (!ok) return;
     try {
+      const { data: prevIcon } = await supabaseBrowser
+        .from("api_integrations")
+        .select("icon_url")
+        .eq("id", row.id)
+        .maybeSingle();
       const { error } = await supabaseBrowser
         .from("api_integrations")
         .delete()
         .eq("id", row.id);
       if (error) throw error;
+      releaseR2Files([prevIcon?.icon_url]);
       addToast("success", "Removido", "Parceiro removido.");
       fetchData();
     } catch (e: any) {

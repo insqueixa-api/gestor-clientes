@@ -7,6 +7,7 @@ import { X } from "lucide-react";
 import imageCompression from "browser-image-compression";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { uploadToR2, useR2FileTracker } from "@/lib/r2-upload";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import type { CondominioRow, TituloPaginaCondominio } from "./shared";
@@ -91,6 +92,13 @@ export default function ModalCondominio({
 
   const [nome, setNome] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  // ✅ 30/09/2026: troca/remoção de logo apaga a anterior do R2 depois de
+  // salvar; fechar sem salvar apaga o que foi enviado à toa.
+  const r2Files = useR2FileTracker();
+  const handleClose = () => {
+    r2Files.discard();
+    onClose();
+  };
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [endereco, setEndereco] = useState("");
   const [contato, setContato] = useState("");
@@ -106,6 +114,7 @@ export default function ModalCondominio({
     if (condominio) {
       setNome(condominio.nome);
       setLogoUrl(condominio.logo_url || "");
+      r2Files.setOriginal([condominio.logo_url]);
       setEndereco(condominio.endereco || "");
       setContato(condominio.contato || "");
       setGestao(condominio.gestao || "");
@@ -133,21 +142,13 @@ export default function ModalCondominio({
         useWebWorker: true,
       });
 
-      const res = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: compressed.type || file.type,
-          folder: "condominios",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await res.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: compressed,
-        headers: { "Content-Type": compressed.type || file.type },
-      });
+      const publicUrl = await uploadToR2(
+        compressed,
+        file.name,
+        compressed.type || file.type,
+        "condominios",
+      );
+      r2Files.trackUpload(publicUrl);
       setLogoUrl(publicUrl);
     } catch (e: any) {
       await alertError("Erro no upload: " + e?.message);
@@ -191,6 +192,7 @@ export default function ModalCondominio({
         if (error) throw error;
       }
 
+      r2Files.commit([logoUrl]);
       onSuccess();
     } catch (e: any) {
       await alertError(e?.message || "Erro ao salvar condomínio.");
@@ -200,8 +202,8 @@ export default function ModalCondominio({
   }
 
   return (
-    <Modal onClose={onClose} maxWidth="max-w-2xl">
-      <ModalHeader onClose={onClose}>
+    <Modal onClose={handleClose} maxWidth="max-w-2xl">
+      <ModalHeader onClose={handleClose}>
         <h2 className="text-base font-semibold text-foreground">
           {isEditing ? `Editar: ${condominio?.nome}` : "Novo Condomínio"}
         </h2>
@@ -368,7 +370,7 @@ export default function ModalCondominio({
       <ModalFooter>
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
         >
           Cancelar
