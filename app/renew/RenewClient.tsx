@@ -235,6 +235,17 @@ function linkifyText(text: string) {
 // empurrando o app pra fora/dentro da janela por acaso. Meio-dia dos dois
 // lados (mesmo padrão de getTimeRemaining logo abaixo) sempre dá um número
 // de dias limpo, sem depender da hora do dia.
+// ✅ 30/09/2026, pedido do Márcio: no pagamento, com 2 apps iguais
+// (DupleCast da Sala e do Quarto), o cliente precisa saber qual está
+// pagando — mostra o campo "Ambiente" (tipo obs) junto do nome.
+function appNameWithAmbiente(app: {
+  name: string;
+  fields?: { type: string; value: string }[];
+}): string {
+  const amb = (app.fields || []).find((f) => f.type === "obs")?.value?.trim();
+  return amb ? `${app.name} (${amb})` : app.name;
+}
+
 function daysUntilSP(dateOnly: string): number {
   const todaySP = new Date().toLocaleDateString("sv-SE", {
     timeZone: "America/Sao_Paulo",
@@ -917,6 +928,10 @@ export default function RenewClient() {
       if (!app.is_active) return false;
       if (app.has_pending_manual_renewal) return false;
       if (app.license_price == null || app.license_price <= 0) return false;
+      // ✅ 30/09/2026, pedido do Márcio: em modo de avaliação (ex: Duplecast
+      // em trial — o parceiro não informa vencimento) também oferece a
+      // renovação junto com o sinal, independente da data guardada.
+      if (app.is_trial) return true;
       const datePart = app.expiration ? String(app.expiration).split("T")[0] : "";
       if (!datePart) return false;
       // ✅ <= 7, não < 7 (achado 26/08/2026): um trial novo de 7 dias exatos
@@ -2328,7 +2343,7 @@ export default function RenewClient() {
           );
     setConfirmedAppRenewals(
       appsToRenew.map((app) => ({
-        app_name: app.name,
+        app_name: appNameWithAmbiente(app),
         price_amount: Number(app.license_price_display ?? 0),
       })),
     );
@@ -2653,7 +2668,7 @@ export default function RenewClient() {
                     key={app.id}
                     className="flex justify-between text-foreground/80 text-sm"
                   >
-                    <span>Renovação — {app.name}</span>
+                    <span>Renovação — {appNameWithAmbiente(app)}</span>
                     <span>
                       {formatMoney(
                         app.license_price_display ?? 0,
@@ -6269,9 +6284,10 @@ export default function RenewClient() {
               </p>
               <div className="space-y-2">
                 {expiringAppsForAlert.map((app) => {
-                  const datePart = app.expiration
-                    ? String(app.expiration).split("T")[0]
-                    : "";
+                  const datePart =
+                    app.expiration && !app.is_trial
+                      ? String(app.expiration).split("T")[0]
+                      : "";
                   const diffDays = datePart ? daysUntilSP(datePart) : null;
                   const isExpiredApp = diffDays !== null && diffDays < 0;
                   const otherFieldsApp = app.fields.filter(
@@ -6302,7 +6318,7 @@ export default function RenewClient() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <span className="font-bold text-foreground text-sm">
-                              {app.name}
+                              {appNameWithAmbiente(app)}
                             </span>
                             <span
                               className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase shrink-0 ${
@@ -6311,7 +6327,11 @@ export default function RenewClient() {
                                   : "bg-amber-500/15 text-amber-500"
                               }`}
                             >
-                              {isExpiredApp ? "Vencido" : "Vencendo"}
+                              {app.is_trial
+                                ? "Modo de avaliação"
+                                : isExpiredApp
+                                  ? "Vencido"
+                                  : "Vencendo"}
                               {datePart &&
                                 ` — ${new Date(`${datePart}T12:00:00`).toLocaleDateString("pt-BR")}`}
                             </span>
