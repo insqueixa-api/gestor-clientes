@@ -526,6 +526,15 @@ export default async function AdminDashboardPage({
         t.data_vencimento <= _finMonthEnd;
       if (!inMonth || snapshotTransacaoIds.has(t.id)) continue;
       if (t.categoria_id === iptvKey) continue;
+      // ✅ 01/10/2026: parcela antecipada (vence neste mês mas foi PAGA
+      // num mês anterior, ex: Financiamento Haval 15/10 pago em 19/08) não
+      // é previsão deste mês — já saiu antes, nunca vira Executado aqui.
+      if (
+        t.status === "PAGO" &&
+        t.data_pagamento &&
+        toBRDateStr(t.data_pagamento) < _finMonthStart
+      )
+        continue;
       const map = t.tipo === "RECEITA" ? catRevAjusteMap : catExpAjusteMap;
       const key = t.categoria_id ?? "__none__";
       const label = catLabel(t.categoria_id);
@@ -543,6 +552,13 @@ export default async function AdminDashboardPage({
         t.data_vencimento >= _finMonthStart &&
         t.data_vencimento <= _finMonthEnd;
       if (!inPrev) continue;
+      // Parcela antecipada (paga em mês anterior) — mesma regra do Ajuste acima
+      if (
+        t.status === "PAGO" &&
+        t.data_pagamento &&
+        toBRDateStr(t.data_pagamento) < _finMonthStart
+      )
+        continue;
       const map = t.tipo === "RECEITA" ? catRevPrevMap : catExpPrevMap;
       const key = t.categoria_id ?? "__none__";
       const label = catLabel(t.categoria_id);
