@@ -367,7 +367,6 @@ export default async function AdminDashboardPage({
   const iptvKey = iptvCatEntry ? iptvCatEntry[0] : "__iptv__";
 
   const finSnapshotRows: SnapshotRow[] = financeBundle?.snapshot ?? [];
-  const finSaldoAtual = toNumber(financeBundle?.saldo_atual);
 
   const isFinPagoNoMes = (t: FinTrx) => {
     if (t.status !== "PAGO" || !t.data_pagamento) return false;
@@ -1096,7 +1095,7 @@ export default async function AdminDashboardPage({
       {showFinView && (
         <>
           <SectionTitle title="CONTROLE FINANCEIRO" />
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-3">
             <MetricCardView
               title="💰 Receitas do Mês"
               accent="green"
@@ -1131,14 +1130,6 @@ export default async function AdminDashboardPage({
               leftLabel="Resultado no Mês"
               leftValue={fmtBRL(finReceitasPagas - finDespesasPagas)}
               footer={`Previsão: ${fmtBRL(finReceitasTotal - finDespesasTotal)}`}
-            />
-            <MetricCardView
-              title="💰 Saldo Atual"
-              accent={finSaldoAtual >= 0 ? "green" : "red"}
-              leftLabel="Saldo em conta"
-              leftValue={fmtBRL(finSaldoAtual)}
-              footer="Atualizar saldo..."
-              href="/admin/settings/financeiro_pessoal"
             />
           </div>
 

@@ -1,7 +1,6 @@
 "use client";
 // app/admin/settings/financeiro_pessoal/page.tsx
 import { useEffect, useState, useMemo, useRef, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { EyeToggle } from "@/components/ui/eye-toggle";
@@ -42,12 +41,9 @@ import {
 } from "./shared";
 
 // ✅ Carregamento sob demanda (14/08/2026) — cada um só baixa quando o
-// admin realmente abre: Ajuste de Saldo e Baixa são ações esporádicas
-// acionadas direto da página; Nova Conta/Nova Categoria/Gerenciar Itens só
-// abrem de dentro do ModalTransacao (atalhos "criar na hora"/"gerenciar").
-const ModalAjusteSaldo = dynamic(() => import("./ModalAjusteSaldo"), {
-  ssr: false,
-});
+// admin realmente abre: Baixa é ação esporádica acionada direto da página;
+// Nova Conta/Nova Categoria/Gerenciar Itens só abrem de dentro do
+// ModalTransacao (atalhos "criar na hora"/"gerenciar").
 const ModalBaixa = dynamic(() => import("./ModalBaixa"), { ssr: false });
 const ModalNovaConta = dynamic(() => import("./ModalNovaConta"), {
   ssr: false,
@@ -115,7 +111,6 @@ function FinanceiroPageContent() {
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [contasDB, setContasDB] = useState<any[]>([]);
   const [categoriasDB, setCategoriasDB] = useState<any[]>([]);
-  const [saldosContas, setSaldosContas] = useState<Record<string, number>>({});
 
   // ✅ Protege contra corrida ao trocar de mês rapidamente: cada chamada de
   // carregarDados pega um número de sequência; se uma chamada mais nova já
@@ -152,28 +147,13 @@ function FinanceiroPageContent() {
     emprestimoDirecao?: DirecaoEmprestimo;
   }>({ open: false, transacao: null });
   const [pendentesMap, setPendentesMap] = useState<Record<string, number>>({}); // ✅ NOVO: Conta parcelas pendentes
-  const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
   const [showEmprestimos, setShowEmprestimos] = useState(false);
   // Incrementado quando um lançamento de empréstimo é salvo, pra
   // ModalEmprestimos (que fica aberto por baixo, empilhado) recarregar o
   // saldo/histórico sem precisar fechar e reabrir.
   const [emprestimosRefreshNonce, setEmprestimosRefreshNonce] = useState(0);
   const [showAntecipadas, setShowAntecipadas] = useState(false); // ✅ NOVO: Controle de recolher/expandir antecipadas
-  const searchParams = useSearchParams();
-  const router = useRouter();
 
-  // Abre o modal de ajuste de saldo automaticamente se vier com ?ajustar=1
-  useEffect(() => {
-    if (
-      searchParams.get("ajustar") === "1" &&
-      !loading &&
-      contasDB.length > 0
-    ) {
-      setShowAjusteSaldo(true);
-      // Limpa o param da URL sem recarregar a página
-      router.replace("/admin/settings/financeiro_pessoal", { scroll: false });
-    }
-  }, [searchParams, loading, contasDB]);
   const [deleteData, setDeleteData] = useState<{
     open: boolean;
     transacao: Transacao | null;
@@ -380,7 +360,7 @@ function FinanceiroPageContent() {
       const mesStartStr = `${y}-${m}-01T00:00:00.000Z`;
       const mesEndStr = `${y}-${m}-${String(ultimoDia).padStart(2, "0")}T23:59:59.999Z`;
 
-      const [resContas, resCat, resF, resPurchases, saldosRes] = await Promise.all([
+      const [resContas, resCat, resF, resPurchases] = await Promise.all([
         supabaseBrowser
           .from("fin_contas_bancarias")
           .select("*")
@@ -402,7 +382,6 @@ function FinanceiroPageContent() {
           .eq("tenant_id", tid)
           .gte("created_at", mesStartStr)
           .lte("created_at", mesEndStr),
-        supabaseBrowser.rpc("get_fin_saldos_contas"),
       ]);
       if (isStale()) return; // uma troca de mês mais nova já começou
 
@@ -439,19 +418,6 @@ function FinanceiroPageContent() {
         setCategoriasDB(categoriasCarregadas);
       }
 
-      if (saldosRes.error) {
-        addToast(
-          "error",
-          "Saldo desatualizado",
-          "Não consegui calcular o saldo das contas — os valores mostrados podem estar incompletos.",
-        );
-      }
-      const saldosMap = (saldosRes.data as Record<string, number> | null) || {};
-      const saldos: Record<string, number> = {};
-      for (const c of resContas.data || []) {
-        saldos[c.id] = Number(saldosMap[c.id] ?? 0);
-      }
-      setSaldosContas(saldos);
 
       // ✅ Calcula valorIptv/valorDespesas aqui (não mais dentro de
       // sincronizarRendimentos) — resF/resPurchases já vieram na mesma
@@ -920,15 +886,6 @@ function FinanceiroPageContent() {
   const receitasTotal = receitasPagas + receitasPendentes;
   const despesasTotal = despesasPagas + despesasPendentes;
 
-  let saldoAtualReal = 0;
-  if (contaFilter !== "Todos") saldoAtualReal = saldosContas[contaFilter] || 0;
-  else saldoAtualReal = Object.values(saldosContas).reduce((a, b) => a + b, 0);
-
-  const saldoPrevisao =
-    saldoAtualReal +
-    (receitasTotal - receitasPagas) -
-    (despesasTotal - despesasPagas);
-
   // ✅ LOADING INICIAL PARA NÃO PISCAR A TELA
   if (loading && contasDB.length === 0) {
     return (
@@ -1059,13 +1016,15 @@ function FinanceiroPageContent() {
             </span>
           }
         />
+        {/* ✅ 01/10/2026, pedido do Márcio: "Saldo Atual" (saldo por conta)
+            saiu — só poluía. No lugar, resultado do mês (recebido − pago),
+            igual ao card "Saldo do Mês" do dashboard. */}
         <MetricCard
-          title="Saldo Atual"
-          value={fmtBRL(saldoAtualReal)}
-          tone={saldoAtualReal >= 0 ? "emerald" : "rose"}
-          icon="💰"
-          footer={`Atualizar saldo...`}
-          onEdit={() => setShowAjusteSaldo(true)}
+          title="Saldo do Mês"
+          value={fmtBRL(receitasPagas - despesasPagas)}
+          tone={receitasPagas - despesasPagas >= 0 ? "emerald" : "rose"}
+          icon="📊"
+          footer={`Previsão: ${fmtBRL(receitasTotal - despesasTotal)}`}
         />
       </div>
 
@@ -1835,19 +1794,6 @@ function FinanceiroPageContent() {
         />
       )}
 
-      {showAjusteSaldo && tenantId && (
-        <ModalAjusteSaldo
-          tenantId={tenantId}
-          contas={contasDB}
-          saldos={saldosContas}
-          onClose={() => setShowAjusteSaldo(false)}
-          onSuccess={() => {
-            setShowAjusteSaldo(false);
-            carregarDados(tenantId, currentDate);
-          }}
-          addToast={addToast}
-        />
-      )}
 
       <div className="h-24 sm:h-20" />
       {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
