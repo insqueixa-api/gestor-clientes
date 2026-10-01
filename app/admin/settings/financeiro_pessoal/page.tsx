@@ -432,7 +432,6 @@ function FinanceiroPageContent() {
         setCategoriasDB(categoriasCarregadas);
       }
 
-
       // ✅ Calcula valorIptv aqui (não mais dentro de
       // sincronizarRendimentos) — resF/resPurchases já vieram na mesma
       // onda de contas/categorias/saldo, lá em cima.
@@ -875,14 +874,15 @@ function FinanceiroPageContent() {
   // contando na Previsão/Pendente naturalmente — não sumir só porque a data
   // já passou. Antes excluía tudo com data_vencimento < hoje, escondendo
   // vencidas do total (elas só apareciam na lista/filtro de transações).
-  const receitasPendentes = transacoesCards
-    .filter(
-      (t) =>
-        t.tipo === "RECEITA" &&
-        t.status !== "PAGO" &&
-        isDateInViewMonth(t.data_vencimento),
-    )
-    .reduce((acc, t) => acc + t.valor, 0) +
+  const receitasPendentes =
+    transacoesCards
+      .filter(
+        (t) =>
+          t.tipo === "RECEITA" &&
+          t.status !== "PAGO" &&
+          isDateInViewMonth(t.data_vencimento),
+      )
+      .reduce((acc, t) => acc + t.valor, 0) +
     (contaFilter === "Todos" ? iptvAReceber : 0);
 
   const despesasPendentes = transacoesCards
@@ -1243,7 +1243,9 @@ function FinanceiroPageContent() {
           <button
             onClick={() =>
               setStatusFilter(
-                statusFilter === "QUICK_CONCLUIDO" ? "Todos" : "QUICK_CONCLUIDO",
+                statusFilter === "QUICK_CONCLUIDO"
+                  ? "Todos"
+                  : "QUICK_CONCLUIDO",
               )
             }
             className={`h-10 px-3 rounded-lg border text-sm font-medium transition-colors whitespace-nowrap ${statusFilter === "QUICK_CONCLUIDO" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500" : "border-border bg-transparent text-muted-foreground hover:text-foreground/90"}`}
@@ -1315,6 +1317,17 @@ function FinanceiroPageContent() {
           <thead>
             <tr className="border-b border-border text-xs font-medium uppercase text-muted-foreground select-none">
               <th
+                className="px-4 py-3 w-28 text-left whitespace-nowrap cursor-pointer hover:text-emerald-500 transition-colors"
+                onClick={() => requestSort("data_vencimento")}
+              >
+                Vencimento{" "}
+                {sortConfig?.key === "data_vencimento"
+                  ? sortConfig.direction === "asc"
+                    ? "↑"
+                    : "↓"
+                  : "↕"}
+              </th>
+              <th
                 className="px-4 py-3 whitespace-nowrap cursor-pointer hover:text-emerald-500 transition-colors"
                 onClick={() => requestSort("descricao")}
               >
@@ -1331,17 +1344,6 @@ function FinanceiroPageContent() {
               >
                 Tipo{" "}
                 {sortConfig?.key === "tipo"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("data_vencimento")}
-              >
-                Vencimento{" "}
-                {sortConfig?.key === "data_vencimento"
                   ? sortConfig.direction === "asc"
                     ? "↑"
                     : "↓"
@@ -1439,27 +1441,45 @@ function FinanceiroPageContent() {
 
                 let showDateDivider = false;
                 let dateLabel = "";
+                let semanaReceitas = 0;
+                let semanaDespesas = 0;
 
                 // Divisão de datas apenas para as normais
                 if (!isAntecipada && index !== null) {
                   const isSortedByDate =
                     !sortConfig || sortConfig.key === "data_vencimento";
+                  // ✅ 01/10/2026, pedido do Márcio: agrupa por SEMANA do
+                  // mês (dias 1-7, 8-14, 15-21, 22-28, 29-fim) em vez de 1
+                  // divisória por data — data/lançamento/data/lançamento
+                  // ficava embolado.
+                  const semanaKey = (iso: string) => {
+                    const [yy, mm, dd] = iso.split("-").map(Number);
+                    return `${yy}-${mm}-${Math.floor((dd - 1) / 7)}`;
+                  };
+                  const minhaSemana = semanaKey(t.data_vencimento);
                   showDateDivider =
                     isSortedByDate &&
                     (index === 0 ||
-                      normais[index - 1].data_vencimento !== t.data_vencimento);
+                      semanaKey(normais[index - 1].data_vencimento) !==
+                        minhaSemana);
 
                   if (showDateDivider) {
-                    const [y, m, d] = t.data_vencimento.split("-");
-                    const dateObj = new Date(
-                      Number(y),
-                      Number(m) - 1,
-                      Number(d),
+                    const [y, m, d] = t.data_vencimento.split("-").map(Number);
+                    const w = Math.floor((d - 1) / 7);
+                    const ini = w * 7 + 1;
+                    const fim = Math.min(ini + 6, new Date(y, m, 0).getDate());
+                    const dm = (dia: number) =>
+                      `${String(dia).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+                    dateLabel = `Semana ${w + 1} (${dm(ini)} a ${dm(fim)})`;
+                    const daSemana = normais.filter(
+                      (n) => semanaKey(n.data_vencimento) === minhaSemana,
                     );
-                    const diaSemana = dateObj.toLocaleDateString("pt-BR", {
-                      weekday: "long",
-                    });
-                    dateLabel = `${d}/${m}/${y} - ${diaSemana}`;
+                    semanaReceitas = daSemana
+                      .filter((n) => n.tipo === "RECEITA")
+                      .reduce((acc, n) => acc + n.valor, 0);
+                    semanaDespesas = daSemana
+                      .filter((n) => n.tipo === "DESPESA")
+                      .reduce((acc, n) => acc + n.valor, 0);
                   }
                 }
 
@@ -1471,13 +1491,30 @@ function FinanceiroPageContent() {
                   showDateDivider && (
                     <tr
                       key={`div-${t.id}`}
-                      className="bg-muted/40 border-y border-border border-l-2 border-l-emerald-500/40"
+                      className="bg-muted border-y border-border border-l-4 border-l-emerald-500"
                     >
                       <td
                         colSpan={9}
-                        className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        className="px-4 py-2.5 text-xs font-semibold text-foreground/80 uppercase tracking-wider"
                       >
-                        🗓️ {dateLabel}
+                        <span className="inline-flex items-center gap-3 flex-wrap">
+                          <span>🗓️ {dateLabel}</span>
+                          <span className="normal-case tracking-normal font-normal text-[11px] finance-value">
+                            {semanaReceitas > 0 && (
+                              <span className="text-emerald-500">
+                                +{fmtBRL(semanaReceitas)}
+                              </span>
+                            )}
+                            {semanaReceitas > 0 && semanaDespesas > 0 && (
+                              <span className="text-muted-foreground"> · </span>
+                            )}
+                            {semanaDespesas > 0 && (
+                              <span className="text-rose-500">
+                                -{fmtBRL(semanaDespesas)}
+                              </span>
+                            )}
+                          </span>
+                        </span>
                       </td>
                     </tr>
                   ),
@@ -1486,6 +1523,26 @@ function FinanceiroPageContent() {
                     className={`hover:bg-muted/30 transition-colors group cursor-pointer ${rowOpacity}`}
                     onClick={() => setModalData({ open: true, transacao: t })}
                   >
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {(() => {
+                        const [vy, vm, vd] = t.data_vencimento
+                          .split("-")
+                          .map(Number);
+                        const diaSem = new Date(vy, vm - 1, vd)
+                          .toLocaleDateString("pt-BR", { weekday: "short" })
+                          .replace(".", "");
+                        return (
+                          <span className="text-foreground/80 tabular-nums">
+                            {String(vd).padStart(2, "0")}/
+                            {String(vm).padStart(2, "0")}
+                            <span className="text-muted-foreground text-xs">
+                              {" "}
+                              · {diaSem}
+                            </span>
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="font-normal text-foreground/90 truncate max-w-[220px] group-hover:text-emerald-500 transition-colors">
                         {t.descricao}
@@ -1502,12 +1559,6 @@ function FinanceiroPageContent() {
                           <IconTrendingDown /> Despesa
                         </span>
                       )}
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
-                      <span className="text-muted-foreground">
-                        {t.data_vencimento.split("-").reverse().join("/")}
-                      </span>
                     </td>
 
                     <td className="px-4 py-3 text-center">
@@ -1805,7 +1856,6 @@ function FinanceiroPageContent() {
           }
         />
       )}
-
 
       <div className="h-24 sm:h-20" />
       {/* CSS PARA OCULTAR VALORES COM O EYE-TOGGLE */}
@@ -2537,7 +2587,10 @@ function ModalTransacao({
         // digitado pelo usuário.
         const valoresParcelaCents =
           tipoRecorrencia === "PARCELADA"
-            ? distribuirCentavos(Math.round(Number(valor) * 100), totalMesesOuParcelas)
+            ? distribuirCentavos(
+                Math.round(Number(valor) * 100),
+                totalMesesOuParcelas,
+              )
             : null;
         const valorInserir =
           tipoRecorrencia === "PARCELADA"
@@ -2726,50 +2779,50 @@ function ModalTransacao({
                 align="left"
                 matchTriggerWidth
               >
-                  <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border">
-                    Lançamentos anteriores
-                  </div>
-                  {sugestoes.map((s, i) => {
-                    const conta = contas.find((c) => c.id === s.conta_id);
-                    const cat = categorias.find((c) => c.id === s.categoria_id);
-                    const isHov = sugestaoHover?.descricao === s.descricao;
-                    return (
-                      <div
-                        key={i}
-                        onMouseEnter={() => setSugestaoHover(s)}
-                        onMouseLeave={() => setSugestaoHover(null)}
-                        onClick={() => aplicarSugestao(s)}
-                        className={`flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${isHov ? "bg-emerald-500/10" : "hover:bg-muted"}`}
-                      >
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-sm font-semibold text-foreground/90 truncate">
-                            {s.descricao}
-                          </span>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            {conta && (
-                              <span className="text-[10px] text-muted-foreground">
-                                {conta.icone} {conta.nome}
-                              </span>
-                            )}
-                            {cat && (
-                              <span className="text-[10px] text-muted-foreground">
-                                {cat.icone} {cat.nome}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <span
-                          className={`text-sm font-medium ml-3 shrink-0 ${s.tipo === "RECEITA" ? "text-emerald-500" : "text-rose-500"}`}
-                        >
-                          {s.tipo === "RECEITA" ? "+" : "-"}{" "}
-                          {new Intl.NumberFormat("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          }).format(s.valor)}
+                <div className="px-3 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider border-b border-border">
+                  Lançamentos anteriores
+                </div>
+                {sugestoes.map((s, i) => {
+                  const conta = contas.find((c) => c.id === s.conta_id);
+                  const cat = categorias.find((c) => c.id === s.categoria_id);
+                  const isHov = sugestaoHover?.descricao === s.descricao;
+                  return (
+                    <div
+                      key={i}
+                      onMouseEnter={() => setSugestaoHover(s)}
+                      onMouseLeave={() => setSugestaoHover(null)}
+                      onClick={() => aplicarSugestao(s)}
+                      className={`flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${isHov ? "bg-emerald-500/10" : "hover:bg-muted"}`}
+                    >
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-semibold text-foreground/90 truncate">
+                          {s.descricao}
                         </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {conta && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {conta.icone} {conta.nome}
+                            </span>
+                          )}
+                          {cat && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {cat.icone} {cat.nome}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    );
-                  })}
+                      <span
+                        className={`text-sm font-medium ml-3 shrink-0 ${s.tipo === "RECEITA" ? "text-emerald-500" : "text-rose-500"}`}
+                      >
+                        {s.tipo === "RECEITA" ? "+" : "-"}{" "}
+                        {new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        }).format(s.valor)}
+                      </span>
+                    </div>
+                  );
+                })}
               </Dropdown>
             </div>
             <div>
