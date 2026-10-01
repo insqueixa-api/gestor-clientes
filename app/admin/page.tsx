@@ -429,29 +429,6 @@ export default async function AdminDashboardPage({
 
   const hasSnapshot = finSnapshotRows.length > 0;
 
-  // ✅ Usado só pelo card "Receitas por Categoria" logo abaixo, pra separar
-  // o que já estava na fotografia do mês do que é "a receber" novo do IPTV
-  // (não dá pra saber o id de cada cliente aqui sem buscar a lista toda de
-  // novo, então usamos a diferença dos totais). Os cards de Receitas/
-  // Despesas do Mês (Previsão) não mostram mais essa distinção (pedido do
-  // Márcio, 26/08/2026: "previsão é previsão") — só a "Previsão" única
-  // permanece ali.
-  const snapshotTransacaoIds = new Set(
-    finSnapshotRows
-      .filter((s) => s.origem === "fin_transacoes" && s.transacao_id)
-      .map((s) => s.transacao_id as string),
-  );
-  const snapshotIptvTotal = finSnapshotRows
-    .filter((s) => s.origem === "iptv_a_receber")
-    .reduce((acc, s) => acc + toNumber(s.valor), 0);
-
-  const ajustesIptv = hasSnapshot
-    ? Math.max(
-        0,
-        toNumber(finance?.to_receive_brl_estimated) - snapshotIptvTotal,
-      )
-    : 0;
-
   const finReceitasPendentes = finTrxRows
     .filter(
       (t) =>
@@ -483,13 +460,11 @@ export default async function AdminDashboardPage({
   const finReceitasTotal = finReceitasPagas + finReceitasPendentes;
   const finDespesasTotal = finDespesasPagas + finDespesasPendentes;
 
-  // Rankings por categoria (Previsto congelado / Ajustes / Executado)
+  // Rankings por categoria (Previsto congelado na fotografia x Executado)
   const catRevPrevMap = new Map<string, { label: string; value: number }>();
   const catRevExecMap = new Map<string, { label: string; value: number }>();
   const catExpPrevMap = new Map<string, { label: string; value: number }>();
   const catExpExecMap = new Map<string, { label: string; value: number }>();
-  const catRevAjusteMap = new Map<string, { label: string; value: number }>();
-  const catExpAjusteMap = new Map<string, { label: string; value: number }>();
 
   const _finTodayIso = isoDateFromYMD(_finYear, _finMonth, _finToday.getDate());
 
@@ -511,40 +486,6 @@ export default async function AdminDashboardPage({
       const prev = map.get(key) ?? { label, value: 0 };
       map.set(key, { ...prev, value: prev.value + toNumber(s.valor) });
     }
-
-    // Ajustes: fin_transacoes que apareceram depois da fotografia
-    // ✅ Categoria IPTV nunca entra por aqui — o Previsto dela vem só da
-    // tabela de clientes (snapshot acima + ajustesIptv logo abaixo). O
-    // lançamento "IPTV - Rendimentos" que a tela Financeiro Pessoal
-    // sincroniza automaticamente em fin_transacoes representa dinheiro JÁ
-    // recebido (não é "novidade" pro previsto) e, pra clientes que já
-    // estavam no snapshot, contava dobrado (uma vez no previsto, outra no
-    // ajuste).
-    for (const t of finTrxRows) {
-      const inMonth =
-        t.data_vencimento >= _finMonthStart &&
-        t.data_vencimento <= _finMonthEnd;
-      if (!inMonth || snapshotTransacaoIds.has(t.id)) continue;
-      if (t.categoria_id === iptvKey) continue;
-      // ✅ 01/10/2026: parcela antecipada (vence neste mês mas foi PAGA
-      // num mês anterior, ex: Financiamento Haval 15/10 pago em 19/08) não
-      // é previsão deste mês — já saiu antes, nunca vira Executado aqui.
-      if (
-        t.status === "PAGO" &&
-        t.data_pagamento &&
-        toBRDateStr(t.data_pagamento) < _finMonthStart
-      )
-        continue;
-      const map = t.tipo === "RECEITA" ? catRevAjusteMap : catExpAjusteMap;
-      const key = t.categoria_id ?? "__none__";
-      const label = catLabel(t.categoria_id);
-      const prev = map.get(key) ?? { label, value: 0 };
-      map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
-    }
-    // Ajuste do IPTV (delta do "a receber" ao vivo vs. o que foi fotografado)
-    if (ajustesIptv > 0) {
-      catRevAjusteMap.set(iptvKey, { label: iptvLabel, value: ajustesIptv });
-    }
   } else {
     // Fallback (mês sem fotografia ainda): comportamento antigo, tudo ao vivo
     for (const t of finTrxRows) {
@@ -552,7 +493,8 @@ export default async function AdminDashboardPage({
         t.data_vencimento >= _finMonthStart &&
         t.data_vencimento <= _finMonthEnd;
       if (!inPrev) continue;
-      // Parcela antecipada (paga em mês anterior) — mesma regra do Ajuste acima
+      // Parcela antecipada (paga em mês anterior, ex: Financiamento Haval 15/10
+      // pago em 19/08) não é previsão deste mês — nunca vira Executado aqui.
       if (
         t.status === "PAGO" &&
         t.data_pagamento &&
@@ -576,7 +518,7 @@ export default async function AdminDashboardPage({
   }
 
   // Executado: sempre ao vivo (pago de verdade), não muda com a fotografia
-  // ✅ Categoria IPTV excluída daqui pelo mesmo motivo do Ajuste acima — o
+  // ✅ Categoria IPTV excluída daqui ("IPTV - Rendimentos" sincronizado) — o
   // executado dela vem direto do bundle IPTV logo abaixo (clientes + revenda
   // pagos no mês), sem depender do lançamento sincronizado pela tela
   // Financeiro Pessoal (que também podia ficar desatualizado se ninguém
@@ -610,25 +552,23 @@ export default async function AdminDashboardPage({
     catExpExecMap.set(iptvKey, { label: iptvLabel, value: expensesMonthVal });
   }
 
-  // Meta (previsto + ajustes pós-fotografia) x progresso (executado ao vivo)
+  // ✅ 01/10/2026, pedido do Márcio: Previsto = SÓ a fotografia da virada
+  // do mês, nunca muda. Lançamento que aparece depois (ex: parcela de
+  // empréstimo paga no meio do mês) entra só no Executado — antes ia
+  // também pro Previsto como "Ajuste", e a linha mostrava X previsto / X
+  // executado pra algo que nunca foi planejado.
   const buildProgressItems = (
     prevMap: Map<string, { label: string; value: number }>,
-    ajusteMap: Map<string, { label: string; value: number }>,
     execMap: Map<string, { label: string; value: number }>,
   ) => {
-    const keys = new Set<string>([
-      ...prevMap.keys(),
-      ...ajusteMap.keys(),
-      ...execMap.keys(),
-    ]);
+    const keys = new Set<string>([...prevMap.keys(), ...execMap.keys()]);
     return Array.from(keys)
       .map((key) => {
         const p = prevMap.get(key);
-        const a = ajusteMap.get(key);
         const e = execMap.get(key);
         return {
-          label: p?.label ?? a?.label ?? e?.label ?? "📦 Sem categoria",
-          previsto: (p?.value ?? 0) + (a?.value ?? 0),
+          label: p?.label ?? e?.label ?? "📦 Sem categoria",
+          previsto: p?.value ?? 0,
           executado: e?.value ?? 0,
         };
       })
@@ -641,12 +581,10 @@ export default async function AdminDashboardPage({
 
   const finCatRevProgressItems = buildProgressItems(
     catRevPrevMap,
-    catRevAjusteMap,
     catRevExecMap,
   );
   const finCatExpProgressItems = buildProgressItems(
     catExpPrevMap,
-    catExpAjusteMap,
     catExpExecMap,
   );
 
