@@ -1446,7 +1446,7 @@ function FinanceiroPageContent() {
                 // Saldo do que ainda não foi pago/recebido na semana
                 // (receitas pendentes − despesas pendentes)
                 let semanaPendente = 0;
-                let semanaTemPendente = false;
+                let semanaQtdPendente = 0;
 
                 // Divisão de datas apenas para as normais
                 if (!isAntecipada && index !== null) {
@@ -1487,7 +1487,7 @@ function FinanceiroPageContent() {
                     const pendentesSemana = daSemana.filter(
                       (n) => n.status !== "PAGO",
                     );
-                    semanaTemPendente = pendentesSemana.length > 0;
+                    semanaQtdPendente = pendentesSemana.length;
                     semanaPendente = pendentesSemana.reduce(
                       (acc, n) =>
                         acc + (n.tipo === "RECEITA" ? n.valor : -n.valor),
@@ -1524,9 +1524,12 @@ function FinanceiroPageContent() {
                                   -{fmtBRL(semanaDespesas)}
                                 </span>
                               ),
-                              semanaTemPendente && (
+                              semanaQtdPendente > 0 && (
                                 <span key="p" className="text-sky-500">
-                                  Pendente{" "}
+                                  {semanaQtdPendente === 1
+                                    ? "Pendente"
+                                    : "Pendentes"}{" "}
+                                  ({semanaQtdPendente}):{" "}
                                   {semanaPendente > 0
                                     ? "+"
                                     : semanaPendente < 0
