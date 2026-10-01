@@ -104,8 +104,12 @@ async function snapshotTenant(tenantId: string, anoMes: string, force: boolean) 
     .eq("is_archived", false)
     .eq("is_trial", false)
     .not("vencimento", "is", null)
-    .gte("vencimento", `${start}T00:00:00`)
-    .lte("vencimento", `${end}T23:59:59`);
+    // ✅ 01/10/2026: limites em horário de Brasília (-03:00). Sem o offset o
+    // Postgres lia como UTC e um cliente vencendo 30/09 21:32 (SP) entrava
+    // na foto de OUTUBRO (= 01/10 00:32 UTC), divergindo do card "A Receber"
+    // da view (que já converte pra America/Sao_Paulo).
+    .gte("vencimento", `${start}T00:00:00-03:00`)
+    .lte("vencimento", `${end}T23:59:59.999-03:00`);
 
   if (clErr) throw new Error(`Falha ao buscar clientes a receber: ${clErr.message}`);
 
