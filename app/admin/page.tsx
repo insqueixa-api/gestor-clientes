@@ -429,35 +429,6 @@ export default async function AdminDashboardPage({
 
   const hasSnapshot = finSnapshotRows.length > 0;
 
-  // ✅ Previsto = fotografia congelada da virada do mês (não recalcula mais ao
-  // vivo). Sem fotografia pro mês, cai no cálculo antigo como fallback.
-  const finReceitasTotal = hasSnapshot
-    ? finSnapshotRows
-        .filter((s) => s.tipo === "RECEITA")
-        .reduce((acc, s) => acc + toNumber(s.valor), 0)
-    : finTrxRows
-        .filter(
-          (t) =>
-            t.tipo === "RECEITA" &&
-            t.data_vencimento >= _finMonthStart &&
-            t.data_vencimento <= _finMonthEnd,
-        )
-        .reduce((acc, t) => acc + toNumber(t.valor), 0) +
-      toNumber(finance?.to_receive_brl_estimated);
-
-  const finDespesasTotal = hasSnapshot
-    ? finSnapshotRows
-        .filter((s) => s.tipo === "DESPESA")
-        .reduce((acc, s) => acc + toNumber(s.valor), 0)
-    : finTrxRows
-        .filter(
-          (t) =>
-            t.tipo === "DESPESA" &&
-            t.data_vencimento >= _finMonthStart &&
-            t.data_vencimento <= _finMonthEnd,
-        )
-        .reduce((acc, t) => acc + toNumber(t.valor), 0);
-
   // ✅ Usado só pelo card "Receitas por Categoria" logo abaixo, pra separar
   // o que já estava na fotografia do mês do que é "a receber" novo do IPTV
   // (não dá pra saber o id de cada cliente aqui sem buscar a lista toda de
@@ -489,7 +460,9 @@ export default async function AdminDashboardPage({
         t.data_vencimento >= _finMonthStart &&
         t.data_vencimento <= _finMonthEnd,
     )
-    .reduce((acc, t) => acc + toNumber(t.valor), 0);
+    .reduce((acc, t) => acc + toNumber(t.valor), 0) +
+    // IPTV ainda a receber no mês (clientes ativos vencendo, ao vivo)
+    toNumber(finance?.to_receive_brl_estimated);
 
   const finDespesasPendentes = finTrxRows
     .filter(
@@ -500,6 +473,15 @@ export default async function AdminDashboardPage({
         t.data_vencimento <= _finMonthEnd,
     )
     .reduce((acc, t) => acc + toNumber(t.valor), 0);
+
+  // ✅ 01/10/2026, pedido do Márcio: cards do topo batem com os do Controle
+  // Financeiro — Previsão = já recebido/pago + o que ainda falta no mês (ao
+  // vivo, IPTV a receber incluso). A fotografia congelada do mês continua
+  // valendo só pro card "Receitas/Despesas por Categoria" abaixo; no topo
+  // ela gerava previsão MENOR que o já pago (lançamento novo depois da
+  // virada não entrava).
+  const finReceitasTotal = finReceitasPagas + finReceitasPendentes;
+  const finDespesasTotal = finDespesasPagas + finDespesasPendentes;
 
   // Rankings por categoria (Previsto congelado / Ajustes / Executado)
   const catRevPrevMap = new Map<string, { label: string; value: number }>();

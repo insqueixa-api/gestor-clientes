@@ -110,6 +110,10 @@ function FinanceiroPageContent() {
 
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [contasDB, setContasDB] = useState<any[]>([]);
+  // IPTV ainda a receber no mês (vw_dashboard_finance_cards, ao vivo) — só
+  // existe pro mês atual; entra no Pendente/Previsão de Receitas igual ao
+  // dashboard.
+  const [iptvAReceber, setIptvAReceber] = useState(0);
   const [categoriasDB, setCategoriasDB] = useState<any[]>([]);
 
   // ✅ Protege contra corrida ao trocar de mês rapidamente: cada chamada de
@@ -430,6 +434,10 @@ function FinanceiroPageContent() {
       const isMesAnterior =
         dateObj.getMonth() === mesPassado.getMonth() &&
         dateObj.getFullYear() === mesPassado.getFullYear();
+
+      setIptvAReceber(
+        isMesAtual ? Number(resF.data?.to_receive_brl_estimated || 0) : 0,
+      );
 
       let valorIptv = 0;
       if (isMesAtual) {
@@ -871,7 +879,8 @@ function FinanceiroPageContent() {
         t.status !== "PAGO" &&
         isDateInViewMonth(t.data_vencimento),
     )
-    .reduce((acc, t) => acc + t.valor, 0);
+    .reduce((acc, t) => acc + t.valor, 0) +
+    (contaFilter === "Todos" ? iptvAReceber : 0);
 
   const despesasPendentes = transacoesCards
     .filter(
