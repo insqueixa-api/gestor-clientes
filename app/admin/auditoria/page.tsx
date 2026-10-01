@@ -2153,14 +2153,9 @@ function AuditoriaPageContent() {
                                       );
                                     }}
                                     className="text-[10px] text-muted-foreground font-medium hover:text-emerald-500 transition-colors"
-                                    title={
-                                      r.mp_payment_id
-                                        ? "Clique para copiar a referência"
-                                        : "Pago junto com a assinatura (mesma transação) — clique para copiar a referência"
-                                    }
+                                    title="Clique para copiar a referência"
                                   >
                                     Ref: {r.mp_payment_id || r.parent_mp_payment_id}
-                                    {!r.mp_payment_id && " (junto)"}
                                   </button>
                                 )}
                                 {/* ✅ Movido da coluna Renovação: fluxo manual concluído,
@@ -2194,7 +2189,13 @@ function AuditoriaPageContent() {
                                 {r.fulfillment_status === "manual_pending" ||
                                 r.fulfillment_status === "manual_done" ||
                                 r.fulfillment_status === "manual_cancelled" ? (
-                                  r.fulfillment_error && (
+                                  // ✅ 30/09/2026, pedido do Márcio: "Servidor Elite
+                                  // requer renovação manual." é o normal do Elite (já
+                                  // aparece como Concluído/Pendente Manual) — não
+                                  // repete. Outros motivos (sem integração etc.)
+                                  // continuam, esses indicam algo a arrumar.
+                                  r.fulfillment_error &&
+                                  !/elite requer renova/i.test(r.fulfillment_error) && (
                                     <span
                                       className="text-[10px] text-muted-foreground leading-tight max-w-[200px] truncate font-medium"
                                       title={r.fulfillment_error}

@@ -308,7 +308,9 @@ export async function POST(req: NextRequest) {
         // persistida por lib/apps/orchestration.ts em field_values._trial_hint
         // na última vez que a validade foi verificada. Só vale enquanto não
         // existe vencimento de verdade salvo (senão o vencimento real manda).
-        is_trial: !isPartnership && vals["_trial_hint"] === "1" && !extractExpiration(vals, config),
+        // ✅ 30/09/2026: vale mesmo com data salva à mão — a marca só sai quando
+          // o parceiro devolve vencimento real (lib/apps/orchestration.ts).
+          is_trial: !isPartnership && vals["_trial_hint"] === "1",
         is_partnership: isPartnership,
         fields: extractEditableFields(vals, config),
         portal_setup_instructions:

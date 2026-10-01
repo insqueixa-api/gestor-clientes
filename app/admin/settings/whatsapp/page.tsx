@@ -16,6 +16,7 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import { usePrompt } from "@/hooks/usePrompt";
 import { useTenantId } from "@/lib/tenant-context";
+import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 
 // ── Ícone WhatsApp ────────────────────────────────────────────
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -732,7 +733,7 @@ function WhatsAppSessionCard({
                               </button>
                             ))}
                           </div>
-                          <textarea
+                          <WhatsAppTextarea
                             value={draftMessage}
                             onChange={(e) => setDraftMessage(e.target.value)}
                             rows={3}

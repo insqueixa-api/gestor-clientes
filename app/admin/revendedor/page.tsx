@@ -45,6 +45,7 @@ const QuickRechargeModal = dynamic(() => import("./recarga_revenda"), {
   ssr: false,
 });
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 
 // --- TIPOS ---
 type ResellerStatus = "Ativo" | "Inativo" | "Arquivado";
@@ -1631,7 +1632,7 @@ export default function RevendaPage() {
               );
             })()}
 
-            <textarea
+            <WhatsAppTextarea
               value={messageText}
               disabled={!!selectedTemplateNowId}
               onChange={(e) => setMessageText(e.target.value)}
@@ -1767,7 +1768,7 @@ export default function RevendaPage() {
               <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Mensagem
               </label>
-              <textarea
+              <WhatsAppTextarea
                 value={scheduleText}
                 disabled={!!selectedTemplateScheduleId}
                 onChange={(e) => setScheduleText(e.target.value)}
@@ -1952,7 +1953,7 @@ export default function RevendaPage() {
               <label className="block text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Conteúdo
               </label>
-              <textarea
+              <WhatsAppTextarea
                 value={newTemplateContent}
                 onChange={(e) => setNewTemplateContent(e.target.value)}
                 className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none min-h-25 focus:border-emerald-500/50 transition-colors"

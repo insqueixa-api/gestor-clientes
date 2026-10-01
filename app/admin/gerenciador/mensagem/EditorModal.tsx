@@ -9,6 +9,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import { useConfirm } from "@/hooks/useConfirm";
+import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 import {
   type MessageTemplate,
   PROTECTED_TEMPLATES,
@@ -859,7 +860,7 @@ export default function EditorModal({
               )}
 
               <div className="flex-1 relative group">
-                <textarea
+                <WhatsAppTextarea
                   ref={textareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
@@ -910,7 +911,7 @@ export default function EditorModal({
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        <textarea
+                        <WhatsAppTextarea
                           value={v.content}
                           onChange={(e) => {
                             const text = e.target.value;

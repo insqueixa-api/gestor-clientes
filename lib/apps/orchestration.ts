@@ -451,26 +451,33 @@ export async function checkClientAppValidity(
   let expireDate = rawExpireDate;
   if (expireDate && dateField) {
     const fieldKey = String(dateField.id || dateField.label);
+    // ✅ 30/09/2026: vencimento REAL chegou (licença ativada) → sai do modo
+    // de avaliação. Antes a marca _trial_hint nunca era removida.
+    const { _trial_hint: _drop, ...semTrial } = row.field_values;
+    void _drop;
     await supabaseAdmin
       .from("client_apps")
-      .update({ field_values: { ...row.field_values, [fieldKey]: expireDate } })
+      .update({ field_values: { ...semTrial, [fieldKey]: expireDate } })
       .eq("id", row.id);
-  } else if (dateField) {
-    const fieldKey = String(dateField.id || dateField.label);
-    expireDate = row.field_values[fieldKey] || null;
-    // Sem vencimento real nem salvo (ex: DUPLECAST recém-configurado, ainda
-    // no trial) — guarda a marca de trial em field_values (mesmo padrão de
-    // _config_cost/_config_partner, chave fora de fields_config) pra a UI
-    // mostrar "Modo Teste" nos próximos carregamentos sem precisar rechecar
-    // no parceiro toda hora. Pedido do Márcio, 10/08/2026: se já existe um
-    // vencimento salvo manualmente, esse `else if` acima nem entra aqui —
-    // o valor manual é respeitado como está.
-    if (!expireDate && isTrial && row.field_values["_trial_hint"] !== "1") {
+  } else if (dateField && isTrial) {
+    // ✅ 30/09/2026, pedido do Márcio: parceiro confirma "trial" (ex:
+    // DUPLECAST — a página dele mostra "Expire on" VAZIO no trial) → marca
+    // modo de avaliação MESMO se houver data salva à mão; a data fica
+    // guardada, só não é mostrada como validade, e a renovação fica liberada
+    // no portal. Substitui a regra de 10/08/2026 (data manual escondia o trial).
+    // expireDate fica null de propósito: quem chama trata "veio data" como
+    // vencimento real confirmado (o admin tiraria o selo de avaliação).
+    if (row.field_values["_trial_hint"] !== "1") {
       await supabaseAdmin
         .from("client_apps")
         .update({ field_values: { ...row.field_values, _trial_hint: "1" } })
         .eq("id", row.id);
     }
+  } else if (dateField) {
+    // Parceiro não devolveu vencimento e não é trial (ex: DUPLEXTV quase
+    // nunca devolve) — mantém o valor já salvo no banco.
+    const fieldKey = String(dateField.id || dateField.label);
+    expireDate = row.field_values[fieldKey] || null;
   }
 
   return { ok: true, expireDate, rawExpireDate, isTrial };

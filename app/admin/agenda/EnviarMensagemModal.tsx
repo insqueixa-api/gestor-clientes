@@ -9,6 +9,7 @@ import { useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Modal, IconSend, displayPhone } from "./shared";
+import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 
 export default function EnviarMensagemModal({
   contactId,
@@ -98,7 +99,7 @@ export default function EnviarMensagemModal({
             ))}
           </select>
         </div>
-        <textarea
+        <WhatsAppTextarea
           value={messageText}
           onChange={(e) => setMessageText(e.target.value)}
           className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none min-h-[120px] text-sm resize-none"

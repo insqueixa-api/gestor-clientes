@@ -10,6 +10,8 @@ import imageCompression from "browser-image-compression";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { uploadToR2, useR2FileTracker } from "@/lib/r2-upload";
+import RichTextEditor, { RICH_TEXT_CLASSES } from "@/components/ui/RichTextEditor";
+import { renderRichText } from "@/lib/rich-text/sanitize";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import type { AcaoRow, Foto, StatusAcao } from "./shared";
@@ -400,12 +402,12 @@ export default function ModalAcao({
               {revisando ? "Revisando..." : "✨ Revisar com IA"}
             </button>
           </div>
-          <textarea
+          {/* ✅ 30/09/2026: editor rico (negrito, listas…) — sai igual no PDF */}
+          <RichTextEditor
             value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            rows={5}
+            onChange={setTexto}
             placeholder="Descreva o que foi feito, está em andamento ou planejado..."
-            className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground/40 outline-none focus:border-emerald-500/50 transition-colors resize-y"
+            minHeightClass="min-h-[120px]"
           />
 
           {sugestaoIA && (
@@ -413,9 +415,10 @@ export default function ModalAcao({
               <p className="text-[10px] font-medium text-emerald-600 uppercase tracking-wider">
                 Sugestão da IA
               </p>
-              <p className="text-sm text-foreground/90 whitespace-pre-wrap">
-                {sugestaoIA}
-              </p>
+              <div
+                className={`text-sm text-foreground/90 ${RICH_TEXT_CLASSES}`}
+                dangerouslySetInnerHTML={{ __html: renderRichText(sugestaoIA) }}
+              />
               <div className="flex gap-2">
                 <button
                   type="button"

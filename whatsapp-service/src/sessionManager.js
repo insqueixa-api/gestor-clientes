@@ -1359,12 +1359,24 @@ const ONLINE_LINGER_MS = 12_000; // some tempos depois do ÚLTIMO envio, sem men
 // meio de uma janela "só ficando online, sem mandar nada" não cortar essa
 // janela mais cedo (o timer normal de 12s do envio nunca antecipa o fim de
 // uma janela simulada mais longa que já esteja em andamento).
+// ✅ 30/09/2026: sendPresenceUpdate é async — o antigo "try { … } catch {}"
+// sem await NUNCA pegava a falha. Quando o timer disparava numa conexão que
+// tinha acabado de cair (428/503), virava "[FATAL] unhandledRejection:
+// Connection Closed" no log (6x numa semana). Aqui a promessa é tratada de
+// verdade; presença é cosmética, falhar em silêncio é o correto.
+function safePresence(sock, type, jid) {
+  try {
+    const p = jid ? sock?.sendPresenceUpdate(type, jid) : sock?.sendPresenceUpdate(type);
+    if (p && typeof p.catch === "function") p.catch(() => {});
+  } catch {}
+}
+
 function scheduleGoOffline(sess, minDelayMs = ONLINE_LINGER_MS) {
   const now = Date.now();
   const targetTs = Math.max(now + minDelayMs, sess.presenceKeepOnlineUntil || 0);
   if (sess.presenceOfflineTimer) clearTimeout(sess.presenceOfflineTimer);
   sess.presenceOfflineTimer = setTimeout(() => {
-    try { sess.socket?.sendPresenceUpdate("unavailable"); } catch {}
+    safePresence(sess.socket, "unavailable");
   }, targetTs - now);
 }
 
@@ -1377,7 +1389,7 @@ async function goOnlineForSend(sess) {
     sess.presenceOfflineTimer = null;
     return;
   }
-  try { sess.socket?.sendPresenceUpdate("available"); } catch {}
+  safePresence(sess.socket, "available");
   await new Promise((r) => setTimeout(r, ONLINE_BEFORE_SEND_MS));
 }
 
@@ -1514,9 +1526,9 @@ async function sendMessageInternal(sessionKey, phone, message, imageUrl = null, 
     const typingMs =
       TYPING_BEFORE_SEND_MIN_MS +
       Math.floor(Math.random() * (TYPING_BEFORE_SEND_MAX_MS - TYPING_BEFORE_SEND_MIN_MS + 1));
-    try { sess.socket.sendPresenceUpdate("composing", jid); } catch {}
+    safePresence(sess.socket, "composing", jid);
     await new Promise((r) => setTimeout(r, typingMs));
-    try { sess.socket.sendPresenceUpdate("paused", jid); } catch {}
+    safePresence(sess.socket, "paused", jid);
   }
 
   let result;

@@ -8,6 +8,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Moda
 import { Dropdown } from "@/components/ui/Dropdown";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import ClientPicker, { PickedClient } from "./client_picker";
+import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 import {
   computeCouponImpact,
   computeSingleClientImpact,
@@ -887,7 +888,7 @@ export default function CupomModal({
                 <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                   Frase para {"{cupom_frase}"} (opcional)
                 </label>
-                <textarea
+                <WhatsAppTextarea
                   value={messageTemplate}
                   onChange={(e) => setMessageTemplate(e.target.value)}
                   placeholder={`Padrão se deixar em branco: "🎁 Use o cupom *{codigo}* e ganhe {desconto} de desconto na sua próxima renovação!"`}

@@ -24,6 +24,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
+import { PORTAL_APPS_DISABLED, PORTAL_APPS_DISABLED_MESSAGE } from "@/lib/apps/portal-apps-flag";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
 import { convertAmount } from "@/lib/fx";
 import { createFastDepixTransaction, getFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
@@ -51,6 +52,10 @@ function getAppOrigin() {
 }
 
 export async function POST(req: NextRequest) {
+  // ⏸️ Meus Aplicativos desligado no portal durante o refactor (ver lib/apps/portal-apps-flag.ts)
+  if (PORTAL_APPS_DISABLED) {
+    return NextResponse.json({ ok: false, error: PORTAL_APPS_DISABLED_MESSAGE }, { status: 503 });
+  }
   try {
     const supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) return jsonError("Erro interno", 500);

@@ -21,6 +21,7 @@ import ReconfigureModeModal, {
   ReconfigureMode,
 } from "@/components/apps/ReconfigureModeModal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
+import { PORTAL_ADD_APP_HIDDEN, PORTAL_APPS_DISABLED } from "@/lib/apps/portal-apps-flag";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
@@ -1468,7 +1469,7 @@ export default function RenewClient() {
         );
       addToast(
         "success",
-        result.isTrial ? "Modo Teste" : "Validade atualizada",
+        result.isTrial ? "Modo de avaliação" : "Validade atualizada",
         result.expireDate
           ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
           : result.isTrial
@@ -4417,10 +4418,19 @@ export default function RenewClient() {
               </div>
             </button>
 
-            {/* Bloco 2 — Configuração de aplicativo */}
+            {/* Bloco 2 — Configuração de aplicativo
+                ⏸️ Desligado durante o refactor (lib/apps/portal-apps-flag.ts):
+                o card continua no lugar (layout não muda), só não abre. */}
             <button
-              onClick={() => setActiveSection("apps")}
-              className="flex-1 min-h-0 sm:flex-none w-full text-left rounded-2xl p-4 border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 transition-all shadow-sm hover:shadow-md group overflow-hidden"
+              onClick={() => {
+                if (!PORTAL_APPS_DISABLED) setActiveSection("apps");
+              }}
+              disabled={PORTAL_APPS_DISABLED}
+              className={`flex-1 min-h-0 sm:flex-none w-full text-left rounded-2xl p-4 border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent transition-all shadow-sm group overflow-hidden ${
+                PORTAL_APPS_DISABLED
+                  ? "opacity-60 cursor-not-allowed"
+                  : "hover:border-amber-500/60 hover:shadow-md"
+              }`}
             >
               <div className="h-full flex flex-col items-center justify-center text-center gap-2 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
                 <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-2xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
@@ -4431,13 +4441,16 @@ export default function RenewClient() {
                     Meus Aplicativos
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:text-xs sm:mt-0.5">
-                    Diga quais aplicativos você usa, atualize ou instale
-                    novos.
+                    {PORTAL_APPS_DISABLED
+                      ? "Em atualização — volta em breve."
+                      : "Diga quais aplicativos você usa, atualize ou instale novos."}
                   </p>
                 </div>
-                <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:inline">
-                  →
-                </span>
+                {!PORTAL_APPS_DISABLED && (
+                  <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:inline">
+                    →
+                  </span>
+                )}
               </div>
             </button>
           </div>
@@ -4447,7 +4460,7 @@ export default function RenewClient() {
   }
 
   // ========= RENDER: APPS (BLOCO 3) =========
-  if (activeSection === "apps") {
+  if (activeSection === "apps" && !PORTAL_APPS_DISABLED) {
     const isP2PAccount =
       String(selectedAccount.technology || "").toUpperCase() === "P2P";
 
@@ -4466,15 +4479,18 @@ export default function RenewClient() {
               <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight min-w-0 truncate">
                 Meus Aplicativos
               </h1>
-              <button
-                onClick={() => {
-                  setShowAddAppPicker(true);
-                  loadAppCatalog();
-                }}
-                className="h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all shrink-0"
-              >
-                <span>+</span> Adicionar aplicativo
-              </button>
+              {/* ⏸️ Escondido até a vitrine nova (lib/apps/portal-apps-flag.ts) */}
+              {!PORTAL_ADD_APP_HIDDEN && (
+                <button
+                  onClick={() => {
+                    setShowAddAppPicker(true);
+                    loadAppCatalog();
+                  }}
+                  className="h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all shrink-0"
+                >
+                  <span>+</span> Adicionar aplicativo
+                </button>
+              )}
             </div>
             <div className="mt-3 rounded-2xl border border-border bg-card/95 p-3 shadow-sm sm:p-4">
               <div className="flex items-start justify-between gap-3">
@@ -4591,12 +4607,21 @@ export default function RenewClient() {
               !installedAppsError &&
               installedApps.length === 0 && (
                 <div className="text-center py-8 px-4 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
-                  Ainda não identificamos nenhum aplicativo nesta conta. Use{" "}
-                  <strong className="text-foreground">
-                    "+ Adicionar aplicativo"
-                  </strong>{" "}
-                  para escolher o app que você usa ou para começar uma nova
-                  configuração.
+                  {PORTAL_ADD_APP_HIDDEN ? (
+                    <>
+                      Ainda não identificamos nenhum aplicativo nesta conta.
+                      Para configurar um aplicativo, fale com o suporte.
+                    </>
+                  ) : (
+                    <>
+                      Ainda não identificamos nenhum aplicativo nesta conta. Use{" "}
+                      <strong className="text-foreground">
+                        "+ Adicionar aplicativo"
+                      </strong>{" "}
+                      para escolher o app que você usa ou para começar uma nova
+                      configuração.
+                    </>
+                  )}
                 </div>
               )}
 
@@ -4607,9 +4632,15 @@ export default function RenewClient() {
                 const busy = appActionBusy === app.id;
                 const ambienteField = app.fields.find((f) => f.type === "obs");
                 const otherFields = app.fields.filter((f) => f.type !== "obs");
-                const expirationDatePart = app.expiration
-                  ? String(app.expiration).split("T")[0]
-                  : "";
+                // ✅ 30/09/2026, pedido do Márcio: em modo de avaliação
+                // (parceiro confirmou trial — ex: Duplecast) a data salva NÃO
+                // é validade real: ignora aqui, então a linha mostra "Modo de
+                // avaliação" (ramo sem data, abaixo) e o botão de renovar
+                // aparece (ele já libera quando não há data).
+                const expirationDatePart =
+                  app.expiration && !app.is_trial
+                    ? String(app.expiration).split("T")[0]
+                    : "";
                 // ✅ 3 estados (pedido do Marcio, 25/07/2026): já vencido
                 // fica vermelho ("Vencido"), vencendo fica âmbar
                 // ("Vencendo"), resto fica neutro ("Validade"). Limiar
@@ -4662,7 +4693,7 @@ export default function RenewClient() {
                             <p className="text-xs text-muted-foreground mt-0.5">
                               Vencimento: Parceria (gratuito)
                             </p>
-                          ) : app.expiration ? (
+                          ) : app.expiration && !app.is_trial ? (
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <p
                                 className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}
@@ -4707,7 +4738,7 @@ export default function RenewClient() {
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <p className={`text-xs ${app.is_trial ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
                                 {app.is_trial
-                                  ? "Modo Teste — 15 dias grátis"
+                                  ? "Vencimento: Modo de avaliação"
                                   : "Vencimento: —"}
                               </p>
                               {app.has_pending_manual_renewal && (

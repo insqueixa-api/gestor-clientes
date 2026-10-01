@@ -40,23 +40,64 @@ async function solveChallengeOnce(url, maxTimeout) {
   };
 }
 
-// ✅ Retry (14/08/2026): o tempo pra resolver o desafio do Cloudflare varia —
-// normalmente 14-17s, mas achado ao vivo que ocasionalmente demora bem mais
-// (ou nem resolve dentro do maxTimeout), fazendo o timeout de 55s do lado da
-// Vercel estourar antes. 1ª tentativa com orçamento enxuto (20s — cobre o
-// caso normal com folga); se falhar, 1 segunda tentativa com mais fôlego
-// (25s). Total do pior caso (~46s) + resto do fluxo (login+ação, poucos
-// segundos) ainda cabe dentro de maxDuration=60s da rota na Vercel.
-async function solveChallenge(url) {
+// ✅ 30/09/2026 (Márcio não conseguiu configurar Duplecast — FlareSolverr
+// HTTP 500 em 4 de 5 tentativas): o desafio do Cloudflare passou a levar
+// 11-25s+ e o esquema antigo (1ª tentativa 20s, 2ª 25s, cada uma
+// recomeçando do zero) estourava. Duas mudanças:
+//
+// 1) Passe reaproveitado: o cf_clearance que o FlareSolverr devolve vale
+//    vários minutos pro MESMO user-agent + IP (a VM). Testado ao vivo:
+//    reusando, a página abre em ~0,6s em vez de ~15s. Guarda só os cookies
+//    do Cloudflare (cf_/__cf/_cf) — NUNCA o de sessão do site (blesta_sid),
+//    pra um login de aparelho não herdar a sessão de outro.
+// 2) Sem passe válido: UMA resolução com até 45s (cabe no
+//    AbortSignal.timeout(58000) de app/api/integrations/apps/duplecast).
+const CF_PASS_TTL_MS = 20 * 60 * 1000;
+const cfPassByHost = new Map(); // host -> { cookies, userAgent, at }
+
+function cloudflareCookiesOnly(cookies) {
+  return (cookies || []).filter((c) => /^(cf_|__cf|_cf)/.test(String(c?.name || "")));
+}
+
+async function tryWithCachedPass(url) {
+  const host = new URL(url).host;
+  const pass = cfPassByHost.get(host);
+  if (!pass || Date.now() - pass.at > CF_PASS_TTL_MS) return null;
   try {
-    return await solveChallengeOnce(url, 20000);
-  } catch (firstErr) {
-    console.error("[DUPLECAST] 1ª tentativa de resolver o Cloudflare falhou, tentando de novo:", firstErr?.message);
-    try {
-      return await solveChallengeOnce(url, 25000);
-    } catch (secondErr) {
-      throw new Error(`Cloudflare não resolveu após 2 tentativas: ${secondErr?.message}`);
+    const jar = new CookieJar(pass.cookies);
+    const res = await fetch(url, {
+      headers: baseHeaders(jar, pass.userAgent, url),
+      signal: AbortSignal.timeout(10000),
+    });
+    const html = await res.text();
+    if (!res.ok || /Just a moment/i.test(html) || !extractCsrfToken(html)) {
+      cfPassByHost.delete(host); // passe expirou/foi recusado — resolve de novo
+      return null;
     }
+    jar.absorb(res.headers);
+    const cookies = [...jar.store.entries()].map(([name, value]) => ({ name, value }));
+    return { html, cookies, userAgent: pass.userAgent };
+  } catch {
+    cfPassByHost.delete(host);
+    return null;
+  }
+}
+
+async function solveChallenge(url) {
+  const cached = await tryWithCachedPass(url);
+  if (cached) return cached;
+
+  const startedAt = Date.now();
+  try {
+    const solved = await solveChallengeOnce(url, 45000);
+    const cfCookies = cloudflareCookiesOnly(solved.cookies);
+    if (cfCookies.length && solved.userAgent) {
+      cfPassByHost.set(new URL(url).host, { cookies: cfCookies, userAgent: solved.userAgent, at: Date.now() });
+    }
+    console.log(`[DUPLECAST] Cloudflare resolvido em ${Math.round((Date.now() - startedAt) / 1000)}s (passe guardado por 20min)`);
+    return solved;
+  } catch (err) {
+    throw new Error(`Cloudflare não resolveu em 45s: ${err?.message}`);
   }
 }
 

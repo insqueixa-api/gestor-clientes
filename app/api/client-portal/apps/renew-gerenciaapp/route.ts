@@ -17,6 +17,7 @@
 // problema: não cria nem apaga nenhuma playlist.
 import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
+import { PORTAL_APPS_DISABLED, PORTAL_APPS_DISABLED_MESSAGE } from "@/lib/apps/portal-apps-flag";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { extractFieldByType, findFieldByType, internalAppUrl, logAppActivity } from "@/lib/apps/panel";
 
@@ -37,6 +38,10 @@ function jsonError(message: string, status: number) {
 }
 
 export async function POST(req: NextRequest) {
+  // ⏸️ Meus Aplicativos desligado no portal durante o refactor (ver lib/apps/portal-apps-flag.ts)
+  if (PORTAL_APPS_DISABLED) {
+    return NextResponse.json({ ok: false, error: PORTAL_APPS_DISABLED_MESSAGE }, { status: 503 });
+  }
   let tenantId = "";
   let client_id = "";
   let client_app_id = "";

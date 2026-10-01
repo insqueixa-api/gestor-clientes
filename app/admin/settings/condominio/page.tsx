@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { richTextToPlain } from "@/lib/rich-text/sanitize";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import CondominioFilterDropdown from "./CondominioFilterDropdown";
@@ -346,7 +347,7 @@ export default function CondominioPage() {
       const q = search.trim().toLowerCase();
       if (
         !a.titulo.toLowerCase().includes(q) &&
-        !(a.texto || "").toLowerCase().includes(q)
+        !richTextToPlain(a.texto).toLowerCase().includes(q)
       )
         return false;
     }
@@ -685,7 +686,7 @@ export default function CondominioPage() {
 
                           {item.texto && (
                             <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
-                              {item.texto}
+                              {richTextToPlain(item.texto)}
                             </p>
                           )}
 

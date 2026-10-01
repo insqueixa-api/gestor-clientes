@@ -26,6 +26,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Moda
 import AppPickerModal from "@/components/apps/AppPickerModal";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
+import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 
 // --- TIPOS ---
 type SelectOption = {
@@ -2583,7 +2584,7 @@ export default function NovoCliente({
           setAppTrialFlag(currentApp!.instanceId, true);
           addToast(
             "warning",
-            "Modo Teste",
+            "Modo de avaliação",
             `${appName} ainda está no trial grátis (15 dias) — o parceiro só informa vencimento depois de ativar a licença paga.`,
           );
         } else if (apiJson?.ok) {
@@ -3646,6 +3647,9 @@ export default function NovoCliente({
               ...app.values,
               _config_cost: app.costType,
               _config_partner: app.partnerServerId,
+              // ✅ 30/09/2026: mantém o "Modo de avaliação" ao salvar (antes o
+              // save recriava o app sem a marca e o aviso sumia)
+              ...(app.isTrial ? { _trial_hint: "1" } : {}),
             },
           }));
 
@@ -4250,6 +4254,9 @@ export default function NovoCliente({
               ...app.values,
               _config_cost: app.costType,
               _config_partner: app.partnerServerId,
+              // ✅ 30/09/2026: mantém o "Modo de avaliação" ao salvar (antes o
+              // save recriava o app sem a marca e o aviso sumia)
+              ...(app.isTrial ? { _trial_hint: "1" } : {}),
             },
           }));
           // ✅ Captura o id real de cada linha inserida (na mesma ordem de
@@ -6071,12 +6078,13 @@ export default function NovoCliente({
 
                             {sendTrialWhats && selectedTemplateId === "" && (
                               <div className="animate-in fade-in zoom-in duration-200 flex-1">
-                                <textarea
+                                <WhatsAppTextarea
                                   value={messageContent}
                                   onChange={(e) =>
                                     setMessageContent(e.target.value)
                                   }
-                                  className="w-full h-full min-h-[60px] px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none transition-all"
+                                  wrapperClassName="h-full"
+                                  className="w-full flex-1 min-h-[60px] px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 resize-none transition-all"
                                   placeholder="Digite a mensagem de teste..."
                                 />
                               </div>
@@ -6306,7 +6314,8 @@ export default function NovoCliente({
                       expireDateIso = fieldKey
                         ? app.values[String(fieldKey)]
                         : "";
-                      if (expireDateIso) {
+                      // ✅ 30/09/2026: em avaliação a data salva não é validade real
+                      if (expireDateIso && !app.isTrial) {
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
                         const expDate = new Date(
@@ -6425,13 +6434,13 @@ export default function NovoCliente({
                             {/* Trial sem vencimento salvo (ex: DUPLECAST, 15 dias
                                 grátis) — sem essa tag ficava com "Vencimento: —"
                                 indistinguível de um app nunca verificado. */}
-                            {!expireDateIso && app.isTrial && (
+                            {app.isTrial && (
                               <span
                                 title="Ainda no trial grátis do parceiro — sem vencimento fixo até ativar a licença paga"
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/20 text-amber-400 shadow-sm ml-1"
                               >
                                 <span className="text-[9px] font-medium uppercase tracking-wider">
-                                  Modo Teste
+                                  Modo de avaliação
                                 </span>
                               </span>
                             )}

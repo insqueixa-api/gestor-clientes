@@ -5,6 +5,7 @@
 // passos do admin: adicionar → preencher → Configurar).
 import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
+import { PORTAL_APPS_DISABLED, PORTAL_APPS_DISABLED_MESSAGE } from "@/lib/apps/portal-apps-flag";
 import { logAppActivity } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,10 @@ function jsonError(message: string, status: number) {
 }
 
 export async function POST(req: NextRequest) {
+  // ⏸️ Meus Aplicativos desligado no portal durante o refactor (ver lib/apps/portal-apps-flag.ts)
+  if (PORTAL_APPS_DISABLED) {
+    return NextResponse.json({ ok: false, error: PORTAL_APPS_DISABLED_MESSAGE }, { status: 503 });
+  }
   try {
     const supabaseAdmin = makeSupabaseAdmin();
     if (!supabaseAdmin) {

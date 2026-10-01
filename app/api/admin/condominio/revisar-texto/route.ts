@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { callGemini } from "@/lib/whatsapp/gemini-client";
+import { isRichHtml, sanitizeRichHtml } from "@/lib/rich-text/sanitize";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,9 +50,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // ✅ 30/09/2026: texto do editor novo vem em HTML (negrito, listas…) —
+  // a IA revisa só as palavras e MANTÉM as tags; a saída passa pelo
+  // sanitizador. Texto antigo (puro) segue o prompt de sempre.
+  const rico = isRichHtml(texto);
+  const regraFormato = rico
+    ? "O texto está em HTML simples (tags <p>, <strong>, <em>, <u>, <s>, <ul>, <ol>, <li>, <blockquote>, <a>, <br>). Revise apenas as palavras: mantenha exatamente as mesmas tags em volta dos mesmos trechos, a mesma estrutura de parágrafos e listas, e os mesmos links. Não acrescente tags novas nem markdown. Devolva apenas o HTML revisado, sem aspas, sem ``` e sem comentários."
+    : "Não use markdown, listas com marcadores ou títulos. Devolva apenas o texto revisado corrido, sem aspas e sem comentários.";
+
   const prompt = `Você é o revisor de texto do informativo semanal/mensal de um condomínio residencial, o ${nomeCondominio}.
 
-Revise o texto abaixo, referente ao item "${titulo}", deixando a redação mais clara, natural e bem escrita em português do Brasil, no mesmo tom institucional e cordial usado em comunicados de condomínio. Mantenha o mesmo sentido e as mesmas informações do original. Não invente fatos, números, valores ou prazos que não estejam no texto original. Não use markdown, listas com marcadores ou títulos. Devolva apenas o texto revisado corrido, sem aspas e sem comentários.
+Revise o texto abaixo, referente ao item "${titulo}", deixando a redação mais clara, natural e bem escrita em português do Brasil, no mesmo tom institucional e cordial usado em comunicados de condomínio. Mantenha o mesmo sentido e as mesmas informações do original. Não invente fatos, números, valores ou prazos que não estejam no texto original. ${regraFormato}
 
 Texto original:
 """
@@ -68,7 +77,8 @@ ${texto}
       30_000,
     );
     const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const sugestao = cleanGeneratedText(rawText);
+    const limpo = cleanGeneratedText(rawText);
+    const sugestao = rico ? sanitizeRichHtml(limpo) : limpo;
     if (!sugestao) {
       return NextResponse.json({ error: "A IA não retornou um texto válido. Tente de novo." }, { status: 422 });
     }

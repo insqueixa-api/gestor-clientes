@@ -262,7 +262,7 @@ export default function AppDetailClient() {
       if (!result?.ok) throw new Error(result?.error || "Não foi possível atualizar a validade.");
       addToast(
         "success",
-        result.isTrial ? "Modo Teste" : "Validade atualizada",
+        result.isTrial ? "Modo de avaliação" : "Validade atualizada",
         result.expireDate
           ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
           : result.isTrial
@@ -381,7 +381,7 @@ export default function AppDetailClient() {
                   Editar
                 </button>
               </div>
-              {app.expiration && (
+              {app.expiration && !app.is_trial && (
                 <div className="flex items-center gap-1.5 -mt-2">
                   <p className="text-xs text-muted-foreground">
                     Validade do aplicativo: {String(app.expiration).split("T")[0].split("-").reverse().join("/")}
@@ -402,7 +402,7 @@ export default function AppDetailClient() {
                   )}
                 </div>
               )}
-              {!app.expiration && app.has_pending_manual_renewal && (
+              {(!app.expiration || app.is_trial) && app.has_pending_manual_renewal && (
                 <div className="-mt-2">
                   <span className="text-[10px] font-bold text-rose-500">
                     Aguardando renovação manual pelo suporte
@@ -412,10 +412,11 @@ export default function AppDetailClient() {
               {/* Trial sem vencimento (ex: DUPLECAST, 15 dias grátis) —
                   sem isso a validade ficava totalmente em branco, sem
                   explicar o motivo nem oferecer um jeito de confirmar. */}
-              {!app.expiration && !app.has_pending_manual_renewal && app.is_trial && (
+              {/* ✅ 30/09/2026: vale mesmo com data salva à mão (não é validade real no trial) */}
+              {!app.has_pending_manual_renewal && app.is_trial && (
                 <div className="flex items-center gap-1.5 -mt-2">
                   <p className="text-xs text-amber-500 font-bold">
-                    Modo Teste — 15 dias grátis
+                    Vencimento: Modo de avaliação
                   </p>
                   {app.can_check_validity && (
                     <button

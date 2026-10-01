@@ -56,6 +56,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ NOVO: Traz o cérebro das integrações
 import Pagination from "@/components/ui/Pagination";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
+import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 import ClientAlertBell, {
   type ClientAlertBellHandle,
 } from "@/components/alerts/ClientAlertBell";
@@ -2813,7 +2814,7 @@ function ClientePageContent() {
               );
             })()}
 
-            <textarea
+            <WhatsAppTextarea
               value={messageText}
               disabled={!!selectedTemplateNowId}
               onChange={(e) => {
@@ -2908,7 +2909,7 @@ function ClientePageContent() {
               </select>
             </div>
 
-            <textarea
+            <WhatsAppTextarea
               value={simulateText}
               disabled={!!selectedTemplateSimId}
               onChange={(e) => {
@@ -3093,7 +3094,7 @@ function ClientePageContent() {
                 );
               })()}
 
-              <textarea
+              <WhatsAppTextarea
                 value={scheduleText}
                 disabled={!!selectedTemplateScheduleId}
                 onChange={(e) => {

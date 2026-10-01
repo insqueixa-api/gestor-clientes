@@ -37,6 +37,8 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
+import RichTextEditor, { RICH_TEXT_CLASSES } from "@/components/ui/RichTextEditor";
+import { renderRichText, richTextToPlain } from "@/lib/rich-text/sanitize";
 import {
   STATUS_COR,
   STATUS_ORDEM,
@@ -266,7 +268,7 @@ function GrupoCard({
 
         {acao.texto && (
           <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">
-            {acao.texto}
+            {richTextToPlain(acao.texto)}
           </p>
         )}
       </div>
@@ -1064,17 +1066,18 @@ export default function NovaEdicaoPage() {
                   {revisando ? "Revisando..." : "✨ Revisar com IA"}
                 </button>
               </div>
-              <textarea
+              {/* ✅ 30/09/2026: editor rico — sai igual no PDF */}
+              <RichTextEditor
                 value={introducao}
-                onChange={(e) => setIntroducao(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-y"
+                onChange={setIntroducao}
+                minHeightClass="min-h-[90px]"
               />
               {sugestaoIA && (
                 <div className="mt-2 p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
-                  <p className="text-sm text-foreground/90 whitespace-pre-wrap">
-                    {sugestaoIA}
-                  </p>
+                  <div
+                    className={`text-sm text-foreground/90 ${RICH_TEXT_CLASSES}`}
+                    dangerouslySetInnerHTML={{ __html: renderRichText(sugestaoIA) }}
+                  />
                   <div className="flex gap-2">
                     <button
                       type="button"
