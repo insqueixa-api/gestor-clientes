@@ -1443,10 +1443,9 @@ function FinanceiroPageContent() {
                 let dateLabel = "";
                 let semanaReceitas = 0;
                 let semanaDespesas = 0;
-                // Saldo do que ainda não foi pago/recebido na semana
-                // (receitas pendentes − despesas pendentes)
-                let semanaPendente = 0;
-                let semanaQtdPendente = 0;
+                // Quanto de cada lado ainda não foi recebido/pago na semana
+                let semanaReceitasPend = 0;
+                let semanaDespesasPend = 0;
 
                 // Divisão de datas apenas para as normais
                 if (!isAntecipada && index !== null) {
@@ -1484,15 +1483,16 @@ function FinanceiroPageContent() {
                     semanaDespesas = daSemana
                       .filter((n) => n.tipo === "DESPESA")
                       .reduce((acc, n) => acc + n.valor, 0);
-                    const pendentesSemana = daSemana.filter(
-                      (n) => n.status !== "PAGO",
-                    );
-                    semanaQtdPendente = pendentesSemana.length;
-                    semanaPendente = pendentesSemana.reduce(
-                      (acc, n) =>
-                        acc + (n.tipo === "RECEITA" ? n.valor : -n.valor),
-                      0,
-                    );
+                    semanaReceitasPend = daSemana
+                      .filter(
+                        (n) => n.tipo === "RECEITA" && n.status !== "PAGO",
+                      )
+                      .reduce((acc, n) => acc + n.valor, 0);
+                    semanaDespesasPend = daSemana
+                      .filter(
+                        (n) => n.tipo === "DESPESA" && n.status !== "PAGO",
+                      )
+                      .reduce((acc, n) => acc + n.valor, 0);
                   }
                 }
 
@@ -1512,43 +1512,43 @@ function FinanceiroPageContent() {
                       >
                         <span className="inline-flex items-center gap-3 flex-wrap">
                           <span>🗓️ {dateLabel}</span>
-                          <span className="normal-case tracking-normal font-normal text-[11px] finance-value">
+                          {/* ✅ 01/10/2026, pedido do Márcio: "Receita: total
+                              (pendente)" em verde e "Despesa: total
+                              (pendente)" em vermelho; o pendente só aparece
+                              se existir, entre parênteses e menor. */}
+                          <span className="normal-case tracking-normal font-medium text-xs finance-value">
                             {[
-                              semanaReceitas > 0 && (
-                                <span key="r" className="text-emerald-500">
-                                  +{fmtBRL(semanaReceitas)}
-                                </span>
-                              ),
-                              semanaDespesas > 0 && (
-                                <span key="d" className="text-rose-500">
-                                  -{fmtBRL(semanaDespesas)}
-                                </span>
-                              ),
-                              semanaQtdPendente > 0 && (
-                                <span key="p" className="text-sky-500">
-                                  {semanaQtdPendente === 1
-                                    ? "Pendente"
-                                    : "Pendentes"}{" "}
-                                  ({semanaQtdPendente}):{" "}
-                                  {semanaPendente > 0
-                                    ? "+"
-                                    : semanaPendente < 0
-                                      ? "-"
-                                      : ""}
-                                  {fmtBRL(Math.abs(semanaPendente))}
-                                </span>
-                              ),
+                              {
+                                label: "Receita",
+                                total: semanaReceitas,
+                                pend: semanaReceitasPend,
+                                cls: "text-emerald-500",
+                              },
+                              {
+                                label: "Despesa",
+                                total: semanaDespesas,
+                                pend: semanaDespesasPend,
+                                cls: "text-rose-500",
+                              },
                             ]
-                              .filter(Boolean)
-                              .map((el, i) => (
-                                <span key={i}>
+                              .filter((x) => x.total > 0)
+                              .map((x, i) => (
+                                <span key={x.label}>
                                   {i > 0 && (
-                                    <span className="text-muted-foreground">
+                                    <span className="text-muted-foreground font-normal">
                                       {" "}
-                                      ·{" "}
+                                      -{" "}
                                     </span>
                                   )}
-                                  {el}
+                                  <span className={x.cls}>
+                                    {x.label}: {fmtBRL(x.total)}
+                                    {x.pend > 0 && (
+                                      <span className="text-[10px] font-normal opacity-75">
+                                        {" "}
+                                        ({fmtBRL(x.pend)} pendente)
+                                      </span>
+                                    )}
+                                  </span>
                                 </span>
                               ))}
                           </span>
