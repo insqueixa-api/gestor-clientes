@@ -2964,7 +2964,7 @@ function ModalTransacao({
           {(emprestimosDB.length > 0 || isEmprestimo) && (
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                🤝 Vincular a um Empréstimo (opcional)
+                🤝 Empréstimo de quem? (opcional)
               </label>
               <select
                 value={emprestimoSelecionado}
@@ -2975,11 +2975,43 @@ function ModalTransacao({
                 {emprestimosDB.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nome}
-                    {p.direcao === "PEGUEI" ? " — peguei emprestado" : " — emprestei"}
-                    {p.quitado ? " (quitado)" : ""}
+                    {p.direcao === "PEGUEI" ? " (você deve)" : " (te deve)"}
+                    {p.quitado ? " — quitado" : ""}
                   </option>
                 ))}
               </select>
+              {(() => {
+                // Explica o efeito do lançamento no saldo do empréstimo —
+                // a combinação tipo × direção é o que decide se aumenta ou
+                // abate, e não é óbvio só pelo nome da pessoa no select.
+                const pessoa = emprestimosDB.find(
+                  (p) => p.id === emprestimoSelecionado,
+                );
+                if (!pessoa) {
+                  const catEmp = categorias.find(
+                    (c) => c.nome === "Empréstimos",
+                  );
+                  return catEmp && categoriaSelecionada === catEmp.id ? (
+                    <p className="text-[11px] text-amber-500 mt-1">
+                      Escolha a pessoa aqui pra esse valor entrar na conta do
+                      empréstimo dela — a categoria sozinha não sabe de quem é.
+                    </p>
+                  ) : null;
+                }
+                const peguei = pessoa.direcao === "PEGUEI";
+                const texto = peguei
+                  ? tipo === "DESPESA"
+                    ? `Pagamento pra ${pessoa.nome} — abate do que você deve.`
+                    : `Mais dinheiro emprestado por ${pessoa.nome} — aumenta o que você deve.`
+                  : tipo === "RECEITA"
+                    ? `${pessoa.nome} te pagou — abate do que falta receber.`
+                    : `Mais dinheiro emprestado pra ${pessoa.nome} — aumenta o que falta receber.`;
+                return (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {texto}
+                  </p>
+                );
+              })()}
             </div>
           )}
 
