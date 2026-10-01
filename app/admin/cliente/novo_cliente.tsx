@@ -1003,7 +1003,7 @@ export default function NovoCliente({
   const [notes, setNotes] = useState("");
 
   // ===== NORMALIZAÇÃO TELEFONE =====
-  function applyPhoneNormalization(rawInput: string) {
+  function applyPhoneNormalization(rawInput: string, selectedLabel: string) {
     const rawDigits = onlyDigits(rawInput);
     if (!rawDigits) {
       return {
@@ -1014,9 +1014,39 @@ export default function NovoCliente({
       };
     }
 
-    const ddi = inferDDIFromDigits(rawDigits, rawInput); // ✅ Passa a string inteira
+    // ✅ 01/10/2026, bug real (Gabriela NaTV, DDD 15): com Brasil (+55)
+    // selecionado e o número digitado só com DDD ("15 99101-5697"), a
+    // inferência pelos dígitos casava o "1" do DDD com o DDI +1 (EUA) e
+    // virava "+1 5991015697" — e daí a agenda gravava "059 99101-5697".
+    // Regra agora: sem "+" na frente, vale o país SELECIONADO (só remove o
+    // DDI se ele já veio colado no número, ex: "5515991015697"). A
+    // inferência pelos dígitos só roda quando o número vem com "+".
+    // Exceção: com Brasil selecionado, um número que não tem cara de
+    // nacional BR (10-11 dígitos) nem de "55"+nacional (12-13) ainda é
+    // inferido — mantém colar um número estrangeiro sem "+" funcionando.
+    const hasPlus = rawInput.trim().startsWith("+");
+    const selectedDdi = extractDdiFromLabel(selectedLabel);
+    let ddi: string;
+    if (hasPlus) {
+      ddi = inferDDIFromDigits(rawDigits, rawInput);
+    } else if (selectedDdi === "55") {
+      const pareceBR =
+        rawDigits.length === 10 ||
+        rawDigits.length === 11 ||
+        (rawDigits.startsWith("55") &&
+          (rawDigits.length === 12 || rawDigits.length === 13));
+      ddi = pareceBR ? "55" : inferDDIFromDigits(rawDigits, rawInput);
+    } else {
+      ddi = selectedDdi;
+    }
     const meta = ddiMeta(ddi);
-    const nationalDigits = rawDigits.startsWith(ddi)
+    // Só remove o DDI do começo se ele veio junto do número — pra Brasil,
+    // 10-11 dígitos é sempre DDD+número (um DDD 55 de verdade, ex: "55
+    // 99999-9999" no RS, NÃO pode perder o "55").
+    const ddiVeioColado =
+      rawDigits.startsWith(ddi) &&
+      (hasPlus || ddi !== "55" || rawDigits.length >= 12);
+    const nationalDigits = ddiVeioColado
       ? rawDigits.slice(ddi.length)
       : rawDigits;
     const formattedNational = formatNational(ddi, nationalDigits);
@@ -1031,7 +1061,10 @@ export default function NovoCliente({
   }
 
   function handleDonePrimary() {
-    const norm = applyPhoneNormalization(primaryPhoneRaw);
+    const norm = applyPhoneNormalization(
+      primaryPhoneRaw,
+      primaryCountryLabel,
+    );
     setPrimaryCountryLabel(norm.countryLabel);
     setPrimaryPhoneRaw(
       norm.formattedNational || norm.nationalDigits || primaryPhoneRaw,
@@ -1047,7 +1080,10 @@ export default function NovoCliente({
   }
 
   function handleDoneSecondary() {
-    const norm = applyPhoneNormalization(secondaryPhoneRaw);
+    const norm = applyPhoneNormalization(
+      secondaryPhoneRaw,
+      secondaryCountryLabel,
+    );
     setSecondaryCountryLabel(norm.countryLabel);
     setSecondaryPhoneRaw(
       norm.formattedNational || norm.nationalDigits || secondaryPhoneRaw,

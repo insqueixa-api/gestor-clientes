@@ -106,7 +106,10 @@ function formatNational(ddi: string, nationalDigits: string) {
   return groups.join(" ").trim();
 }
 
-function applyPhoneNormalization(rawInput: string) {
+function applyPhoneNormalization(
+  rawInput: string,
+  selectedLabel = "Brasil (+55)",
+) {
   const rawDigits = onlyDigits(rawInput);
   if (!rawDigits) {
     return {
@@ -116,9 +119,33 @@ function applyPhoneNormalization(rawInput: string) {
       formattedNational: "",
     };
   }
-  const ddi = inferDDIFromDigits(rawDigits, rawInput);
+  // ✅ 01/10/2026 (mesmo bug do cadastro de cliente, Gabriela NaTV): sem
+  // "+", um número BR digitado só com DDD começando em 1 ("15 99101-5697")
+  // era lido como DDI +1 (EUA). Sem "+" vale o país selecionado; com
+  // Brasil, 10-11 dígitos (ou "55"+10-11) é sempre BR — o resto ainda é
+  // inferido pelos dígitos (colar 54911... continua virando Argentina).
+  const hasPlus = rawInput.trim().startsWith("+");
+  const selectedDdi = extractDdiFromLabel(selectedLabel);
+  let ddi: string;
+  if (hasPlus) {
+    ddi = inferDDIFromDigits(rawDigits, rawInput);
+  } else if (selectedDdi === "55") {
+    const pareceBR =
+      rawDigits.length === 10 ||
+      rawDigits.length === 11 ||
+      (rawDigits.startsWith("55") &&
+        (rawDigits.length === 12 || rawDigits.length === 13));
+    ddi = pareceBR ? "55" : inferDDIFromDigits(rawDigits, rawInput);
+  } else {
+    ddi = selectedDdi;
+  }
   const meta = ddiMeta(ddi);
-  const nationalDigits = rawDigits.startsWith(ddi)
+  // Pra Brasil, 10-11 dígitos é DDD+número — um DDD 55 (RS) não pode
+  // perder o "55" achando que é o DDI.
+  const ddiVeioColado =
+    rawDigits.startsWith(ddi) &&
+    (hasPlus || ddi !== "55" || rawDigits.length >= 12);
+  const nationalDigits = ddiVeioColado
     ? rawDigits.slice(ddi.length)
     : rawDigits;
   const formattedNational = formatNational(ddi, nationalDigits);
@@ -362,7 +389,8 @@ export default function ResellerFormModal({
             .map((ex: any, idx: number) => {
               const digits = String(ex ?? "").replace(/\D+/g, "");
               if (!digits) return null;
-              const inferred = applyPhoneNormalization(digits);
+              // Salvo em E.164 (já com DDI) — "+" pra inferir o país certo
+              const inferred = applyPhoneNormalization(`+${digits}`);
               return {
                 id: Date.now() + idx,
                 e164: inferred.e164,
@@ -391,7 +419,10 @@ export default function ResellerFormModal({
     }
 
     // ✅ Devolvemos a inteligência original: se você colar 54911..., ele descobre sozinho que é Argentina!
-    const inferred = applyPhoneNormalization(primaryPhoneRaw);
+    const inferred = applyPhoneNormalization(
+      primaryPhoneRaw,
+      primaryCountryLabel,
+    );
     setPrimaryCountryLabel(inferred.countryLabel);
     setPrimaryPhoneRaw(inferred.formattedNational || inferred.nationalDigits);
     setPrimaryConfirmed(true);
