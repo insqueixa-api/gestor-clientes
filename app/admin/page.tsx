@@ -866,7 +866,7 @@ export default async function AdminDashboardPage({
       {showClientesView && (
         <>
           <div className="sm:hidden">
-            <SectionTitle title="FINANCEIRO R$" />
+            <SectionTitle title="FATURAMENTO IPTV R$" />
           </div>
           <div className="hidden sm:block">
             <SectionTitle title="FATURAMENTO IPTV" />
