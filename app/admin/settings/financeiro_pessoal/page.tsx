@@ -22,6 +22,7 @@ import { Dropdown } from "@/components/ui/Dropdown";
 // ✅ Movidos pra shared.tsx (14/08/2026) — usados tanto aqui (FinanceiroPageContent/
 // ModalTransacao) quanto nos modais abaixo, que agora carregam sob demanda.
 import type { Transacao } from "./shared";
+import type { DirecaoEmprestimo } from "./ModalEmprestimos";
 import {
   IconPlus,
   IconX,
@@ -148,6 +149,7 @@ function FinanceiroPageContent() {
     emprestimoId?: string;
     emprestimoNome?: string;
     emprestimoTipo?: "DESPESA" | "RECEITA";
+    emprestimoDirecao?: DirecaoEmprestimo;
   }>({ open: false, transacao: null });
   const [pendentesMap, setPendentesMap] = useState<Record<string, number>>({}); // ✅ NOVO: Conta parcelas pendentes
   const [showAjusteSaldo, setShowAjusteSaldo] = useState(false);
@@ -1806,6 +1808,7 @@ function FinanceiroPageContent() {
           emprestimoId={modalData.emprestimoId}
           emprestimoNome={modalData.emprestimoNome}
           emprestimoTipo={modalData.emprestimoTipo}
+          emprestimoDirecao={modalData.emprestimoDirecao}
           onSuccess={() => {
             const eraLancamentoDeEmprestimo = !!modalData.emprestimoId;
             setModalData({ open: false, transacao: null });
@@ -1940,6 +1943,7 @@ function ModalTransacao({
   emprestimoId,
   emprestimoNome,
   emprestimoTipo,
+  emprestimoDirecao,
 }: {
   tenantId: string;
   onClose: () => void;
@@ -1956,9 +1960,20 @@ function ModalTransacao({
   emprestimoId?: string;
   emprestimoNome?: string;
   emprestimoTipo?: "DESPESA" | "RECEITA";
+  emprestimoDirecao?: DirecaoEmprestimo;
 }) {
   const isEdit = !!transacaoEdit;
   const isEmprestimo = !isEdit && !!emprestimoId;
+  // Rótulo do lançamento conforme direção do empréstimo + tipo — usado no
+  // título do modal ("Paguei parcela — Fulano") e na descrição padrão.
+  const rotuloEmprestimo =
+    emprestimoDirecao === "PEGUEI"
+      ? emprestimoTipo === "RECEITA"
+        ? "Peguei emprestado"
+        : "Paguei parcela"
+      : emprestimoTipo === "RECEITA"
+        ? "Recebi pagamento"
+        : "Emprestei";
 
   const [tipo, setTipo] = useState<"RECEITA" | "DESPESA">(
     transacaoEdit?.tipo || emprestimoTipo || "DESPESA",
@@ -1966,7 +1981,15 @@ function ModalTransacao({
   const [descricao, setDescricao] = useState(
     transacaoEdit?.descricao ||
       (isEmprestimo
-        ? `${emprestimoTipo === "RECEITA" ? "Pagamento recebido" : "Empréstimo"} - ${emprestimoNome}`
+        ? `${
+            emprestimoDirecao === "PEGUEI"
+              ? emprestimoTipo === "RECEITA"
+                ? "Empréstimo recebido"
+                : "Pagamento de empréstimo"
+              : emprestimoTipo === "RECEITA"
+                ? "Pagamento recebido"
+                : "Empréstimo"
+          } - ${emprestimoNome}`
         : ""),
   );
   const [valor, setValor] = useState(
@@ -2107,7 +2130,7 @@ function ModalTransacao({
   useEffect(() => {
     supabaseBrowser
       .from("fin_emprestimos")
-      .select("id, nome, quitado")
+      .select("id, nome, quitado, direcao")
       .eq("tenant_id", tenantId)
       .order("nome")
       .then(({ data, error }) => {
@@ -2695,9 +2718,7 @@ function ModalTransacao({
           isEdit
             ? "Editar Lançamento"
             : isEmprestimo
-              ? emprestimoTipo === "RECEITA"
-                ? `Recebi pagamento — ${emprestimoNome}`
-                : `Emprestei — ${emprestimoNome}`
+              ? `${rotuloEmprestimo} — ${emprestimoNome}`
               : "Adicionar Lançamento"
         }
         onClose={onClose}
@@ -2954,6 +2975,7 @@ function ModalTransacao({
                 {emprestimosDB.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.nome}
+                    {p.direcao === "PEGUEI" ? " — peguei emprestado" : " — emprestei"}
                     {p.quitado ? " (quitado)" : ""}
                   </option>
                 ))}

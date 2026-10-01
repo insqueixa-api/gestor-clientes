@@ -1,7 +1,8 @@
 "use client";
 // app/admin/settings/financeiro_pessoal/ModalEmprestimos.tsx
-// Hub de "Empréstimos informais" (sem vencimento, pago aos poucos) — lista
-// pessoas + saldo devedor calculado ao vivo a partir de fin_transacoes
+// Hub de "Empréstimos informais" (sem vencimento, pago aos poucos), nos dois
+// sentidos (emprestei / peguei emprestado — ver DirecaoEmprestimo) — lista
+// pessoas + saldo em aberto calculado ao vivo a partir de fin_transacoes
 // (emprestimo_id), e histórico por pessoa. Não cria transação nenhuma
 // sozinho: "+ Emprestei"/"+ Recebi pagamento" delegam pro ModalTransacao já
 // existente em page.tsx via onNovoLancamento (ele empilha por cima, mesmo
@@ -12,9 +13,16 @@ import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Modal, IconPlus, IconChevronLeft } from "./shared";
 
+// EMPRESTEI = eu emprestei pra pessoa (saída = DESPESA aumenta o que ela me
+// deve, entrada = RECEITA abate). PEGUEI = peguei emprestado da pessoa
+// (entrada = RECEITA aumenta o que eu devo, saída = DESPESA abate — cada
+// parcela que pago sai como despesa normal da conta).
+export type DirecaoEmprestimo = "EMPRESTEI" | "PEGUEI";
+
 type Emprestimo = {
   id: string;
   nome: string;
+  direcao: DirecaoEmprestimo;
   observacoes: string | null;
   quitado: boolean;
   created_at: string;
@@ -48,6 +56,7 @@ export default function ModalEmprestimos({
     emprestimoId: string;
     emprestimoNome: string;
     emprestimoTipo: "DESPESA" | "RECEITA";
+    emprestimoDirecao: DirecaoEmprestimo;
   }) => void;
   refreshNonce: number;
 }) {
@@ -63,6 +72,9 @@ export default function ModalEmprestimos({
   const [showNovaPessoa, setShowNovaPessoa] = useState(false);
   const [novoNome, setNovoNome] = useState("");
   const [novaObs, setNovaObs] = useState("");
+  const [novaDirecao, setNovaDirecao] = useState<DirecaoEmprestimo | null>(
+    null,
+  );
   const [salvandoPessoa, setSalvandoPessoa] = useState(false);
 
   // Lista + saldos num único carregamento: 1 query pra fin_emprestimos + 1
@@ -90,11 +102,20 @@ export default function ModalEmprestimos({
 
       setEmprestimos(resEmprestimos.data || []);
 
+      // Saldo em aberto positivo = "ainda falta quitar", nas duas direções:
+      // EMPRESTEI soma DESPESA (o que saiu pra pessoa), PEGUEI soma RECEITA
+      // (o que entrou da pessoa) — o tipo oposto abate.
+      const direcaoPorId: Record<string, DirecaoEmprestimo> = {};
+      for (const e of resEmprestimos.data || []) {
+        direcaoPorId[e.id] = e.direcao || "EMPRESTEI";
+      }
       const mapa: Record<string, number> = {};
       for (const t of resSaldos.data || []) {
         if (!t.emprestimo_id) continue;
+        const aumenta =
+          direcaoPorId[t.emprestimo_id] === "PEGUEI" ? "RECEITA" : "DESPESA";
         const delta =
-          t.tipo === "DESPESA" ? Number(t.valor) : -Number(t.valor);
+          t.tipo === aumenta ? Number(t.valor) : -Number(t.valor);
         mapa[t.emprestimo_id] = (mapa[t.emprestimo_id] || 0) + delta;
       }
       setSaldos(mapa);
@@ -132,7 +153,7 @@ export default function ModalEmprestimos({
   }, [selecionadoId, refreshNonce]);
 
   async function handleCriarPessoa() {
-    if (!novoNome.trim()) return;
+    if (!novoNome.trim() || !novaDirecao) return;
     setSalvandoPessoa(true);
     try {
       const { data, error } = await supabaseBrowser
@@ -141,6 +162,7 @@ export default function ModalEmprestimos({
           tenant_id: tenantId,
           nome: novoNome.trim(),
           observacoes: novaObs.trim() || null,
+          direcao: novaDirecao,
         })
         .select("*")
         .single();
@@ -149,6 +171,7 @@ export default function ModalEmprestimos({
       setEmprestimos((prev) => [data, ...prev]);
       setNovoNome("");
       setNovaObs("");
+      setNovaDirecao(null);
       setShowNovaPessoa(false);
       setSelecionadoId(data.id);
     } catch (e: any) {
@@ -187,7 +210,13 @@ export default function ModalEmprestimos({
   const listaVisivel = emprestimos.filter((e) =>
     mostrarQuitados ? true : !e.quitado,
   );
-  const totalDevido = listaVisivel.reduce(
+  const listaAReceber = listaVisivel.filter((e) => e.direcao !== "PEGUEI");
+  const listaAPagar = listaVisivel.filter((e) => e.direcao === "PEGUEI");
+  const totalAReceber = listaAReceber.reduce(
+    (acc, e) => acc + (saldos[e.id] || 0),
+    0,
+  );
+  const totalAPagar = listaAPagar.reduce(
     (acc, e) => acc + (saldos[e.id] || 0),
     0,
   );
@@ -195,6 +224,7 @@ export default function ModalEmprestimos({
   // ── Detalhe de uma pessoa ─────────────────────────────────────────────
   if (selecionado) {
     const saldo = saldos[selecionado.id] || 0;
+    const peguei = selecionado.direcao === "PEGUEI";
     return (
       <Modal
         title={selecionado.nome}
@@ -211,16 +241,20 @@ export default function ModalEmprestimos({
 
           <div className="p-4 rounded-xl border border-border bg-transparent text-center">
             <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">
-              Saldo devedor
+              {peguei
+                ? `Você deve pra ${selecionado.nome}`
+                : `${selecionado.nome} te deve`}
             </div>
             <div
-              className={`text-2xl font-bold tabular-nums ${saldo > 0 ? "text-rose-500" : saldo < 0 ? "text-emerald-500" : "text-foreground/80"}`}
+              className={`text-2xl font-bold tabular-nums ${saldo === 0 ? "text-foreground/80" : saldo < 0 ? "text-emerald-500" : peguei ? "text-rose-500" : "text-amber-500"}`}
             >
               {fmtBRL(Math.abs(saldo))}
             </div>
             {saldo < 0 && (
               <div className="text-[11px] text-emerald-500 mt-0.5">
-                Pagou a mais — você deve pra {selecionado.nome}
+                {peguei
+                  ? `Você pagou a mais — ${selecionado.nome} te deve a diferença`
+                  : `Pagou a mais — você deve pra ${selecionado.nome}`}
               </div>
             )}
             {saldo === 0 && emprestimos.length > 0 && (
@@ -230,6 +264,12 @@ export default function ModalEmprestimos({
             )}
           </div>
 
+          <div className="text-[11px] text-center text-muted-foreground">
+            {peguei
+              ? "🫴 Você pegou emprestado dessa pessoa"
+              : "🤲 Você emprestou pra essa pessoa"}
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() =>
@@ -237,11 +277,12 @@ export default function ModalEmprestimos({
                   emprestimoId: selecionado.id,
                   emprestimoNome: selecionado.nome,
                   emprestimoTipo: "DESPESA",
+                  emprestimoDirecao: selecionado.direcao,
                 })
               }
               className="h-11 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 font-bold text-sm hover:bg-rose-500/20 transition-colors"
             >
-              📉 Emprestei
+              {peguei ? "📉 Paguei parcela" : "📉 Emprestei"}
             </button>
             <button
               onClick={() =>
@@ -249,11 +290,12 @@ export default function ModalEmprestimos({
                   emprestimoId: selecionado.id,
                   emprestimoNome: selecionado.nome,
                   emprestimoTipo: "RECEITA",
+                  emprestimoDirecao: selecionado.direcao,
                 })
               }
               className="h-11 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 font-bold text-sm hover:bg-emerald-500/20 transition-colors"
             >
-              📈 Recebi pagamento
+              {peguei ? "📈 Peguei mais" : "📈 Recebi pagamento"}
             </button>
           </div>
 
@@ -323,18 +365,62 @@ export default function ModalEmprestimos({
     <Modal title="Empréstimos" onClose={onClose} maxWidth="max-w-lg">
       <div className="space-y-4">
         {listaVisivel.length > 0 && (
-          <div className="p-3 rounded-xl border border-border bg-transparent flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Total devido
-            </span>
-            <span className="text-lg font-bold text-rose-500 tabular-nums">
-              {fmtBRL(totalDevido)}
-            </span>
+          <div
+            className={`grid gap-2 ${listaAReceber.length > 0 && listaAPagar.length > 0 ? "grid-cols-2" : "grid-cols-1"}`}
+          >
+            {listaAReceber.length > 0 && (
+              <div className="p-3 rounded-xl border border-border bg-transparent">
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  A receber (te devem)
+                </div>
+                <div className="text-lg font-bold text-amber-500 tabular-nums">
+                  {fmtBRL(totalAReceber)}
+                </div>
+              </div>
+            )}
+            {listaAPagar.length > 0 && (
+              <div className="p-3 rounded-xl border border-border bg-transparent">
+                <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  A pagar (você deve)
+                </div>
+                <div className="text-lg font-bold text-rose-500 tabular-nums">
+                  {fmtBRL(totalAPagar)}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {showNovaPessoa ? (
           <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  ["EMPRESTEI", "🤲 Eu emprestei", "A pessoa me deve"],
+                  ["PEGUEI", "🫴 Peguei emprestado", "Eu devo pra pessoa"],
+                ] as const
+              ).map(([valor, titulo, sub]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  onClick={() => setNovaDirecao(valor)}
+                  className={`p-2 rounded-lg border text-left transition-colors ${
+                    novaDirecao === valor
+                      ? valor === "PEGUEI"
+                        ? "border-rose-500/60 bg-rose-500/10"
+                        : "border-amber-500/60 bg-amber-500/10"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  <div className="text-sm font-bold text-foreground/90">
+                    {titulo}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {sub}
+                  </div>
+                </button>
+              ))}
+            </div>
             <input
               autoFocus
               value={novoNome}
@@ -350,14 +436,17 @@ export default function ModalEmprestimos({
             />
             <div className="flex gap-2">
               <button
-                onClick={() => setShowNovaPessoa(false)}
+                onClick={() => {
+                  setShowNovaPessoa(false);
+                  setNovaDirecao(null);
+                }}
                 className="flex-1 h-9 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-muted"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCriarPessoa}
-                disabled={salvandoPessoa || !novoNome.trim()}
+                disabled={salvandoPessoa || !novoNome.trim() || !novaDirecao}
                 className="flex-1 h-9 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 disabled:opacity-50"
               >
                 {salvandoPessoa ? "Salvando..." : "Salvar"}
@@ -385,6 +474,7 @@ export default function ModalEmprestimos({
           <div className="space-y-2">
             {listaVisivel.map((e) => {
               const saldo = saldos[e.id] || 0;
+              const peguei = e.direcao === "PEGUEI";
               return (
                 <button
                   key={e.id}
@@ -400,14 +490,13 @@ export default function ModalEmprestimos({
                         </span>
                       )}
                     </div>
-                    {e.observacoes && (
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        {e.observacoes}
-                      </div>
-                    )}
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {peguei ? "🫴 Você deve" : "🤲 Te deve"}
+                      {e.observacoes ? ` · ${e.observacoes}` : ""}
+                    </div>
                   </div>
                   <span
-                    className={`text-sm font-bold tabular-nums shrink-0 ml-3 ${saldo > 0 ? "text-rose-500" : saldo < 0 ? "text-emerald-500" : "text-muted-foreground"}`}
+                    className={`text-sm font-bold tabular-nums shrink-0 ml-3 ${saldo === 0 ? "text-muted-foreground" : saldo < 0 ? "text-emerald-500" : peguei ? "text-rose-500" : "text-amber-500"}`}
                   >
                     {fmtBRL(Math.abs(saldo))}
                   </span>
