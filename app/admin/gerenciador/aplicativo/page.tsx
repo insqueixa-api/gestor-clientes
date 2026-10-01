@@ -260,6 +260,26 @@ export default function AppManagerPage() {
   });
   const [savingTierId, setSavingTierId] = useState<string | null>(null);
   const [tierPickerFor, setTierPickerFor] = useState<string | null>(null);
+  // ✅ 30/09/2026: rodapé do card = "Dispositivos" (balão) · "Ver detalhes"
+  // (janela só de leitura com o que está configurado) · preço.
+  const [devicesPopoverFor, setDevicesPopoverFor] = useState<string | null>(null);
+  const [detailsApp, setDetailsApp] = useState<AppData | null>(null);
+  useEffect(() => {
+    if (!devicesPopoverFor) return;
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("[data-devices-popover]")) setDevicesPopoverFor(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDevicesPopoverFor(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [devicesPopoverFor]);
   useEffect(() => {
     if (!tierPickerFor) return;
     const close = (e: MouseEvent) => {
@@ -938,12 +958,8 @@ export default function AppManagerPage() {
     return out;
   }
 
-  function renderAppCard(app: AppData) {
-    const needsConfiguration =
-      app.integration_type &&
-      !configuredIntegrations.some((i) => i.name === app.integration_type);
-    const priceLabel =
-      app.cost_type === "partnership"
+  function appPriceLabel(app: AppData): string {
+    return app.cost_type === "partnership"
         ? "Parceria"
         : app.cost_type === "free" || !(Number(app.license_price) > 0)
           ? "Grátis"
@@ -954,6 +970,13 @@ export default function AppManagerPage() {
                   ? " vitalícia"
                   : ""
             }`;
+  }
+
+  function renderAppCard(app: AppData) {
+    const needsConfiguration =
+      app.integration_type &&
+      !configuredIntegrations.some((i) => i.name === app.integration_type);
+    const priceLabel = appPriceLabel(app);
     const canEdit = app.tenant_id === myTenantId;
     const canClassify =
       canEdit && app.is_active !== false && app.cost_type !== "partnership";
@@ -1095,10 +1118,31 @@ export default function AppManagerPage() {
           </div>
         </div>
 
-        <div className="flex items-end justify-between gap-2 mt-auto">
-          <div className="min-w-0">
-            <DeviceBadges types={app.device_types} />
+        <div className="flex items-center justify-between gap-2 mt-auto">
+          <div className="relative" data-devices-popover>
+            <button
+              type="button"
+              onClick={() => setDevicesPopoverFor(devicesPopoverFor === app.id ? null : app.id)}
+              disabled={!app.device_types?.length}
+              className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              title="Aparelhos compatíveis"
+            >
+              Dispositivos
+              <span className="text-muted-foreground/70">{app.device_types?.length || 0}</span>
+            </button>
+            {devicesPopoverFor === app.id && (
+              <div className="absolute left-0 bottom-full mb-1 z-30 w-64 rounded-lg border border-border bg-card shadow-lg p-2">
+                <DeviceBadges types={app.device_types} />
+              </div>
+            )}
           </div>
+          <button
+            type="button"
+            onClick={() => setDetailsApp(app)}
+            className="h-6 px-2.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold hover:bg-emerald-500/20 transition-colors"
+          >
+            Ver detalhes
+          </button>
           <span className="text-sm font-semibold text-foreground shrink-0">
             {app.is_active === false && app.discontinued_replacement_name
               ? <span className="text-xs font-normal text-muted-foreground">→ {app.discontinued_replacement_name}</span>
@@ -1206,6 +1250,106 @@ export default function AppManagerPage() {
       </div>
 
       {ConfirmUI}
+
+      {detailsApp && (() => {
+        const a = detailsApp;
+        const providers = activationProviders(a);
+        const integOk =
+          !a.integration_type ||
+          configuredIntegrations.some((i) => i.name === a.integration_type);
+        const ativaItem = a.appativa_app_id
+          ? appativaCatalog.find((it) => it.id === a.appativa_app_id)
+          : null;
+        const ativaCost =
+          ativaItem && appativaCreditUnitPrice != null ? ativaItem.valor * appativaCreditUnitPrice : null;
+        const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        const row = (label: string, value: React.ReactNode) => (
+          <div className="grid grid-cols-[8.5rem_1fr] gap-3 py-2 border-b border-border last:border-0 text-sm">
+            <span className="text-muted-foreground">{label}</span>
+            <span className="text-foreground min-w-0 break-words">{value}</span>
+          </div>
+        );
+        return (
+          <Modal onClose={() => setDetailsApp(null)} maxWidth="max-w-lg">
+            <ModalHeader onClose={() => setDetailsApp(null)}>
+              <div className="flex items-center gap-3 min-w-0">
+                {a.icon_url ? (
+                  <img src={a.icon_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">📱</div>
+                )}
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-foreground truncate">{a.name}</h2>
+                  <TierStars value={a.tier} size={13} />
+                </div>
+              </div>
+            </ModalHeader>
+            <ModalBody>
+              <div className="px-1">
+                {row("Situação", a.is_active === false
+                  ? `Descontinuado${a.discontinued_replacement_name ? ` — usar ${a.discontinued_replacement_name}` : ""}`
+                  : "Ativo")}
+                {row("Preço ao cliente", appPriceLabel(a))}
+                {row("Configuração", a.integration_type
+                  ? `Automática — ${a.integration_type}${integOk ? "" : " (API ainda não configurada)"}`
+                  : "Manual (sem integração)")}
+                {row("Ativação / renovação", providers.length ? (
+                  <span className="flex flex-col gap-0.5">
+                    {providers.map((p) => (
+                      <span key={p}>
+                        ⚡ {p}
+                        {p === "AtivaApp" && a.appativa_app_name ? ` — ${a.appativa_app_name}` : ""}
+                        {p === "AtivaApp" && ativaCost != null ? ` · custo ${brl(ativaCost)}` : ""}
+                        {p === "DupleCast" && duplecastCreditUnitPrice != null ? ` · custo ${brl(duplecastCreditUnitPrice)}/código` : ""}
+                      </span>
+                    ))}
+                  </span>
+                ) : "Manual")}
+                {row("Aparelhos", a.device_types?.length ? <DeviceBadges types={a.device_types} /> : "—")}
+                {row("Campos pedidos", a.fields_config?.length ? (
+                  <span className="flex flex-wrap gap-1">
+                    {a.fields_config.map((f) => (
+                      <span key={f.id} className="inline-flex items-center gap-1 h-6 px-1.5 rounded-md border border-border text-xs text-muted-foreground">
+                        {FIELD_ICONS[f.type]} {f.label || FIELD_LABELS[f.type]}
+                      </span>
+                    ))}
+                  </span>
+                ) : "—")}
+                {row("Site do app", a.info_url ? (
+                  <a href={a.info_url} target="_blank" rel="noopener noreferrer" className="text-sky-600 dark:text-sky-400 underline">
+                    {a.info_url}
+                  </a>
+                ) : "—")}
+                {row("Tecnologia", a.technology || "IPTV")}
+                {a.portal_setup_instructions && row("Instruções no portal", (
+                  <span className="whitespace-pre-wrap text-xs text-muted-foreground">{a.portal_setup_instructions}</span>
+                ))}
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <button
+                type="button"
+                onClick={() => setDetailsApp(null)}
+                className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
+              >
+                Fechar
+              </button>
+              {a.tenant_id === myTenantId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDetailsApp(null);
+                    openEdit(a);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
+                >
+                  Editar
+                </button>
+              )}
+            </ModalFooter>
+          </Modal>
+        );
+      })()}
 
       {gpcRokuActivationsFor && tenantId && (
         <GpcRokuActivationsModal tenantId={tenantId} onClose={() => setGpcRokuActivationsFor(null)} />
