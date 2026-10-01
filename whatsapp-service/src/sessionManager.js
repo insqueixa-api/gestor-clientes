@@ -451,54 +451,53 @@ function resolveContactDigits(sessionKey, remoteJid) {
   return digits;
 }
 
-async function escalateContactSession(sessionKey, remoteJid, level, messageId) {
+// Apaga os arquivos de sessão do contato. ✅ 01/10/2026: os arquivos estão
+// sendo salvos pelo id "@lid" (ex: session-161237417590890.0.json), mas a
+// zeragem só procurava pelo TELEFONE — logava "0 arquivo(s)" e não apagava
+// nada. Agora tenta os dois (id cru do JID + telefone resolvido).
+async function zeroContactSessionFiles(sess, sessionKey, remoteJid) {
+  const rawId = String(remoteJid).split("@")[0].split(":")[0];
+  const phoneDigits = resolveContactDigits(sessionKey, remoteJid);
+  // Telefone → LID(s) também (mapa LID→telefone já mantido pelo serviço):
+  // o envio só sabe o telefone, mas o arquivo pode estar salvo pelo LID.
+  const lidsOfPhone = [];
+  const lidMap = lidPhoneMap.get(sessionKey);
+  if (lidMap && phoneDigits) {
+    for (const [lid, phoneOfLid] of lidMap) if (phoneOfLid === phoneDigits) lidsOfPhone.push(lid);
+  }
+  const ids = [...new Set([rawId, phoneDigits, ...lidsOfPhone].filter(Boolean))];
+  const sessDir = getSessionDir(sessionKey);
+  if (!fs.existsSync(sessDir)) return { files: 0, label: phoneDigits || rawId };
+  const all = fs.readdirSync(sessDir);
+  let count = 0;
+  for (const id of ids) {
+    const prefix = `session-${id}.`;
+    for (const f of all.filter((name) => name.startsWith(prefix) && name.endsWith(".json"))) {
+      const keyId = f.slice("session-".length, -".json".length);
+      await sess.socket.authState.keys.set({ session: { [keyId]: null } });
+      count++;
+    }
+  }
+  return { files: count, label: phoneDigits || rawId };
+}
+
+// ✅ 01/10/2026 (Márcio: vários clientes receberam a mensagem DUPLICADA):
+// a escalada por degraus (3, 5, 7, 10, 15 pedidos de reenvio) agora só
+// ZERA a sessão — ajuda o reenvio NATIVO do Baileys, que reenvia a MESMA
+// mensagem (mesmo id) e conserta o próprio balão "Aguardando mensagem" no
+// aparelho do cliente, sem duplicar. O reenvio com id NOVO (que vira um
+// balão novo) saiu daqui: disparava já no 3º pedido, enquanto o nativo
+// ainda estava trabalhando — quando o nativo consertava o original, o
+// cliente via 2 mensagens iguais (15 reenvios forçados em 20 envios na
+// manhã de 01/10). Ele só acontece agora quando o Baileys DESISTE
+// (forceResendAfterGiveUp, abaixo).
+async function escalateContactSession(sessionKey, remoteJid, level) {
   const sess = sessions.get(sessionKey);
   if (!sess?.socket) return;
   const threshold = ESCALATION_LADDER[level];
   try {
-    const digits = resolveContactDigits(sessionKey, remoteJid);
-    if (!digits) {
-      console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 LID ${remoteJid} pediu reenvio ${threshold}x seguidas, mas ainda não resolvido pra telefone — não dá pra saber qual sessão zerar`);
-      return;
-    }
-    const sessDir = getSessionDir(sessionKey);
-    if (!fs.existsSync(sessDir)) return;
-    const prefix = `session-${digits}.`;
-    const files = fs.readdirSync(sessDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
-    for (const f of files) {
-      const id = f.slice("session-".length, -".json".length);
-      await sess.socket.authState.keys.set({ session: { [id]: null } });
-    }
-    console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 ${remoteJid} pediu reenvio ${threshold}x seguidas (degrau ${level + 1}/${ESCALATION_LADDER.length}) — sessão zerada automaticamente (${files.length} arquivo(s)), próximo envio renegocia do zero`);
-
-    // 🔴 17/09/2026, pedido EXPLÍCITO do Márcio ("não podemos desistir,
-    // temos que entregar"): zerar a sessão sozinho não garante entrega —
-    // o próprio Baileys tem um teto embutido (maxMsgRetryCount:15,
-    // messages-recv.js) depois do qual ele NUNCA MAIS reenvia essa
-    // mensagem específica sozinho, mesmo com sessão nova (loga "will not
-    // send message again, as sent too many times" e para pra sempre). Sem
-    // uma mensagem NOVA qualquer chegando depois, o cliente ficaria sem
-    // essa mensagem de vez. Correção: com a sessão já zerada, força AQUI
-    // MESMO um reenvio de verdade do conteúdo real (cache em
-    // sentMessagesCache pelo id da mensagem que gerou o pedido de retry),
-    // via relayMessage com um id NOVO gerado na hora — pro Baileys isso é
-    // uma entrega diferente, não uma retentativa da mesma, então o teto
-    // de 15 não se aplica.
-    if (messageId) {
-      const cached = sentMessagesCache.get(messageId);
-      if (cached?.content) {
-        try {
-          const newId = generateMessageIDV2(sess.socket.user?.id);
-          await sess.socket.relayMessage(remoteJid, cached.content, { messageId: newId });
-          rememberSentMessage(newId, cached.content);
-          console.log(`[WA][${sessionKey.slice(0, 8)}] 🔁 Reenvio forçado do conteúdo real pra ${remoteJid} com sessão nova (novo id ${newId})`);
-        } catch (e) {
-          console.error(`[WA][${sessionKey.slice(0, 8)}] Falha no reenvio forçado pra ${remoteJid}: ${e?.message}`);
-        }
-      } else {
-        console.log(`[WA][${sessionKey.slice(0, 8)}] ⚠️ Sessão de ${remoteJid} zerada mas conteúdo original (id ${messageId}) não está mais em cache — não dá pra forçar reenvio automático`);
-      }
-    }
+    const { files, label: digits } = await zeroContactSessionFiles(sess, sessionKey, remoteJid);
+    console.log(`[WA][${sessionKey.slice(0, 8)}] 🔧 ${remoteJid} pediu reenvio ${threshold}x seguidas (degrau ${level + 1}/${ESCALATION_LADDER.length}) — sessão zerada (${files} arquivo(s)); o reenvio nativo da mesma mensagem segue com sessão nova`);
 
     // ✅ Pedido do Márcio: "a cada zeragem, reinicia os erros" — sem isso, o
     // contador AGREGADO (sessionErrorCount/decryptRetryCounts, usado pelo
@@ -527,10 +526,52 @@ async function escalateContactSession(sessionKey, remoteJid, level, messageId) {
   }
 }
 
+// 🔴 Reenvio "na marra" (id NOVO = balão novo no cliente) — pedido
+// explícito do Márcio em 17/09/2026 ("não podemos desistir, temos que
+// entregar"). Desde 01/10/2026 só quando o Baileys DESISTE de verdade
+// ("will not send message again, as sent too many times", depois de
+// maxMsgRetryCount pedidos) e no máximo 1x por mensagem — antes disso o
+// reenvio nativo ainda pode consertar o balão original sem duplicar.
+const forcedResendDone = new Map(); // messageId -> timestamp
+async function forceResendAfterGiveUp(sessionKey, remoteJid, messageId) {
+  if (!messageId || forcedResendDone.has(messageId)) return;
+  forcedResendDone.set(messageId, Date.now());
+  if (forcedResendDone.size > 2000) {
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    for (const [id, at] of forcedResendDone) if (at < cutoff) forcedResendDone.delete(id);
+  }
+  const sess = sessions.get(sessionKey);
+  if (!sess?.socket) return;
+  const cached = sentMessagesCache.get(messageId);
+  if (!cached?.content) {
+    console.log(`[WA][${sessionKey.slice(0, 8)}] ⚠️ Baileys desistiu de reenviar ${messageId} pra ${remoteJid}, mas o conteúdo não está mais em cache — não dá pra forçar`);
+    return;
+  }
+  try {
+    await zeroContactSessionFiles(sess, sessionKey, remoteJid);
+    const newId = generateMessageIDV2(sess.socket.user?.id);
+    await sess.socket.relayMessage(remoteJid, cached.content, { messageId: newId });
+    rememberSentMessage(newId, cached.content);
+    console.log(`[WA][${sessionKey.slice(0, 8)}] 🔁 Baileys desistiu de ${messageId} — reenvio forçado (novo id ${newId}) pra ${remoteJid} com sessão nova`);
+  } catch (e) {
+    console.error(`[WA][${sessionKey.slice(0, 8)}] Falha no reenvio forçado pra ${remoteJid}: ${e?.message}`);
+  }
+}
+
 const baileysLogStream = new Writable({
   write(chunk, _enc, cb) {
     try {
       const line = JSON.parse(chunk.toString());
+      // Baileys desistiu da mensagem (passou de maxMsgRetryCount) — único
+      // momento em que vale mandar de novo com id novo. O id real vem em
+      // attrs.id (key.id vem vazio nesse log, ver comentário mais abaixo).
+      if (
+        line?.msg === "will not send message again, as sent too many times" &&
+        line.sessionKey &&
+        line.key?.fromMe
+      ) {
+        forceResendAfterGiveUp(line.sessionKey, line.key?.remoteJid, line.attrs?.id).catch(() => {});
+      }
       if (line?.msg === "recv retry request" && line.sessionKey) {
         decryptRetryCounts.set(line.sessionKey, (decryptRetryCounts.get(line.sessionKey) || 0) + 1);
 
@@ -560,7 +601,7 @@ const baileysLogStream = new Writable({
             // Com o bug antigo, `if (messageId)` em escalateContactSession
             // sempre dava falso — a sessão era zerada, mas o reenvio
             // forçado nunca disparava, silenciosamente.
-            escalateContactSession(line.sessionKey, remoteJid, level, line.attrs?.id).catch(() => {});
+            escalateContactSession(line.sessionKey, remoteJid, level).catch(() => {});
           }
           contactRetryState.set(contactKey, state);
         }
@@ -1570,17 +1611,12 @@ async function sendMessageInternal(sessionKey, phone, message, imageUrl = null, 
   // envio (ou pedido de reenvio) renegocia 100% do zero, nunca herda
   // corrupção de um envio anterior. Só a sessão Signal do CONTATO — nunca
   // credencial/identidade da conta.
+  // ✅ 01/10/2026: mesma busca da escalada (telefone + LID) — antes só
+  // procurava session-<telefone>, e como os arquivos estão salvos pelo LID,
+  // essa regra não apagava nada pra maioria dos contatos.
   try {
     const digits = String(phone).replace(/\D/g, "");
-    const sessDir = getSessionDir(sessionKey);
-    if (fs.existsSync(sessDir)) {
-      const prefix = `session-${digits}.`;
-      const files = fs.readdirSync(sessDir).filter((f) => f.startsWith(prefix) && f.endsWith(".json"));
-      for (const f of files) {
-        const id = f.slice("session-".length, -".json".length);
-        await sess.socket.authState.keys.set({ session: { [id]: null } });
-      }
-    }
+    await zeroContactSessionFiles(sess, sessionKey, `${digits}@s.whatsapp.net`);
   } catch (e) {
     console.error(`[WA][${sessionKey.slice(0, 8)}] Falha ao zerar sessão pós-envio de ${phone}: ${e?.message}`);
   }
