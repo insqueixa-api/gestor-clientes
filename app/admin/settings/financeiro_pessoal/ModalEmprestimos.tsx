@@ -32,10 +32,55 @@ type LancamentoHistorico = {
   id: string;
   tipo: "RECEITA" | "DESPESA";
   valor: number;
+  status: "PAGO" | "PENDENTE";
+  data_vencimento: string;
   data_pagamento: string | null;
   descricao: string;
   observacoes: string | null;
+  parcela_atual: number | null;
+  parcela_total: number | null;
 };
+
+const fmtData = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+};
+
+const hojeSP = () =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(
+    new Date(),
+  );
+
+// Rótulo do status de um lançamento conforme direção do empréstimo + tipo:
+// saída quando EU emprestei = "Emprestado"; saída quando EU devo = "Pago";
+// qualquer entrada = "Recebido". Não pago = Pendente/Vencido.
+function statusLancamento(
+  h: LancamentoHistorico,
+  direcao: DirecaoEmprestimo,
+): { label: string; cls: string } {
+  if (h.status === "PAGO") {
+    const label =
+      h.tipo === "RECEITA"
+        ? "Recebido"
+        : direcao === "EMPRESTEI"
+          ? "Emprestado"
+          : "Pago";
+    return {
+      label,
+      cls: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+    };
+  }
+  if (h.data_vencimento.slice(0, 10) < hojeSP()) {
+    return {
+      label: "Vencido",
+      cls: "bg-rose-500/10 text-rose-500 border-rose-500/20",
+    };
+  }
+  return {
+    label: "Pendente",
+    cls: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  };
+}
 
 const fmtBRL = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -114,8 +159,7 @@ export default function ModalEmprestimos({
         if (!t.emprestimo_id) continue;
         const aumenta =
           direcaoPorId[t.emprestimo_id] === "PEGUEI" ? "RECEITA" : "DESPESA";
-        const delta =
-          t.tipo === aumenta ? Number(t.valor) : -Number(t.valor);
+        const delta = t.tipo === aumenta ? Number(t.valor) : -Number(t.valor);
         mapa[t.emprestimo_id] = (mapa[t.emprestimo_id] || 0) + delta;
       }
       setSaldos(mapa);
@@ -135,10 +179,14 @@ export default function ModalEmprestimos({
     try {
       const { data, error } = await supabaseBrowser
         .from("fin_transacoes")
-        .select("id, tipo, valor, data_pagamento, descricao, observacoes")
+        .select(
+          "id, tipo, valor, status, data_vencimento, data_pagamento, descricao, observacoes, parcela_atual, parcela_total",
+        )
         .eq("tenant_id", tenantId)
         .eq("emprestimo_id", emprestimoId)
-        .order("data_pagamento", { ascending: false });
+        // Ordem cronológica (vencimento) — parcelas futuras ainda não têm
+        // data_pagamento, ordenar por ela jogava tudo pendente pro topo.
+        .order("data_vencimento", { ascending: true });
       if (error) throw error;
       setHistorico(data || []);
     } catch (e: any) {
@@ -225,12 +273,18 @@ export default function ModalEmprestimos({
   if (selecionado) {
     const saldo = saldos[selecionado.id] || 0;
     const peguei = selecionado.direcao === "PEGUEI";
+    // Parcelas já lançadas mas ainda não pagas que ABATEM o saldo (ex: 30x
+    // de R$1.500 pro Mateus) — mostradas como "programado" sob o saldo.
+    const tipoQueAbate = peguei ? "DESPESA" : "RECEITA";
+    const programadas = historico.filter(
+      (h) => h.status !== "PAGO" && h.tipo === tipoQueAbate,
+    );
+    const totalProgramado = programadas.reduce(
+      (acc, h) => acc + Number(h.valor),
+      0,
+    );
     return (
-      <Modal
-        title={selecionado.nome}
-        onClose={onClose}
-        maxWidth="max-w-lg"
-      >
+      <Modal title={selecionado.nome} onClose={onClose} maxWidth="max-w-lg">
         <div className="space-y-4">
           <button
             onClick={() => setSelecionadoId(null)}
@@ -260,6 +314,16 @@ export default function ModalEmprestimos({
             {saldo === 0 && emprestimos.length > 0 && (
               <div className="text-[11px] text-muted-foreground mt-0.5">
                 Quitado
+              </div>
+            )}
+            {programadas.length > 0 && (
+              <div className="text-[11px] text-muted-foreground mt-1.5">
+                {peguei ? "Programado pra pagar" : "Programado pra receber"}:{" "}
+                <span className="font-medium text-foreground/80">
+                  {fmtBRL(totalProgramado)}
+                </span>{" "}
+                em {programadas.length}{" "}
+                {programadas.length === 1 ? "lançamento" : "lançamentos"}
               </div>
             )}
           </div>
@@ -322,36 +386,54 @@ export default function ModalEmprestimos({
               </div>
             ) : (
               <div className="space-y-1.5 max-h-64 overflow-y-auto custom-scrollbar">
-                {historico.map((h) => (
-                  <div
-                    key={h.id}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg border border-border"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm text-foreground/90 truncate">
-                        {h.descricao}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        {h.data_pagamento
-                          ? new Date(h.data_pagamento).toLocaleDateString(
-                              "pt-BR",
-                              { timeZone: "America/Sao_Paulo" },
-                            )
-                          : "—"}
-                      </div>
-                      {h.observacoes && (
-                        <div className="text-[11px] text-muted-foreground/80 italic truncate mt-0.5">
-                          {h.observacoes}
-                        </div>
-                      )}
-                    </div>
-                    <span
-                      className={`text-sm font-medium shrink-0 ml-3 ${h.tipo === "DESPESA" ? "text-rose-500" : "text-emerald-500"}`}
+                {historico.map((h) => {
+                  const st = statusLancamento(h, selecionado.direcao);
+                  const pagoEm =
+                    h.status === "PAGO" && h.data_pagamento
+                      ? new Date(h.data_pagamento).toLocaleDateString("pt-BR", {
+                          timeZone: "America/Sao_Paulo",
+                        })
+                      : null;
+                  return (
+                    <div
+                      key={h.id}
+                      className="flex items-center justify-between px-3 py-2 rounded-lg border border-border"
                     >
-                      {h.tipo === "DESPESA" ? "-" : "+"} {fmtBRL(h.valor)}
-                    </span>
-                  </div>
-                ))}
+                      <div className="min-w-0">
+                        <div className="text-sm text-foreground/90 truncate">
+                          {h.descricao}
+                          {h.parcela_total ? (
+                            <span className="ml-1.5 text-[11px] text-muted-foreground">
+                              {h.parcela_atual}/{h.parcela_total}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground">
+                          <span
+                            className={`px-1.5 py-px rounded border text-[10px] font-medium ${st.cls}`}
+                          >
+                            {st.label}
+                          </span>
+                          <span>
+                            {pagoEm && pagoEm !== fmtData(h.data_vencimento)
+                              ? `${pagoEm} (venc. ${fmtData(h.data_vencimento)})`
+                              : fmtData(h.data_vencimento)}
+                          </span>
+                        </div>
+                        {h.observacoes && (
+                          <div className="text-[11px] text-muted-foreground/80 italic truncate mt-0.5">
+                            {h.observacoes}
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        className={`text-sm font-medium shrink-0 ml-3 ${h.tipo === "DESPESA" ? "text-rose-500" : "text-emerald-500"} ${h.status !== "PAGO" ? "opacity-60" : ""}`}
+                      >
+                        {h.tipo === "DESPESA" ? "-" : "+"} {fmtBRL(h.valor)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -415,9 +497,7 @@ export default function ModalEmprestimos({
                   <div className="text-sm font-bold text-foreground/90">
                     {titulo}
                   </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {sub}
-                  </div>
+                  <div className="text-[11px] text-muted-foreground">{sub}</div>
                 </button>
               ))}
             </div>
