@@ -739,6 +739,8 @@ export default function RenewClient() {
           session_token: session,
           client_id: selectedAccountId,
           client_app_id: clientAppId,
+          // ✅ 30/09/2026: desconto somado em cada instalação coberta do carrinho
+          client_app_ids: extraClientAppIds,
         }),
       });
       const result = await res.json().catch(() => null);
@@ -1002,17 +1004,20 @@ export default function RenewClient() {
   // ✅ 30/09/2026, pedido do Márcio (Vera: cupom do DupleCast não entrava
   // sozinho): ao MARCAR um app, procura em silêncio cupom pessoal dele
   // (mesma rota da tela de Aplicativos) e aplica sem o cliente digitar.
-  // Ref pra descartar a resposta se o app já foi desmarcado nesse meio-tempo.
-  const selectedAppRenewalIdsRef = useRef<string[]>([]);
-  useEffect(() => {
-    selectedAppRenewalIdsRef.current = selectedAppRenewalIds;
-  }, [selectedAppRenewalIds]);
+  // autoCouponSeq descarta resposta antiga se a seleção mudou nesse meio-tempo.
 
-  async function tryAutoApplyAppCoupon(appId: string) {
+  // Recalcula com TODAS as instalações marcadas (o cupom pode cobrir
+  // várias — ex: DupleCast da Sala e do Quarto, desconto em cada uma).
+  // Nunca mexe em cupom digitado pelo cliente.
+  const autoCouponSeq = useRef(0);
+  async function refreshAutoAppCoupon(ids: string[]) {
     if (!selectedAccountId || !session) return;
-    if (appliedCoupon) return; // já tem cupom (digitado ou automático)
-    const app = expiringAppsForAlert.find((a) => a.id === appId);
-    if (!app) return;
+    if (appliedCoupon && !appliedCoupon.auto) return;
+    const seq = ++autoCouponSeq.current;
+    if (!ids.length) {
+      if (appliedCoupon?.auto) setAppliedCoupon(null);
+      return;
+    }
     try {
       const res = await fetch("/api/client-portal/apps/eligible-coupon", {
         method: "POST",
@@ -1020,38 +1025,40 @@ export default function RenewClient() {
         body: JSON.stringify({
           session_token: session,
           client_id: selectedAccountId,
-          client_app_id: appId,
+          client_app_ids: ids,
         }),
       });
       const result = await res.json().catch(() => null);
-      if (!result?.ok || !result.available) return;
-      if (!selectedAppRenewalIdsRef.current.includes(appId)) return;
-      setAppliedCoupon((prev) =>
-        prev ?? {
-          code: "",
-          discountAmount: Number(result.discountAmount || 0),
-          planPriceOnly: 0,
-          discountType: null,
-          discountValue: null,
-          targetAppNames: [app.name],
-          auto: true,
-        },
-      );
-      setCouponError(null);
+      if (seq !== autoCouponSeq.current) return; // seleção mudou de novo
+      if (result?.ok && result.available) {
+        setAppliedCoupon((prev) =>
+          prev && !prev.auto
+            ? prev
+            : {
+                code: "",
+                discountAmount: Number(result.discountAmount || 0),
+                planPriceOnly: 0,
+                discountType: null,
+                discountValue: null,
+                targetAppNames: null,
+                auto: true,
+              },
+        );
+        setCouponError(null);
+      } else {
+        setAppliedCoupon((prev) => (prev?.auto ? null : prev));
+      }
     } catch {
       // sem cupom automático — o cliente ainda pode digitar um código
     }
   }
 
   function toggleAppRenewalSelection(appId: string) {
-    const willSelect = !selectedAppRenewalIds.includes(appId);
-    setSelectedAppRenewalIds((prev) =>
-      prev.includes(appId) ? prev.filter((id) => id !== appId) : [...prev, appId],
-    );
-    if (willSelect) {
-      selectedAppRenewalIdsRef.current = [...selectedAppRenewalIdsRef.current, appId];
-      void tryAutoApplyAppCoupon(appId);
-    }
+    const nextIds = selectedAppRenewalIds.includes(appId)
+      ? selectedAppRenewalIds.filter((id) => id !== appId)
+      : [...selectedAppRenewalIds, appId];
+    setSelectedAppRenewalIds(nextIds);
+    void refreshAutoAppCoupon(nextIds);
     // ✅ 09/09/2026, achado do Márcio: um cupom pessoal restrito a um app
     // ficava aplicado na tela mesmo depois de desmarcar o app do qual ele
     // depende (create-payment já revalidava e rejeitava certinho na hora
@@ -1060,7 +1067,7 @@ export default function RenewClient() {
     // isso também limpava cupom geral/sem relação nenhuma com apps — só
     // limpa agora se o cupom aplicado realmente depender do app que
     // acabou de ser marcado/desmarcado.
-    if (appliedCoupon?.targetAppNames?.length) {
+    if (!appliedCoupon?.auto && appliedCoupon?.targetAppNames?.length) {
       const app = expiringAppsForAlert.find((a) => a.id === appId);
       if (app && appliedCoupon.targetAppNames.includes(app.name)) {
         setAppliedCoupon(null);

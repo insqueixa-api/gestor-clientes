@@ -130,36 +130,54 @@ export async function POST(req: NextRequest) {
         ? licensePrice
         : await convertAmount(supabaseAdmin, ctx.tenant_id, licensePrice, "BRL", currency);
 
+    // ✅ Carrinho: revalida no servidor (posse, pago, ativo, sem pagamento
+    // já aprovado aguardando conclusão) e converte pra moeda da conta —
+    // mesma função do pagamento do plano com apps embutidos. Ids inválidos
+    // são ignorados sem derrubar o pagamento do app principal. Calculado
+    // ANTES do cupom (30/09/2026): o cupom pode cobrir qualquer instalação
+    // da cobrança, não só a principal.
+    const extraIds = extraClientAppIdsRaw.filter((id) => id !== client_app_id);
+    const extras = extraIds.length
+      ? await getAppRenewalCharges(supabaseAdmin, ctx.tenant_id, client_id, extraIds, currency)
+      : { items: [], total: 0 };
+
+    // ✅ 30/09/2026, pedido do Márcio (Vera, 2 DupleCast): cupom pessoal de
+    // app desconta em CADA instalação coberta desta cobrança.
     let couponId: string | null = null;
     let couponDiscountAmount = 0;
+    let couponByClientAppId: Record<string, number> = {};
     if (apply_coupon) {
       const couponResult = await findEligibleAppCoupon({
         supabaseAdmin,
         tenantId: ctx.tenant_id,
         clientRow: client,
-        appName,
-        appPriceOnly,
+        items: [
+          { client_app_id, app_name: appName, price_amount: appPriceOnly },
+          ...extras.items,
+        ],
       });
       if (couponResult) {
         couponId = couponResult.coupon.id;
         couponDiscountAmount = couponResult.discountAmount;
+        couponByClientAppId = couponResult.byClientAppId;
       }
     }
-    const chargeAmount = Number((appPriceOnly - couponDiscountAmount).toFixed(2));
-
-    // ✅ Carrinho: revalida no servidor (posse, pago, ativo, sem pagamento
-    // já aprovado aguardando conclusão) e converte pra moeda da conta —
-    // mesma função do pagamento do plano com apps embutidos. Ids inválidos
-    // são ignorados sem derrubar o pagamento do app principal.
-    const extraIds = extraClientAppIdsRaw.filter((id) => id !== client_app_id);
-    const extras = extraIds.length
-      ? await getAppRenewalCharges(supabaseAdmin, ctx.tenant_id, client_id, extraIds, currency)
-      : { items: [], total: 0 };
-    const bundledAppRenewals = extras.items;
+    const chargeAmount = Number(
+      (appPriceOnly - (couponByClientAppId[client_app_id] || 0)).toFixed(2),
+    );
+    // Cada filha guarda o que de fato foi pago por ela (já com desconto).
+    const bundledAppRenewals = extras.items.map((i) => ({
+      ...i,
+      price_amount: Number((i.price_amount - (couponByClientAppId[i.client_app_id] || 0)).toFixed(2)),
+    }));
     // A linha do app principal guarda só a parte DELE (price_amount); o
     // gateway cobra o total. As linhas filhas são criadas na aprovação
     // (markAppRenewalPaid → materializeBundledAppRenewals).
-    const totalCharge = Number((chargeAmount + extras.total).toFixed(2));
+    const totalCharge = Number(
+      (chargeAmount + bundledAppRenewals.reduce((sum, i) => sum + i.price_amount, 0)).toFixed(2),
+    );
+    // Valor cheio de tudo (sem cupom) — pro "de/por" no resumo do portal.
+    const fullTotal = Number((appPriceOnly + extras.total).toFixed(2));
     const bundleKey = bundledAppRenewals.map((i) => i.client_app_id).sort().join(",");
     const bundleHash = bundleKey ? createHash("sha1").update(bundleKey).digest("hex").slice(0, 10) : "solo";
     const sameBundle = (r: any) =>
@@ -167,7 +185,7 @@ export async function POST(req: NextRequest) {
         .map((i: any) => String(i?.client_app_id || ""))
         .sort()
         .join(",") === bundleKey;
-    const bundledAppsForResponse = bundledAppRenewals.map((i) => ({
+    const bundledAppsForResponse = extras.items.map((i) => ({
       client_app_id: i.client_app_id,
       app_name: i.app_name,
       price_amount: i.price_amount,
@@ -313,7 +331,7 @@ export async function POST(req: NextRequest) {
           price_amount: totalCharge,
           bundled_apps: bundledAppsForResponse,
           coupon_discount_amount: couponDiscountAmount || undefined,
-          plan_price_only: appPriceOnly,
+          plan_price_only: fullTotal,
           currency,
           beneficiary_name: String(gateway?.config?.beneficiary_name || "").trim() || null,
           institution: String(gateway?.config?.institution || "").trim() || "Stripe",
@@ -440,7 +458,7 @@ export async function POST(req: NextRequest) {
             price_amount: totalCharge,
             bundled_apps: bundledAppsForResponse,
             coupon_discount_amount: couponDiscountAmount || undefined,
-            plan_price_only: appPriceOnly,
+            plan_price_only: fullTotal,
             currency,
             pix_qr_code: tx.qr_code_text || undefined,
             pix_qr_code_base64: qrBase64 || undefined,
@@ -684,7 +702,7 @@ export async function POST(req: NextRequest) {
         price_amount: totalCharge,
         bundled_apps: bundledAppsForResponse,
         coupon_discount_amount: couponDiscountAmount || undefined,
-        plan_price_only: appPriceOnly,
+        plan_price_only: fullTotal,
         currency,
         pix_qr_code: mpData.point_of_interaction?.transaction_data?.qr_code,
         pix_qr_code_base64: mpData.point_of_interaction?.transaction_data?.qr_code_base64,

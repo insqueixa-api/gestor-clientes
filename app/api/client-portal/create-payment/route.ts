@@ -416,22 +416,19 @@ if (coupon_code_raw) {
   // automático, sem o cliente digitar (o código nunca é revelado — mesmo
   // princípio de apps/eligible-coupon). O front só manda o "sim"; o cupom é
   // achado de novo aqui e o desconto incide no preço do app embutido que
-  // ele cobre (1 cupom por cobrança — o 1º app que bater).
-  for (const item of appRenewalCharges.items) {
-    const appCoupon = await findEligibleAppCoupon({
-      supabaseAdmin,
-      tenantId: sess.tenant_id,
-      clientRow: client,
-      appName: item.app_name,
-      appPriceOnly: item.price_amount,
-    });
-    if (appCoupon && appCoupon.discountAmount > 0) {
-      couponId = appCoupon.coupon.id;
-      couponCodeApplied = appCoupon.coupon.code;
-      couponDiscountAmount = appCoupon.discountAmount;
-      computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
-      break;
-    }
+  // ele cobre (cada instalação coberta ganha o desconto).
+  // desconto somado em CADA instalação coberta embutida (30/09/2026)
+  const appCoupon = await findEligibleAppCoupon({
+    supabaseAdmin,
+    tenantId: sess.tenant_id,
+    clientRow: client,
+    items: appRenewalCharges.items,
+  });
+  if (appCoupon && appCoupon.discountAmount > 0) {
+    couponId = appCoupon.coupon.id;
+    couponCodeApplied = appCoupon.coupon.code;
+    couponDiscountAmount = appCoupon.discountAmount;
+    computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
   }
 }
 

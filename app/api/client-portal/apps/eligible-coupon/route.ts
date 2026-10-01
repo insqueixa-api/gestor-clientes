@@ -6,8 +6,8 @@
 // do Márcio, 08/09/2026: "nem precisaria revelar o nome pra ele").
 import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
-import { convertAmount } from "@/lib/fx";
 import { findEligibleAppCoupon } from "@/lib/client-portal/coupons";
+import { getAppRenewalCharges } from "@/lib/client-portal/app-renewal-charges";
 
 export const dynamic = "force-dynamic";
 
@@ -34,25 +34,19 @@ export async function POST(req: NextRequest) {
     const session_token = normalizeStr(body?.session_token);
     const client_id = normalizeStr(body?.client_id);
     const client_app_id = normalizeStr(body?.client_app_id);
+    // ✅ 30/09/2026: várias instalações de uma vez (carrinho / apps marcados
+    // no pagamento do sinal) — o desconto volta somado em todas as cobertas.
+    const client_app_ids: string[] = [
+      ...new Set<string>(
+        [client_app_id, ...(Array.isArray(body?.client_app_ids) ? body.client_app_ids : [])]
+          .map((v: unknown) => normalizeStr(v))
+          .filter(Boolean),
+      ),
+    ].slice(0, 10);
 
     const ctx = await validatePortalClient(supabaseAdmin, session_token, client_id);
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
-    if (!client_app_id) return jsonError("client_app_id é obrigatório", 400);
-
-    const { data: row, error: rowErr } = await supabaseAdmin
-      .from("client_apps")
-      .select("id, apps(name, cost_type, license_price)")
-      .eq("id", client_app_id)
-      .eq("client_id", client_id)
-      .single();
-    if (rowErr || !row) return jsonError("Aplicativo não encontrado", 404);
-
-    const appName = (row as any).apps?.name || "";
-    const costType = (row as any).apps?.cost_type;
-    const licensePrice = Number((row as any).apps?.license_price || 0);
-    if (costType !== "paid" || !(licensePrice > 0) || !appName) {
-      return NextResponse.json({ ok: true, available: false }, { status: 200, headers: NO_STORE_HEADERS });
-    }
+    if (!client_app_ids.length) return jsonError("client_app_id é obrigatório", 400);
 
     const { data: client } = await supabaseAdmin
       .from("clients")
@@ -62,15 +56,18 @@ export async function POST(req: NextRequest) {
     if (!client) return jsonError("Cliente não encontrado", 404);
 
     const currency = String(client.price_currency || "BRL").trim() || "BRL";
-    const appPriceOnly =
-      currency === "BRL" ? licensePrice : await convertAmount(supabaseAdmin, ctx.tenant_id, licensePrice, "BRL", currency);
+    // Mesma validação de posse/elegibilidade/preço da cobrança de verdade
+    // (só apps pagos e ativos deste cliente; preço convertido pra moeda dele).
+    const charges = await getAppRenewalCharges(supabaseAdmin, ctx.tenant_id, client_id, client_app_ids, currency);
+    if (!charges.items.length) {
+      return NextResponse.json({ ok: true, available: false }, { status: 200, headers: NO_STORE_HEADERS });
+    }
 
     const result = await findEligibleAppCoupon({
       supabaseAdmin,
       tenantId: ctx.tenant_id,
       clientRow: client,
-      appName,
-      appPriceOnly,
+      items: charges.items,
     });
 
     if (!result) {

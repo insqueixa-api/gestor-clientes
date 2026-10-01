@@ -33,6 +33,7 @@ export type CouponEditPayload = {
   target_server_ids: string[] | null;
   target_plan_labels: string[] | null;
   target_app_names: string[] | null;
+  target_client_app_ids?: string[] | null;
   rule_date_field: "vencimento" | "cadastro" | null;
   rule_days_min: number | null;
   rule_days_max: number | null;
@@ -272,8 +273,14 @@ export default function CupomModal({
   // fallback (ex: personalClient ainda não carregou) e pela segmentação de
   // cupom GERAL, que não é presa a 1 cliente.
   const [clientAppOptions, setClientAppOptions] = useState<
-    { id: string; label: string }[] | null
+    { id: string; label: string; appName: string }[] | null
   >(null);
+  // ✅ 30/09/2026, pedido do Márcio (Vera, 2 DupleCast): o cupom pessoal
+  // escolhe INSTALAÇÕES (client_apps.id), cada uma com o ambiente do lado —
+  // "DupleCast" sozinho na lista escondia que eram 2 aparelhos.
+  const [targetClientAppIds, setTargetClientAppIds] = useState<string[]>(
+    coupon?.target_client_app_ids ?? [],
+  );
   useEffect(() => {
     if (!hasPersonalClient || !personalClient?.id) {
       setClientAppOptions(null);
@@ -283,17 +290,33 @@ export default function CupomModal({
     (async () => {
       const { data } = await supabaseBrowser
         .from("client_apps")
-        .select("apps(name)")
-        .eq("client_id", personalClient.id);
+        .select("id, field_values, created_at, apps(name, fields_config)")
+        .eq("client_id", personalClient.id)
+        .order("created_at", { ascending: true });
       if (!alive) return;
-      const names = Array.from(
-        new Set(
-          ((data as any[]) || [])
-            .map((row) => (Array.isArray(row.apps) ? row.apps[0]?.name : row.apps?.name))
-            .filter(Boolean),
-        ),
-      );
-      setClientAppOptions(names.map((n) => ({ id: n as string, label: n as string })));
+      const options = ((data as any[]) || [])
+        .map((row) => {
+          const app = Array.isArray(row.apps) ? row.apps[0] : row.apps;
+          const name = String(app?.name || "").trim();
+          if (!name) return null;
+          const obsField = (Array.isArray(app?.fields_config) ? app.fields_config : []).find(
+            (f: any) => String(f?.type || "").toLowerCase() === "obs",
+          );
+          const vals = row.field_values || {};
+          const ambiente = obsField
+            ? String(vals[obsField.id] ?? vals[obsField.label] ?? "").trim()
+            : "";
+          return { id: String(row.id), label: ambiente ? `${name} (${ambiente})` : name, appName: name };
+        })
+        .filter(Boolean) as { id: string; label: string; appName: string }[];
+      setClientAppOptions(options);
+      // Cupom antigo (só nome, sem instalações): já vem marcado em toda
+      // instalação daquele app — é o que ele cobre hoje.
+      if (!coupon?.target_client_app_ids?.length && coupon?.target_app_names?.length) {
+        setTargetClientAppIds(
+          options.filter((o) => coupon.target_app_names!.includes(o.appName)).map((o) => o.id),
+        );
+      }
     })();
     return () => {
       alive = false;
@@ -461,7 +484,28 @@ export default function CupomModal({
         // ✅ 08/09/2026, pedido do Márcio: cupom pessoal TAMBÉM pode ser
         // restrito a um app (renovação de licença avulsa) — deixando vazio,
         // continua valendo só pra renovação da assinatura, como sempre foi.
-        target_app_names: targetAppNames.length ? targetAppNames : null,
+        target_app_names: hasPersonalClient
+          ? (() => {
+              const names = Array.from(
+                new Set(
+                  (clientAppOptions ?? [])
+                    .filter((o) => targetClientAppIds.includes(o.id))
+                    .map((o) => o.appName),
+                ),
+              );
+              return names.length ? names : null;
+            })()
+          : targetAppNames.length
+            ? targetAppNames
+            : null,
+        // só instalações do cliente escolhido (trocar o cliente no meio da
+        // edição não pode levar ids do anterior)
+        target_client_app_ids: (() => {
+          if (!hasPersonalClient) return null;
+          const own = new Set((clientAppOptions ?? []).map((o) => o.id));
+          const ids = targetClientAppIds.filter((id) => own.has(id));
+          return ids.length ? ids : null;
+        })(),
         rule_date_field: !hasPersonalClient ? dateRule.ruleDateField : null,
         rule_days_min: !hasPersonalClient ? dateRule.ruleDaysMin : null,
         rule_days_max: !hasPersonalClient ? dateRule.ruleDaysMax : null,
@@ -617,17 +661,17 @@ export default function CupomModal({
               </p>
               <div className="max-w-xs">
                 <MultiSelectDropdown
-                  label="Restringir a um app (opcional)"
-                  options={clientAppOptions ?? auxApps}
-                  selected={targetAppNames}
-                  onChange={setTargetAppNames}
+                  label="Restringir a app(s) (opcional)"
+                  options={clientAppOptions ?? []}
+                  selected={targetClientAppIds}
+                  onChange={setTargetClientAppIds}
                   emptyLabel="Vale na renovação da assinatura"
                 />
                 <p className="text-[10px] text-foreground/60 mt-1">
                   {clientAppOptions?.length === 0
                     ? "Esse cliente não tem nenhum app com licença cadastrado."
-                    : targetAppNames.length > 0
-                      ? "Só vale ao renovar a licença deste app — o portal mostra um popup perguntando se quer aplicar."
+                    : targetClientAppIds.length > 0
+                      ? "Vale na licença de cada aplicativo marcado — o desconto é aplicado em cada um que entrar no pagamento."
                       : "Sem app marcado, vale pra renovação da assinatura (padrão de sempre)."}
                 </p>
               </div>

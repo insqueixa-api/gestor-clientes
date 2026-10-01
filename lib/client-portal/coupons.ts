@@ -79,6 +79,8 @@ export type CouponRow = {
   target_server_ids: string[] | null;
   target_plan_labels: string[] | null;
   target_app_names: string[] | null;
+  /** 30/09/2026: instalações (client_apps.id) cobertas — quando preenchido, decide no lugar do nome. */
+  target_client_app_ids?: string[] | null;
   rule_date_field: "vencimento" | "cadastro" | null;
   rule_days_min: number | null;
   rule_days_max: number | null;
@@ -531,26 +533,63 @@ export async function findEligibleCoupon(params: {
   return null;
 }
 
+export type AppCouponItem = { client_app_id: string; app_name: string; price_amount: number };
+
 /**
- * Cupom pessoal restrito a UM app específico (target_app_names), pra
- * pagamento avulso de licença de app (client_apps) — pedido do Marcio,
- * 08/09/2026: "se o cupom é pra aplicativo, tem que valer só pra
- * aplicativo". Só considera cupom pessoal com target_app_names PREENCHIDO
- * e contendo exatamente `appName` (a renovação de app não tem
- * `matchesTargeting`/apps_names do cliente pra checar — é sempre "este app
- * específico sendo pago agora", não "qualquer app que o cliente tenha").
- * Cupom pessoal SEM target_app_names continua sendo só pra assinatura
- * (findEligibleCoupon), nunca aparece aqui.
+ * 30/09/2026 (pedido do Márcio — Vera, 2 DupleCast): o cupom cobre esta
+ * instalação? target_client_app_ids preenchido manda (instalação exata);
+ * cupom antigo, só com target_app_names, cobre toda instalação daquele app.
+ */
+export function couponCoversApp(coupon: CouponRow, item: { client_app_id: string; app_name: string }): boolean {
+  if (coupon.target_client_app_ids?.length) {
+    return coupon.target_client_app_ids.includes(String(item.client_app_id));
+  }
+  return !!coupon.target_app_names?.includes(item.app_name);
+}
+
+/**
+ * Desconto do cupom de app somado em CADA instalação coberta presente na
+ * cobrança (antes: só na 1ª). Percentual sobre o preço de cada uma; valor
+ * fixo vale por instalação; nunca passa do preço dela.
+ */
+export function computeAppCouponDiscount(
+  coupon: CouponRow,
+  items: AppCouponItem[],
+): { total: number; byClientAppId: Record<string, number> } {
+  const byClientAppId: Record<string, number> = {};
+  let total = 0;
+  for (const it of items || []) {
+    if (!couponCoversApp(coupon, it)) continue;
+    const price = Number(it.price_amount) || 0;
+    if (price <= 0) continue;
+    let d =
+      coupon.discount_type === "percent"
+        ? Number((price * (Number(coupon.discount_value) / 100)).toFixed(2))
+        : Number(coupon.discount_value);
+    d = Math.min(d, price);
+    if (d <= 0) continue;
+    byClientAppId[String(it.client_app_id)] = d;
+    total += d;
+  }
+  return { total: Number(total.toFixed(2)), byClientAppId };
+}
+
+/**
+ * Cupom pessoal restrito a app(s) — pagamento de licença de app (tela de
+ * Aplicativos, com ou sem carrinho) e apps embutidos no pagamento do plano
+ * (aplicação automática). Recebe as instalações sendo pagas AGORA e devolve
+ * o 1º cupom pessoal ativo do cliente que cubra pelo menos uma, com o
+ * desconto somado em todas as cobertas. Cupom pessoal SEM app continua
+ * sendo só pra assinatura (findEligibleCoupon), nunca aparece aqui.
  */
 export async function findEligibleAppCoupon(params: {
   supabaseAdmin: any;
   tenantId: string;
   clientRow: any;
-  appName: string;
-  appPriceOnly: number;
-}): Promise<{ coupon: CouponRow; discountAmount: number } | null> {
-  const { supabaseAdmin, tenantId, clientRow, appName, appPriceOnly } = params;
-  if (!appName || appPriceOnly <= 0) return null;
+  items: AppCouponItem[];
+}): Promise<{ coupon: CouponRow; discountAmount: number; byClientAppId: Record<string, number> } | null> {
+  const { supabaseAdmin, tenantId, clientRow, items } = params;
+  if (!items?.length) return null;
   if (getClientCurrency(clientRow) !== "BRL") return null;
 
   const linkedIds = await resolveLinkedClientIds(supabaseAdmin, tenantId, clientRow);
@@ -566,23 +605,13 @@ export async function findEligibleAppCoupon(params: {
   if (error || !rows?.length) return null;
 
   const now = new Date();
-  const coupon = (rows as CouponRow[]).find((c) => {
-    if (!c.target_app_names?.includes(appName)) return false;
-    if (c.starts_at && new Date(c.starts_at) > now) return false;
-    if (c.ends_at && new Date(c.ends_at) < now) return false;
-    return true;
-  });
-  if (!coupon) return null;
-
-  let discountAmount: number;
-  if (coupon.discount_type === "percent") {
-    discountAmount = Number((appPriceOnly * (Number(coupon.discount_value) / 100)).toFixed(2));
-  } else {
-    discountAmount = Number(coupon.discount_value);
+  for (const c of rows as CouponRow[]) {
+    if (c.starts_at && new Date(c.starts_at) > now) continue;
+    if (c.ends_at && new Date(c.ends_at) < now) continue;
+    const { total, byClientAppId } = computeAppCouponDiscount(c, items);
+    if (total > 0) return { coupon: c, discountAmount: total, byClientAppId };
   }
-  discountAmount = Math.min(discountAmount, appPriceOnly);
-
-  return { coupon, discountAmount };
+  return null;
 }
 
 export type EligibleCouponInfo = { coupon: CouponRow; kind: "personal" | "general" };
@@ -784,7 +813,7 @@ export async function validateCouponForCharge(params: {
   // nesta MESMA cobrança — um cupom pessoal restrito a um app
   // (target_app_names) é aceito aqui SE esse app estiver entre eles (o
   // desconto passa a incidir sobre o preço daquele app, não do plano).
-  bundledApps?: { app_name: string; price_amount: number }[];
+  bundledApps?: { client_app_id?: string; app_name: string; price_amount: number }[];
 }): Promise<CouponValidationResult> {
   const { supabaseAdmin, tenantId, clientRow, code, planPriceOnly, currency, isOverrideActive, bundledApps } = params;
 
@@ -828,7 +857,9 @@ export async function validateCouponForCharge(params: {
     // Sem bundle nenhum batendo, cupom pessoal restrito a app só vale no
     // pagamento avulso daquele app (findEligibleAppCoupon, apps/renew-payment).
     if (coupon.target_app_names?.length) {
-      const matched = (bundledApps || []).find((a) => coupon.target_app_names!.includes(a.app_name));
+      const matched = (bundledApps || []).some((a) =>
+        couponCoversApp(coupon as CouponRow, { client_app_id: String(a.client_app_id || ""), app_name: a.app_name }),
+      );
       if (!matched) return { ok: false, reason: "Cupom inválido ou inativo." };
     }
   }
@@ -876,10 +907,21 @@ export async function validateCouponForCharge(params: {
   // preço DAQUELE app (não do plano) — só muda a base do cálculo/teto; a
   // subtração final continua saindo do total combinado do mesmo jeito
   // (soma é associativa, não importa de qual "balde" lógico é descontado).
-  const discountBase =
-    isPersonal && coupon.target_app_names?.length
-      ? (bundledApps || []).find((a) => coupon.target_app_names!.includes(a.app_name))?.price_amount ?? planPriceOnly
-      : planPriceOnly;
+  // ✅ 30/09/2026: cupom pessoal de app — desconto em CADA instalação
+  // coberta embutida nesta cobrança (antes só na 1ª que batia).
+  if (isPersonal && coupon.target_app_names?.length) {
+    const { total } = computeAppCouponDiscount(
+      coupon as CouponRow,
+      (bundledApps || []).map((a) => ({
+        client_app_id: String(a.client_app_id || ""),
+        app_name: a.app_name,
+        price_amount: a.price_amount,
+      })),
+    );
+    return { ok: true, coupon: coupon as CouponRow, discountAmount: total };
+  }
+
+  const discountBase = planPriceOnly;
 
   let discountAmount: number;
   if (coupon.discount_type === "percent") {

@@ -243,7 +243,9 @@ export async function materializeBundledAppRenewals(
   for (const item of bundledAppRenewals) {
     const clientAppId = String(item?.client_app_id || "").trim();
     const priceAmount = Number(item?.price_amount);
-    if (!clientAppId || !Number.isFinite(priceAmount) || priceAmount <= 0) {
+    // < 0 (não <= 0): com cupom de 100% (30/09/2026, cupom por instalação)
+    // uma instalação embutida pode sair R$ 0 e ainda precisa ser ativada.
+    if (!clientAppId || !Number.isFinite(priceAmount) || priceAmount < 0) {
       prodLog("fulfillment.bundled_app_renewal_skipped_invalid_item", {
         payment_id: String(payment.id).slice(-6),
         item,
