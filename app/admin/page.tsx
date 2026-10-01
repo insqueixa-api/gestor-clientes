@@ -143,6 +143,47 @@ const fmtBRLNoSymbol = (v: number) =>
 
 const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 
+// ✅ 01/10/2026, pedido do Márcio: rodapé Faturamento / Custo / Lucro dos
+// cards "Faturamento (Mês)" e "Mês Anterior" — 3 colunas centralizadas,
+// título em cima e valor embaixo (em linha única ficava espremido no
+// celular). No celular o valor vai sem "R$", igual ao resto dos cards.
+function FooterFaturamentoCustoLucro({
+  faturamento,
+  custo,
+}: {
+  faturamento: number;
+  custo: number;
+}) {
+  const lucro = faturamento - custo;
+  const col = (label: string, value: number, cls: string, prefix = "") => (
+    <div className="flex flex-col items-center min-w-0">
+      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span className={`tabular-nums font-medium truncate max-w-full ${cls}`}>
+        <span className="sm:hidden">
+          {prefix}
+          {fmtBRLNoSymbol(value)}
+        </span>
+        <span className="hidden sm:inline">
+          {prefix}
+          {fmtBRL(value)}
+        </span>
+      </span>
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-3 gap-2 w-full text-center">
+      {col("Faturamento", faturamento, "text-foreground/80")}
+      {/* ✅ 30/09/2026: custos à mostra (recarga de servidor + despesas
+          pagas da categoria IPTV) — sem isso Faturamento - Lucro parecia
+          não fechar. */}
+      {col("Custo", custo, "text-rose-500", "-")}
+      {col("Lucro", lucro, lucro < 0 ? "text-rose-500" : "text-emerald-500")}
+    </div>
+  );
+}
+
 const fmtPct = (v: number) => `${v.toFixed(1)}%`;
 
 function monthLabelPtBr(d = new Date()): string {
@@ -429,15 +470,16 @@ export default async function AdminDashboardPage({
 
   const hasSnapshot = finSnapshotRows.length > 0;
 
-  const finReceitasPendentes = finTrxRows
-    .filter(
-      (t) =>
-        t.tipo === "RECEITA" &&
-        t.status !== "PAGO" &&
-        t.data_vencimento >= _finMonthStart &&
-        t.data_vencimento <= _finMonthEnd,
-    )
-    .reduce((acc, t) => acc + toNumber(t.valor), 0) +
+  const finReceitasPendentes =
+    finTrxRows
+      .filter(
+        (t) =>
+          t.tipo === "RECEITA" &&
+          t.status !== "PAGO" &&
+          t.data_vencimento >= _finMonthStart &&
+          t.data_vencimento <= _finMonthEnd,
+      )
+      .reduce((acc, t) => acc + toNumber(t.valor), 0) +
     // IPTV ainda a receber no mês (clientes ativos vencendo, ao vivo)
     toNumber(finance?.to_receive_brl_estimated);
 
@@ -892,44 +934,10 @@ export default async function AdminDashboardPage({
                 </>
               }
               footer={
-                <div className="flex flex-wrap justify-between items-center gap-x-3 w-full">
-                  <div>
-                    <span className="sm:hidden">
-                      Total:{" "}
-                      {fmtBRLNoSymbol(clientsMonthVal + resellerMonthVal)}
-                    </span>
-                    <span className="hidden sm:inline">
-                      Total: {fmtBRL(clientsMonthVal + resellerMonthVal)}
-                    </span>
-                  </div>
-                  {/* ✅ 30/09/2026: custos à mostra (recarga de servidor + despesas
-                      pagas da categoria IPTV) — sem isso Total - Lucro parecia
-                      não fechar. */}
-                  <div className="text-rose-500">
-                    <span className="sm:hidden">
-                      Custos: -{fmtBRLNoSymbol(expensesMonthVal)}
-                    </span>
-                    <span className="hidden sm:inline">
-                      Custos: -{fmtBRL(expensesMonthVal)}
-                    </span>
-                  </div>
-                  <div
-                    className={`${clientsMonthVal + resellerMonthVal - expensesMonthVal < 0 ? "text-rose-500" : "text-emerald-500"}`}
-                  >
-                    <span className="sm:hidden">
-                      Lucro:{" "}
-                      {fmtBRLNoSymbol(
-                        clientsMonthVal + resellerMonthVal - expensesMonthVal,
-                      )}
-                    </span>
-                    <span className="hidden sm:inline">
-                      Lucro:{" "}
-                      {fmtBRL(
-                        clientsMonthVal + resellerMonthVal - expensesMonthVal,
-                      )}
-                    </span>
-                  </div>
-                </div>
+                <FooterFaturamentoCustoLucro
+                  faturamento={clientsMonthVal + resellerMonthVal}
+                  custo={expensesMonthVal}
+                />
               }
             />
 
@@ -976,51 +984,10 @@ export default async function AdminDashboardPage({
                 </>
               }
               footer={
-                <div className="flex flex-wrap justify-between items-center gap-x-3 w-full">
-                  <div>
-                    <span className="sm:hidden">
-                      Total:{" "}
-                      {fmtBRLNoSymbol(
-                        clientsPrevMonthVal + resellerPrevMonthVal,
-                      )}
-                    </span>
-                    <span className="hidden sm:inline">
-                      Total:{" "}
-                      {fmtBRL(clientsPrevMonthVal + resellerPrevMonthVal)}
-                    </span>
-                  </div>
-                  {/* ✅ 30/09/2026: custos à mostra (recarga de servidor + despesas
-                      pagas da categoria IPTV) — sem isso Total - Lucro parecia
-                      não fechar. */}
-                  <div className="text-rose-500">
-                    <span className="sm:hidden">
-                      Custos: -{fmtBRLNoSymbol(expensesPrevMonthVal)}
-                    </span>
-                    <span className="hidden sm:inline">
-                      Custos: -{fmtBRL(expensesPrevMonthVal)}
-                    </span>
-                  </div>
-                  <div
-                    className={`${clientsPrevMonthVal + resellerPrevMonthVal - expensesPrevMonthVal < 0 ? "text-rose-500" : "text-emerald-500"}`}
-                  >
-                    <span className="sm:hidden">
-                      Lucro:{" "}
-                      {fmtBRLNoSymbol(
-                        clientsPrevMonthVal +
-                          resellerPrevMonthVal -
-                          expensesPrevMonthVal,
-                      )}
-                    </span>
-                    <span className="hidden sm:inline">
-                      Lucro:{" "}
-                      {fmtBRL(
-                        clientsPrevMonthVal +
-                          resellerPrevMonthVal -
-                          expensesPrevMonthVal,
-                      )}
-                    </span>
-                  </div>
-                </div>
+                <FooterFaturamentoCustoLucro
+                  faturamento={clientsPrevMonthVal + resellerPrevMonthVal}
+                  custo={expensesPrevMonthVal}
+                />
               }
             />
           </div>
