@@ -156,7 +156,7 @@ function FooterFaturamentoCustoLucro({
 }) {
   const lucro = faturamento - custo;
   const col = (label: string, value: number, cls: string, prefix = "") => (
-    <div className="flex flex-col items-center min-w-0">
+    <div className="flex flex-col items-center min-w-0 px-1 gap-0.5">
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
@@ -173,7 +173,9 @@ function FooterFaturamentoCustoLucro({
     </div>
   );
   return (
-    <div className="grid grid-cols-3 gap-2 w-full text-center">
+    // Bloco com fundo suave + divisórias verticais finas entre as colunas —
+    // sem isso os 3 valores ficavam "soltos" no rodapé do card.
+    <div className="grid grid-cols-3 w-full text-center rounded-lg bg-muted/50 border border-border/60 divide-x divide-border/60 py-1.5">
       {col("Faturamento", faturamento, "text-foreground/80")}
       {/* ✅ 30/09/2026: custos à mostra (recarga de servidor + despesas
           pagas da categoria IPTV) — sem isso Faturamento - Lucro parecia
