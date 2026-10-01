@@ -999,10 +999,59 @@ export default function RenewClient() {
     });
   }, [installedApps]);
 
+  // ✅ 30/09/2026, pedido do Márcio (Vera: cupom do DupleCast não entrava
+  // sozinho): ao MARCAR um app, procura em silêncio cupom pessoal dele
+  // (mesma rota da tela de Aplicativos) e aplica sem o cliente digitar.
+  // Ref pra descartar a resposta se o app já foi desmarcado nesse meio-tempo.
+  const selectedAppRenewalIdsRef = useRef<string[]>([]);
+  useEffect(() => {
+    selectedAppRenewalIdsRef.current = selectedAppRenewalIds;
+  }, [selectedAppRenewalIds]);
+
+  async function tryAutoApplyAppCoupon(appId: string) {
+    if (!selectedAccountId || !session) return;
+    if (appliedCoupon) return; // já tem cupom (digitado ou automático)
+    const app = expiringAppsForAlert.find((a) => a.id === appId);
+    if (!app) return;
+    try {
+      const res = await fetch("/api/client-portal/apps/eligible-coupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          client_app_id: appId,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok || !result.available) return;
+      if (!selectedAppRenewalIdsRef.current.includes(appId)) return;
+      setAppliedCoupon((prev) =>
+        prev ?? {
+          code: "",
+          discountAmount: Number(result.discountAmount || 0),
+          planPriceOnly: 0,
+          discountType: null,
+          discountValue: null,
+          targetAppNames: [app.name],
+          auto: true,
+        },
+      );
+      setCouponError(null);
+    } catch {
+      // sem cupom automático — o cliente ainda pode digitar um código
+    }
+  }
+
   function toggleAppRenewalSelection(appId: string) {
+    const willSelect = !selectedAppRenewalIds.includes(appId);
     setSelectedAppRenewalIds((prev) =>
       prev.includes(appId) ? prev.filter((id) => id !== appId) : [...prev, appId],
     );
+    if (willSelect) {
+      selectedAppRenewalIdsRef.current = [...selectedAppRenewalIdsRef.current, appId];
+      void tryAutoApplyAppCoupon(appId);
+    }
     // ✅ 09/09/2026, achado do Márcio: um cupom pessoal restrito a um app
     // ficava aplicado na tela mesmo depois de desmarcar o app do qual ele
     // depende (create-payment já revalidava e rejeitava certinho na hora
@@ -1040,6 +1089,9 @@ export default function RenewClient() {
     // invalidado por marcar/desmarcar app. Preenchido = só continua válido
     // enquanto pelo menos 1 desses apps estiver marcado pra renovar junto.
     targetAppNames: string[] | null;
+    // ✅ 30/09/2026: cupom pessoal de app aplicado automático (código nunca
+    // revelado) — no pagamento vai como apply_app_coupon, não coupon_code.
+    auto?: boolean;
   } | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponChecking, setCouponChecking] = useState(false);
@@ -2422,7 +2474,9 @@ export default function RenewClient() {
         period: resolvedPeriod,
         screens: selectedAccount.screens,
         force_manual: choice === "manual",
-        coupon_code: appliedCoupon?.code || null,
+        coupon_code: appliedCoupon?.auto ? null : appliedCoupon?.code || null,
+        // cupom pessoal de app automático: o servidor acha e calcula de novo
+        ...(appliedCoupon?.auto ? { apply_app_coupon: true } : {}),
         client_app_ids: appsToRenew.map((app) => app.id),
         // ✅ Device ID do Mercado Pago (gerado pelo security.js carregado
         // no useEffect acima) — melhora a "Qualidade da Integração" e a
@@ -2675,7 +2729,7 @@ export default function RenewClient() {
                 </div>
                 {summaryCouponDiscount > 0 && (
                   <div className="flex justify-between text-emerald-600">
-                    <span>Desconto (cupom {appliedCoupon?.code})</span>
+                    <span>Desconto ({appliedCoupon?.auto ? "cupom do aplicativo" : `cupom ${appliedCoupon?.code}`})</span>
                     <span>
                       -
                       {formatMoney(
@@ -2858,7 +2912,7 @@ export default function RenewClient() {
         </div>
         {summaryCouponDiscount > 0 && (
           <div className="flex justify-between text-emerald-600">
-            <span>Desconto (cupom {appliedCoupon?.code})</span>
+            <span>Desconto ({appliedCoupon?.auto ? "cupom do aplicativo" : `cupom ${appliedCoupon?.code}`})</span>
             <span>-{formatMoney(summaryCouponDiscount, summaryCurrency)}</span>
           </div>
         )}
@@ -6589,7 +6643,7 @@ export default function RenewClient() {
               {appliedCoupon ? (
                 <div className="flex items-center justify-between gap-2 h-10 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3">
                   <span className="text-sm font-medium text-emerald-600 truncate">
-                    🎉 {appliedCoupon.code} aplicado:{" "}
+                    🎉 {appliedCoupon.auto ? "Cupom do aplicativo" : appliedCoupon.code} aplicado:{" "}
                     {appliedCoupon.discountType === "percent" &&
                     appliedCoupon.discountValue != null ? (
                       <strong className="font-bold">

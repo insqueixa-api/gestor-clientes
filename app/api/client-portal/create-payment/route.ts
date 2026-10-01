@@ -10,6 +10,7 @@ import {
   couponRejectReason,
   isCouponAbuseBlocked,
   recordFailedCouponAttempt,
+  findEligibleAppCoupon,
 } from "@/lib/client-portal/coupons";
 import { touchPortalSession } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
@@ -407,6 +408,29 @@ if (coupon_code_raw) {
       // verdade — código válido nunca conta (mesmo raciocínio de
       // validate-coupon/route.ts).
       await recordFailedCouponAttempt(supabaseAdmin, sess.tenant_id, client_id, coupon_code_raw);
+    }
+  }
+} else if (body?.apply_app_coupon === true && appRenewalCharges.items.length) {
+  // ✅ 30/09/2026, pedido do Márcio (Vera: cupom "VERA" do DupleCast não
+  // entrava sozinho no pagamento do sinal): cupom PESSOAL de app aplicado
+  // automático, sem o cliente digitar (o código nunca é revelado — mesmo
+  // princípio de apps/eligible-coupon). O front só manda o "sim"; o cupom é
+  // achado de novo aqui e o desconto incide no preço do app embutido que
+  // ele cobre (1 cupom por cobrança — o 1º app que bater).
+  for (const item of appRenewalCharges.items) {
+    const appCoupon = await findEligibleAppCoupon({
+      supabaseAdmin,
+      tenantId: sess.tenant_id,
+      clientRow: client,
+      appName: item.app_name,
+      appPriceOnly: item.price_amount,
+    });
+    if (appCoupon && appCoupon.discountAmount > 0) {
+      couponId = appCoupon.coupon.id;
+      couponCodeApplied = appCoupon.coupon.code;
+      couponDiscountAmount = appCoupon.discountAmount;
+      computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
+      break;
     }
   }
 }
