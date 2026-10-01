@@ -825,7 +825,7 @@ export default async function AdminDashboardPage({
             <SectionTitle title="FINANCEIRO R$" />
           </div>
           <div className="hidden sm:block">
-            <SectionTitle title="FINANCEIRO" />
+            <SectionTitle title="FATURAMENTO IPTV" />
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
