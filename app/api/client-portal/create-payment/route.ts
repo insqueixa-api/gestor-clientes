@@ -989,7 +989,7 @@ return NextResponse.json(
             const idempWindowStart = new Date(Date.now() - 10 * 60 * 1000).toISOString();
             const { data: existingFdPending } = await supabaseAdmin
               .from("client_portal_payments")
-              .select("id, mp_payment_id")
+              .select("id, mp_payment_id, coupon_id, bundled_app_renewals")
               .eq("tenant_id", sess.tenant_id)
               .eq("client_id", client_id)
               .eq("gateway_type", gateway.type)
@@ -1003,7 +1003,19 @@ return NextResponse.json(
               .limit(1)
               .maybeSingle();
 
-            if (existingFdPending?.mp_payment_id) {
+            // ✅ 30/09/2026: price_amount aqui é só a parte do plano — mesmo
+            // valor com OUTROS apps embutidos ou outro cupom é outra cobrança
+            // (total diferente); nunca devolve esse PIX antigo nesse caso.
+            const fdIds = (r: any) =>
+              (Array.isArray(r?.bundled_app_renewals) ? r.bundled_app_renewals : [])
+                .map((i: any) => String(i?.client_app_id || ""))
+                .sort()
+                .join(",");
+            const sameFdSelection =
+              !!existingFdPending &&
+              fdIds(existingFdPending) === fdIds({ bundled_app_renewals: appRenewalCharges.items }) &&
+              ((existingFdPending as any).coupon_id || null) === (couponId || null);
+            if (sameFdSelection && existingFdPending?.mp_payment_id) {
               const existingTx = await getFastDepixTransaction(apiKey, existingFdPending.mp_payment_id);
               if (String(existingTx.status || "").toLowerCase() === "pending") {
                 const qrBase64 = existingTx.qr_code ? await fetchQrCodeAsBase64(existingTx.qr_code) : null;

@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/gerenciador/aplicativo/page.tsx
-import { X, Pencil, Trash2, Download, Settings } from "lucide-react";
+import { X, Pencil, Trash2, Download, Settings, Star, Zap, Wrench } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";
 import {
@@ -39,6 +39,7 @@ import {
 import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import GpcRokuActivationsModal from "./gpc_roku_activations_modal";
+import DeviceBadges from "@/components/apps/DeviceBadges";
 
 // --- TIPOS ---
 type AppField = {
@@ -101,16 +102,22 @@ const APP_TIERS: { value: number; icon: string; label: string }[] = [5, 4, 3, 2,
   label: n === 1 ? "1 estrela" : `${n} estrelas`,
 }));
 
-const APP_DEVICE_ICONS: Partial<Record<DeviceType, string>> = {
-  SAMSUNG_LG: "📺",
-  ANDROID_PHONE: "📱",
-  ANDROID_TV: "📦",
-  XBOX: "🎮",
-  IOS: "🍎",
-  COMPUTADOR: "💻",
-  FIRE_TV: "🔥",
-  ROKU: "🟣",
-};
+// ✅ Estrelas da classificação — sempre as 5 (acesas = nível, apagadas = o resto).
+function TierStars({ value, size = 14 }: { value: number | null | undefined; size?: number }) {
+  const n = Number(value) || 0;
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-label={n ? `${n} de 5 estrelas` : "Sem classificação"}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          style={{ width: size, height: size }}
+          className={i <= n ? "fill-amber-400 text-amber-400" : "fill-transparent text-muted-foreground/30"}
+          strokeWidth={1.5}
+        />
+      ))}
+    </span>
+  );
+}
 
 type AppativaCatalogItem = {
   id: string;
@@ -252,6 +259,23 @@ export default function AppManagerPage() {
     descontinuado: true,
   });
   const [savingTierId, setSavingTierId] = useState<string | null>(null);
+  const [tierPickerFor, setTierPickerFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!tierPickerFor) return;
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("[data-tier-picker]")) setTierPickerFor(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTierPickerFor(null);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [tierPickerFor]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -550,7 +574,7 @@ export default function AppManagerPage() {
     }
     out.push({
       key: "sem",
-      icon: "☆",
+      icon: "",
       label: "Sem classificação",
       hint: "Escolha o nível no próprio card.",
       apps: correntes.filter((a) => !a.tier && !!a.integration_type).sort(byName),
@@ -898,6 +922,22 @@ export default function AppManagerPage() {
     }
   }
 
+  // Quem ativa/renova a licença automaticamente (raios), na ordem de
+  // prioridade: DupleCast vem antes da AtivaApp, a não ser que o app esteja
+  // marcado pra renovar pela AtivaApp (renewal_source = 'appativa').
+  function activationProviders(app: AppData): string[] {
+    const out: string[] = [];
+    const hasDuplecast = app.integration_type === "DUPLECAST";
+    const hasAtivaApp = !!app.appativa_app_id;
+    if (hasDuplecast) out.push("DupleCast");
+    if (hasAtivaApp) {
+      if (hasDuplecast && app.renewal_source === "appativa") out.unshift("AtivaApp");
+      else out.push("AtivaApp");
+    }
+    if (app.integration_type === "GERENCIAAPP") out.push("GerenciaApp");
+    return out;
+  }
+
   function renderAppCard(app: AppData) {
     const needsConfiguration =
       app.integration_type &&
@@ -917,115 +957,153 @@ export default function AppManagerPage() {
     const canEdit = app.tenant_id === myTenantId;
     const canClassify =
       canEdit && app.is_active !== false && app.cost_type !== "partnership";
-    const tierInfo = APP_TIERS.find((t) => t.value === app.tier);
+    const providers = activationProviders(app);
+    const pickerOpen = tierPickerFor === app.id;
 
     return (
       <div
         key={app.id}
-        className="bg-card border border-border rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5"
+        className="bg-card border border-border rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-3"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           {app.icon_url ? (
             <img
               src={app.icon_url}
               alt=""
-              className="w-10 h-10 rounded-lg object-cover border border-border shrink-0"
+              className="w-11 h-11 rounded-lg object-cover border border-border shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">
+            <div className="w-11 h-11 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">
               📱
             </div>
           )}
+
           <div className="min-w-0 flex-1">
-            <p className="font-semibold text-sm text-foreground truncate" title={app.name}>
-              {app.name}
-            </p>
-            {tierInfo && (
-              <p className="text-[11px] leading-none text-amber-500 tracking-tight" title={tierInfo.label}>
-                {tierInfo.icon}
-                <span className="text-muted-foreground/40">{"★".repeat(5 - tierInfo.value)}</span>
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-semibold text-sm text-foreground truncate pt-0.5" title={app.name}>
+                {app.name}
               </p>
-            )}
-            <p className="text-xs text-muted-foreground truncate">
-              <span className="font-medium text-foreground/80">{priceLabel}</span>
-              {" · "}
-              {app.integration_type ? (
-                <span
-                  className={needsConfiguration ? "text-amber-500" : "text-sky-500"}
-                  title={
-                    needsConfiguration
-                      ? `Integração ${app.integration_type} sem API configurada`
-                      : `Integração: ${app.integration_type}`
-                  }
-                >
-                  {needsConfiguration ? "⚠️ Configurar API" : "⚡ Automático"}
+              {canClassify ? (
+                <div className="relative shrink-0" data-tier-picker>
+                  <button
+                    type="button"
+                    disabled={savingTierId === app.id}
+                    onClick={() => setTierPickerFor(pickerOpen ? null : app.id)}
+                    className="inline-flex items-center px-1.5 py-1 rounded-md border border-border hover:border-amber-400/60 transition-colors disabled:opacity-50"
+                    title={app.tier ? `${app.tier} de 5 estrelas — clique pra mudar` : "Classificar"}
+                  >
+                    <TierStars value={app.tier} size={14} />
+                  </button>
+                  {pickerOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-30 w-40 rounded-lg border border-border bg-card shadow-lg p-1">
+                      {[5, 4, 3, 2, 1].map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => {
+                            setTierPickerFor(null);
+                            if (app.tier !== n) void setAppTier(app, n);
+                          }}
+                          className={`w-full flex items-center px-2 py-1.5 rounded-md hover:bg-muted transition-colors ${app.tier === n ? "bg-amber-400/10" : ""}`}
+                        >
+                          <TierStars value={n} size={14} />
+                        </button>
+                      ))}
+                      {app.tier != null && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTierPickerFor(null);
+                            void setAppTier(app, null);
+                          }}
+                          className="w-full text-left px-2 py-1.5 rounded-md text-xs text-muted-foreground hover:bg-muted transition-colors"
+                        >
+                          Remover classificação
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : app.tier ? (
+                <span className="shrink-0 pt-1">
+                  <TierStars value={app.tier} size={14} />
                 </span>
-              ) : (
-                <span>🔧 Manual</span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {app.name === "GPC Roku" && (
-              <button
-                onClick={() => setGpcRokuActivationsFor(app.id)}
-                className="p-1.5 text-sky-500 hover:bg-sky-500/10 rounded-lg transition-colors"
-                title="Gerenciar MACs ativados"
-              >
-                <IconSettings />
-              </button>
-            )}
-            {canEdit && (
-              <>
-                <button
-                  onClick={() => openEdit(app)}
-                  className="p-1.5 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors"
-                  title="Editar"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(app.id)}
-                  className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
-                  title="Excluir"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </>
-            )}
+              ) : null}
+            </div>
+
+            <div className="flex items-center justify-between gap-2 mt-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-w-0">
+                {app.integration_type ? (
+                  <span
+                    className={`inline-flex items-center gap-1 ${needsConfiguration ? "text-amber-500" : "text-sky-600 dark:text-sky-400"}`}
+                    title={
+                      needsConfiguration
+                        ? `Integração ${app.integration_type} sem API configurada`
+                        : `Configuração automática (${app.integration_type})`
+                    }
+                  >
+                    <Settings className="w-3.5 h-3.5" aria-hidden="true" />
+                    {needsConfiguration ? "Configurar API" : "Automático"}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground" title="Sem integração — configurado à mão">
+                    <Wrench className="w-3.5 h-3.5" aria-hidden="true" />
+                    Manual
+                  </span>
+                )}
+                {providers.map((p) => (
+                  <span
+                    key={p}
+                    className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400"
+                    title={`Ativação/renovação automática via ${p}`}
+                  >
+                    <Zap className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+                    {p}
+                  </span>
+                ))}
+              </div>
+              <div className="flex items-center shrink-0 -mr-1">
+                {app.name === "GPC Roku" && (
+                  <button
+                    onClick={() => setGpcRokuActivationsFor(app.id)}
+                    className="p-1 text-sky-500 hover:bg-sky-500/10 rounded-md transition-colors"
+                    title="Gerenciar MACs ativados"
+                  >
+                    <IconSettings />
+                  </button>
+                )}
+                {canEdit && (
+                  <>
+                    <button
+                      onClick={() => openEdit(app)}
+                      className="p-1 text-muted-foreground/70 hover:text-amber-500 hover:bg-amber-500/10 rounded-md transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(app.id)}
+                      className="p-1 text-muted-foreground/70 hover:text-rose-500 hover:bg-rose-500/10 rounded-md transition-colors"
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 text-sm min-w-0 overflow-hidden">
-            {(app.device_types || []).map((dt) => (
-              <span key={dt} title={DEVICE_TYPE_LABELS[dt]} aria-label={DEVICE_TYPE_LABELS[dt]}>
-                {APP_DEVICE_ICONS[dt] ?? "📱"}
-              </span>
-            ))}
+        <div className="flex items-end justify-between gap-2 mt-auto">
+          <div className="min-w-0">
+            <DeviceBadges types={app.device_types} />
           </div>
-          {canClassify ? (
-            <select
-              value={app.tier ?? ""}
-              disabled={savingTierId === app.id}
-              onChange={(e) =>
-                setAppTier(app, e.target.value ? Number(e.target.value) : null)
-              }
-              className="h-7 max-w-[11rem] rounded-md border border-border bg-transparent px-1.5 text-xs text-foreground outline-none focus:border-emerald-500 disabled:opacity-50"
-              title="Classificação"
-            >
-              <option value="">☆ Classificar</option>
-              {APP_TIERS.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.icon}
-                </option>
-              ))}
-            </select>
-          ) : app.is_active === false && app.discontinued_replacement_name ? (
-            <span className="text-[11px] text-muted-foreground truncate">
-              → {app.discontinued_replacement_name}
-            </span>
-          ) : null}
+          <span className="text-sm font-semibold text-foreground shrink-0">
+            {app.is_active === false && app.discontinued_replacement_name
+              ? <span className="text-xs font-normal text-muted-foreground">→ {app.discontinued_replacement_name}</span>
+              : priceLabel}
+          </span>
         </div>
       </div>
     );
@@ -1050,10 +1128,13 @@ export default function AppManagerPage() {
         >
           <span className="flex items-baseline gap-2 min-w-0">
             <span className="text-sm font-bold text-foreground">
-              <span className={sec.key.startsWith("tier-") || sec.key === "sem" ? "text-amber-500 tracking-tight" : ""}>
-                {sec.icon}
-              </span>{" "}
-              {sec.key.startsWith("tier-") ? "" : sec.label}
+              {sec.key.startsWith("tier-") ? (
+                <TierStars value={Number(sec.key.slice(5))} size={15} />
+              ) : (
+                <>
+                  <span>{sec.icon}</span> {sec.label}
+                </>
+              )}
             </span>
             <span className="text-xs text-muted-foreground">{sec.apps.length}</span>
             {sec.hint && (
@@ -1177,7 +1258,7 @@ export default function AppManagerPage() {
             <option value="Todos">Todos os aparelhos</option>
             {ALL_DEVICE_TYPES.map((dt) => (
               <option key={dt} value={dt}>
-                {APP_DEVICE_ICONS[dt] ?? "📱"} {DEVICE_TYPE_LABELS[dt]}
+                {DEVICE_TYPE_LABELS[dt]}
               </option>
             ))}
           </select>

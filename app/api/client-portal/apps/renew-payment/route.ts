@@ -180,6 +180,17 @@ export async function POST(req: NextRequest) {
     const fullTotal = Number((appPriceOnly + extras.total).toFixed(2));
     const bundleKey = bundledAppRenewals.map((i) => i.client_app_id).sort().join(",");
     const bundleHash = bundleKey ? createHash("sha1").update(bundleKey).digest("hex").slice(0, 10) : "solo";
+    // ✅ 30/09/2026 (caso Vera): mesmo cupom e mesma seleção não bastam —
+    // um PIX gerado pela regra ANTIGA do cupom (desconto só no 1º app)
+    // tinha outro valor e era devolvido de novo (R$ 45 em vez de R$ 30).
+    // Só reaproveita se o total gravado (pai + filhos) for o de agora.
+    const sameTotal = (r: any) => {
+      const kids = (Array.isArray(r?.bundled_app_renewals) ? r.bundled_app_renewals : []).reduce(
+        (sum: number, i: any) => sum + (Number(i?.price_amount) || 0),
+        0,
+      );
+      return Math.abs(Number(r?.price_amount || 0) + kids - totalCharge) < 0.01;
+    };
     const sameBundle = (r: any) =>
       (Array.isArray(r?.bundled_app_renewals) ? r.bundled_app_renewals : [])
         .map((i: any) => String(i?.client_app_id || ""))
@@ -359,7 +370,7 @@ export async function POST(req: NextRequest) {
       try {
         const { data: existingFdPending } = await supabaseAdmin
           .from("client_portal_payments")
-          .select("id, mp_payment_id, coupon_id, bundled_app_renewals")
+          .select("id, mp_payment_id, coupon_id, bundled_app_renewals, price_amount")
           .eq("tenant_id", ctx.tenant_id)
           .eq("client_id", client_id)
           .eq("gateway_type", gateway.type)
@@ -375,7 +386,12 @@ export async function POST(req: NextRequest) {
         // vice-versa) — senão devolveria o PIX antigo com o valor errado.
         // ✅ 30/09/2026: idem pra seleção do carrinho — outro conjunto de
         // apps = outro valor, nunca devolve o PIX antigo.
-        if (existingFdPending && ((existingFdPending as any).coupon_id !== couponId || !sameBundle(existingFdPending))) {
+        if (
+          existingFdPending &&
+          ((existingFdPending as any).coupon_id !== couponId ||
+            !sameBundle(existingFdPending) ||
+            !sameTotal(existingFdPending))
+        ) {
           // segue pro fluxo de criação normal, ignora este pending.
         } else if (existingFdPending?.mp_payment_id) {
           const existingTx = await getFastDepixTransaction(apiKey, existingFdPending.mp_payment_id);
@@ -392,6 +408,8 @@ export async function POST(req: NextRequest) {
                 internal_payment_id: existingFdPending.id,
                 price_amount: totalCharge,
                 bundled_apps: bundledAppsForResponse,
+                coupon_discount_amount: couponDiscountAmount || undefined,
+                plan_price_only: fullTotal,
                 currency,
                 pix_qr_code: existingTx.qr_code_text || undefined,
                 pix_qr_code_base64: qrBase64 || undefined,
@@ -519,7 +537,9 @@ export async function POST(req: NextRequest) {
           getRes.ok &&
           getData?.status === "pending" &&
           (existingPending as any).coupon_id === couponId &&
-          sameBundle(existingPending)
+          sameBundle(existingPending) &&
+          sameTotal(existingPending) &&
+          Math.abs(Number(getData.transaction_amount ?? totalCharge) - totalCharge) < 0.01
         ) {
           return NextResponse.json(
             {
@@ -533,6 +553,8 @@ export async function POST(req: NextRequest) {
               // valor REAL cobrado no MP (pai + filhos), não só a parte do pai
               price_amount: Number(getData.transaction_amount ?? totalCharge),
               bundled_apps: bundledAppsForResponse,
+              coupon_discount_amount: couponDiscountAmount || undefined,
+              plan_price_only: fullTotal,
               currency: existingPending.price_currency,
               pix_qr_code: getData.point_of_interaction?.transaction_data?.qr_code,
               pix_qr_code_base64: getData.point_of_interaction?.transaction_data?.qr_code_base64,
