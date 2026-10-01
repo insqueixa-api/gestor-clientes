@@ -195,7 +195,7 @@ function FinanceiroPageContent() {
   // caller esperava ela terminar (2 upserts sequenciais por dentro) ANTES
   // de buscar a lista de lançamentos do mês — 2 idas ao banco inteiras só
   // pra escrever, na frente de tudo o resto. Agora resF/resPurchases (e o
-  // cálculo de valorIptv/valorDespesas) vêm de fora, já buscados no MESMO
+  // cálculo de valorIptv) vêm de fora, já buscados no MESMO
   // Promise.all de contas/categorias/saldo — essa função só resolve
   // catIPTV/contaMpPj e escreve. O caller dispara ela em paralelo com a
   // busca da lista (não espera mais), usando os mesmos valores já
@@ -207,7 +207,6 @@ function FinanceiroPageContent() {
     contas: any[],
     categorias: any[],
     valorIptv: number,
-    valorDespesas: number,
   ) => {
     const catIPTV = categorias.find((c) =>
       c.nome.toLowerCase().includes("iptv"),
@@ -315,14 +314,33 @@ function FinanceiroPageContent() {
         }
       };
 
+      // ✅ 01/10/2026: a despesa de recarga virou 1 lançamento por servidor
+      // ("IPTV - Recarga Servidor <nome>") que dá baixa na previsão
+      // recorrente — lógica única no servidor (lib/finance/
+      // sync-iptv-lancamentos.ts), não duplicada mais aqui no client.
+      const syncDespesa = async () => {
+        try {
+          const { data: sess } = await supabaseBrowser.auth.getSession();
+          const token = sess?.session?.access_token;
+          const res = await fetch("/api/finance/sync-iptv-despesa", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              ano_mes: `${y}-${String(m + 1).padStart(2, "0")}`,
+            }),
+          });
+          if (!res.ok) falhasSync++;
+        } catch {
+          falhasSync++;
+        }
+      };
+
       await Promise.all([
         upsertDinamico("IPTV - Rendimentos", valorIptv, catIPTV, "RECEITA"),
-        upsertDinamico(
-          "IPTV - Recarga de Servidores",
-          valorDespesas,
-          catIPTV,
-          "DESPESA",
-        ),
+        syncDespesa(),
       ]);
 
       if (falhasSync > 0) {
@@ -357,14 +375,12 @@ function FinanceiroPageContent() {
       // ✅ Achado 26/08/2026 (pedido do Márcio, página às vezes demorando
       // pra carregar): antes eram 4 ondas sequenciais (contas/categorias →
       // sync+saldo → lista do mês → parcelas pendentes), cada uma esperando
-      // a anterior. resF/resPurchases (só leitura, usados só pra calcular
-      // valorIptv/valorDespesas) e o saldo das contas não dependem de nada
+      // a anterior. resF (só leitura, usado só pra calcular
+      // valorIptv) e o saldo das contas não dependem de nada
       // que vem de contas/categorias — entram na MESMA primeira onda.
       const ultimoDia = new Date(y, dateObj.getMonth() + 1, 0).getDate();
-      const mesStartStr = `${y}-${m}-01T00:00:00.000Z`;
-      const mesEndStr = `${y}-${m}-${String(ultimoDia).padStart(2, "0")}T23:59:59.999Z`;
 
-      const [resContas, resCat, resF, resPurchases] = await Promise.all([
+      const [resContas, resCat, resF] = await Promise.all([
         supabaseBrowser
           .from("fin_contas_bancarias")
           .select("*")
@@ -380,12 +396,6 @@ function FinanceiroPageContent() {
           .select("*")
           .eq("tenant_id", tid)
           .maybeSingle(),
-        supabaseBrowser
-          .from("server_credit_purchases")
-          .select("total_amount_brl")
-          .eq("tenant_id", tid)
-          .gte("created_at", mesStartStr)
-          .lte("created_at", mesEndStr),
       ]);
       if (isStale()) return; // uma troca de mês mais nova já começou
 
@@ -423,7 +433,7 @@ function FinanceiroPageContent() {
       }
 
 
-      // ✅ Calcula valorIptv/valorDespesas aqui (não mais dentro de
+      // ✅ Calcula valorIptv aqui (não mais dentro de
       // sincronizarRendimentos) — resF/resPurchases já vieram na mesma
       // onda de contas/categorias/saldo, lá em cima.
       const hoje = new Date();
@@ -451,16 +461,12 @@ function FinanceiroPageContent() {
           Number(resF.data?.reseller_paid_prev_month_brl || 0) +
           Number(resF.data?.apps_paid_prev_month_brl || 0);
       }
-      const valorDespesas = (resPurchases.data || []).reduce(
-        (acc, row) => acc + Number(row.total_amount_brl),
-        0,
-      );
 
       // ✅ Achado 26/08/2026 (pedido do Márcio, página às vezes demorando
       // pra carregar): antes esperava a escrita (2 upserts) terminar ANTES
       // de buscar a lista do mês — agora dispara em paralelo (sem esperar,
       // erros já viram toast por dentro da própria função) e usa os MESMOS
-      // valorIptv/valorDespesas já calculados acima pra corrigir os 2
+      // valorIptv já calculado acima pra corrigir o
       // lançamentos na lista assim que ela chega, sem esperar a escrita
       // confirmar no banco.
       if (isMesAtual || isMesAnterior) {
@@ -470,7 +476,6 @@ function FinanceiroPageContent() {
           resContas.data || [],
           categoriasCarregadas,
           valorIptv,
-          valorDespesas,
         ).catch(() => {});
       }
 
@@ -525,8 +530,6 @@ function FinanceiroPageContent() {
       if (isMesAtual || isMesAnterior) {
         for (const t of formatadas) {
           if (t.descricao === "IPTV - Rendimentos") t.valor = valorIptv;
-          else if (t.descricao === "IPTV - Recarga de Servidores")
-            t.valor = valorDespesas;
         }
       }
 

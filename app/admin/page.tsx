@@ -429,20 +429,25 @@ export default async function AdminDashboardPage({
   // recarga de servidor (server_credit_purchases, acima), entram TODAS as
   // despesas PAGAS da categoria IPTV do Financeiro Pessoal — custos pra
   // manter o sistema no ar (domínios, GerenciaApp, ProxyBR, Duplecast,
-  // Appativa...). Fica de fora só "IPTV - Recarga de Servidores", que é o
-  // espelho automático de server_credit_purchases (sync-iptv-lancamentos)
-  // — contaria a recarga 2x. "Recarga Appativa" entra mesmo se estiver
-  // em outra categoria (regra anterior, de 26/08/2026).
+  // Appativa...). Fica de fora a recarga de servidor em si ("IPTV -
+  // Recarga Servidor <nome>", 1 por servidor desde 01/10/2026; antes "IPTV -
+  // Recarga de Servidores", somado), que é o espelho automático de
+  // server_credit_purchases (sync-iptv-lancamentos) — contaria a recarga
+  // 2x. "Recarga Appativa" entra mesmo se estiver em outra categoria
+  // (regra anterior, de 26/08/2026).
   // Mês atual vem de "transacoes"; mês anterior de "evolucao_transacoes"
   // (12 meses, com categoria/descrição desde
   // docs/sql/dashboard_finance_bundle_evolucao_categoria.sql).
+  const isRecargaServidor = (descricao?: string | null) =>
+    descricao === "IPTV - Recarga de Servidores" ||
+    !!descricao?.startsWith("IPTV - Recarga Servidor ");
   const isIptvOperatingCost = (t: {
     tipo: string;
     categoria_id: string | null;
     descricao?: string | null;
   }) =>
     t.tipo === "DESPESA" &&
-    t.descricao !== "IPTV - Recarga de Servidores" &&
+    !isRecargaServidor(t.descricao) &&
     (t.categoria_id === iptvKey || t.descricao === "Recarga Appativa");
 
   expensesMonthVal += finTrxRows

@@ -1,7 +1,8 @@
 // lib/finance/sync-iptv-lancamentos.ts
 //
-// Sincroniza os 2 lançamentos automáticos de IPTV em fin_transacoes
-// ("IPTV - Recarga de Servidores" e "IPTV - Rendimentos") — achado
+// Sincroniza os lançamentos automáticos de IPTV em fin_transacoes
+// ("IPTV - Recarga Servidor <nome>", 1 por servidor, e "IPTV -
+// Rendimentos") — achado
 // 26/08/2026, pedido do Márcio: antes só eram recalculados quando alguém
 // abria a tela Financeiro Pessoal (sincronizarRendimentos em
 // app/admin/settings/financeiro_pessoal/page.tsx), o que deixava a
@@ -139,42 +140,205 @@ async function upsertIptvLancamento(
   return { ok: true };
 }
 
-// ✅ Despesa — server_credit_purchases é tabela normal (sem RLS/auth.uid()
-// amarrado), chamável de qualquer contexto server-side.
+// ── Despesa: recarga de servidor, 1 lançamento POR SERVIDOR ──────────────
+// ✅ 01/10/2026, pedido do Márcio: era 1 lançamento só somando tudo ("IPTV -
+// Recarga de Servidores"); agora é "IPTV - Recarga Servidor <nome>" por
+// servidor, e a recarga real DÁ BAIXA no lançamento previsto (série
+// recorrente trimestral criada à mão) em vez de criar um novo — assim o
+// Financeiro tem previsibilidade. Regras, por servidor e por mês:
+// - houve recarga no mês:
+//   1. já existe lançamento dele no mês → vira PAGO com o valor/data reais;
+//   2. senão, existe um PENDENTE dele nos próximos 60 dias (recarga
+//      antecipada) → é trazido pro mês da recarga e vira PAGO;
+//   3. senão → cria um PAGO avulso ("Sincronização Automática").
+// - não houve recarga no mês (ou ela foi apagada):
+//   PENDENTE fica como está (é previsão); PAGO automático avulso é apagado;
+//   PAGO que era previsão volta pra PENDENTE.
+// server_credit_purchases é tabela normal (sem RLS/auth.uid() amarrado),
+// chamável de qualquer contexto server-side.
+export const RECARGA_SERVIDOR_PREFIX = "IPTV - Recarga Servidor ";
+// Nome antigo (1 lançamento somando todos os servidores) — só existe em
+// meses antigos; apagado do mês quando ele é re-sincronizado por servidor.
+const RECARGA_LEGADO = "IPTV - Recarga de Servidores";
+const OBS_AUTO = "Sincronização Automática";
+
+function monthBoundsSP(dateObj: Date) {
+  const y = dateObj.getFullYear();
+  const m = dateObj.getMonth();
+  const mm = String(m + 1).padStart(2, "0");
+  const ultimoDia = new Date(y, m + 1, 0).getDate();
+  const mesStart = `${y}-${mm}-01`;
+  const mesEnd = `${y}-${mm}-${String(ultimoDia).padStart(2, "0")}`;
+  // Limites em horário de Brasília — recarga às 22h do último dia é do mês.
+  return {
+    mesStart,
+    mesEnd,
+    fromIso: `${mesStart}T00:00:00-03:00`,
+    toIso: `${mesEnd}T23:59:59.999-03:00`,
+  };
+}
+
+const isoDateSP = (iso: string) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(
+    new Date(iso),
+  );
+
+const addDays = (isoDate: string, days: number) => {
+  const d = new Date(`${isoDate}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+};
+
 export async function syncIptvRecargaServidores(
   supabaseAdmin: any,
   tenantId: string,
   dateObj: Date = new Date(),
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const { dataVenc, mesStart, mesStartStr, mesEndStr, dataPagamentoMes } = monthBounds(dateObj);
-    const [{ catId, contaMpPj }, { data: purchases }] = await Promise.all([
-      resolveIptvContext(supabaseAdmin, tenantId),
-      supabaseAdmin
-        .from("server_credit_purchases")
-        .select("total_amount_brl")
-        .eq("tenant_id", tenantId)
-        .gte("created_at", mesStartStr)
-        .lte("created_at", mesEndStr),
-    ]);
-
+    const { mesStart, mesEnd, fromIso, toIso } = monthBoundsSP(dateObj);
+    const [{ catId, contaMpPj }, { data: purchases, error: errP }, { data: servers, error: errS }] =
+      await Promise.all([
+        resolveIptvContext(supabaseAdmin, tenantId),
+        supabaseAdmin
+          .from("server_credit_purchases")
+          .select("server_id, total_amount_brl, created_at")
+          .eq("tenant_id", tenantId)
+          .gte("created_at", fromIso)
+          .lte("created_at", toIso),
+        supabaseAdmin
+          .from("servers")
+          .select("id, name, is_archived")
+          .eq("tenant_id", tenantId),
+      ]);
+    if (errP) return { ok: false, error: errP.message };
+    if (errS) return { ok: false, error: errS.message };
     if (!catId) return { ok: false, error: 'Categoria "IPTV" não encontrada.' };
 
-    const valor = (purchases || []).reduce(
-      (acc: number, row: any) => acc + Number(row.total_amount_brl || 0),
-      0,
+    // Soma do mês + data da última recarga, por servidor
+    const porServidor = new Map<string, { valor: number; ultima: string }>();
+    for (const p of purchases || []) {
+      if (!p.server_id) continue;
+      const cur = porServidor.get(p.server_id) ?? { valor: 0, ultima: p.created_at };
+      cur.valor += Number(p.total_amount_brl || 0);
+      if (p.created_at > cur.ultima) cur.ultima = p.created_at;
+      porServidor.set(p.server_id, cur);
+    }
+
+    // Lançamento antigo somado: some do mês (substituído pelos por servidor)
+    // — só o automático; nunca toca em algo lançado à mão.
+    const { error: errLeg } = await supabaseAdmin
+      .from("fin_transacoes")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("descricao", RECARGA_LEGADO)
+      .eq("observacoes", OBS_AUTO)
+      .gte("data_vencimento", mesStart)
+      .lte("data_vencimento", mesEnd);
+    if (errLeg) return { ok: false, error: errLeg.message };
+
+    const alvo = (servers || []).filter(
+      (s: any) => !s.is_archived || porServidor.has(s.id),
     );
 
-    return upsertIptvLancamento(supabaseAdmin, tenantId, {
-      descricao: "IPTV - Recarga de Servidores",
-      tipo: "DESPESA",
-      valor,
-      catId,
-      contaMpPj,
-      dataVenc,
-      mesStart,
-      dataPagamentoMes,
-    });
+    for (const s of alvo) {
+      const descricao = `${RECARGA_SERVIDOR_PREFIX}${s.name}`;
+      const recarga = porServidor.get(s.id);
+
+      const { data: noMes, error: errSel } = await supabaseAdmin
+        .from("fin_transacoes")
+        .select("id, status, observacoes, data_vencimento")
+        .eq("tenant_id", tenantId)
+        .eq("descricao", descricao)
+        .gte("data_vencimento", mesStart)
+        .lte("data_vencimento", mesEnd)
+        .order("data_vencimento", { ascending: true });
+      if (errSel) return { ok: false, error: errSel.message };
+
+      if (!recarga || recarga.valor <= 0) {
+        for (const t of noMes || []) {
+          if (t.status !== "PAGO") continue; // previsão pendente fica
+          const { error } =
+            t.observacoes === OBS_AUTO
+              ? await supabaseAdmin.from("fin_transacoes").delete().eq("id", t.id)
+              : await supabaseAdmin
+                  .from("fin_transacoes")
+                  .update({ status: "PENDENTE", data_pagamento: null })
+                  .eq("id", t.id);
+          if (error) return { ok: false, error: error.message };
+        }
+        continue;
+      }
+
+      const dataRecarga = isoDateSP(recarga.ultima);
+      const pago = {
+        valor: Math.round(recarga.valor * 100) / 100,
+        status: "PAGO",
+        data_pagamento: recarga.ultima,
+        conta_id: contaMpPj ?? null,
+      };
+
+      if (noMes && noMes.length > 0) {
+        // 1) já tem lançamento do servidor no mês → dá baixa nele
+        // Prioriza a previsão (lançamento não-automático); avulso automático
+        // que sobrar no mesmo mês (sync antigo) é duplicata e some.
+        const principal =
+          noMes.find((t: any) => t.observacoes !== OBS_AUTO) ?? noMes[0];
+        const { error } = await supabaseAdmin
+          .from("fin_transacoes")
+          .update(pago)
+          .eq("id", principal.id);
+        if (error) return { ok: false, error: error.message };
+        const dupAuto = noMes
+          .filter((t: any) => t.id !== principal.id && t.observacoes === OBS_AUTO)
+          .map((t: any) => t.id);
+        if (dupAuto.length > 0) {
+          const { error: errDup } = await supabaseAdmin
+            .from("fin_transacoes")
+            .delete()
+            .in("id", dupAuto);
+          if (errDup) return { ok: false, error: errDup.message };
+        }
+        continue;
+      }
+
+      // 2) recarga antecipada: puxa o próximo previsto (até 60 dias)
+      const { data: proximo, error: errProx } = await supabaseAdmin
+        .from("fin_transacoes")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("descricao", descricao)
+        .eq("status", "PENDENTE")
+        .gt("data_vencimento", mesEnd)
+        .lte("data_vencimento", addDays(mesEnd, 60))
+        .order("data_vencimento", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (errProx) return { ok: false, error: errProx.message };
+
+      if (proximo) {
+        const { error } = await supabaseAdmin
+          .from("fin_transacoes")
+          .update({ ...pago, data_vencimento: dataRecarga })
+          .eq("id", proximo.id);
+        if (error) return { ok: false, error: error.message };
+        continue;
+      }
+
+      // 3) sem previsão nenhuma → lançamento avulso já pago
+      const { error: errIns } = await supabaseAdmin.from("fin_transacoes").insert({
+        tenant_id: tenantId,
+        tipo: "DESPESA",
+        descricao,
+        ...pago,
+        data_vencimento: dataRecarga,
+        categoria_id: catId,
+        is_recorrente: false,
+        observacoes: OBS_AUTO,
+      });
+      if (errIns) return { ok: false, error: errIns.message };
+    }
+
+    return { ok: true };
   } catch (e: any) {
     return { ok: false, error: e?.message || "Falha ao sincronizar." };
   }
