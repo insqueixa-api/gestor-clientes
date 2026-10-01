@@ -217,6 +217,82 @@ export async function markFulfillmentError(
 // por fora. NUNCA chama runFulfillment (isso é só pra assinatura IPTV) —
 // pagar a licença de um app não renova a assinatura do cliente nem mexe em
 // clients.vencimento.
+// ============================================================
+// Linhas "filhas" de app embutido num pagamento (bundled_app_renewals) —
+// extraído do runFulfillment em 30/09/2026 pra servir aos DOIS casos:
+// - pagamento do plano (assinatura) com apps embutidos (24/08/2026);
+// - pagamento de licença de app com outros apps "no bolo" (30/09/2026,
+//   pedido do Márcio — carrinho na tela de Aplicativos).
+// Idempotente: upsert por (parent_payment_id, client_app_id) +
+// markAppRenewalPaid condicional. Quem chama garante que o pagamento-pai
+// está APROVADO (dinheiro confirmado).
+// ============================================================
+export async function materializeBundledAppRenewals(
+  supabaseAdmin: any,
+  tenantId: string,
+  payment: { id: string; client_id: string; gateway_type?: string | null; payment_method?: string | null; bundled_app_renewals?: unknown },
+  origin?: string,
+) {
+  const bundledAppRenewals: Array<{
+    client_app_id: string;
+    app_name: string;
+    price_amount: number;
+    price_currency: string;
+  }> = Array.isArray((payment as any).bundled_app_renewals) ? (payment as any).bundled_app_renewals : [];
+
+  for (const item of bundledAppRenewals) {
+    const clientAppId = String(item?.client_app_id || "").trim();
+    const priceAmount = Number(item?.price_amount);
+    if (!clientAppId || !Number.isFinite(priceAmount) || priceAmount <= 0) {
+      prodLog("fulfillment.bundled_app_renewal_skipped_invalid_item", {
+        payment_id: String(payment.id).slice(-6),
+        item,
+      });
+      continue;
+    }
+
+    const { data: childRow, error: childErr } = await supabaseAdmin
+      .from("client_portal_payments")
+      .upsert(
+        {
+          tenant_id: tenantId,
+          client_id: payment.client_id,
+          gateway_type: (payment as any).gateway_type || "mercadopago",
+          payment_method: (payment as any).payment_method || "online",
+          mp_payment_id: null,
+          price_amount: priceAmount,
+          price_currency: String(item.price_currency || "BRL"),
+          status: "approved",
+          payment_type: "app_renewal",
+          client_app_id: clientAppId,
+          app_name_snapshot: String(item.app_name || "Aplicativo"),
+          parent_payment_id: payment.id,
+        },
+        { onConflict: "parent_payment_id,client_app_id" },
+      )
+      .select("id")
+      .single();
+
+    if (childErr || !childRow) {
+      prodLog("fulfillment.bundled_app_renewal_insert_failed", {
+        payment_id: String(payment.id).slice(-6),
+        client_app_id: clientAppId.slice(-6),
+        message: childErr?.message,
+      });
+      console.error("[fulfillment: bundled app renewal child insert failed]", {
+        kind: "client_portal_error",
+        where: "bundled_app_renewal_insert",
+        payment_id: payment.id,
+        client_app_id: clientAppId,
+        message: childErr?.message,
+      });
+      continue; // não trava o fulfillment do plano por causa disso
+    }
+
+    await markAppRenewalPaid(supabaseAdmin, tenantId, childRow.id, origin);
+  }
+}
+
 export async function markAppRenewalPaid(
   supabaseAdmin: any,
   tenantId: string,
@@ -225,7 +301,7 @@ export async function markAppRenewalPaid(
 ) {
   const { data: payment } = await supabaseAdmin
     .from("client_portal_payments")
-    .select("client_id, client_app_id, price_amount, price_currency, app_name_snapshot, mp_payment_id, coupon_id, coupon_discount_amount")
+    .select("id, status, gateway_type, payment_method, parent_payment_id, bundled_app_renewals, client_id, client_app_id, price_amount, price_currency, app_name_snapshot, mp_payment_id, coupon_id, coupon_discount_amount")
     .eq("tenant_id", tenantId)
     .eq("id", paymentRowId)
     .maybeSingle();
@@ -276,6 +352,32 @@ export async function markAppRenewalPaid(
       tenantId,
     });
     return;
+  }
+
+  // ✅ 30/09/2026: carrinho de apps — os outros apps pagos no MESMO PIX
+  // viram linhas filhas e são ativados um a um. Fica ANTES do guard
+  // "wasUpdated" de propósito: se a 1ª chamada caiu no meio, as próximas
+  // (webhook repetido, polling do portal, Reprocessar) completam o que
+  // faltou — tudo idempotente. Só com o pai APROVADO no banco (trava extra,
+  // além de quem chama já checar) e nunca a partir de uma linha filha.
+  if (
+    payment &&
+    String(payment.status || "").toLowerCase() === "approved" &&
+    !payment.parent_payment_id &&
+    Array.isArray(payment.bundled_app_renewals) &&
+    payment.bundled_app_renewals.length > 0
+  ) {
+    // O polling do portal chama isto a cada ~1s enquanto o cliente espera —
+    // só refaz se ainda falta alguma filha criada/processada.
+    const { data: kids } = await supabaseAdmin
+      .from("client_portal_payments")
+      .select("id, fulfillment_status")
+      .eq("tenant_id", tenantId)
+      .eq("parent_payment_id", payment.id);
+    const processed = (kids || []).filter((k: any) => !!k.fulfillment_status).length;
+    if (processed < payment.bundled_app_renewals.length) {
+      await materializeBundledAppRenewals(supabaseAdmin, tenantId, payment, origin);
+    }
   }
 
   if (!wasUpdated) {
@@ -1414,64 +1516,7 @@ export async function runFulfillment(params: FulfillmentParams) {
   // duplicada. markAppRenewalPaid já é idempotente por conta própria (RPC
   // condicional), então chamar de novo pra uma filha já processada é seguro.
   // ============================================================
-  const bundledAppRenewals: Array<{
-    client_app_id: string;
-    app_name: string;
-    price_amount: number;
-    price_currency: string;
-  }> = Array.isArray((payment as any).bundled_app_renewals) ? (payment as any).bundled_app_renewals : [];
-
-  for (const item of bundledAppRenewals) {
-    const clientAppId = String(item?.client_app_id || "").trim();
-    const priceAmount = Number(item?.price_amount);
-    if (!clientAppId || !Number.isFinite(priceAmount) || priceAmount <= 0) {
-      prodLog("fulfillment.bundled_app_renewal_skipped_invalid_item", {
-        payment_id: String(payment.id).slice(-6),
-        item,
-      });
-      continue;
-    }
-
-    const { data: childRow, error: childErr } = await supabaseAdmin
-      .from("client_portal_payments")
-      .upsert(
-        {
-          tenant_id: tenantId,
-          client_id: payment.client_id,
-          gateway_type: (payment as any).gateway_type || "mercadopago",
-          payment_method: (payment as any).payment_method || "online",
-          mp_payment_id: null,
-          price_amount: priceAmount,
-          price_currency: String(item.price_currency || "BRL"),
-          status: "approved",
-          payment_type: "app_renewal",
-          client_app_id: clientAppId,
-          app_name_snapshot: String(item.app_name || "Aplicativo"),
-          parent_payment_id: payment.id,
-        },
-        { onConflict: "parent_payment_id,client_app_id" },
-      )
-      .select("id")
-      .single();
-
-    if (childErr || !childRow) {
-      prodLog("fulfillment.bundled_app_renewal_insert_failed", {
-        payment_id: String(payment.id).slice(-6),
-        client_app_id: clientAppId.slice(-6),
-        message: childErr?.message,
-      });
-      console.error("[fulfillment: bundled app renewal child insert failed]", {
-        kind: "client_portal_error",
-        where: "bundled_app_renewal_insert",
-        payment_id: payment.id,
-        client_app_id: clientAppId,
-        message: childErr?.message,
-      });
-      continue; // não trava o fulfillment do plano por causa disso
-    }
-
-    await markAppRenewalPaid(supabaseAdmin, tenantId, childRow.id, origin);
-  }
+  await materializeBundledAppRenewals(supabaseAdmin, tenantId, payment as any, origin);
 
   const login = String((client as any).server_username || "").trim();
   if (!client.server_id || !login) {

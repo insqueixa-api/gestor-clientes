@@ -449,6 +449,10 @@ export default function RenewClient() {
   // Aplicativo" no mesmo card. Não mexe na assinatura IPTV.
   type AppPayment = {
     clientAppId: string;
+    // ✅ 30/09/2026, carrinho: outros apps pagos no MESMO PIX (ids enviados
+    // e o que o servidor confirmou, com preço já validado lá).
+    extra_client_app_ids?: string[];
+    bundled_apps?: { client_app_id: string; app_name: string; price_amount: number }[];
     payment_id: string;
     pix_qr_code?: string;
     pix_qr_code_base64?: string;
@@ -474,6 +478,27 @@ export default function RenewClient() {
     plan_price_only?: number;
   };
   const [renewPayment, setRenewPayment] = useState<AppPayment | null>(null);
+  // ✅ 30/09/2026: oferta "renovar junto" (carrinho) antes de gerar o PIX.
+  const [cartOffer, setCartOffer] = useState<{
+    mainId: string;
+    candidateIds: string[];
+    selectedIds: string[];
+  } | null>(null);
+  // Mesma regra que decide se o botão "Pagar licença" aparece num app
+  // (tela Meus Aplicativos): pago, ativo, sem renovação já paga aguardando,
+  // e (em avaliação OU sem data OU vencido OU perto de vencer — Appativa 7
+  // dias, resto 30).
+  function isAppRenewableNow(app: InstalledApp): boolean {
+    if (app.is_partnership || app.is_gerenciaapp_family) return false;
+    if (app.is_active === false) return false;
+    if (app.has_pending_manual_renewal) return false;
+    if (app.license_price == null || app.license_price <= 0) return false;
+    if (app.is_trial) return true;
+    const datePart = app.expiration ? String(app.expiration).split("T")[0] : "";
+    if (!datePart) return true;
+    const diff = daysUntilSP(datePart);
+    return diff < 0 || diff <= (app.is_appativa ? 7 : 30);
+  }
   const [renewPaymentBusyId, setRenewPaymentBusyId] = useState<string | null>(
     null,
   );
@@ -611,7 +636,12 @@ export default function RenewClient() {
     setRenewPollInterval(interval);
   }
 
-  async function handleRenewPayment(clientAppId: string, excludeGatewayType?: string, applyCoupon?: boolean) {
+  async function handleRenewPayment(
+    clientAppId: string,
+    excludeGatewayType?: string,
+    applyCoupon?: boolean,
+    extraClientAppIds: string[] = [],
+  ) {
     if (!selectedAccountId || !session) return;
     setRenewPaymentBusyId(clientAppId);
     try {
@@ -624,6 +654,7 @@ export default function RenewClient() {
           client_app_id: clientAppId,
           ...(excludeGatewayType ? { exclude_gateway_type: excludeGatewayType } : {}),
           ...(applyCoupon ? { apply_coupon: true } : {}),
+          ...(extraClientAppIds.length ? { extra_client_app_ids: extraClientAppIds } : {}),
         }),
       });
       const result = await res.json().catch(() => null);
@@ -636,6 +667,8 @@ export default function RenewClient() {
       const isStripe = result.payment_method === "stripe";
       setRenewPayment({
         clientAppId,
+        extra_client_app_ids: extraClientAppIds,
+        bundled_apps: Array.isArray(result.bundled_apps) ? result.bundled_apps : [],
         payment_id: result.payment_id,
         pix_qr_code: result.pix_qr_code,
         pix_qr_code_base64: result.pix_qr_code_base64,
@@ -676,7 +709,26 @@ export default function RenewClient() {
   // checa em silêncio (nunca revela o código) antes de gerar o PIX; se
   // existir, pergunta se quer aplicar. "Não" segue o pagamento no valor
   // cheio normalmente.
-  async function handleRenewPaymentClick(clientAppId: string) {
+  // ✅ 30/09/2026, pedido do Márcio ("carrinho"): clicou pra pagar um app e
+  // existe outro elegível (mesma regra que faz o botão "Pagar licença"
+  // aparecer nele) → pergunta antes, com os outros JÁ marcados, e paga tudo
+  // num PIX só. Sem outro elegível, segue direto como sempre.
+  function handleRenewPaymentClick(clientAppId: string) {
+    const candidates = installedApps.filter(
+      (a) => a.id !== clientAppId && isAppRenewableNow(a),
+    );
+    if (candidates.length > 0) {
+      setCartOffer({
+        mainId: clientAppId,
+        candidateIds: candidates.map((c) => c.id),
+        selectedIds: candidates.map((c) => c.id),
+      });
+      return;
+    }
+    void proceedRenewPayment(clientAppId, []);
+  }
+
+  async function proceedRenewPayment(clientAppId: string, extraClientAppIds: string[]) {
     if (!selectedAccountId || !session) return;
     let applyCoupon = false;
     try {
@@ -702,7 +754,7 @@ export default function RenewClient() {
     } catch {
       // falha na checagem não deve travar o pagamento — segue sem desconto
     }
-    handleRenewPayment(clientAppId, undefined, applyCoupon);
+    handleRenewPayment(clientAppId, undefined, applyCoupon, extraClientAppIds);
   }
 
   // ✅ "Problemas com o pagamento? Tente outra forma" (pedido do Márcio,
@@ -713,7 +765,12 @@ export default function RenewClient() {
     if (!renewPayment) return;
     if (renewPollInterval) clearInterval(renewPollInterval);
     setRenewPollInterval(null);
-    handleRenewPayment(renewPayment.clientAppId, renewPayment.gateway_type);
+    handleRenewPayment(
+      renewPayment.clientAppId,
+      renewPayment.gateway_type,
+      undefined,
+      renewPayment.extra_client_app_ids || [],
+    );
   }
 
   async function handleRetryActivation(clientAppId: string) {
@@ -2350,6 +2407,9 @@ export default function RenewClient() {
 
     try {
       setIsProcessingPayment(true);
+      // Flag global de propósito, dentro de handler de clique (não render) —
+      // a regra do React Compiler acusa falso positivo aqui.
+      // eslint-disable-next-line react-hooks/immutability
       (window as any).__cp_done_scheduled = false;
       setPaymentStatus("pending");
       setPaymentPhase("awaiting_payment");
@@ -5278,6 +5338,137 @@ export default function RenewClient() {
                   licença + total), QR, "como pagar", código copia-e-cola
                   visível e nota de SSL — antes esse modal só tinha o QR e um
                   botão de copiar, sem contexto nenhum. */}
+            {cartOffer &&
+              (() => {
+                const mainApp = installedApps.find((a) => a.id === cartOffer.mainId);
+                const candidates = installedApps.filter((a) =>
+                  cartOffer.candidateIds.includes(a.id),
+                );
+                const currency =
+                  mainApp?.license_price_display_currency || "BRL";
+                const total =
+                  Number(mainApp?.license_price_display ?? 0) +
+                  candidates
+                    .filter((c) => cartOffer.selectedIds.includes(c.id))
+                    .reduce((sum, c) => sum + Number(c.license_price_display ?? 0), 0);
+                const toggle = (id: string) =>
+                  setCartOffer((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          selectedIds: prev.selectedIds.includes(id)
+                            ? prev.selectedIds.filter((x) => x !== id)
+                            : [...prev.selectedIds, id],
+                        }
+                      : prev,
+                  );
+                const statusLabel = (a: InstalledApp) => {
+                  if (a.is_trial) return "Modo de avaliação";
+                  const dp = a.expiration ? String(a.expiration).split("T")[0] : "";
+                  if (!dp) return "Sem vencimento";
+                  const d = daysUntilSP(dp);
+                  const br = dp.split("-").reverse().join("/");
+                  return d < 0 ? `Vencido — ${br}` : `Vence ${br}`;
+                };
+                return (
+                  <div
+                    className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                    onMouseDown={(e) => {
+                      if (e.target === e.currentTarget) setCartOffer(null);
+                    }}
+                  >
+                    <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+                      <div className="px-5 pt-5 pb-3 border-b border-border">
+                        <h3 className="text-base font-bold text-foreground">
+                          Renovar outros aplicativos junto?
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {candidates.length > 1
+                            ? "Estes aplicativos também estão perto do vencimento ou em avaliação."
+                            : "Este aplicativo também está perto do vencimento ou em avaliação."}{" "}
+                          Pague tudo de uma vez, num só pagamento.
+                        </p>
+                      </div>
+                      <div className="p-5 space-y-2">
+                        {mainApp && (
+                          <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500 bg-emerald-500/5 p-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-foreground truncate">
+                                {appNameWithAmbiente(mainApp)}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {statusLabel(mainApp)}
+                              </p>
+                            </div>
+                            <span className="text-sm font-bold text-foreground shrink-0">
+                              {formatMoney(mainApp.license_price_display ?? 0, currency)}
+                            </span>
+                          </div>
+                        )}
+                        {candidates.map((c) => {
+                          const checked = cartOffer.selectedIds.includes(c.id);
+                          return (
+                            <label
+                              key={c.id}
+                              className={`flex items-center justify-between gap-3 rounded-xl border p-3 cursor-pointer transition-colors ${
+                                checked
+                                  ? "border-emerald-500 bg-emerald-500/5"
+                                  : "border-border bg-muted/30"
+                              }`}
+                            >
+                              <span className="flex items-center gap-3 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() => toggle(c.id)}
+                                  className="w-4 h-4 rounded accent-emerald-600 shrink-0"
+                                />
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-bold text-foreground truncate">
+                                    {appNameWithAmbiente(c)}
+                                  </span>
+                                  <span className="block text-[11px] text-muted-foreground">
+                                    {statusLabel(c)}
+                                  </span>
+                                </span>
+                              </span>
+                              <span className="text-sm font-bold text-foreground shrink-0">
+                                + {formatMoney(c.license_price_display ?? 0, c.license_price_display_currency || currency)}
+                              </span>
+                            </label>
+                          );
+                        })}
+                        <div className="flex justify-between pt-2 border-t border-border text-sm font-bold text-foreground">
+                          <span>Total</span>
+                          <span>{formatMoney(total, currency)}</span>
+                        </div>
+                      </div>
+                      <div className="px-5 pb-5 flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setCartOffer(null)}
+                          className="h-10 px-4 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const offer = cartOffer;
+                            setCartOffer(null);
+                            void proceedRenewPayment(offer.mainId, offer.selectedIds);
+                          }}
+                          className="h-10 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors"
+                        >
+                          {cartOffer.selectedIds.length
+                            ? `Pagar ${cartOffer.selectedIds.length + 1} juntos — ${formatMoney(total, currency)}`
+                            : `Pagar só este — ${formatMoney(total, currency)}`}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             {renewPayment &&
               (() => {
                 const payingApp = installedApps.find(
@@ -5402,9 +5593,18 @@ export default function RenewClient() {
 
                           <div className="px-5 pt-4 space-y-1.5 text-sm">
                             <div className="flex justify-between text-foreground/80">
-                              <span>{payingApp?.name || "Aplicativo"}</span>
+                              <span>{payingApp ? appNameWithAmbiente(payingApp) : "Aplicativo"}</span>
                               <span>{licenseLabel}</span>
                             </div>
+                            {(renewPayment.bundled_apps || []).map((b) => {
+                              const extraApp = installedApps.find((a) => a.id === b.client_app_id);
+                              return (
+                                <div key={b.client_app_id} className="flex justify-between text-foreground/80">
+                                  <span>+ {extraApp ? appNameWithAmbiente(extraApp) : b.app_name}</span>
+                                  <span>{formatMoney(b.price_amount, renewPayment.currency)}</span>
+                                </div>
+                              );
+                            })}
                             {renewPayment.coupon_discount_amount != null &&
                               renewPayment.coupon_discount_amount > 0 &&
                               renewPayment.plan_price_only != null && (

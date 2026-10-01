@@ -29,6 +29,8 @@ import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
 import { convertAmount } from "@/lib/fx";
 import { createFastDepixTransaction, getFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
 import { findEligibleAppCoupon } from "@/lib/client-portal/coupons";
+import { getAppRenewalCharges } from "@/lib/client-portal/app-renewal-charges";
+import { createHash } from "crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +74,12 @@ export async function POST(req: NextRequest) {
     // portal, front só manda true/false, nunca o código (nunca revelado).
     // Sempre resolvido de novo aqui (nunca confia em valor vindo do front).
     const apply_coupon = Boolean(body?.apply_coupon);
+    // ✅ 30/09/2026, pedido do Márcio ("carrinho" na tela de Aplicativos):
+    // outros apps do mesmo cliente pagos no MESMO PIX. Só ids — preço,
+    // posse e elegibilidade são revalidados aqui (getAppRenewalCharges).
+    const extraClientAppIdsRaw: string[] = Array.isArray(body?.extra_client_app_ids)
+      ? [...new Set<string>(body.extra_client_app_ids.map((v: unknown) => normalizeStr(v)).filter(Boolean))].slice(0, 10)
+      : [];
 
     const ctx = await validatePortalClient(supabaseAdmin, session_token, client_id);
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
@@ -139,6 +147,35 @@ export async function POST(req: NextRequest) {
     }
     const chargeAmount = Number((appPriceOnly - couponDiscountAmount).toFixed(2));
 
+    // ✅ Carrinho: revalida no servidor (posse, pago, ativo, sem pagamento
+    // já aprovado aguardando conclusão) e converte pra moeda da conta —
+    // mesma função do pagamento do plano com apps embutidos. Ids inválidos
+    // são ignorados sem derrubar o pagamento do app principal.
+    const extraIds = extraClientAppIdsRaw.filter((id) => id !== client_app_id);
+    const extras = extraIds.length
+      ? await getAppRenewalCharges(supabaseAdmin, ctx.tenant_id, client_id, extraIds, currency)
+      : { items: [], total: 0 };
+    const bundledAppRenewals = extras.items;
+    // A linha do app principal guarda só a parte DELE (price_amount); o
+    // gateway cobra o total. As linhas filhas são criadas na aprovação
+    // (markAppRenewalPaid → materializeBundledAppRenewals).
+    const totalCharge = Number((chargeAmount + extras.total).toFixed(2));
+    const bundleKey = bundledAppRenewals.map((i) => i.client_app_id).sort().join(",");
+    const bundleHash = bundleKey ? createHash("sha1").update(bundleKey).digest("hex").slice(0, 10) : "solo";
+    const sameBundle = (r: any) =>
+      (Array.isArray(r?.bundled_app_renewals) ? r.bundled_app_renewals : [])
+        .map((i: any) => String(i?.client_app_id || ""))
+        .sort()
+        .join(",") === bundleKey;
+    const bundledAppsForResponse = bundledAppRenewals.map((i) => ({
+      client_app_id: i.client_app_id,
+      app_name: i.app_name,
+      price_amount: i.price_amount,
+    }));
+    const descricaoCobranca = bundledAppRenewals.length
+      ? `Renovação de licença — ${appName} + ${bundledAppRenewals.length} app(s)`
+      : `Renovação de licença — ${appName}`;
+
     const { data: gateways, error: gwErr } = await supabaseAdmin
       .from("payment_gateways")
       .select("*")
@@ -197,10 +234,10 @@ export async function POST(req: NextRequest) {
       if (!secretKey || !publishableKey) return jsonError("Erro interno", 500);
 
       const stripeParams = new URLSearchParams();
-      stripeParams.append("amount", String(Math.round(chargeAmount * 100)));
+      stripeParams.append("amount", String(Math.round(totalCharge * 100)));
       stripeParams.append("currency", currency.toLowerCase());
       stripeParams.append("payment_method_types[]", "card");
-      stripeParams.append("description", withUsername(`Renovação de licença — ${appName}`));
+      stripeParams.append("description", withUsername(descricaoCobranca));
       stripeParams.append("metadata[client_id]", client_id);
       stripeParams.append("metadata[tenant_id]", String(ctx.tenant_id));
       stripeParams.append("metadata[client_app_id]", client_app_id);
@@ -211,9 +248,9 @@ export async function POST(req: NextRequest) {
       // 24/08/2026) — mesmo raciocínio do bloco Mercado Pago abaixo (janela
       // de 10min): sem isso, um retry de rede ou duplo-clique podia criar
       // um SEGUNDO PaymentIntent pra mesma licença.
-      const stripeStableAmount = chargeAmount.toFixed(2);
+      const stripeStableAmount = totalCharge.toFixed(2);
       const stripeBucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
-      const stripeIdempotencyKey = `apprenew-stripe-${ctx.tenant_id}-${client_app_id}-${stripeStableAmount}-${stripeBucket10m}`;
+      const stripeIdempotencyKey = `apprenew-stripe-${ctx.tenant_id}-${client_app_id}-${bundleHash}-${stripeStableAmount}-${stripeBucket10m}`;
 
       const stripeRes = await fetch("https://api.stripe.com/v1/payment_intents", {
         method: "POST",
@@ -248,6 +285,7 @@ export async function POST(req: NextRequest) {
             app_name_snapshot: appName,
             coupon_id: couponId,
             coupon_discount_amount: couponDiscountAmount || null,
+            bundled_app_renewals: bundledAppRenewals.length ? bundledAppRenewals : null,
             // ✅ 17/09/2026: quem de fato logou e pagou (titular ou secundário).
             payer_whatsapp_username: ctx.whatsapp_username,
           },
@@ -272,7 +310,8 @@ export async function POST(req: NextRequest) {
           internal_payment_id: inserted.id,
           client_secret: stripeData.client_secret,
           publishable_key: publishableKey,
-          price_amount: chargeAmount,
+          price_amount: totalCharge,
+          bundled_apps: bundledAppsForResponse,
           coupon_discount_amount: couponDiscountAmount || undefined,
           plan_price_only: appPriceOnly,
           currency,
@@ -302,7 +341,7 @@ export async function POST(req: NextRequest) {
       try {
         const { data: existingFdPending } = await supabaseAdmin
           .from("client_portal_payments")
-          .select("id, mp_payment_id, coupon_id")
+          .select("id, mp_payment_id, coupon_id, bundled_app_renewals")
           .eq("tenant_id", ctx.tenant_id)
           .eq("client_id", client_id)
           .eq("gateway_type", gateway.type)
@@ -316,7 +355,9 @@ export async function POST(req: NextRequest) {
         // ✅ 08/09/2026: nunca reaproveita um pending criado ANTES de decidir
         // sobre o cupom (ex: recusou o popup, depois voltou e aceitou, ou
         // vice-versa) — senão devolveria o PIX antigo com o valor errado.
-        if (existingFdPending && (existingFdPending as any).coupon_id !== couponId) {
+        // ✅ 30/09/2026: idem pra seleção do carrinho — outro conjunto de
+        // apps = outro valor, nunca devolve o PIX antigo.
+        if (existingFdPending && ((existingFdPending as any).coupon_id !== couponId || !sameBundle(existingFdPending))) {
           // segue pro fluxo de criação normal, ignora este pending.
         } else if (existingFdPending?.mp_payment_id) {
           const existingTx = await getFastDepixTransaction(apiKey, existingFdPending.mp_payment_id);
@@ -331,7 +372,8 @@ export async function POST(req: NextRequest) {
           has_alternate_gateway: gateways.length > 1,
                 payment_id: String(existingTx.id),
                 internal_payment_id: existingFdPending.id,
-                price_amount: chargeAmount,
+                price_amount: totalCharge,
+                bundled_apps: bundledAppsForResponse,
                 currency,
                 pix_qr_code: existingTx.qr_code_text || undefined,
                 pix_qr_code_base64: qrBase64 || undefined,
@@ -349,7 +391,7 @@ export async function POST(req: NextRequest) {
         const tx = await createFastDepixTransaction({
           apiKey,
           providerType: gateway.type,
-          amount: Number(chargeAmount),
+          amount: Number(totalCharge),
           payerName: client?.server_username ? `${displayName} (${client.server_username})` : displayName,
           notificationUrl,
         });
@@ -372,6 +414,7 @@ export async function POST(req: NextRequest) {
               app_name_snapshot: appName,
               coupon_id: couponId,
               coupon_discount_amount: couponDiscountAmount || null,
+              bundled_app_renewals: bundledAppRenewals.length ? bundledAppRenewals : null,
               // ✅ 17/09/2026: quem de fato logou e pagou.
               payer_whatsapp_username: ctx.whatsapp_username,
             },
@@ -394,7 +437,8 @@ export async function POST(req: NextRequest) {
           has_alternate_gateway: gateways.length > 1,
             payment_id: String(tx.id),
             internal_payment_id: inserted.id,
-            price_amount: chargeAmount,
+            price_amount: totalCharge,
+            bundled_apps: bundledAppsForResponse,
             coupon_discount_amount: couponDiscountAmount || undefined,
             plan_price_only: appPriceOnly,
             currency,
@@ -428,7 +472,7 @@ export async function POST(req: NextRequest) {
     // anterior realmente morreu (cancelado/expirado/rejeitado no MP).
     const { data: existingPending } = await supabaseAdmin
       .from("client_portal_payments")
-      .select("id, mp_payment_id, price_amount, price_currency, created_at, coupon_id")
+      .select("id, mp_payment_id, price_amount, price_currency, created_at, coupon_id, bundled_app_renewals")
       .eq("tenant_id", ctx.tenant_id)
       .eq("client_id", client_id)
       .eq("client_app_id", client_app_id)
@@ -451,7 +495,14 @@ export async function POST(req: NextRequest) {
         // bloqueio de "já aprovado/processando" abaixo continua valendo
         // SEMPRE, cupom ou não (nunca deixa criar um 2º pagamento em cima de
         // um que já pode ter sido cobrado de verdade no MP).
-        if (getRes.ok && getData?.status === "pending" && (existingPending as any).coupon_id === couponId) {
+        // ✅ 30/09/2026: e a mesma seleção do carrinho (outro conjunto de
+        // apps = outro valor).
+        if (
+          getRes.ok &&
+          getData?.status === "pending" &&
+          (existingPending as any).coupon_id === couponId &&
+          sameBundle(existingPending)
+        ) {
           return NextResponse.json(
             {
               ok: true,
@@ -461,7 +512,9 @@ export async function POST(req: NextRequest) {
               has_alternate_gateway: gateways.length > 1,
               payment_id: String(existingPending.mp_payment_id),
               internal_payment_id: existingPending.id,
-              price_amount: Number(existingPending.price_amount),
+              // valor REAL cobrado no MP (pai + filhos), não só a parte do pai
+              price_amount: Number(getData.transaction_amount ?? totalCharge),
+              bundled_apps: bundledAppsForResponse,
               currency: existingPending.price_currency,
               pix_qr_code: getData.point_of_interaction?.transaction_data?.qr_code,
               pix_qr_code_base64: getData.point_of_interaction?.transaction_data?.qr_code_base64,
@@ -473,6 +526,35 @@ export async function POST(req: NextRequest) {
 
         if (getRes.ok && (getData?.status === "approved" || getData?.status === "in_process")) {
           return jsonError("Este pagamento já está sendo processado. Aguarde a confirmação.", 409);
+        }
+
+        // ✅ 30/09/2026: o PIX anterior ainda está pagável mas é de OUTRA
+        // seleção (outro carrinho ou outra decisão de cupom) — cancela no
+        // MP antes de gerar o novo, senão os dois ficavam pagáveis e o
+        // cliente podia pagar a mesma licença 2x. Falhou? segue como era
+        // (o antigo expira sozinho em 30min).
+        if (getRes.ok && getData?.status === "pending") {
+          try {
+            const cancelRes = await fetch(
+              `https://api.mercadopago.com/v1/payments/${existingPending.mp_payment_id}`,
+              {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${mpToken}` },
+                body: JSON.stringify({ status: "cancelled" }),
+              },
+            );
+            if (cancelRes.ok) {
+              await supabaseAdmin
+                .from("client_portal_payments")
+                .update({ status: "cancelled" })
+                .eq("id", existingPending.id)
+                .eq("status", "pending");
+            } else {
+              console.error("[apps/renew-payment] cancel superseded MP payment failed", cancelRes.status);
+            }
+          } catch (e: any) {
+            console.error("[apps/renew-payment] cancel superseded MP payment error", e?.message);
+          }
         }
         // outros status (cancelled/rejected/expired) — pagamento anterior
         // realmente morreu, segue o fluxo normal e cria um novo abaixo.
@@ -488,9 +570,9 @@ export async function POST(req: NextRequest) {
     if (!appUrl) return jsonError("Erro interno", 500);
     const webhookUrl = `${appUrl}/api/webhooks/mercadopago`;
 
-    const stableAmount = chargeAmount.toFixed(2);
+    const stableAmount = totalCharge.toFixed(2);
     const bucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
-    const idempotencyKey = `apprenew-${ctx.tenant_id}-${client_app_id}-${stableAmount}-${bucket10m}`;
+    const idempotencyKey = `apprenew-${ctx.tenant_id}-${client_app_id}-${bundleHash}-${stableAmount}-${bucket10m}`;
     const internalPaymentId = randomUUID();
 
     const mpResponse = await fetch("https://api.mercadopago.com/v1/payments", {
@@ -501,8 +583,8 @@ export async function POST(req: NextRequest) {
         "X-Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
-        transaction_amount: chargeAmount,
-        description: withUsername(`Renovação de licença — ${appName}`),
+        transaction_amount: totalCharge,
+        description: withUsername(descricaoCobranca),
         payment_method_id: "pix",
         statement_descriptor: "UNIGESTOR",
         binary_mode: true,
@@ -522,6 +604,13 @@ export async function POST(req: NextRequest) {
               quantity: 1,
               unit_price: chargeAmount,
             },
+            ...bundledAppRenewals.map((i) => ({
+              id: i.client_app_id,
+              title: withUsername(`Licença — ${i.app_name}`),
+              description: `Renovação de licença do aplicativo ${i.app_name}, cliente ${payerLabel}`,
+              quantity: 1,
+              unit_price: i.price_amount,
+            })),
           ],
         },
         metadata: {
@@ -565,6 +654,7 @@ export async function POST(req: NextRequest) {
           app_name_snapshot: appName,
           coupon_id: couponId,
           coupon_discount_amount: couponDiscountAmount || null,
+          bundled_app_renewals: bundledAppRenewals.length ? bundledAppRenewals : null,
           // ✅ 17/09/2026: quem de fato logou e pagou.
           payer_whatsapp_username: ctx.whatsapp_username,
         },
@@ -591,7 +681,8 @@ export async function POST(req: NextRequest) {
         has_alternate_gateway: gateways.length > 1,
         payment_id: String(mpData.id),
         internal_payment_id: inserted.id,
-        price_amount: chargeAmount,
+        price_amount: totalCharge,
+        bundled_apps: bundledAppsForResponse,
         coupon_discount_amount: couponDiscountAmount || undefined,
         plan_price_only: appPriceOnly,
         currency,
