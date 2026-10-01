@@ -87,6 +87,29 @@ type AppData = {
   // valor (incl. null) mantém o Duplecast, que é o padrão. Nunca muda nada
   // pra apps sem os dois mapeados ao mesmo tempo.
   renewal_source?: string | null;
+  // ✅ 30/09/2026 (refactor, docs/apps-refactor/PLANO.md): classificação
+  // em estrelas — 1 a 5 (5 = melhor), null = sem classificação.
+  tier?: number | null;
+};
+
+// ✅ 30/09/2026: classificação por estrelas (vários apps por nível).
+// apps.tier = quantidade de estrelas (5 = melhor). Lista vem das melhores
+// pras piores.
+const APP_TIERS: { value: number; icon: string; label: string }[] = [5, 4, 3, 2, 1].map((n) => ({
+  value: n,
+  icon: "★".repeat(n),
+  label: n === 1 ? "1 estrela" : `${n} estrelas`,
+}));
+
+const APP_DEVICE_ICONS: Partial<Record<DeviceType, string>> = {
+  SAMSUNG_LG: "📺",
+  ANDROID_PHONE: "📱",
+  ANDROID_TV: "📦",
+  XBOX: "🎮",
+  IOS: "🍎",
+  COMPUTADOR: "💻",
+  FIRE_TV: "🔥",
+  ROKU: "🟣",
 };
 
 type AppativaCatalogItem = {
@@ -220,18 +243,15 @@ export default function AppManagerPage() {
   >([]);
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [search, setSearch] = useState("");
-  const [costFilter, setCostFilter] = useState<"Todos" | CostType>("Todos");
-  const [integrationFilter, setIntegrationFilter] = useState<
-    "Todos" | "com" | "sem"
-  >("Todos");
-  const [partnerServerFilter, setPartnerServerFilter] = useState("Todos");
   const [deviceTypeFilter, setDeviceTypeFilter] = useState<
     "Todos" | DeviceType
   >("Todos");
-  const [technologyFilter, setTechnologyFilter] = useState<
-    "Todos" | Technology
-  >("Todos");
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  // Seções recolhíveis da lista (legado e descontinuados começam fechadas)
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    legado: true,
+    descontinuado: true,
+  });
+  const [savingTierId, setSavingTierId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -491,236 +511,89 @@ export default function AppManagerPage() {
 
   const filteredApps = React.useMemo(() => {
     const q = search.trim().toLowerCase();
-
     return apps.filter((a) => {
-      if (q) {
-        const name = String(a.name ?? "").toLowerCase();
-        if (!name.includes(q)) return false;
-      }
-
-      if (costFilter !== "Todos" && a.cost_type !== costFilter) return false;
-
-      if (integrationFilter === "com" && !a.integration_type) return false;
-      if (integrationFilter === "sem" && a.integration_type) return false;
-
-      if (
-        costFilter === "partnership" &&
-        partnerServerFilter !== "Todos" &&
-        a.partner_server_id !== partnerServerFilter
-      )
-        return false;
-
+      if (q && !String(a.name ?? "").toLowerCase().includes(q)) return false;
       if (
         deviceTypeFilter !== "Todos" &&
         !(a.device_types || []).includes(deviceTypeFilter)
       )
         return false;
-
-      if (
-        technologyFilter !== "Todos" &&
-        (a.technology || "IPTV") !== technologyFilter
-      )
-        return false;
-
       return true;
     });
-  }, [
-    search,
-    apps,
-    costFilter,
-    integrationFilter,
-    partnerServerFilter,
-    deviceTypeFilter,
-    technologyFilter,
-  ]);
+  }, [search, apps, deviceTypeFilter]);
 
-  const hasActiveFilters =
-    costFilter !== "Todos" ||
-    integrationFilter !== "Todos" ||
-    deviceTypeFilter !== "Todos" ||
-    technologyFilter !== "Todos";
+  const hasActiveFilters = deviceTypeFilter !== "Todos";
 
   function clearFilters() {
     setSearch("");
-    setCostFilter("Todos");
-    setIntegrationFilter("Todos");
-    setPartnerServerFilter("Todos");
     setDeviceTypeFilter("Todos");
-    setTechnologyFilter("Todos");
   }
 
-  // ✅ Filtro direto de Custo: "Parceria" já vem com o servidor aninhado (sem 2º passo)
-  const costFilterValue =
-    costFilter === "partnership"
-      ? partnerServerFilter === "Todos"
-        ? "partnership"
-        : `partnership:${partnerServerFilter}`
-      : costFilter;
-
-  function handleCostFilterChange(value: string) {
-    if (value.startsWith("partnership:")) {
-      setCostFilter("partnership");
-      setPartnerServerFilter(value.split(":")[1]);
-    } else if (value === "partnership") {
-      setCostFilter("partnership");
-      setPartnerServerFilter("Todos");
-    } else {
-      setCostFilter(value as "Todos" | CostType);
-      setPartnerServerFilter("Todos");
-    }
-  }
-
-  // ✅ Só mostra no filtro as opções que realmente têm aplicativo cadastrado
-  const hasFreeApps = React.useMemo(
-    () => apps.some((a) => a.cost_type === "free"),
-    [apps],
-  );
-  const hasPaidApps = React.useMemo(
-    () => apps.some((a) => a.cost_type === "paid"),
-    [apps],
-  );
-  const hasPartnershipApps = React.useMemo(
-    () => apps.some((a) => a.cost_type === "partnership"),
-    [apps],
-  );
-  const hasComIntegracao = React.useMemo(
-    () => apps.some((a) => !!a.integration_type),
-    [apps],
-  );
-  const hasSemIntegracao = React.useMemo(
-    () => apps.some((a) => !a.integration_type),
-    [apps],
-  );
-  const partnerServersInUse = React.useMemo(() => {
-    const ids = new Set(
-      apps
-        .filter((a) => a.cost_type === "partnership" && a.partner_server_id)
-        .map((a) => a.partner_server_id as string),
-    );
-    return servers.filter((s) => ids.has(s.id));
-  }, [apps, servers]);
-
-  const [collapsedGroups, setCollapsedGroups] = useState<
-    Record<string, boolean>
-  >({});
-
-  const toggleGroup = (groupName: string) => {
-    setCollapsedGroups((prev) => ({ ...prev, [groupName]: !prev[groupName] }));
-  };
-
-  // ✅ Agrupa por custo — Pago → Parceria → Gratuito (cada app aparece uma
-  // única vez, sem duplicar por dispositivo). Dentro de cada lista, apps com
-  // integração automática sempre no topo, depois por nome.
-  function compareApps(a: AppData, b: AppData) {
-    const intA = a.integration_type ? 0 : 1;
-    const intB = b.integration_type ? 0 : 1;
-    if (intA !== intB) return intA - intB;
-
-    return a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
-  }
-
-  const COST_GROUPS: { key: CostType; label: string }[] = [
-    { key: "paid", label: "💰 Pagos" },
-    { key: "partnership", label: "🤝 Parceria" },
-    { key: "free", label: "🆓 Gratuitos" },
-  ];
-
-  const groupedByCost = React.useMemo(() => {
-    const groups: Record<CostType, AppData[]> = {
-      paid: [],
-      partnership: [],
-      free: [],
-    };
-    // ✅ Descontinuados saem da seção de custo deles (Pago/Parceria/Gratuito)
-    // e ganham seção própria — junto com qualquer app sem custo definido
-    // (hoje não existe nenhum, mas evita um app sumir da tela se acontecer).
-    const discontinued: AppData[] = [];
-
-    filteredApps.forEach((app) => {
-      if (app.is_active === false) {
-        discontinued.push(app);
-      } else if (
-        app.cost_type === "paid" ||
-        app.cost_type === "partnership" ||
-        app.cost_type === "free"
-      ) {
-        groups[app.cost_type].push(app);
-      } else {
-        discontinued.push(app);
-      }
-    });
-
-    (Object.keys(groups) as CostType[]).forEach((key) =>
-      groups[key].sort(compareApps),
-    );
-    discontinued.sort(compareApps);
-
-    return { groups, discontinued };
-  }, [filteredApps]);
-
-  type SubGroup = { key: string; label: string; apps: AppData[] };
-
-  // ✅ Parceria: sub-divide por servidor parceiro (mesma fonte do filtro
-  // "Parceria por servidor"). Cada app pertence a um único servidor, então
-  // não duplica.
-  const partnershipSubGroups = React.useMemo<SubGroup[]>(() => {
-    const byServer: Record<string, AppData[]> = {};
-    const noServer: AppData[] = [];
-
-    groupedByCost.groups.partnership.forEach((app) => {
-      if (app.partner_server_id) {
-        if (!byServer[app.partner_server_id])
-          byServer[app.partner_server_id] = [];
-        byServer[app.partner_server_id].push(app);
-      } else {
-        noServer.push(app);
-      }
-    });
-
-    const result = Object.keys(byServer)
-      .map((serverId) => ({
-        key: serverId,
-        label: servers.find((s) => s.id === serverId)?.name || "Servidor",
-        apps: byServer[serverId],
-      }))
-      .sort((a, b) =>
-        a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }),
-      );
-
-    if (noServer.length > 0) {
-      result.push({
-        key: "SEM_SERVIDOR",
-        label: "Sem servidor definido",
-        apps: noServer,
+  // ✅ 30/09/2026 (refactor de aplicativos): a lista deixa de ser por custo
+  // (Pagos/Parceria/Gratuitos) e passa a ser pela classificação do Márcio.
+  // "Configuração manual" é derivado (sem integração e sem nível). Parceria
+  // virou legado (os vínculos de clientes continuam valendo, mas o catálogo
+  // não oferece mais app por servidor) e fica recolhida no fim.
+  const sections = React.useMemo(() => {
+    const byName = (a: AppData, b: AppData) =>
+      a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
+    const ativos = filteredApps.filter((a) => a.is_active !== false);
+    const correntes = ativos.filter((a) => a.cost_type !== "partnership");
+    const out: { key: string; icon: string; label: string; hint?: string; apps: AppData[] }[] = [];
+    for (const t of APP_TIERS) {
+      out.push({
+        key: `tier-${t.value}`,
+        icon: t.icon,
+        label: t.label,
+        apps: correntes.filter((a) => a.tier === t.value).sort(byName),
       });
     }
-
-    return result;
-  }, [groupedByCost, servers]);
-
-  // ✅ Gratuitos: sem sub-divisão por Android/iOS — fica uma lista só.
-  // Computador continua separado (apps só de computador não se misturam
-  // com os de TV/celular).
-  const freeSubGroups = React.useMemo<SubGroup[]>(() => {
-    const gratuitos: AppData[] = [];
-    const computador: AppData[] = [];
-
-    groupedByCost.groups.free.forEach((app) => {
-      const types = Array.isArray(app.device_types) ? app.device_types : [];
-      if (types.includes("COMPUTADOR")) {
-        computador.push(app);
-      } else {
-        gratuitos.push(app);
-      }
+    out.push({
+      key: "sem",
+      icon: "☆",
+      label: "Sem classificação",
+      hint: "Escolha o nível no próprio card.",
+      apps: correntes.filter((a) => !a.tier && !!a.integration_type).sort(byName),
     });
+    out.push({
+      key: "manual",
+      icon: "🔧",
+      label: "Configuração manual",
+      hint: "Sem integração — configurados à mão.",
+      apps: correntes.filter((a) => !a.tier && !a.integration_type).sort(byName),
+    });
+    out.push({
+      key: "legado",
+      icon: "🤝",
+      label: "Parcerias antigas",
+      hint: "Não são mais oferecidos; quem já usa continua funcionando.",
+      apps: ativos.filter((a) => a.cost_type === "partnership").sort(byName),
+    });
+    out.push({
+      key: "descontinuado",
+      icon: "🚫",
+      label: "Descontinuados",
+      apps: filteredApps.filter((a) => a.is_active === false).sort(byName),
+    });
+    return out.filter((sec) => sec.apps.length > 0);
+  }, [filteredApps]);
 
-    const result: SubGroup[] = [];
-    if (gratuitos.length > 0)
-      result.push({ key: "GRATUITOS", label: "", apps: gratuitos });
-    if (computador.length > 0)
-      result.push({ key: "COMPUTADOR", label: "Computador", apps: computador });
-    return result;
-  }, [groupedByCost]);
+  async function setAppTier(app: AppData, tier: number | null) {
+    if (!tenantId) return;
+    const previous = app.tier ?? null;
+    setSavingTierId(app.id);
+    setApps((prev) => prev.map((a) => (a.id === app.id ? { ...a, tier } : a)));
+    const { error } = await supabaseBrowser
+      .from("apps")
+      .update({ tier })
+      .eq("id", app.id)
+      .eq("tenant_id", tenantId);
+    setSavingTierId(null);
+    if (error) {
+      setApps((prev) => prev.map((a) => (a.id === app.id ? { ...a, tier: previous } : a)));
+      addToast("error", "Não foi possível salvar a classificação", error.message);
+    }
+  }
 
   const isRootTenant = true;
 
@@ -1026,357 +899,179 @@ export default function AppManagerPage() {
   }
 
   function renderAppCard(app: AppData) {
-    // ✅ Custo real do app vinculado na Appativa (créditos_consumidos ×
-    // credit_unit_price) — pra comparar visualmente com o que é cobrado do
-    // cliente (license_price, mostrado logo abaixo na mesma linha de
-    // badges). Achado 25/08/2026, pedido do Márcio.
-    const appativaCatalogItem = app.appativa_app_id
-      ? appativaCatalog.find((it) => it.id === app.appativa_app_id)
-      : null;
-    const appativaCost =
-      appativaCatalogItem && appativaCreditUnitPrice != null
-        ? appativaCatalogItem.valor * appativaCreditUnitPrice
-        : null;
-    const partnerServerName = app.partner_server_id
-      ? servers.find((s) => s.id === app.partner_server_id)?.name || "Servidor"
-      : "";
-    const licensePeriodLabel =
-      app.license_period === "annual"
-        ? "/ano"
-        : app.license_period === "lifetime"
-          ? " vitalícia"
-          : "";
     const needsConfiguration =
       app.integration_type &&
       !configuredIntegrations.some((i) => i.name === app.integration_type);
-    const appLabel =
-      app.integration_type === "GERENCIAAPP"
-        ? "GerenciaApp"
-        : app.integration_type === "DUPLECAST"
-          ? "DupleCast"
-          : app.integration_type === "IBOSOL"
-            ? "IBO Sol"
-            : app.integration_type === "IBOPRO"
-              ? "IBO Pro Player"
-              : app.integration_type === "QUICKPLAYER"
-                ? "Quick Player"
-                : app.integration_type === "MESSITV"
-                  ? "MessiTV"
-                  : app.integration_type === "BOBPLAYER"
-                    ? "BOB Player"
-                    : app.integration_type === "IBOPLAYER"
-                      ? "IBO Player"
-                      : app.integration_type === "IPTVDUPLEX"
-                        ? "IPTV Duplex Play"
-                        : app.integration_type === "IPTVPLAYERIO"
-                          ? "IPTV Playerio"
-                          : app.integration_type === "DUPLEXTV"
-                            ? "Duplex TV"
-                            : app.integration_type === "CLOUDDY"
-                              ? "ClouDDy"
-                              : app.integration_type === "NINJAPLUS"
-                                ? "Ninja Plus"
-                                : app.integration_type === "LAZERPLAY"
-                                  ? "Lazer Play"
-                                  : app.integration_type === "FUNPLAY"
-                                    ? "Fun Play"
-                                    : app.integration_type === "FOCOXPLAY"
-                                      ? "FocoX Play"
-                                      : app.integration_type === "CAPPLAYER"
-                                        ? "CAP Player"
-                                        : app.integration_type;
+    const priceLabel =
+      app.cost_type === "partnership"
+        ? "Parceria"
+        : app.cost_type === "free" || !(Number(app.license_price) > 0)
+          ? "Grátis"
+          : `R$ ${Number(app.license_price).toFixed(2).replace(".", ",")}${
+              app.license_period === "annual"
+                ? "/ano"
+                : app.license_period === "lifetime"
+                  ? " vitalícia"
+                  : ""
+            }`;
+    const canEdit = app.tenant_id === myTenantId;
+    const canClassify =
+      canEdit && app.is_active !== false && app.cost_type !== "partnership";
+    const tierInfo = APP_TIERS.find((t) => t.value === app.tier);
 
     return (
       <div
         key={app.id}
-        className="group bg-card border border-border rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative"
+        className="bg-card border border-border rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-2.5"
       >
-        <div className="flex justify-between items-start mb-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              {app.icon_url ? (
-                <img
-                  src={app.icon_url}
-                  alt=""
-                  className="w-8 h-8 rounded-lg object-cover border border-border shrink-0"
-                />
+        <div className="flex items-center gap-3">
+          {app.icon_url ? (
+            <img
+              src={app.icon_url}
+              alt=""
+              className="w-10 h-10 rounded-lg object-cover border border-border shrink-0"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-lg shrink-0">
+              📱
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm text-foreground truncate" title={app.name}>
+              {app.name}
+            </p>
+            {tierInfo && (
+              <p className="text-[11px] leading-none text-amber-500 tracking-tight" title={tierInfo.label}>
+                {tierInfo.icon}
+                <span className="text-muted-foreground/40">{"★".repeat(5 - tierInfo.value)}</span>
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground truncate">
+              <span className="font-medium text-foreground/80">{priceLabel}</span>
+              {" · "}
+              {app.integration_type ? (
+                <span
+                  className={needsConfiguration ? "text-amber-500" : "text-sky-500"}
+                  title={
+                    needsConfiguration
+                      ? `Integração ${app.integration_type} sem API configurada`
+                      : `Integração: ${app.integration_type}`
+                  }
+                >
+                  {needsConfiguration ? "⚠️ Configurar API" : "⚡ Automático"}
+                </span>
               ) : (
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-base shrink-0">
-                  📱
-                </div>
+                <span>🔧 Manual</span>
               )}
-              <h3 className="font-bold text-lg text-foreground leading-none">
-                {app.name}
-              </h3>
-            </div>
-            {/* ✅ Custo do Duplecast/GerenciaApp (achado 26/08/2026, pedido
-                do Márcio: mesmo espírito do bloco da Appativa abaixo, "só pra
-                eu ver visualmente meu custo"). GerenciaApp é sempre grátis
-                (assinatura mensal fixa, não varia por app); Duplecast custa
-                1 código (credit_unit_price) por renovação, e se o app
-                também estiver mapeado na Appativa, mostra qual das duas
-                está de fato ativa (app.renewal_source).
-                ⚠️ Achado 07/09/2026 (Márcio): esse bloco vem ANTES do da
-                Appativa de propósito quando integration_type=DUPLECAST —
-                Duplecast é sempre o parceiro nativo desse app tipo (ver
-                comentário em lib/client-portal/fulfillment.ts), então listar
-                a Appativa primeiro dava a impressão errada de que ela era a
-                principal, mesmo quando "renovando via Duplecast" (padrão)
-                dizia o contrário logo ali do lado. */}
-            {app.integration_type === "DUPLECAST" && (
-              <p className="text-[11px] text-muted-foreground pt-1">
-                🔗 Duplecast
-                {duplecastCreditUnitPrice != null && (
-                  <>
-                    {" "}
-                    · Custo:{" "}
-                    <span className="font-bold text-rose-500">
-                      {duplecastCreditUnitPrice.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </>
-                )}
-                {app.appativa_app_id && (
-                  <span
-                    className={`ml-1 font-medium ${app.renewal_source === "appativa" ? "text-amber-500" : "text-sky-500"}`}
-                  >
-                    · renovando via{" "}
-                    {app.renewal_source === "appativa" ? "Appativa" : "Duplecast"}
-                  </span>
-                )}
-              </p>
-            )}
-            {app.appativa_app_id && (
-              <p className="text-[11px] text-muted-foreground pt-1">
-                🔗 Appativa:{" "}
-                <span className="font-medium text-foreground">
-                  {app.appativa_app_name || app.appativa_app_id}
-                </span>
-                {appativaCost != null && (
-                  <>
-                    {" "}
-                    · Custo:{" "}
-                    <span className="font-bold text-rose-500">
-                      {appativaCost.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </>
-                )}
-              </p>
-            )}
-            {app.integration_type === "GERENCIAAPP" && (
-              <p className="text-[11px] text-muted-foreground pt-1">
-                🔗 GerenciaApp ·{" "}
-                <span className="font-medium text-sky-500">
-                  Grátis (assinatura mensal fixa)
-                </span>
-              </p>
-            )}
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {app.tenant_id !== myTenantId && (
-                <span className="inline-flex items-center text-[10px] font-medium bg-muted text-muted-foreground border border-border px-2 py-0.5 rounded-full">
-                  🔒
-                </span>
-              )}
-
-              {app.is_active === false && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-rose-500/10 text-rose-500 border border-rose-500/20">
-                  🚫 Descontinuado
-                </span>
-              )}
-
-              {app.integration_type && (
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm ${needsConfiguration ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-sky-500/10 text-sky-500 border border-sky-500/20"}`}
-                >
-                  {needsConfiguration
-                    ? `${appLabel} - Configurar API`
-                    : `${appLabel} - Integrado`}
-                </span>
-              )}
-
-              {app.cost_type === "free" && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-sky-500/10 text-sky-500 border border-sky-500/20">
-                  🆓 Gratuito
-                </span>
-              )}
-
-              {app.cost_type === "partnership" && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-violet-500/10 text-violet-500 border border-violet-500/20">
-                  🤝 Parceria: {partnerServerName}
-                </span>
-              )}
-
-              {app.cost_type === "paid" && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                  💰{" "}
-                  {app.license_price
-                    ? `R$ ${Number(app.license_price).toFixed(2).replace(".", ",")}${licensePeriodLabel}`
-                    : "Pago"}
-                </span>
-              )}
-
-              {app.technology === "P2P" && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-fuchsia-500/10 text-fuchsia-500 border border-fuchsia-500/20">
-                  P2P
-                </span>
-              )}
-
-              {(app.device_types || []).map((dt) => (
-                <span
-                  key={dt}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm bg-muted text-muted-foreground border border-border"
-                >
-                  {DEVICE_TYPE_LABELS[dt]}
-                </span>
-              ))}
-            </div>
+            </p>
           </div>
-
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1 shrink-0">
             {app.name === "GPC Roku" && (
               <button
                 onClick={() => setGpcRokuActivationsFor(app.id)}
-                className="p-1.5 text-sky-500 bg-sky-500/10 border border-sky-500/20 hover:bg-sky-500/20 rounded-lg transition-all"
+                className="p-1.5 text-sky-500 hover:bg-sky-500/10 rounded-lg transition-colors"
                 title="Gerenciar MACs ativados"
               >
                 <IconSettings />
               </button>
             )}
-            {app.tenant_id === myTenantId && (
+            {canEdit && (
               <>
                 <button
                   onClick={() => openEdit(app)}
-                  className="p-1.5 text-amber-500 bg-amber-500/10 border border-amber-500/20 hover:bg-amber-500/20 rounded-lg transition-all"
+                  className="p-1.5 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors"
                   title="Editar"
                 >
-                  <IconEdit />
+                  <Pencil className="w-4 h-4" />
                 </button>
-
                 <button
                   onClick={() => handleDelete(app.id)}
-                  className="p-1.5 text-rose-500 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 rounded-lg transition-all"
+                  className="p-1.5 text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors"
                   title="Excluir"
                 >
-                  <IconTrash />
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {app.info_url && (
-          <a
-            href={app.info_url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-sky-500 hover:underline truncate max-w-[200px] block mb-3"
-          >
-            🌐 {app.info_url}
-          </a>
-        )}
-
-        <div className="pt-3 border-t border-border space-y-1">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-            Campos exigidos:
-          </p>
-
-          <div className="flex flex-wrap gap-1">
-            {app.fields_config.length > 0 ? (
-              app.fields_config.map((field, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-1 bg-muted border border-border rounded text-[10px] text-muted-foreground font-medium flex items-center gap-1"
-                >
-                  {FIELD_ICONS[field.type]}{" "}
-                  {field.label || FIELD_LABELS[field.type]}
-                </span>
-              ))
-            ) : (
-              <span className="text-[10px] text-muted-foreground italic">
-                Apenas nome (padrão)
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 text-sm min-w-0 overflow-hidden">
+            {(app.device_types || []).map((dt) => (
+              <span key={dt} title={DEVICE_TYPE_LABELS[dt]} aria-label={DEVICE_TYPE_LABELS[dt]}>
+                {APP_DEVICE_ICONS[dt] ?? "📱"}
               </span>
-            )}
+            ))}
           </div>
+          {canClassify ? (
+            <select
+              value={app.tier ?? ""}
+              disabled={savingTierId === app.id}
+              onChange={(e) =>
+                setAppTier(app, e.target.value ? Number(e.target.value) : null)
+              }
+              className="h-7 max-w-[11rem] rounded-md border border-border bg-transparent px-1.5 text-xs text-foreground outline-none focus:border-emerald-500 disabled:opacity-50"
+              title="Classificação"
+            >
+              <option value="">☆ Classificar</option>
+              {APP_TIERS.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.icon}
+                </option>
+              ))}
+            </select>
+          ) : app.is_active === false && app.discontinued_replacement_name ? (
+            <span className="text-[11px] text-muted-foreground truncate">
+              → {app.discontinued_replacement_name}
+            </span>
+          ) : null}
         </div>
       </div>
     );
   }
 
-  function renderAppGroup(
-    key: string,
-    label: string,
-    appsInGroup: AppData[],
-    subGroups?: SubGroup[],
-  ) {
-    const isCollapsed = collapsedGroups[key];
-    const total = subGroups
-      ? subGroups.reduce((n, sg) => n + sg.apps.length, 0)
-      : appsInGroup.length;
+  function renderSection(sec: {
+    key: string;
+    icon: string;
+    label: string;
+    hint?: string;
+    apps: AppData[];
+  }) {
+    const collapsed = !!collapsedSections[sec.key];
     return (
-      <div key={key} className="space-y-3">
-        <div
-          className="flex items-center justify-between cursor-pointer border-b border-border pb-2 group select-none transition-colors hover:border-emerald-500/50"
-          onClick={() => toggleGroup(key)}
+      <section key={sec.key} className="space-y-3">
+        <button
+          type="button"
+          onClick={() =>
+            setCollapsedSections((prev) => ({ ...prev, [sec.key]: !prev[sec.key] }))
+          }
+          className="w-full flex items-center justify-between gap-2 border-b border-border pb-2 text-left hover:border-emerald-500/50 transition-colors"
         >
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-foreground/90 uppercase tracking-wider">
-              {label}
-            </h2>
-            <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm">
-              {total} {total > 1 ? "Apps" : "App"}
+          <span className="flex items-baseline gap-2 min-w-0">
+            <span className="text-sm font-bold text-foreground">
+              <span className={sec.key.startsWith("tier-") || sec.key === "sem" ? "text-amber-500 tracking-tight" : ""}>
+                {sec.icon}
+              </span>{" "}
+              {sec.key.startsWith("tier-") ? "" : sec.label}
             </span>
+            <span className="text-xs text-muted-foreground">{sec.apps.length}</span>
+            {sec.hint && (
+              <span className="hidden sm:inline text-xs text-muted-foreground truncate">
+                — {sec.hint}
+              </span>
+            )}
+          </span>
+          <span className="text-xs text-muted-foreground shrink-0">
+            {collapsed ? "Mostrar ▼" : "Ocultar ▲"}
+          </span>
+        </button>
+        {!collapsed && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+            {sec.apps.map((app) => renderAppCard(app))}
           </div>
-
-          <button
-            className="text-muted-foreground group-hover:text-emerald-500 transition-colors p-1"
-            title={isCollapsed ? "Expandir" : "Minimizar"}
-          >
-            <svg
-              className={`w-4 h-4 transition-transform duration-300 ${isCollapsed ? "" : "rotate-180"}`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {!isCollapsed &&
-          (subGroups ? (
-            <div className="space-y-5 animate-in slide-in-from-top-2 duration-300">
-              {subGroups.map((sg) => (
-                <div key={sg.key} className="space-y-2">
-                  {sg.label && (
-                    <h3 className="flex items-center gap-2 text-xs font-semibold text-muted-foreground/80 uppercase tracking-wide pl-0.5">
-                      {sg.label}
-                      <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight shadow-sm normal-case">
-                        {sg.apps.length} {sg.apps.length > 1 ? "Apps" : "App"}
-                      </span>
-                    </h3>
-                  )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-                    {sg.apps.map((app) => renderAppCard(app))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 animate-in slide-in-from-top-2 duration-300">
-              {appsInGroup.map((app) => renderAppCard(app))}
-            </div>
-          ))}
-      </div>
+        )}
+      </section>
     );
   }
 
@@ -1464,262 +1159,56 @@ export default function AppManagerPage() {
         </div>
       </div>
 
-      {/* BARRA DE FILTROS */}
-      <div className="px-3 sm:px-0">
-        <div className="md:p-4 md:bg-card md:border md:border-border md:rounded-xl md:sticky md:top-4 z-20 space-y-3">
-          <div className="hidden md:block text-xs font-medium uppercase text-muted-foreground tracking-wider">
-            Filtros Rápidos
-          </div>
-
-          {/* MOBILE (somente): pesquisa + botão abrir painel */}
-          <div className="md:hidden flex items-center gap-2">
-            <div className="flex-1 relative">
-              <Input
-                placeholder="Buscar aplicativo por nome..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
-                >
-                  <IconX />
-                </button>
-              )}
-            </div>
-
+      {/* BUSCA + APARELHO (30/09/2026: filtros de custo/parceiro/tecnologia saíram) */}
+      <div className="px-3 sm:px-0 flex flex-col sm:flex-row gap-2">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar aplicativo..."
+          className="h-10 w-full sm:max-w-sm px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500"
+        />
+        <div className="flex gap-2">
+          <select
+            value={deviceTypeFilter}
+            onChange={(e) => setDeviceTypeFilter(e.target.value as "Todos" | DeviceType)}
+            className="h-10 flex-1 sm:flex-none px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500"
+          >
+            <option value="Todos">Todos os aparelhos</option>
+            {ALL_DEVICE_TYPES.map((dt) => (
+              <option key={dt} value={dt}>
+                {APP_DEVICE_ICONS[dt] ?? "📱"} {DEVICE_TYPE_LABELS[dt]}
+              </option>
+            ))}
+          </select>
+          {(hasActiveFilters || search.trim()) && (
             <button
-              onClick={() => setMobileFiltersOpen((v) => !v)}
-              className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
-                hasActiveFilters
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
-                  : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-              title="Filtros"
-            >
-              Filtros
-            </button>
-          </div>
-
-          {/* DESKTOP (somente): tudo na mesma linha */}
-          <div className="hidden md:flex items-center gap-2">
-            <div className="flex-1 relative">
-              <Input
-                placeholder="Buscar aplicativo por nome..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
-                >
-                  <IconX />
-                </button>
-              )}
-            </div>
-
-            <div className="w-[210px]">
-              <Select
-                value={costFilterValue}
-                onChange={(e) => handleCostFilterChange(e.target.value)}
-              >
-                <option value="Todos">Custo (Todos)</option>
-                {hasFreeApps && <option value="free">🆓 Gratuito</option>}
-                {hasPaidApps && <option value="paid">💰 Pago</option>}
-                {hasPartnershipApps && (
-                  <option value="partnership">
-                    🤝 Parceria (Todos os servidores)
-                  </option>
-                )}
-                {partnerServersInUse.length > 0 && (
-                  <optgroup label="🤝 Parceria por servidor">
-                    {partnerServersInUse.map((s) => (
-                      <option key={s.id} value={`partnership:${s.id}`}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </Select>
-            </div>
-
-            <div className="w-[170px]">
-              <Select
-                value={integrationFilter}
-                onChange={(e) =>
-                  setIntegrationFilter(
-                    e.target.value as "Todos" | "com" | "sem",
-                  )
-                }
-              >
-                <option value="Todos">Integração (Todas)</option>
-                {hasComIntegracao && (
-                  <option value="com">Com integração</option>
-                )}
-                {hasSemIntegracao && (
-                  <option value="sem">Sem integração</option>
-                )}
-              </Select>
-            </div>
-
-            <div className="w-[190px]">
-              <Select
-                value={deviceTypeFilter}
-                onChange={(e) =>
-                  setDeviceTypeFilter(e.target.value as "Todos" | DeviceType)
-                }
-              >
-                <option value="Todos">Dispositivo (Todos)</option>
-                {ALL_DEVICE_TYPES.map((dt) => (
-                  <option key={dt} value={dt}>
-                    {DEVICE_TYPE_LABELS[dt]}
-                  </option>
-                ))}
-              </Select>
-            </div>
-
-            <div className="w-[130px]">
-              <Select
-                value={technologyFilter}
-                onChange={(e) =>
-                  setTechnologyFilter(e.target.value as "Todos" | Technology)
-                }
-              >
-                <option value="Todos">Tec. (Todas)</option>
-                <option value="IPTV">IPTV</option>
-                <option value="P2P">P2P</option>
-              </Select>
-            </div>
-
-            <button
+              type="button"
               onClick={clearFilters}
-              className="h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
+              className="h-10 px-3 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
-              <IconX /> Limpar
+              Limpar
             </button>
-          </div>
-
-          {/* Painel de filtros no mobile */}
-          {mobileFiltersOpen && (
-            <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
-              <Select
-                value={costFilterValue}
-                onChange={(e) => handleCostFilterChange(e.target.value)}
-              >
-                <option value="Todos">Custo (Todos)</option>
-                {hasFreeApps && <option value="free">🆓 Gratuito</option>}
-                {hasPaidApps && <option value="paid">💰 Pago</option>}
-                {hasPartnershipApps && (
-                  <option value="partnership">
-                    🤝 Parceria (Todos os servidores)
-                  </option>
-                )}
-                {partnerServersInUse.length > 0 && (
-                  <optgroup label="🤝 Parceria por servidor">
-                    {partnerServersInUse.map((s) => (
-                      <option key={s.id} value={`partnership:${s.id}`}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </Select>
-
-              <Select
-                value={integrationFilter}
-                onChange={(e) =>
-                  setIntegrationFilter(
-                    e.target.value as "Todos" | "com" | "sem",
-                  )
-                }
-              >
-                <option value="Todos">Integração (Todas)</option>
-                {hasComIntegracao && (
-                  <option value="com">Com integração</option>
-                )}
-                {hasSemIntegracao && (
-                  <option value="sem">Sem integração</option>
-                )}
-              </Select>
-
-              <Select
-                value={deviceTypeFilter}
-                onChange={(e) =>
-                  setDeviceTypeFilter(e.target.value as "Todos" | DeviceType)
-                }
-              >
-                <option value="Todos">Dispositivo (Todos)</option>
-                {ALL_DEVICE_TYPES.map((dt) => (
-                  <option key={dt} value={dt}>
-                    {DEVICE_TYPE_LABELS[dt]}
-                  </option>
-                ))}
-              </Select>
-
-              <Select
-                value={technologyFilter}
-                onChange={(e) =>
-                  setTechnologyFilter(e.target.value as "Todos" | Technology)
-                }
-              >
-                <option value="Todos">Tecnologia (Todas)</option>
-                <option value="IPTV">IPTV</option>
-                <option value="P2P">P2P</option>
-              </Select>
-
-              <button
-                onClick={() => {
-                  clearFilters();
-                  setMobileFiltersOpen(false);
-                }}
-                className="w-full h-10 px-3 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-400 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-2"
-              >
-                <IconX /> Limpar
-              </button>
-            </div>
           )}
         </div>
       </div>
 
-      {/* LISTAGEM */}
+      {/* LISTAGEM — por classificação */}
       {loading ? (
         <div className="text-center py-10 text-muted-foreground bg-transparent rounded-xl border border-dashed border-border">
           Carregando aplicativos...
         </div>
-      ) : filteredApps.length === 0 ? (
+      ) : sections.length === 0 ? (
         <div className="text-center py-10 text-muted-foreground bg-transparent rounded-xl border border-dashed border-border">
           {apps.length === 0
             ? 'Nenhum aplicativo cadastrado. Clique em "Novo Aplicativo" para começar.'
             : search.trim()
               ? `Nenhum aplicativo encontrado para "${search.trim()}".`
-              : hasActiveFilters
-                ? "Nenhum aplicativo encontrado para os filtros selecionados."
-                : "Nenhum aplicativo para exibir."}
+              : "Nenhum aplicativo encontrado para os filtros selecionados."}
         </div>
       ) : (
         <div className="px-3 sm:px-0 space-y-6">
-          {COST_GROUPS.filter(
-            (g) => groupedByCost.groups[g.key].length > 0,
-          ).map((g) =>
-            renderAppGroup(
-              g.key,
-              g.label,
-              groupedByCost.groups[g.key],
-              g.key === "partnership"
-                ? partnershipSubGroups
-                : g.key === "free"
-                  ? freeSubGroups
-                  : undefined,
-            ),
-          )}
-          {groupedByCost.discontinued.length > 0 &&
-            renderAppGroup(
-              "DESCONTINUADO",
-              "🚫 Descontinuado",
-              groupedByCost.discontinued,
-            )}
+          {sections.map((sec) => renderSection(sec))}
           <div className="h-24 md:h-20" />
         </div>
       )}

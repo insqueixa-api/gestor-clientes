@@ -69,16 +69,11 @@ mas a API devolve ~60 campos:
 2. **Apps do GerenciaApp** (IBO Revenda, IBONew, GPC Pro, UNI/VU Revenda,
    Zone X) — **continuam gratuitos, inclusive a renovação** (custo fixo de
    R$ 30/mês dele, não compensa repassar).
-3. **Níveis de recomendação** (vários apps por nível):
-   1. Top dos Tops
-   2. Tops
-   3. Bons
-   4. Intermediários
-   5. Aceitáveis (funcionam)
+3. **Classificação por estrelas** (vários apps por nível): ★★★★★ a ★
+   (`apps.tier` = quantidade de estrelas, 5 = melhor). Os nomes "Top dos
+   Tops / Tops / Bons…" foram só exemplo — o Márcio preferiu estrelas.
    + categoria especial **Configuração manual** (sem integração nenhuma,
-   precisa configurar à mão).
-   Pode aparecer como selo no canto do card e/ou como seções — os melhores
-   sempre no topo da vitrine.
+   precisa configurar à mão) — derivada, não é nível.
 4. **Descrição / Detalhes** — usa a `descricao` da Appativa como padrão;
    quando ele edita, a dele passa a valer (override) e a sincronização
    nunca mais sobrescreve.
@@ -232,3 +227,10 @@ no portal.
 4. Desliga o portal (`PORTAL_APPS_DISABLED = true`) → Fase 4 + 5 no **portal** → religa.
 5. Fase 6 (limpeza).
 6. Fases 8, 9 e 10 em paralelo quando fizer sentido (editor, histórico, rotas dos parceiros).
+
+---
+
+## 6. Andamento
+
+- **30/09/2026 — Fase 1 (parcial) + página do catálogo**: colunas `apps.tier` (1–5) e `apps.tier_order` criadas (`docs/sql/apps_refactor_fase1_tier.sql`, aplicado). `/admin/gerenciador/aplicativo` reorganizada: sem abas/grupos por custo nem filtros de custo/parceiro/tecnologia; lista por nível (💎 Top dos Tops → ✅ Aceitáveis), depois "Sem classificação", "🔧 Configuração manual" (derivado: sem integração), "Parcerias antigas" e "Descontinuados" recolhidos. Card limpo (ícone, nome, preço, ⚡ Automático/🔧 Manual, aparelhos em ícone) com seletor de nível no próprio card. Modal de edição ainda intocado — próximo passo (Fase 3).
+- Também feitos fora da ordem: editor rico (Fase 8, WhatsApp + Condomínio), carrinho de apps no portal, cupom por instalação.
