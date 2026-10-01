@@ -76,3 +76,18 @@ where t.tenant_id = 'a5ab0672-c845-4c40-96b9-eeed197e04ed'
   and t.descricao = f.descricao;
 
 commit;
+
+-- ✅ Ajuste (mesmo dia, pedido do Márcio): série começa em NOVEMBRO e cai no
+-- ÚLTIMO dia do mês (30/11, 28/02, 31/05, 31/08...) — NaTV acaba ~03/12 e
+-- ele recarrega antes; último dia evita alerta do sino antes da hora.
+with o as (
+  select id,
+    (row_number() over (partition by descricao order by data_vencimento) - 1)::int as i
+  from fin_transacoes
+  where tenant_id = 'a5ab0672-c845-4c40-96b9-eeed197e04ed'
+    and observacoes = 'Previsão de recarga' and status = 'PENDENTE'
+)
+update fin_transacoes t
+set data_vencimento =
+  (date '2026-11-01' + make_interval(months => 3 * o.i + 1) - interval '1 day')::date
+from o where t.id = o.id;
