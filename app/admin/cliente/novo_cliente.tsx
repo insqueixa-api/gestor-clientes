@@ -26,8 +26,9 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Moda
 import AppPickerModal from "@/components/apps/AppPickerModal";
 import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
 import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
-import { withoutLegacyDevices } from "@/lib/apps/device-types";
+import { deviceLabel, withoutLegacyDevices } from "@/lib/apps/device-types";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
+import { rotatePrincipalM3u, rotateSecondaryM3u } from "@/lib/apps/m3u-lists";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
 import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 
@@ -876,6 +877,9 @@ export default function NovoCliente({
   const [trialHoursLocked, setTrialHoursLocked] = useState(false);
 
   const [m3uUrl, setM3uUrl] = useState("");
+  // ✅ 02/10/2026: lista secundária salva separada (clients.m3u_url_secondary)
+  // — não vem na view da listagem, é buscada ao abrir o cliente.
+  const [m3uUrlSecondary, setM3uUrlSecondary] = useState("");
 
   // ✅ NOVO: external_user_id (ID do usuário no painel)
   const [externalUserId, setExternalUserId] = useState<string>("");
@@ -1001,6 +1005,11 @@ export default function NovoCliente({
     // tinham que buscar por client_id+app_id, o que corrompe as duas linhas
     // quando o mesmo app está instalado 2x pro mesmo cliente (2 TVs, etc).
     client_app_id?: string;
+    // ✅ 02/10/2026: lista configurada (principal/secundária) e aparelho
+    // escolhido ao adicionar — preservados no "Salvar" (que regrava os apps)
+    m3uList?: "principal" | "secundaria" | null;
+    m3uListAt?: string | null;
+    deviceType?: string | null;
   };
 
   // --- ESTADOS ---
@@ -1647,6 +1656,18 @@ export default function NovoCliente({
 
           // ✅ M3U URL
           setM3uUrl(clientToEdit.m3u_url || "");
+          setM3uUrlSecondary("");
+          if (clientToEdit.id) {
+            const editingId = clientToEdit.id;
+            supabaseBrowser
+              .from("clients")
+              .select("m3u_url_secondary")
+              .eq("id", editingId)
+              .maybeSingle()
+              .then(({ data }) => {
+                if (data) setM3uUrlSecondary(String(data.m3u_url_secondary || ""));
+              });
+          }
 
           // Telefones
           if (clientToEdit.whatsapp_e164) {
@@ -1817,7 +1838,7 @@ export default function NovoCliente({
           if (appsSourceId) {
             const { data: currentApps } = await supabaseBrowser
               .from("client_apps")
-              .select("id, app_id, field_values, apps(name, fields_config)")
+              .select("id, app_id, field_values, m3u_list, m3u_list_at, device_type, apps(name, fields_config)")
               .eq("client_id", appsSourceId);
 
             if (currentApps) {
@@ -1881,6 +1902,10 @@ export default function NovoCliente({
                   isTrial: _trial_hint === "1",
 
                   appativaPending: !!_appativa_pending_id,
+
+                  m3uList: ca.m3u_list || null,
+                  m3uListAt: ca.m3u_list_at || null,
+                  deviceType: ca.device_type || null,
 
                   is_minimized: isEditing, // editando = minimizado; criando teste = aberto
                 };
@@ -2050,9 +2075,10 @@ export default function NovoCliente({
 
   // Adiciona uma nova instância de app ao cliente
 
-  function addAppToClient(app: AppCatalog) {
+  function addAppToClient(app: AppCatalog, deviceType?: string | null) {
     const newInstance: SelectedAppInstance = {
       instanceId: crypto.randomUUID(),
+      deviceType: deviceType || null,
 
       app_id: app.id,
 
@@ -2304,24 +2330,16 @@ export default function NovoCliente({
     setLoading(true);
     setLoadingStep("Configurando aplicativo...");
 
-    // ✅ CORREÇÃO M3U: Resolve o link se ele estiver vazio antes de enviar!
-    // "Secundária" sempre regenera (sorteia outra DNS), mesmo que já tenha
-    // um link preenchido — é o próprio propósito dessa opção.
-    let m3uToSend = mode === "secundaria" ? "" : m3uUrl.trim();
-    if (!m3uToSend) {
-      m3uToSend =
-        mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
-      if (!m3uToSend) {
-        addToast(
-          "warning",
-          "Sem Domínio",
-          "Não foi possível gerar o link M3U. Verifique se o servidor possui DNS configurado.",
-        );
-        setLoading(false);
-        return;
-      }
-      setM3uUrl(m3uToSend); // Atualiza visualmente na tela para você ver
-    }
+    // ✅ 02/10/2026 (pedido do Márcio): app que já tinha vencimento =
+    // Reconfigurar → o servidor rotaciona a lista escolhida e salva; primeira
+    // configuração usa a que está salva. A principal da tela vai junto
+    // (pode ter sido editada e ainda não salva); a secundária é sempre a do
+    // banco (lib/apps/orchestration.ts).
+    const isReconfigure = !!(
+      dateField && String(currentApp.values?.[String(dateField.id || dateField.label)] || "").trim()
+    );
+    const m3uToSend =
+      mode === "principal" && !isReconfigure ? m3uUrl.trim() || undefined : undefined;
 
     // Integrações com API própria — via /api/admin/apps/configure, a mesma
     // orquestração compartilhada com o portal (lib/apps/orchestration.ts):
@@ -2336,6 +2354,7 @@ export default function NovoCliente({
           field_values: currentApp.values,
           mode,
           m3u_url: m3uToSend,
+          rotate: isReconfigure,
         });
 
         setLoading(false);
@@ -2343,6 +2362,18 @@ export default function NovoCliente({
 
         if (apiJson?.ok) {
           const expireDate = apiJson.expireDate || null;
+          // lista que de fato foi pro app (já salva no cliente pela rota)
+          if (apiJson.m3u_url) {
+            if (mode === "secundaria") setM3uUrlSecondary(apiJson.m3u_url);
+            else setM3uUrl(apiJson.m3u_url);
+          }
+          setSelectedApps((prev) =>
+            prev.map((a) =>
+              a.instanceId === instanceId
+                ? { ...a, m3uList: mode, m3uListAt: new Date().toISOString() }
+                : a,
+            ),
+          );
 
           if (expireDate && dateField) {
             const fieldKey = dateField.id || dateField.label;
@@ -3123,13 +3154,20 @@ export default function NovoCliente({
       return;
     }
 
-    // ✅ ClouDDy segue o mesmo fluxo Principal/Secundária das automações via
-    // API (handleConfigApp) — "Secundária" sempre sorteia outra DNS, mesmo
-    // que já tenha um m3u preenchido.
-    let m3uToSend = mode === "secundaria" ? "" : m3uUrl.trim();
-    if (!m3uToSend) {
-      m3uToSend =
-        mode === "secundaria" ? buildM3uUrlSecondary() : buildM3uUrlSilent();
+    // ✅ ClouDDy segue a mesma regra das automações via API (02/10/2026):
+    // Configurar usa a lista salva; Reconfigurar (já tinha vencimento)
+    // rotaciona a escolhida. Como vai pela extensão, a lista é montada aqui
+    // e salva no cliente na hora (lib/apps/m3u-lists.ts).
+    const clouddyDateField = currentApp?.fields_config?.find(
+      (f: any) => String(f?.type || "").toLowerCase() === "date",
+    );
+    const isReconfigure = !!(
+      clouddyDateField &&
+      String(currentApp.values?.[String(clouddyDateField.id || clouddyDateField.label)] || "").trim()
+    );
+    let m3uToSend = mode === "secundaria" ? m3uUrlSecondary.trim() : m3uUrl.trim();
+    if (isReconfigure || !m3uToSend) {
+      m3uToSend = mode === "secundaria" ? buildM3uUrlSecondary() : rotatePrincipalLocal() || buildM3uUrlSilent();
       if (!m3uToSend) {
         addToast(
           "warning",
@@ -3138,7 +3176,14 @@ export default function NovoCliente({
         );
         return;
       }
-      setM3uUrl(m3uToSend);
+      if (mode === "secundaria") setM3uUrlSecondary(m3uToSend);
+      else setM3uUrl(m3uToSend);
+      if (clientToEdit?.id) {
+        await supabaseBrowser
+          .from("clients")
+          .update(mode === "secundaria" ? { m3u_url_secondary: m3uToSend } : { m3u_url: m3uToSend })
+          .eq("id", clientToEdit.id);
+      }
     }
 
     setLoading(true);
@@ -3152,6 +3197,16 @@ export default function NovoCliente({
       if (result.ok) {
         if (result.expireDate)
           await persistClouddyExpireDate(currentApp, result.expireDate);
+        const listAt = new Date().toISOString();
+        if (currentApp.client_app_id) {
+          await supabaseBrowser
+            .from("client_apps")
+            .update({ m3u_list: mode, m3u_list_at: listAt })
+            .eq("id", currentApp.client_app_id);
+        }
+        setSelectedApps((prev) =>
+          prev.map((a) => (a.instanceId === instanceId ? { ...a, m3uList: mode, m3uListAt: listAt } : a)),
+        );
         addToast(
           "success",
           "ClouDDy configurado",
@@ -3653,6 +3708,7 @@ export default function NovoCliente({
 
         const patchEdit: any = {};
         if (finalM3u) patchEdit.m3u_url = finalM3u;
+        if (m3uUrlSecondary.trim()) patchEdit.m3u_url_secondary = m3uUrlSecondary.trim();
         if (finalCreatedAt) patchEdit.created_at = finalCreatedAt;
 
         if (Object.keys(patchEdit).length > 0) {
@@ -3695,6 +3751,9 @@ export default function NovoCliente({
               // save recriava o app sem a marca e o aviso sumia)
               ...(app.isTrial ? { _trial_hint: "1" } : {}),
             },
+            m3u_list: app.m3uList || null,
+            m3u_list_at: app.m3uListAt || null,
+            device_type: app.deviceType || null,
           }));
 
           await supabaseBrowser.from("client_apps").insert(toInsert);
@@ -4269,6 +4328,7 @@ export default function NovoCliente({
             tipo_cadastro: "iptv", // ✅ GARANTE QUE TODO NOVO TESTE/CLIENTE DESTA TELA SEJA IPTV
           };
           if (finalM3u) patch.m3u_url = finalM3u;
+          if (m3uUrlSecondary.trim()) patch.m3u_url_secondary = m3uUrlSecondary.trim();
           if (finalExternalUserId) patch.external_user_id = finalExternalUserId;
           if (finalCreatedAt) patch.created_at = finalCreatedAt; // ✅ ADICIONADO
 
@@ -4302,6 +4362,9 @@ export default function NovoCliente({
               // save recriava o app sem a marca e o aviso sumia)
               ...(app.isTrial ? { _trial_hint: "1" } : {}),
             },
+            m3u_list: app.m3uList || null,
+            m3u_list_at: app.m3uListAt || null,
+            device_type: app.deviceType || null,
           }));
           // ✅ Captura o id real de cada linha inserida (na mesma ordem de
           // toInsert/selectedApps) — necessário pra persistir o vencimento
@@ -4759,32 +4822,28 @@ export default function NovoCliente({
     return `${scheme}://${host}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
   }
 
-  // ✅ "Secundária" do Reconfigurar/Gerar M3U (pedido do Márcio, 28/07/2026):
-  // sorteia outra DNS do servidor — pro NaTV especificamente, usa a
-  // variação de mirror própria dele (sem "s" + prefixo "r2.", ex:
-  // https://rj98.eu → http://r2.rj98.eu). Nenhum outro servidor tem esse
-  // mirror, então isso NUNCA se aplica fora do NaTV. Réplica de
-  // buildM3uUrlSecondary em lib/apps/panel.ts.
-  function buildM3uUrlSecondary(
-    overrideUser?: string,
-    overridePass?: string,
-  ): string {
-    const user = (overrideUser ?? username).trim();
-    const pass = (overridePass ?? password)?.trim() || "";
-    if (!user || serverDomains.length === 0) return "";
-
-    const selectedServerName =
-      servers.find((s) => s.id === serverId)?.name || "";
-    const isNaTv = selectedServerName.trim().toUpperCase() === "NATV";
-    if (!isNaTv) return buildM3uUrlSilent(overrideUser, overridePass);
-
-    const randomDomain =
-      serverDomains[Math.floor(Math.random() * serverDomains.length)];
-    const { host } = splitDnsScheme(randomDomain);
-    const mirrorHost = host.toLowerCase().startsWith("r2.")
-      ? host
-      : `r2.${host}`;
-    return `http://${mirrorHost}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
+  // ✅ 02/10/2026 (pedido do Márcio): regras de rotação em lib/apps/m3u-lists.ts
+  // (mesmas do servidor). Principal: outro domínio, formato normal (NaTV
+  // sempre https). Secundária: NaTV http://r2.|r3.<dns>; outros, um domínio
+  // diferente do da principal.
+  function rotatePrincipalLocal(): string {
+    return rotatePrincipalM3u({
+      dnsList: serverDomains,
+      username: username.trim(),
+      password: (password || "").trim(),
+      serverName: servers.find((sv) => sv.id === serverId)?.name || "",
+      currentPrincipal: m3uUrl,
+    });
+  }
+  function buildM3uUrlSecondary(): string {
+    return rotateSecondaryM3u({
+      dnsList: serverDomains,
+      username: username.trim(),
+      password: (password || "").trim(),
+      serverName: servers.find((sv) => sv.id === serverId)?.name || "",
+      currentPrincipal: m3uUrl,
+      currentSecondary: m3uUrlSecondary,
+    });
   }
 
   // ✅ NOVO: Abre a lista de DNS do servidor selecionado
@@ -4849,11 +4908,9 @@ export default function NovoCliente({
     }
   }
 
-  // ✅ Gera M3U URL baseado nas DNSs do servidor — sempre "Secundária"
-  // (sorteia uma DNS nova; NaTV usa a variação de mirror própria dele, ver
-  // buildM3uUrlSecondary acima), já que o botão em si é uma ação de
-  // "gerar de novo", não existe versão "Principal" pra ele.
-  function generateM3uUrl() {
+  // ✅ Gerar = rotaciona a lista (principal ou secundária, 02/10/2026).
+  // Só muda na tela; vai pro banco no "Salvar".
+  function generateM3uUrl(list: "principal" | "secundaria" = "principal") {
     if (!username.trim()) {
       addToast("warning", "Atenção", "Preencha o usuário primeiro.");
       return;
@@ -4867,9 +4924,14 @@ export default function NovoCliente({
       return;
     }
 
-    const url = buildM3uUrlSecondary();
-    setM3uUrl(url);
-    addToast("success", "Link Gerado!", "M3U URL atualizado com sucesso.");
+    const url = list === "secundaria" ? buildM3uUrlSecondary() : rotatePrincipalLocal();
+    if (list === "secundaria") setM3uUrlSecondary(url);
+    else setM3uUrl(url);
+    addToast(
+      "success",
+      "Link Gerado!",
+      `Lista ${list === "secundaria" ? "secundária" : "principal"} atualizada — clique em Salvar pra gravar.`,
+    );
   }
 
   // --- 2. FUNÇÃO QUE VALIDA E ABRE O POPUP ---
@@ -5693,7 +5755,7 @@ export default function NovoCliente({
                     {/* ✅ M3U URL (linha toda) */}
 
                     <div className="sm:col-span-2">
-                      <Label>Link M3U (Playlist)</Label>
+                      <Label>Link M3U principal (Playlist)</Label>
 
                       <div className="flex gap-2">
                         <Input
@@ -5705,7 +5767,7 @@ export default function NovoCliente({
 
                         <button
                           type="button"
-                          onClick={generateM3uUrl}
+                          onClick={() => generateM3uUrl("principal")}
                           disabled={!serverId || !username.trim()}
                           className="h-10 px-3 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:bg-transparent disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
                           title="Gerar link automaticamente"
@@ -5751,6 +5813,92 @@ export default function NovoCliente({
                             );
                           }}
                           disabled={!m3uUrl.trim()}
+                          className="h-10 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:bg-transparent disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
+                          title="Copiar link M3U"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                            />
+                          </svg>
+
+                          <span className="hidden sm:inline">Copiar</span>
+                        </button>
+                      </div>
+
+                      <p className="text-[9px] text-muted-foreground/60 mt-1 italic">
+                        Gerado automaticamente com base nos domínios do servidor
+                        selecionado.
+                      </p>
+                    </div>
+                    {/* ✅ 02/10/2026: lista secundária separada (Configurar › Secundária usa esta) */}
+                    <div className="sm:col-span-2">
+                      <Label>Link M3U secundário</Label>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={m3uUrlSecondary}
+                          onChange={(e) => setM3uUrlSecondary(e.target.value)}
+                          placeholder="Gerada no primeiro Configurar › Secundária (ou clique em Gerar)"
+                          className="flex-1 text-xs "
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => generateM3uUrl("secundaria")}
+                          disabled={!serverId || !username.trim()}
+                          className="h-10 px-3 rounded-lg bg-sky-500 hover:bg-sky-600 disabled:bg-transparent disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
+                          title="Gerar outra lista secundária"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+
+                          <span className="hidden sm:inline">Gerar</span>
+                        </button>
+
+                        {/* ✅ BOTÃO COPIAR */}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!m3uUrlSecondary.trim()) {
+                              addToast(
+                                "warning",
+                                "Atenção",
+                                "Nenhum link para copiar.",
+                              );
+
+                              return;
+                            }
+
+                            navigator.clipboard.writeText(m3uUrlSecondary);
+
+                            addToast(
+                              "success",
+                              "Copiado!",
+                              "Link M3U secundário copiado.",
+                            );
+                          }}
+                          disabled={!m3uUrlSecondary.trim()}
                           className="h-10 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:bg-transparent disabled:cursor-not-allowed text-white text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5"
                           title="Copiar link M3U"
                         >
@@ -6478,6 +6626,30 @@ export default function NovoCliente({
                             {/* Trial sem vencimento salvo (ex: DUPLECAST, 15 dias
                                 grátis) — sem essa tag ficava com "Vencimento: —"
                                 indistinguível de um app nunca verificado. */}
+                            {app.deviceType && (
+                              <span
+                                title="Aparelho escolhido ao adicionar o app"
+                                className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted border border-border text-muted-foreground ml-1"
+                              >
+                                <span className="text-[9px] font-medium uppercase tracking-wider">
+                                  {deviceLabel(app.deviceType)}
+                                </span>
+                              </span>
+                            )}
+                            {app.m3uList && (
+                              <span
+                                title={app.m3uListAt ? `Configurado em ${new Date(app.m3uListAt).toLocaleString("pt-BR")}` : "Lista configurada"}
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded border ml-1 ${
+                                  app.m3uList === "secundaria"
+                                    ? "bg-amber-500/10 border-amber-500/20 text-amber-500"
+                                    : "bg-sky-500/10 border-sky-500/20 text-sky-500"
+                                }`}
+                              >
+                                <span className="text-[9px] font-medium uppercase tracking-wider">
+                                  Lista {app.m3uList === "secundaria" ? "secundária" : "principal"}
+                                </span>
+                              </span>
+                            )}
                             {app.isTrial && (
                               <span
                                 title="Ainda no trial grátis do parceiro — sem vencimento fixo até ativar a licença paga"
@@ -6786,10 +6958,10 @@ export default function NovoCliente({
                   // escolhido; a busca livre por nome pesquisa o catálogo inteiro.
                   clientServerId={serverId}
                   catalogLoading={false}
-                  onSelectApp={(appId) => {
+                  onSelectApp={(appId, deviceType) => {
                     const selectedApp = catalog.find((app) => app.id === appId);
                     if (selectedApp) {
-                      addAppToClient(selectedApp);
+                      addAppToClient(selectedApp, deviceType);
                     }
                   }}
                   busyAppId={null}

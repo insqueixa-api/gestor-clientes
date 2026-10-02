@@ -21,10 +21,9 @@ import {
   extractFieldByType,
   findFieldByType,
   internalAppUrl,
-  buildM3uUrlFromDns,
-  buildM3uUrlSecondary,
   resolveIntegrationTypeByName,
 } from "@/lib/apps/panel";
+import { rotatePrincipalM3u, rotateSecondaryM3u } from "@/lib/apps/m3u-lists";
 import type {
   AppFieldConfig,
   ConfigureAppResult,
@@ -186,6 +185,9 @@ export async function configureClientApp(
   // valor que está na tela. Portal nunca passa isso — sempre lê do banco
   // (client.m3u_url), que é sempre a fonte da verdade por lá.
   m3uUrlOverride?: string,
+  // ✅ 02/10/2026: Reconfigurar = rotaciona a lista escolhida (outro domínio)
+  // e salva; Configurar (false) = usa a que está salva. lib/apps/m3u-lists.ts
+  rotate = false,
 ): Promise<ConfigureAppResult> {
   const handler = resolveHandler(row);
   if (!handler || !handler.useApi) {
@@ -200,7 +202,7 @@ export async function configureClientApp(
 
   const { data: client, error: clientErr } = await supabaseAdmin
     .from("clients")
-    .select("tenant_id, server_username, server_password, server_id, m3u_url")
+    .select("tenant_id, server_username, server_password, server_id, m3u_url, m3u_url_secondary")
     .eq("id", row.client_id)
     .single();
   if (clientErr || !client) {
@@ -216,25 +218,41 @@ export async function configureClientApp(
   const finalServerName = `${client.server_username}_${serverNameClean}`;
   const serverDns = Array.isArray(server?.dns) ? server.dns : [];
 
-  // Sem override (portal, sempre): fonte da verdade é o banco. Com override
-  // (admin): a tela manda, mesmo vazia — igual sempre foi o comportamento
-  // client-side do admin, que nunca olhava pro client.m3u_url salvo.
-  let m3uUrl = (m3uUrlOverride !== undefined ? m3uUrlOverride : String(client.m3u_url || "")).trim();
-  if (mode === "secundaria") {
-    if (m3uUrlOverride !== undefined && m3uUrl) {
-      // Admin: já sorteou e mostrou esse link na tela antes de chamar aqui
-      // (mesmo texto que o próprio admin vê) — usa o mesmo valor, só
-      // garante que fica salvo no cliente também.
-      await supabaseAdmin.from("clients").update({ m3u_url: m3uUrl }).eq("id", row.client_id);
-    } else {
-      const freshUrl = buildM3uUrlSecondary(serverDns, client.server_username, client.server_password || "", server?.name);
-      if (freshUrl) {
-        m3uUrl = freshUrl;
-        await supabaseAdmin.from("clients").update({ m3u_url: m3uUrl }).eq("id", row.client_id);
+  // ✅ 02/10/2026 (pedido do Márcio): principal e secundária em colunas
+  // separadas — a secundária NUNCA mais sobrescreve a principal.
+  //   Principal: m3u_url (admin pode mandar o valor da tela via override).
+  //   Secundária: m3u_url_secondary.
+  //   Vazia ou Reconfigurar → monta/rotaciona e salva no cliente.
+  const rotateArgs = {
+    dnsList: serverDns,
+    username: client.server_username,
+    password: client.server_password || "",
+    serverName: server?.name,
+  };
+  const savedPrincipal = (m3uUrlOverride !== undefined ? m3uUrlOverride : String(client.m3u_url || "")).trim();
+  const clientPatch: Record<string, string> = {};
+  let m3uUrl: string;
+  if (mode === "principal") {
+    m3uUrl = savedPrincipal;
+    if (rotate || !m3uUrl) {
+      const fresh = rotatePrincipalM3u({ ...rotateArgs, currentPrincipal: savedPrincipal || client.m3u_url });
+      if (fresh) {
+        m3uUrl = fresh;
+        clientPatch.m3u_url = fresh;
       }
     }
-  } else if (!m3uUrl) {
-    m3uUrl = buildM3uUrlFromDns(serverDns, client.server_username, client.server_password || "");
+  } else {
+    m3uUrl = String(client.m3u_url_secondary || "").trim();
+    if (rotate || !m3uUrl) {
+      const fresh = rotateSecondaryM3u({ ...rotateArgs, currentPrincipal: savedPrincipal, currentSecondary: m3uUrl });
+      if (fresh) {
+        m3uUrl = fresh;
+        clientPatch.m3u_url_secondary = fresh;
+      }
+    }
+  }
+  if (Object.keys(clientPatch).length) {
+    await supabaseAdmin.from("clients").update(clientPatch).eq("id", row.client_id);
   }
 
   const { data: integ } = await supabaseAdmin
@@ -373,7 +391,13 @@ export async function configureClientApp(
       .eq("id", row.id);
   }
 
-  return { ok: true, expireDate, message: apiJson.message || "Configurado com sucesso." };
+  // ✅ 02/10/2026: guarda qual lista foi pro app (mostrado no card)
+  await supabaseAdmin
+    .from("client_apps")
+    .update({ m3u_list: mode, m3u_list_at: new Date().toISOString() })
+    .eq("id", row.id);
+
+  return { ok: true, expireDate, message: apiJson.message || "Configurado com sucesso.", m3uUrl, m3uList: mode };
 }
 
 // Espelha app/api/client-portal/apps/check-validity/route.ts:51-152 (consulta

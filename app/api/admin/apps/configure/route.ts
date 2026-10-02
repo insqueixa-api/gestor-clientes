@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
     body?.field_values && typeof body.field_values === "object" ? body.field_values : undefined;
   const m3uUrlOverride = typeof body?.m3u_url === "string" ? body.m3u_url : undefined;
   const mode = body?.mode === "secundaria" ? "secundaria" : "principal";
+  // ✅ 02/10/2026: Reconfigurar rotaciona a lista e salva (lib/apps/m3u-lists.ts)
+  const rotate = body?.rotate === true;
 
   const row = clientAppId
     ? await loadClientApp(supabase, { clientAppId, tenantId, fieldValuesOverride: fieldValues })
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
   }
   if (!row) return NextResponse.json({ ok: false, error: "Aplicativo não encontrado" }, { status: 404 });
 
-  const result = await configureClientApp(supabase, row, mode, m3uUrlOverride);
+  const result = await configureClientApp(supabase, row, mode, m3uUrlOverride, rotate);
 
   // ✅ Comparação explícita (=== false), não `!result.ok` — o projeto roda
   // com strict:false no tsconfig, e sem strictNullChecks o TS não discrimina
@@ -71,8 +73,14 @@ export async function POST(req: NextRequest) {
     clientAppId: clientAppId || null,
     appName: row.appName,
     event: "configured",
-    detail: result.expireDate ? { expireDate: result.expireDate } : null,
+    detail: { ...(result.expireDate ? { expireDate: result.expireDate } : {}), lista: result.m3uList, rotacionou: rotate },
   });
 
-  return NextResponse.json({ ok: true, expireDate: result.expireDate, message: result.message || "Configurado com sucesso." });
+  return NextResponse.json({
+    ok: true,
+    expireDate: result.expireDate,
+    message: result.message || "Configurado com sucesso.",
+    m3u_url: result.m3uUrl || null,
+    m3u_list: result.m3uList || mode,
+  });
 }

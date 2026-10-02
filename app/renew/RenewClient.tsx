@@ -391,6 +391,9 @@ export default function RenewClient() {
     icon_url: string | null;
     // estrelas (apps.tier, ou a nota da AtivaApp) — null = sem classificação
     tier: number | null;
+    // qual lista foi configurada nesse app (02/10/2026)
+    m3u_list: "principal" | "secundaria" | null;
+    m3u_list_at: string | null;
     has_integration: boolean;
     can_check_validity: boolean;
     requires_admin_setup: boolean;
@@ -1466,6 +1469,9 @@ export default function RenewClient() {
           client_id: selectedAccountId,
           client_app_id: clientAppId,
           mode,
+          // ✅ 02/10/2026: Reconfigurar = rotaciona a lista e salva;
+          // primeira configuração usa a que está salva
+          rotate: isReconfigure,
         }),
       });
       const result = await res.json().catch(() => null);
@@ -1707,7 +1713,7 @@ export default function RenewClient() {
     }
   }
 
-  async function handleAddApp(appId: string) {
+  async function handleAddApp(appId: string, deviceType?: string | null) {
     if (!selectedAccountId || !session) return;
     // ✅ App descontinuado continua na lista (senão quem já usa não acha
     // pra saber que precisa trocar) — mas ao tentar adicionar, mostra o
@@ -1732,6 +1738,8 @@ export default function RenewClient() {
           session_token: session,
           client_id: selectedAccountId,
           app_id: appId,
+          // aparelho escolhido no seletor (só aparece no admin)
+          device_type: deviceType || null,
         }),
       });
       const result = await res.json().catch(() => null);
@@ -4946,6 +4954,18 @@ export default function RenewClient() {
                               Licença paga • renovação em andamento
                             </span>
                           )}
+                          {app.has_integration && app.m3u_list && (
+                            <span
+                              className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-bold ${
+                                app.m3u_list === "secundaria"
+                                  ? "bg-amber-500/10 text-amber-600"
+                                  : "bg-sky-500/10 text-sky-600"
+                              }`}
+                              title={app.m3u_list_at ? `Configurado em ${new Date(app.m3u_list_at).toLocaleString("pt-BR")}` : undefined}
+                            >
+                              Lista {app.m3u_list === "secundaria" ? "Secundária" : "Principal"}
+                            </span>
+                          )}
                         </div>
                       </div>
                       {/* direita: estrelas em cima; Renovar logo abaixo, na
@@ -5197,7 +5217,7 @@ export default function RenewClient() {
                   ? appActionBusy.slice(4)
                   : null
               }
-              onSelectApp={(appId) => handleAddApp(appId)}
+              onSelectApp={(appId, deviceType) => handleAddApp(appId, deviceType)}
               title="Adicionar aplicativo"
               variant="portal"
               subtitle={

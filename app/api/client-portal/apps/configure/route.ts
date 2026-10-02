@@ -53,6 +53,9 @@ export async function POST(req: NextRequest) {
     // sorteando outra DNS do servidor, em vez de reaproveitar o que já está
     // salvo (comportamento padrão/"Principal").
     const mode = body?.mode === "secundaria" ? "secundaria" : "principal";
+    // ✅ 02/10/2026: Reconfigurar (app já configurado antes) rotaciona a
+    // lista escolhida e salva; Configurar usa a que está salva.
+    const rotate = body?.rotate === true;
 
     const ctx = await validatePortalClient(supabaseAdmin, session_token, client_id);
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
@@ -106,7 +109,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await configureClientApp(supabaseAdmin, row, mode);
+    const result = await configureClientApp(supabaseAdmin, row, mode, undefined, rotate);
 
     // ✅ Comparação explícita (=== false), não `!result.ok` — o projeto roda
     // com strict:false no tsconfig, e sem strictNullChecks o TS não
@@ -194,7 +197,7 @@ export async function POST(req: NextRequest) {
         clientAppId: client_app_id,
         appName,
         event: "configured",
-        detail: result.expireDate ? { expireDate: result.expireDate } : null,
+        detail: { ...(result.expireDate ? { expireDate: result.expireDate } : {}), lista: result.m3uList, rotacionou: rotate },
       }),
     );
 
@@ -203,6 +206,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         expireDate: result.expireDate,
         message: result.message || "Configurado com sucesso.",
+        m3u_list: result.m3uList || mode,
         // ✅ 2ª tentativa dentro da janela (1 sucesso recente já contabilizado
         // antes dessa) — avisa o cliente que é a mesma ação de novo, mas não
         // bloqueia (só a 3ª+ bloqueia, ver trava no topo da rota).

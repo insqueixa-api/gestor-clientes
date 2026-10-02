@@ -281,6 +281,8 @@ export default function AppManagerPage() {
   const [integrationFilter, setIntegrationFilter] = useState<string>("todas"); // valor | "none"
   const [renewFilter, setRenewFilter] = useState<string>("todas"); // AtivaApp | DupleCast | GerenciaApp | none
   const [costFilter, setCostFilter] = useState<string>("todos"); // free | paid | partnership
+  // celular: filtros recolhidos atrás do botão "Filtros" (mesmo padrão da tela de clientes)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   // Seções recolhíveis da lista (legado e descontinuados começam fechadas)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     descontinuado: true,
@@ -628,7 +630,10 @@ export default function AppManagerPage() {
     const q = search.trim().toLowerCase();
     return apps.filter((a) => {
       if (q && !String(a.name ?? "").toLowerCase().includes(q)) return false;
-      if (
+      if (deviceTypeFilter === "__none__") {
+        // ✅ 02/10/2026: "Sem aparelho" = ainda não mapeado (nem à mão nem pela AtivaApp)
+        if (effectiveDevices(a, appativaCatalog).value.length > 0) return false;
+      } else if (
         deviceTypeFilter !== "Todos" &&
         !effectiveDevices(a, appativaCatalog).value.includes(deviceTypeFilter)
       )
@@ -745,7 +750,7 @@ export default function AppManagerPage() {
   const isRootTenant = true;
 
   const filterSelectCls =
-    "h-9 w-full sm:w-auto px-2.5 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500";
+    "h-10 w-full md:w-auto px-2.5 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500";
   const integrationFilterOptions = React.useMemo(() => {
     const used = new Set(apps.map((a) => a.integration_type).filter(Boolean) as string[]);
     return [...used]
@@ -1776,108 +1781,175 @@ export default function AppManagerPage() {
         </div>
       </div>
 
-      {/* BUSCA + FILTROS COMBINADOS (02/10/2026) — todos valem juntos */}
-      <div className="px-3 sm:px-0 space-y-2">
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar aplicativo..."
-            className="h-10 w-full sm:max-w-sm px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500"
-          />
-          <span className="text-xs text-muted-foreground">
-            {filteredApps.length === apps.length
-              ? `${apps.length} aplicativos`
-              : `${filteredApps.length} de ${apps.length} aplicativos`}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-          <select
-            value={starFilter}
-            onChange={(e) => setStarFilter(e.target.value)}
-            title="Estrelas"
-            className={`${filterSelectCls} ${starFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+      {/* BUSCA + FILTROS COMBINADOS (02/10/2026) — todos valem juntos.
+          Computador: busca e filtros numa linha só. Celular: busca + botão
+          "Filtros" que abre o painel (mesmo padrão da tela de clientes). */}
+      {(() => {
+        const filterSelects = (
+          <>
+              <select
+                value={starFilter}
+                onChange={(e) => setStarFilter(e.target.value)}
+                title="Estrelas"
+                className={`${filterSelectCls} ${starFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+              >
+                <option value="todas">Todas as estrelas</option>
+                <option value="5">★★★★★ 5 estrelas</option>
+                <option value="4">★★★★ 4 estrelas</option>
+                <option value="3">★★★ 3 estrelas</option>
+                <option value="2">★★ 2 estrelas</option>
+                <option value="1">★ 1 estrela</option>
+                <option value="sem">Sem estrela</option>
+              </select>
+              <select
+                value={configFilter}
+                onChange={(e) => setConfigFilter(e.target.value)}
+                title="Configuração"
+                className={`${filterSelectCls} ${configFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+              >
+                <option value="todas">Automático e manual</option>
+                <option value="auto">Automático</option>
+                <option value="manual">Manual</option>
+              </select>
+              <select
+                value={integrationFilter}
+                onChange={(e) => setIntegrationFilter(e.target.value)}
+                title="Integração"
+                className={`${filterSelectCls} ${integrationFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+              >
+                <option value="todas">Todas as integrações</option>
+                <option value="none">Sem integração</option>
+                {integrationFilterOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={renewFilter}
+                onChange={(e) => setRenewFilter(e.target.value)}
+                title="Ativação / renovação"
+                className={`${filterSelectCls} ${renewFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+              >
+                <option value="todas">Toda ativação</option>
+                <option value="AtivaApp">⚡ AtivaApp</option>
+                <option value="DupleCast">⚡ DupleCast</option>
+                <option value="GerenciaApp">⚡ GerenciaApp</option>
+                <option value="none">Sem ativação automática</option>
+              </select>
+              <select
+                value={costFilter}
+                onChange={(e) => setCostFilter(e.target.value)}
+                title="Tipo"
+                className={`${filterSelectCls} ${costFilter !== "todos" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+              >
+                <option value="todos">Pago, grátis e parceria</option>
+                <option value="paid">Pago</option>
+                <option value="free">Gratuito</option>
+                <option value="partnership">Parceria</option>
+              </select>
+              <select
+                value={deviceTypeFilter}
+                onChange={(e) => setDeviceTypeFilter(e.target.value)}
+                title="Aparelho"
+                className={`${filterSelectCls} ${deviceTypeFilter !== "Todos" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+              >
+                <option value="Todos">Todos os aparelhos</option>
+                <option value="__none__">Sem aparelho (não mapeado)</option>
+                {deviceOptions.map((dt) => (
+                  <option key={dt} value={dt}>
+                    {deviceLabel(dt)}
+                  </option>
+                ))}
+              </select>
+          </>
+        );
+        const searchBox = (
+          <div className="flex-1 min-w-0 relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar aplicativo..."
+              className="w-full h-10 px-3 pr-8 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        );
+        const clearBtn = (hasActiveFilters || search.trim()) && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="h-10 px-3 shrink-0 rounded-lg border border-rose-500/20 bg-rose-500/10 text-rose-500 text-sm font-medium hover:bg-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
           >
-            <option value="todas">Todas as estrelas</option>
-            <option value="5">★★★★★ 5 estrelas</option>
-            <option value="4">★★★★ 4 estrelas</option>
-            <option value="3">★★★ 3 estrelas</option>
-            <option value="2">★★ 2 estrelas</option>
-            <option value="1">★ 1 estrela</option>
-            <option value="sem">Sem estrela</option>
-          </select>
-          <select
-            value={configFilter}
-            onChange={(e) => setConfigFilter(e.target.value)}
-            title="Configuração"
-            className={`${filterSelectCls} ${configFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
-          >
-            <option value="todas">Automático e manual</option>
-            <option value="auto">Automático</option>
-            <option value="manual">Manual</option>
-          </select>
-          <select
-            value={integrationFilter}
-            onChange={(e) => setIntegrationFilter(e.target.value)}
-            title="Integração"
-            className={`${filterSelectCls} ${integrationFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
-          >
-            <option value="todas">Todas as integrações</option>
-            <option value="none">Sem integração</option>
-            {integrationFilterOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={renewFilter}
-            onChange={(e) => setRenewFilter(e.target.value)}
-            title="Ativação / renovação"
-            className={`${filterSelectCls} ${renewFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
-          >
-            <option value="todas">Toda ativação</option>
-            <option value="AtivaApp">⚡ AtivaApp</option>
-            <option value="DupleCast">⚡ DupleCast</option>
-            <option value="GerenciaApp">⚡ GerenciaApp</option>
-            <option value="none">Sem ativação automática</option>
-          </select>
-          <select
-            value={costFilter}
-            onChange={(e) => setCostFilter(e.target.value)}
-            title="Tipo"
-            className={`${filterSelectCls} ${costFilter !== "todos" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
-          >
-            <option value="todos">Pago, grátis e parceria</option>
-            <option value="paid">Pago</option>
-            <option value="free">Gratuito</option>
-            <option value="partnership">Parceria</option>
-          </select>
-          <select
-            value={deviceTypeFilter}
-            onChange={(e) => setDeviceTypeFilter(e.target.value)}
-            title="Aparelho"
-            className={`${filterSelectCls} ${deviceTypeFilter !== "Todos" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
-          >
-            <option value="Todos">Todos os aparelhos</option>
-            {deviceOptions.map((dt) => (
-              <option key={dt} value={dt}>
-                {deviceLabel(dt)}
-              </option>
-            ))}
-          </select>
-          {(hasActiveFilters || search.trim()) && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="h-9 px-3 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
-            >
-              Limpar filtros
-            </button>
-          )}
-        </div>
-      </div>
+            <X className="w-3.5 h-3.5" /> Limpar
+          </button>
+        );
+        return (
+          <div className="px-3 md:p-4 md:bg-card md:border md:border-border md:rounded-xl md:shadow-sm space-y-3">
+            <div className="hidden md:flex items-center justify-between text-xs font-medium uppercase text-muted-foreground tracking-wider">
+              <span>Filtros rápidos</span>
+              <span className="normal-case tracking-normal">
+                {filteredApps.length === apps.length
+                  ? `${apps.length} aplicativos`
+                  : `${filteredApps.length} de ${apps.length} aplicativos`}
+              </span>
+            </div>
+
+            {/* computador: tudo na mesma linha (quebra se faltar espaço) */}
+            <div className="hidden md:flex flex-wrap items-center gap-2">
+              <div className="flex-1 min-w-[14rem] flex">{searchBox}</div>
+              {filterSelects}
+              {clearBtn}
+            </div>
+
+            {/* celular: busca + botão Filtros */}
+            <div className="md:hidden flex items-center gap-2">
+              {searchBox}
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen((v) => !v)}
+                className={`h-10 px-3 shrink-0 rounded-lg border font-medium text-sm transition-colors ${
+                  hasActiveFilters
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                    : "border-border bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                Filtros
+              </button>
+            </div>
+            {mobileFiltersOpen && (
+              <div className="md:hidden p-3 rounded-xl border border-border space-y-2 [&_select]:w-full [&_select]:h-10">
+                {filterSelects}
+                <div className="flex gap-2 pt-1">
+                  {clearBtn}
+                  <button
+                    type="button"
+                    onClick={() => setMobileFiltersOpen(false)}
+                    className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                  >
+                    Ver {filteredApps.length} aplicativo{filteredApps.length === 1 ? "" : "s"}
+                  </button>
+                </div>
+              </div>
+            )}
+            <p className="md:hidden text-xs text-muted-foreground">
+              {filteredApps.length === apps.length
+                ? `${apps.length} aplicativos`
+                : `${filteredApps.length} de ${apps.length} aplicativos`}
+            </p>
+          </div>
+        );
+      })()}
 
       {/* LISTAGEM — por classificação */}
       {loading ? (

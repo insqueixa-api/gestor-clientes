@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
     const session_token = normalizeStr(body?.session_token);
     const client_id = normalizeStr(body?.client_id);
     const app_id = normalizeStr(body?.app_id);
+    // ✅ 02/10/2026: aparelho escolhido no seletor (ex: "SAMSUNG") — só
+    // informativo, mostrado no admin
+    const device_type = normalizeStr(body?.device_type).slice(0, 40) || null;
 
     const ctx = await validatePortalClient(supabaseAdmin, session_token, client_id);
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
@@ -118,6 +121,7 @@ export async function POST(req: NextRequest) {
         client_id,
         tenant_id: ctx.tenant_id,
         app_id,
+        device_type,
         field_values: {
           _config_cost: app.cost_type || "paid",
           _config_partner: app.partner_server_id || "",

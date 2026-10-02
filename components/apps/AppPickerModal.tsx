@@ -139,7 +139,8 @@ export default function AppPickerModal({
   onClose: () => void;
   catalog: AppPickerCatalogItem[];
   catalogLoading: boolean;
-  onSelectApp: (appId: string) => void;
+  /** deviceType = aparelho escolhido no seletor (null quando veio da busca/filtro) */
+  onSelectApp: (appId: string, deviceType?: string | null) => void;
   busyAppId: string | null;
   title?: string;
   subtitle?: string;
@@ -357,7 +358,7 @@ export default function AppPickerModal({
       <button
         type="button"
         disabled={busy}
-        onClick={() => onSelectApp(app.id)}
+        onClick={() => onSelectApp(app.id, q || quickFilter ? null : deviceType)}
         className={`${size} inline-flex items-center justify-center gap-1.5 rounded-lg text-white text-xs font-bold transition-colors disabled:opacity-60 ${
           isPortal ? "bg-sky-600 hover:bg-sky-500" : "bg-emerald-600 hover:bg-emerald-500"
         }`}

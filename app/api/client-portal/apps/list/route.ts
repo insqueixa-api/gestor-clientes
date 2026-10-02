@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
-        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id, tier, appativa_meta)")
+        .select("id, app_id, field_values, m3u_list, m3u_list_at, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id, tier, appativa_meta)")
         .eq("client_id", client_id),
       // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
       // configuração"/"Exclusão solicitada" quando já existe um pedido
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
     if (hasAnyInstructions || hasAnyPaidLicense) {
       const { data: client } = await supabaseAdmin
         .from("clients")
-        .select("server_username, server_password, server_id, m3u_url, price_currency")
+        .select("server_username, server_password, server_id, m3u_url, m3u_url_secondary, price_currency")
         .eq("id", client_id)
         .maybeSingle();
       clientCurrency = String(client?.price_currency || "BRL").trim() || "BRL";
@@ -214,7 +214,10 @@ export async function POST(req: NextRequest) {
         // "Link M3U Rota 2" sempre baterem com o mesmo host.
         const isNaTv = String(server?.name || "").trim().toUpperCase() === "NATV";
         const dnsR2 = isNaTv && dns ? natvMirrorBaseUrl(dns) : "";
-        const m3uUrlR2 = isNaTv && dns ? buildM3uUrlSecondary([dns], username, password, server?.name) : "";
+        // ✅ 02/10/2026: secundária salva no cliente tem prioridade (é a que
+        // de fato vai pro app no "Secundária")
+        const savedSecondary = String(client?.m3u_url_secondary || "").trim();
+        const m3uUrlR2 = savedSecondary || (isNaTv && dns ? buildM3uUrlSecondary([dns], username, password, server?.name) : "");
         const dnsForPortal = dnsR2 && Math.random() < 0.5 ? dnsR2 : dns;
 
         instructionVars = {
@@ -306,6 +309,9 @@ export async function POST(req: NextRequest) {
         icon_url: row.apps ? effectiveIcon(row.apps) : null,
         tier: row.apps ? effectiveTier(row.apps).value : null,
         has_integration: hasIntegration,
+        // ✅ 02/10/2026: qual lista foi configurada nesse app (e quando)
+        m3u_list: row.m3u_list || null,
+        m3u_list_at: row.m3u_list_at || null,
         can_check_validity: canCheckValidity,
         requires_admin_setup: requiresAdminSetup,
         has_pending_setup_request: pendingSetupByAppId.has(row.id),
