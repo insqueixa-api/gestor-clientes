@@ -42,3 +42,16 @@ export const DEVICE_TYPE_LABELS: Record<DeviceType, string> = {
   FIRE_TV: "Fire TV Stick",
   ROKU: "Roku",
 };
+
+// ✅ 02/10/2026 (pedido do Márcio): aparelhos novos cadastrados à mão no
+// modal (ex: "PS5", "Mac", outra marca de TV) — salvos em apps.device_types
+// pelo próprio nome, ao lado das chaves fixas acima (coluna é text[] sem
+// restrição). Rótulo de qualquer valor: o fixo se for chave conhecida,
+// senão o próprio texto.
+export function deviceLabel(key: string): string {
+  return (DEVICE_TYPE_LABELS as Record<string, string>)[key] ?? key;
+}
+
+export function isBuiltInDevice(key: string): key is DeviceType {
+  return (ALL_DEVICE_TYPES as string[]).includes(key);
+}

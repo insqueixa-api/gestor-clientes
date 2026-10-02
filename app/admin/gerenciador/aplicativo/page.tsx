@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/gerenciador/aplicativo/page.tsx
-import { X, Pencil, Trash2, Download, Settings, Star, Zap, Wrench } from "lucide-react";
+import { X, Pencil, Trash2, Download, Settings, Star, Zap, Wrench, RefreshCw, ChevronDown, Search, Check } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";
 import {
@@ -32,14 +32,23 @@ import {
 } from "@/lib/apps/field-types";
 import {
   Technology,
-  DeviceType,
   ALL_DEVICE_TYPES,
-  DEVICE_TYPE_LABELS,
+  deviceLabel,
+  isBuiltInDevice,
 } from "@/lib/apps/device-types";
 import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import GpcRokuActivationsModal from "./gpc_roku_activations_modal";
 import DeviceBadges from "@/components/apps/DeviceBadges";
+import {
+  type AppativaCatalogItem,
+  type AppativaMeta,
+  devicesFromAppativa,
+  effectiveDevices,
+  effectiveIcon,
+  effectiveTier,
+  periodFromAppativa,
+} from "@/lib/apps/appativa-catalog";
 
 // --- TIPOS ---
 type AppField = {
@@ -69,7 +78,8 @@ type AppData = {
   partner_server_id?: string | null;
   license_price?: number | null;
   license_period?: LicensePeriod | null;
-  device_types?: DeviceType[] | null;
+  // chaves fixas (lib/apps/device-types) ou nome de aparelho cadastrado à mão
+  device_types?: string[] | null;
   technology?: Technology | null;
   portal_setup_instructions?: string | null;
   access_code?: string | null;
@@ -91,6 +101,10 @@ type AppData = {
   // ✅ 30/09/2026 (refactor, docs/apps-refactor/PLANO.md): classificação
   // em estrelas — 1 a 5 (5 = melhor), null = sem classificação.
   tier?: number | null;
+  // ✅ 02/10/2026: snapshot do app na AtivaApp (logo, nota, links...) —
+  // padrão de logo/estrelas/aparelhos quando não há override. Ver
+  // lib/apps/appativa-catalog.ts.
+  appativa_meta?: AppativaMeta | null;
 };
 
 // ✅ 30/09/2026: classificação por estrelas (vários apps por nível).
@@ -119,12 +133,14 @@ function TierStars({ value, size = 14 }: { value: number | null | undefined; siz
   );
 }
 
-type AppativaCatalogItem = {
-  id: string;
-  uuid: string;
-  nome: string;
-  valor: number;
-};
+// Logo pequena de item do catálogo da AtivaApp (dropdown do modal).
+function AppativaLogo({ src }: { src?: string | null }) {
+  return src ? (
+    <img src={src} alt="" loading="lazy" className="w-7 h-7 rounded-md object-cover border border-border shrink-0 bg-muted" />
+  ) : (
+    <span className="w-7 h-7 rounded-md bg-muted flex items-center justify-center text-xs shrink-0">📱</span>
+  );
+}
 
 type ServerOption = {
   id: string;
@@ -250,9 +266,7 @@ export default function AppManagerPage() {
   >([]);
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [search, setSearch] = useState("");
-  const [deviceTypeFilter, setDeviceTypeFilter] = useState<
-    "Todos" | DeviceType
-  >("Todos");
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState<string>("Todos");
   // Seções recolhíveis da lista (legado e descontinuados começam fechadas)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     legado: true,
@@ -343,7 +357,15 @@ export default function AppManagerPage() {
   const [formLicensePeriod, setFormLicensePeriod] = useState<
     LicensePeriod | ""
   >("");
-  const [formDeviceTypes, setFormDeviceTypes] = useState<DeviceType[]>([]);
+  const [formDeviceTypes, setFormDeviceTypes] = useState<string[]>([]);
+  // ✅ 02/10/2026: "Compatibilidade" virou lista de múltipla escolha.
+  // Marcar "Descontinuado" guarda o que estava marcado aqui e desmarca o
+  // resto; desmarcar devolve. É isso que vai pro banco enquanto estiver
+  // descontinuado — reabrir e desmarcar depois também volta.
+  const [devicesPickerOpen, setDevicesPickerOpen] = useState(false);
+  const [devicesBeforeDiscontinue, setDevicesBeforeDiscontinue] = useState<string[] | null>(null);
+  const [newDeviceName, setNewDeviceName] = useState("");
+  const [sessionCustomDevices, setSessionCustomDevices] = useState<string[]>([]);
   const [formTechnology, setFormTechnology] = useState<Technology>("IPTV");
   const [formPortalInstructions, setFormPortalInstructions] =
     useState<string>("");
@@ -379,13 +401,30 @@ export default function AppManagerPage() {
   // ✅ Escolha Duplecast/Appativa (achado 26/08/2026) — ver AppData.renewal_source.
   const [formRenewalSource, setFormRenewalSource] = useState<string>("duplecast");
   const [appativaPickerOpen, setAppativaPickerOpen] = useState(false);
-  // ✅ 2 campos de busca (achado 25/08/2026, pedido do Márcio: "buscar por
-  // um ou por outro") — Nome e ID filtram o mesmo catálogo em conjunto
-  // (AND quando os dois têm texto); selecionar um resultado preenche os
-  // dois. Digitar em qualquer um invalida o vínculo atual até escolher de
-  // novo na lista.
-  const [appativaSearchName, setAppativaSearchName] = useState("");
-  const [appativaSearchId, setAppativaSearchId] = useState("");
+  // ✅ 02/10/2026: dropdown único da AtivaApp — uma busca só (nome OU id),
+  // no lugar dos 2 campos de antes. Escolher um item é que troca o vínculo.
+  const [appativaQuery, setAppativaQuery] = useState("");
+  // id da integração AtivaApp (api_integrations) — usado pelo botão Sync.
+  const [appativaIntegrationId, setAppativaIntegrationId] = useState<string | null>(null);
+  const [syncingAppativa, setSyncingAppativa] = useState(false);
+  useEffect(() => {
+    if (!devicesPickerOpen) return;
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("[data-devices-picker]")) setDevicesPickerOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [devicesPickerOpen]);
+  useEffect(() => {
+    if (!appativaPickerOpen) return;
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("[data-appativa-picker]")) setAppativaPickerOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [appativaPickerOpen]);
 
   // Dados exibidos no portal: marca o que o cliente precisa copiar no app.
   function toggleVariableBadge(key: string) {
@@ -532,6 +571,7 @@ export default function AppManagerPage() {
       setAppativaCatalog(
         (appativaRes.data?.catalog_cache as AppativaCatalogItem[]) || [],
       );
+      setAppativaIntegrationId(appativaRes.data?.id ?? null);
       setAppativaCreditUnitPrice(
         appativaRes.data?.credit_unit_price != null
           ? Number(appativaRes.data.credit_unit_price)
@@ -559,12 +599,12 @@ export default function AppManagerPage() {
       if (q && !String(a.name ?? "").toLowerCase().includes(q)) return false;
       if (
         deviceTypeFilter !== "Todos" &&
-        !(a.device_types || []).includes(deviceTypeFilter)
+        !effectiveDevices(a, appativaCatalog).value.includes(deviceTypeFilter)
       )
         return false;
       return true;
     });
-  }, [search, apps, deviceTypeFilter]);
+  }, [search, apps, deviceTypeFilter, appativaCatalog]);
 
   const hasActiveFilters = deviceTypeFilter !== "Todos";
 
@@ -583,13 +623,15 @@ export default function AppManagerPage() {
       a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
     const ativos = filteredApps.filter((a) => a.is_active !== false);
     const correntes = ativos.filter((a) => a.cost_type !== "partnership");
+    // estrelas do Márcio; sem elas, a nota da AtivaApp (semi-automático)
+    const tierOf = (a: AppData) => effectiveTier(a, appativaCatalog).value;
     const out: { key: string; icon: string; label: string; hint?: string; apps: AppData[] }[] = [];
     for (const t of APP_TIERS) {
       out.push({
         key: `tier-${t.value}`,
         icon: t.icon,
         label: t.label,
-        apps: correntes.filter((a) => a.tier === t.value).sort(byName),
+        apps: correntes.filter((a) => tierOf(a) === t.value).sort(byName),
       });
     }
     out.push({
@@ -597,14 +639,14 @@ export default function AppManagerPage() {
       icon: "",
       label: "Sem classificação",
       hint: "Escolha o nível no próprio card.",
-      apps: correntes.filter((a) => !a.tier && !!a.integration_type).sort(byName),
+      apps: correntes.filter((a) => !tierOf(a) && !!a.integration_type).sort(byName),
     });
     out.push({
       key: "manual",
       icon: "🔧",
       label: "Configuração manual",
       hint: "Sem integração — configurados à mão.",
-      apps: correntes.filter((a) => !a.tier && !a.integration_type).sort(byName),
+      apps: correntes.filter((a) => !tierOf(a) && !a.integration_type).sort(byName),
     });
     out.push({
       key: "legado",
@@ -620,7 +662,7 @@ export default function AppManagerPage() {
       apps: filteredApps.filter((a) => a.is_active === false).sort(byName),
     });
     return out.filter((sec) => sec.apps.length > 0);
-  }, [filteredApps]);
+  }, [filteredApps, appativaCatalog]);
 
   async function setAppTier(app: AppData, tier: number | null) {
     if (!tenantId) return;
@@ -641,13 +683,142 @@ export default function AppManagerPage() {
 
   const isRootTenant = true;
 
+  const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const editingApp = editingId ? apps.find((a) => a.id === editingId) || null : null;
+  // Item da AtivaApp escolhido no modal: o do catálogo; se o catálogo não
+  // tiver (ex: ainda não sincronizado), o snapshot salvo no próprio app.
+  const formAppativaItem: AppativaCatalogItem | null = formAppativaAppId
+    ? appativaCatalog.find((it) => it.id === formAppativaAppId) ||
+      (editingApp?.appativa_meta?.id === formAppativaAppId ? editingApp.appativa_meta : null)
+    : null;
+  // id da AtivaApp -> nomes dos apps daqui vinculados a ele ("Já mapeados").
+  const appativaMappedTo = React.useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const a of apps) {
+      if (!a.appativa_app_id) continue;
+      m.set(a.appativa_app_id, [...(m.get(a.appativa_app_id) || []), a.name]);
+    }
+    return m;
+  }, [apps]);
+
+  const deviceOptions = React.useMemo(() => {
+    const custom = new Set<string>();
+    for (const a of apps) for (const d of a.device_types || []) if (!isBuiltInDevice(d)) custom.add(d);
+    for (const d of [...sessionCustomDevices, ...formDeviceTypes, ...(devicesBeforeDiscontinue || [])])
+      if (!isBuiltInDevice(d)) custom.add(d);
+    return [
+      ...ALL_DEVICE_TYPES,
+      ...[...custom].sort((x, y) => x.localeCompare(y, "pt-BR", { sensitivity: "base" })),
+    ] as string[];
+  }, [apps, sessionCustomDevices, formDeviceTypes, devicesBeforeDiscontinue]);
+  const formAutoDevices: string[] = devicesFromAppativa(formAppativaItem);
+
+  function pickAppativa(it: AppativaCatalogItem | null) {
+    setFormAppativaAppId(it?.id || "");
+    setFormAppativaAppName(it?.nome || "");
+    setAppativaPickerOpen(false);
+    setAppativaQuery("");
+  }
+
+  // Acha o app na AtivaApp pelo nome (ignora acento/espaço/caixa): igual
+  // primeiro; senão, só aceita se UM item contiver o nome (ex: "DupleCast"
+  // -> "DUPLECAST IPTV"). Ambíguo = não chuta.
+  function guessAppativaItem(name: string, items: AppativaCatalogItem[]) {
+    const norm = (v: string) =>
+      v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const n = norm(name);
+    if (!n) return null;
+    const live = items.filter((it) => !it.deletado);
+    const exact = live.filter((it) => norm(it.nome) === n);
+    if (exact.length === 1) return exact[0];
+    const partial = live.filter((it) => norm(it.nome).includes(n));
+    return partial.length === 1 ? partial[0] : null;
+  }
+
+  // ✅ 02/10/2026 (pedido do Márcio): botão Sync ao lado da URL — atualiza o
+  // catálogo da AtivaApp e traz o que der desse app. Só preenche o que está
+  // VAZIO: o que ele já preencheu à mão vale por cima. Logo, estrelas e
+  // aparelhos não são copiados — ficam como padrão automático (appativa_meta)
+  // até ele definir os dele.
+  async function handleAppativaSync() {
+    if (!appativaIntegrationId) return;
+    setSyncingAppativa(true);
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess.session?.access_token;
+      const res = await fetch("/api/integrations/appativa/list-apps", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ integration_id: appativaIntegrationId, sync: true }),
+      });
+      const json = await res.json().catch(() => ({}) as any);
+      if (!res.ok || !json?.ok) {
+        addToast("error", "Falha no Sync", json?.error || "Não foi possível consultar a AtivaApp.");
+        return;
+      }
+      const items = (json.items || []) as AppativaCatalogItem[];
+      setAppativaCatalog(items);
+
+      const linked = formAppativaAppId ? items.find((it) => it.id === formAppativaAppId) || null : null;
+      if (formAppativaAppId && !linked) {
+        addToast("error", "Catálogo atualizado", "O app vinculado não existe mais na AtivaApp — escolha outro.");
+        return;
+      }
+      const item = linked || guessAppativaItem(formName, items);
+      if (!item) {
+        setAppativaQuery(formName.trim());
+        setAppativaPickerOpen(true);
+        addToast("success", "Catálogo atualizado", "Não achei esse app na AtivaApp pelo nome — escolha na lista.");
+        return;
+      }
+
+      const filled: string[] = [];
+      if (!linked) {
+        pickAppativa(item);
+        filled.push("vínculo");
+      }
+      if (!formUrl.trim() && !isUrlLocked && item.link_app) {
+        setFormUrl(item.link_app);
+        filled.push("URL");
+      }
+      const period = periodFromAppativa(item.plano);
+      if (period && !formLicensePeriod) {
+        setFormLicensePeriod(period);
+        filled.push("período");
+      }
+      if (!formIconUrl && item.logo) filled.push("logo");
+      addToast(
+        "success",
+        `Sincronizado com ${item.nome}`,
+        filled.length
+          ? `Preenchido: ${filled.join(", ")}. O que você já tinha preenchido foi mantido.`
+          : "Nada vazio pra preencher — o que você já tinha preenchido foi mantido.",
+      );
+    } catch {
+      addToast("error", "Erro", "Falha ao conectar com o servidor.");
+    } finally {
+      setSyncingAppativa(false);
+    }
+  }
+
   function openNew() {
     setEditingId(null);
     setActiveTab("geral");
     setSugestaoInstrucoes(null);
     setFormName("");
     setFormUrl("");
-    setFormFields([]);
+    // ✅ 02/10/2026 (pedido do Márcio): app novo já nasce com os campos mais
+    // comuns, nessa ordem — ele tira/troca se for o caso.
+    setFormFields(
+      (["mac", "device_key", "date", "obs"] as AppFieldType[]).map((type) => ({
+        id: generateShortId(),
+        type,
+        label: FIELD_LABELS[type],
+      })),
+    );
     setFormIntegration("");
     setFormIconUrl("");
     r2Files.setOriginal([]);
@@ -656,6 +827,9 @@ export default function AppManagerPage() {
     setFormLicensePrice("");
     setFormLicensePeriod("");
     setFormDeviceTypes([]);
+    setDevicesBeforeDiscontinue(null);
+    setDevicesPickerOpen(false);
+    setNewDeviceName("");
     setFormTechnology("IPTV");
     setFormPortalInstructions("");
     setFormAccessCode("");
@@ -665,8 +839,8 @@ export default function AppManagerPage() {
     setFormAppativaAppId("");
     setFormAppativaAppName("");
     setFormRenewalSource("duplecast");
-    setAppativaSearchName("");
-    setAppativaSearchId("");
+    setAppativaQuery("");
+    setAppativaPickerOpen(false);
     setIsModalOpen(true);
   }
 
@@ -696,7 +870,16 @@ export default function AppManagerPage() {
       app.license_price != null ? String(app.license_price) : "",
     );
     setFormLicensePeriod((app.license_period as LicensePeriod) || "");
-    setFormDeviceTypes((app.device_types as DeviceType[]) || []);
+    // descontinuado: aparelhos salvos ficam guardados (voltam se desmarcar)
+    if (app.is_active === false) {
+      setFormDeviceTypes([]);
+      setDevicesBeforeDiscontinue(app.device_types || []);
+    } else {
+      setFormDeviceTypes(app.device_types || []);
+      setDevicesBeforeDiscontinue(null);
+    }
+    setDevicesPickerOpen(false);
+    setNewDeviceName("");
     setFormTechnology((app.technology as Technology) || "IPTV");
     setFormPortalInstructions(app.portal_setup_instructions || "");
     setFormAccessCode(app.access_code || "");
@@ -709,15 +892,53 @@ export default function AppManagerPage() {
     setFormAppativaAppId(app.appativa_app_id || "");
     setFormAppativaAppName(app.appativa_app_name || "");
     setFormRenewalSource(app.renewal_source || "duplecast");
-    setAppativaSearchName(app.appativa_app_name || "");
-    setAppativaSearchId(app.appativa_app_id || "");
+    setAppativaQuery("");
+    setAppativaPickerOpen(false);
     setIsModalOpen(true);
   }
 
-  function toggleDeviceType(dt: DeviceType) {
+  function toggleDeviceType(dt: string) {
+    // clicar num aparelho com "Descontinuado" marcado reativa o app (com o
+    // que estava marcado antes) e já aplica o clique
+    if (!formIsActive) {
+      const base = devicesBeforeDiscontinue || [];
+      setFormIsActive(true);
+      setDevicesBeforeDiscontinue(null);
+      setFormDeviceTypes(base.includes(dt) ? base.filter((d) => d !== dt) : [...base, dt]);
+      return;
+    }
     setFormDeviceTypes((prev) =>
       prev.includes(dt) ? prev.filter((d) => d !== dt) : [...prev, dt],
     );
+  }
+
+  function toggleDiscontinued() {
+    if (formIsActive) {
+      setDevicesBeforeDiscontinue(formDeviceTypes);
+      setFormDeviceTypes([]);
+      setFormIsActive(false);
+    } else {
+      setFormDeviceTypes(devicesBeforeDiscontinue || []);
+      setDevicesBeforeDiscontinue(null);
+      setFormIsActive(true);
+    }
+  }
+
+  // Aparelho novo (ex: "PS5"): se já existir com outro jeito de escrever
+  // (fixo ou cadastrado), reaproveita; já entra marcado.
+  function addCustomDevice() {
+    const name = newDeviceName.trim().replace(/\s+/g, " ");
+    if (!name) return;
+    const key =
+      deviceOptions.find(
+        (d) =>
+          d.toLowerCase() === name.toLowerCase() ||
+          deviceLabel(d).toLowerCase() === name.toLowerCase(),
+      ) || name;
+    if (!isBuiltInDevice(key)) setSessionCustomDevices((prev) => (prev.includes(key) ? prev : [...prev, key]));
+    setNewDeviceName("");
+    const isOn = formIsActive && formDeviceTypes.includes(key);
+    if (!isOn) toggleDeviceType(key);
   }
 
   const generateShortId = () =>
@@ -817,6 +1038,7 @@ export default function AppManagerPage() {
       const isPaid = formCostType === "paid";
       const isPartnership = formCostType === "partnership";
       const variableBadgesToSave = formVariableBadges;
+      const devicesToSave = formIsActive ? formDeviceTypes : devicesBeforeDiscontinue || [];
 
       const insertPayload = {
         tenant_id: tid,
@@ -830,7 +1052,7 @@ export default function AppManagerPage() {
         license_price:
           isPaid && formLicensePrice ? Number(formLicensePrice) : null,
         license_period: isPaid && formLicensePeriod ? formLicensePeriod : null,
-        device_types: formDeviceTypes,
+        device_types: devicesToSave,
         technology: formTechnology,
         portal_setup_instructions: formPortalInstructions.trim() || null,
         access_code: formAccessCode.trim() || null,
@@ -842,6 +1064,9 @@ export default function AppManagerPage() {
             : null,
         appativa_app_id: formAppativaAppId || null,
         appativa_app_name: formAppativaAppId ? formAppativaAppName || null : null,
+        appativa_meta: formAppativaItem
+          ? { ...formAppativaItem, synced_at: (formAppativaItem as AppativaMeta).synced_at || new Date().toISOString() }
+          : null,
         renewal_source:
           formIntegration === "DUPLECAST" && formAppativaAppId
             ? formRenewalSource
@@ -861,7 +1086,7 @@ export default function AppManagerPage() {
             isPaid && formLicensePrice ? Number(formLicensePrice) : null,
           license_period:
             isPaid && formLicensePeriod ? formLicensePeriod : null,
-          device_types: formDeviceTypes,
+          device_types: devicesToSave,
           technology: formTechnology,
           portal_setup_instructions: formPortalInstructions.trim() || null,
           access_code: formAccessCode.trim() || null,
@@ -873,6 +1098,9 @@ export default function AppManagerPage() {
               : null,
           appativa_app_id: formAppativaAppId || null,
           appativa_app_name: formAppativaAppId ? formAppativaAppName || null : null,
+          appativa_meta: formAppativaItem
+            ? { ...formAppativaItem, synced_at: (formAppativaItem as AppativaMeta).synced_at || new Date().toISOString() }
+            : null,
           renewal_source:
             formIntegration === "DUPLECAST" && formAppativaAppId
               ? formRenewalSource
@@ -982,6 +1210,9 @@ export default function AppManagerPage() {
       canEdit && app.is_active !== false && app.cost_type !== "partnership";
     const providers = activationProviders(app);
     const pickerOpen = tierPickerFor === app.id;
+    const icon = effectiveIcon(app, appativaCatalog);
+    const tier = effectiveTier(app, appativaCatalog);
+    const devices = effectiveDevices(app, appativaCatalog);
 
     return (
       <div
@@ -989,9 +1220,9 @@ export default function AppManagerPage() {
         className="bg-card border border-border rounded-xl p-3 shadow-sm hover:shadow-md transition-all flex flex-col gap-3"
       >
         <div className="flex items-start gap-3">
-          {app.icon_url ? (
+          {icon ? (
             <img
-              src={app.icon_url}
+              src={icon}
               alt=""
               className="w-11 h-11 rounded-lg object-cover border border-border shrink-0"
             />
@@ -1013,9 +1244,15 @@ export default function AppManagerPage() {
                     disabled={savingTierId === app.id}
                     onClick={() => setTierPickerFor(pickerOpen ? null : app.id)}
                     className="inline-flex items-center px-1.5 py-1 rounded-md border border-border hover:border-amber-400/60 transition-colors disabled:opacity-50"
-                    title={app.tier ? `${app.tier} de 5 estrelas — clique pra mudar` : "Classificar"}
+                    title={
+                      tier.auto
+                        ? `${tier.value} de 5 estrelas pela nota da AtivaApp — clique pra definir a sua`
+                        : app.tier
+                          ? `${app.tier} de 5 estrelas — clique pra mudar`
+                          : "Classificar"
+                    }
                   >
-                    <TierStars value={app.tier} size={14} />
+                    <TierStars value={tier.value} size={14} />
                   </button>
                   {pickerOpen && (
                     <div className="absolute right-0 top-full mt-1 z-30 w-40 rounded-lg border border-border bg-card shadow-lg p-1">
@@ -1047,9 +1284,9 @@ export default function AppManagerPage() {
                     </div>
                   )}
                 </div>
-              ) : app.tier ? (
+              ) : tier.value ? (
                 <span className="shrink-0 pt-1">
-                  <TierStars value={app.tier} size={14} />
+                  <TierStars value={tier.value} size={14} />
                 </span>
               ) : null}
             </div>
@@ -1123,16 +1360,19 @@ export default function AppManagerPage() {
             <button
               type="button"
               onClick={() => setDevicesPopoverFor(devicesPopoverFor === app.id ? null : app.id)}
-              disabled={!app.device_types?.length}
+              disabled={!devices.value.length}
               className="inline-flex items-center gap-1 h-6 px-2 rounded-md border border-border text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-              title="Aparelhos compatíveis"
+              title={devices.auto ? "Aparelhos compatíveis (pela AtivaApp)" : "Aparelhos compatíveis"}
             >
               Dispositivos
-              <span className="text-muted-foreground/70">{app.device_types?.length || 0}</span>
+              <span className="text-muted-foreground/70">{devices.value.length}</span>
             </button>
             {devicesPopoverFor === app.id && (
               <div className="absolute left-0 bottom-full mb-1 z-30 w-64 rounded-lg border border-border bg-card shadow-lg p-2">
-                <DeviceBadges types={app.device_types} />
+                <DeviceBadges types={devices.value} />
+                {devices.auto && (
+                  <p className="mt-1.5 text-[10px] text-muted-foreground">Pela AtivaApp — marque os seus no Editar pra substituir.</p>
+                )}
               </div>
             )}
           </div>
@@ -1257,12 +1497,35 @@ export default function AppManagerPage() {
         const integOk =
           !a.integration_type ||
           configuredIntegrations.some((i) => i.name === a.integration_type);
-        const ativaItem = a.appativa_app_id
-          ? appativaCatalog.find((it) => it.id === a.appativa_app_id)
+        const ativaItem: AppativaCatalogItem | null = a.appativa_app_id
+          ? appativaCatalog.find((it) => it.id === a.appativa_app_id) || a.appativa_meta || null
           : null;
         const ativaCost =
           ativaItem && appativaCreditUnitPrice != null ? ativaItem.valor * appativaCreditUnitPrice : null;
-        const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+        const icon = effectiveIcon(a, appativaCatalog);
+        const tier = effectiveTier(a, appativaCatalog);
+        const devices = effectiveDevices(a, appativaCatalog);
+        const autoTag = (
+          <span className="ml-1.5 align-middle text-[10px] font-medium px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-400">
+            AtivaApp
+          </span>
+        );
+        // Lojas/links de instalação que a AtivaApp informa pra esse app.
+        const ativaLinks = ativaItem
+          ? (
+              [
+                ["Android TV", ativaItem.links?.androidtv],
+                ["Samsung", ativaItem.links?.samsung],
+                ["LG", ativaItem.links?.lg],
+                ["Roku", ativaItem.links?.roku],
+                ["Microsoft", ativaItem.links?.microsoft],
+                ["Apple", ativaItem.links?.apple],
+              ] as [string, string | null | undefined][]
+            ).filter(([, url]) => !!url && /^https?:\/\//i.test(String(url)))
+          : [];
+        const ativaFields = ativaItem
+          ? [ativaItem.mac_e_key ? "MAC + Key" : null, ativaItem.is_device_id ? "Device ID" : null].filter(Boolean)
+          : [];
         const row = (label: string, value: React.ReactNode) => (
           <div className="grid grid-cols-[8.5rem_1fr] gap-3 py-2 border-b border-border last:border-0 text-sm">
             <span className="text-muted-foreground">{label}</span>
@@ -1273,14 +1536,17 @@ export default function AppManagerPage() {
           <Modal onClose={() => setDetailsApp(null)} maxWidth="max-w-lg">
             <ModalHeader onClose={() => setDetailsApp(null)}>
               <div className="flex items-center gap-3 min-w-0">
-                {a.icon_url ? (
-                  <img src={a.icon_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
+                {icon ? (
+                  <img src={icon} alt="" className="w-10 h-10 rounded-lg object-cover border border-border shrink-0" />
                 ) : (
                   <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">📱</div>
                 )}
                 <div className="min-w-0">
                   <h2 className="text-base font-semibold text-foreground truncate">{a.name}</h2>
-                  <TierStars value={a.tier} size={13} />
+                  <span className="flex items-center" title={tier.auto ? `Pela nota da AtivaApp (${ativaItem?.avaliacao})` : undefined}>
+                    <TierStars value={tier.value} size={13} />
+                    {tier.auto && autoTag}
+                  </span>
                 </div>
               </div>
             </ModalHeader>
@@ -1305,7 +1571,12 @@ export default function AppManagerPage() {
                     ))}
                   </span>
                 ) : "Manual")}
-                {row("Aparelhos", a.device_types?.length ? <DeviceBadges types={a.device_types} /> : "—")}
+                {row("Aparelhos", devices.value.length ? (
+                  <span>
+                    <DeviceBadges types={devices.value} />
+                    {devices.auto && <span className="block mt-1 text-[11px] text-muted-foreground">Pelos links da AtivaApp {autoTag}</span>}
+                  </span>
+                ) : "—")}
                 {row("Campos pedidos", a.fields_config?.length ? (
                   <span className="flex flex-wrap gap-1">
                     {a.fields_config.map((f) => (
@@ -1321,6 +1592,43 @@ export default function AppManagerPage() {
                   </a>
                 ) : "—")}
                 {row("Tecnologia", a.technology || "IPTV")}
+                {/* ✅ 02/10/2026: o que a AtivaApp informa desse app (padrão —
+                    o que o Márcio preenche aqui vale por cima). */}
+                {ativaItem && (
+                  <>
+                    <div className="pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Na AtivaApp
+                    </div>
+                    {row("App", (
+                      <span>
+                        {ativaItem.nome}
+                        {ativaItem.deletado && <span className="ml-1 text-[11px] text-rose-500">(removido lá)</span>}
+                        <span className="block text-[10px] font-mono text-muted-foreground">{ativaItem.id}</span>
+                      </span>
+                    ))}
+                    {ativaItem.avaliacao != null && row("Nota", `${String(ativaItem.avaliacao).replace(".", ",")} de 5`)}
+                    {(ativaItem.plano || ativaItem.classe) && row("Plano", [
+                      ativaItem.plano === "VIT" ? "Vitalício" : ativaItem.plano === "ANUAL" ? "Anual" : ativaItem.plano,
+                      ativaItem.classe ? `classe ${ativaItem.classe}` : null,
+                    ].filter(Boolean).join(" · "))}
+                    {ativaFields.length > 0 && row("Pede", ativaFields.join(" e "))}
+                    {ativaItem.downloader_code && row("Downloader", (
+                      <span className="font-mono">{ativaItem.downloader_code}</span>
+                    ))}
+                    {ativaLinks.length > 0 && row("Lojas", (
+                      <span className="flex flex-wrap gap-x-3 gap-y-1">
+                        {ativaLinks.map(([label, url]) => (
+                          <a key={label} href={String(url)} target="_blank" rel="noopener noreferrer" className="text-sky-600 dark:text-sky-400 underline">
+                            {label}
+                          </a>
+                        ))}
+                      </span>
+                    ))}
+                    {ativaItem.descricao && row("Descrição", (
+                      <span className="whitespace-pre-wrap text-xs text-muted-foreground">{ativaItem.descricao}</span>
+                    ))}
+                  </>
+                )}
                 {a.portal_setup_instructions && row("Instruções no portal", (
                   <span className="whitespace-pre-wrap text-xs text-muted-foreground">{a.portal_setup_instructions}</span>
                 ))}
@@ -1396,13 +1704,13 @@ export default function AppManagerPage() {
         <div className="flex gap-2">
           <select
             value={deviceTypeFilter}
-            onChange={(e) => setDeviceTypeFilter(e.target.value as "Todos" | DeviceType)}
+            onChange={(e) => setDeviceTypeFilter(e.target.value)}
             className="h-10 flex-1 sm:flex-none px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500"
           >
             <option value="Todos">Todos os aparelhos</option>
-            {ALL_DEVICE_TYPES.map((dt) => (
+            {deviceOptions.map((dt) => (
               <option key={dt} value={dt}>
-                {DEVICE_TYPE_LABELS[dt]}
+                {deviceLabel(dt)}
               </option>
             ))}
           </select>
@@ -1476,7 +1784,7 @@ export default function AppManagerPage() {
 
               {activeTab === "geral" && (
               <div className="space-y-3 animate-in slide-in-from-right-4 duration-300">
-              {/* DADOS BÁSICOS */}
+              {/* ✅ 02/10/2026 (refactor de apps): Nome | URL + Sync da AtivaApp */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <Label>Nome do Aplicativo</Label>
@@ -1488,16 +1796,32 @@ export default function AppManagerPage() {
                   />
                 </div>
                 <div>
-                  <Label>URL de Configuração (Global)</Label>
-                  <Input
-                    placeholder="https://..."
-                    value={formUrl}
-                    onChange={(e) => setFormUrl(e.target.value)}
-                    disabled={isUrlLocked}
-                    className={
-                      isUrlLocked ? "opacity-60 cursor-not-allowed" : ""
-                    }
-                  />
+                  <Label>URL de Configuração</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="https://..."
+                      value={formUrl}
+                      onChange={(e) => setFormUrl(e.target.value)}
+                      disabled={isUrlLocked}
+                      className={
+                        isUrlLocked ? "opacity-60 cursor-not-allowed" : ""
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAppativaSync}
+                      disabled={syncingAppativa || !appativaIntegrationId}
+                      className="shrink-0 h-10 px-3 inline-flex items-center gap-1.5 rounded-lg border border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400 text-xs font-semibold hover:bg-sky-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={
+                        appativaIntegrationId
+                          ? "Atualiza o catálogo da AtivaApp e preenche o que estiver vazio (o que você já preencheu é mantido)"
+                          : "AtivaApp não configurada em API de Integrações"
+                      }
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${syncingAppativa ? "animate-spin" : ""}`} />
+                      Sync
+                    </button>
+                  </div>
                   {isUrlLocked && (
                     <p className="text-[10px] text-emerald-500 mt-1 font-medium">
                       URL gerenciada automaticamente pela integração.
@@ -1525,9 +1849,9 @@ export default function AppManagerPage() {
                   className="flex items-center gap-4 p-3 border-2 border-dashed border-border rounded-xl hover:border-emerald-500/50 transition-colors"
                   tabIndex={0}
                 >
-                  {formIconUrl ? (
+                  {formIconUrl || formAppativaItem?.logo ? (
                     <img
-                      src={formIconUrl}
+                      src={formIconUrl || formAppativaItem?.logo || ""}
                       alt="Logo"
                       className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
                     />
@@ -1543,7 +1867,9 @@ export default function AppManagerPage() {
                         : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
                     </p>
                     <p className="text-[10px] text-muted-foreground mt-0.5">
-                      PNG, JPG, WebP — funciona com figurinhas do WhatsApp
+                      {!formIconUrl && formAppativaItem?.logo
+                        ? "Usando a logo da AtivaApp — envie uma pra substituir"
+                        : "PNG, JPG, WebP — funciona com figurinhas do WhatsApp"}
                     </p>
                   </div>
                   <label className="cursor-pointer shrink-0">
@@ -1567,7 +1893,7 @@ export default function AppManagerPage() {
                       type="button"
                       onClick={() => setFormIconUrl("")}
                       className="shrink-0 p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/20 transition-colors"
-                      title="Remover logo"
+                      title={formAppativaItem?.logo ? "Remover logo (volta pra da AtivaApp)" : "Remover logo"}
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -1575,206 +1901,216 @@ export default function AppManagerPage() {
                 </div>
               </div>
 
-              {/* INTEGRAÇÃO */}
+              {/* CONFIGURAÇÃO AUTOMÁTICA — integração própria | AtivaApp */}
               {isRootTenant &&
                 (!editingId ||
                   apps.find((a) => a.id === editingId)?.tenant_id ===
                     myTenantId) && (
-                  <div>
-                    <Label>Integração automática</Label>
-                    <select
-                      value={formIntegration}
-                      onChange={(e) => setFormIntegration(e.target.value)}
-                      className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-                    >
-                      <option value="">Sem integração</option>
-                      <option value="GERENCIAAPP">
-                        GerenciaApp (IBO Revenda, etc)
-                      </option>
-                      <option value="DUPLECAST">DupleCast</option>
-                      {/* IBOSOL removido do select em 27/07/2026 (pedido do
-                          Márcio) — consolidava vários apps da família via
-                          activation.iboplayer.com, que não funciona mais.
-                          Apps que já estavam com integration_type=IBOSOL
-                          (ex: "IBO Player") continuam salvos assim até serem
-                          migrados individualmente — não afeta quem já usa. */}
-                      <option value="IBOPRO">IBO Pro Player</option>
-                      <option value="QUICKPLAYER">Quick Player</option>
-                      <option value="MESSITV">MessiTV</option>
-                      <option value="BOBPLAYER">BOB Player</option>
-                      <option value="IBOPLAYER">IBO Player</option>
-                      <option value="IPTVDUPLEX">IPTV Duplex Play</option>
-                      <option value="IPTVPLAYERIO">IPTV Playerio</option>
-                      <option value="DUPLEXTV">Duplex TV</option>
-                      <option value="CLOUDDY">ClouDDy</option>
-                      <option value="NINJAPLUS">Ninja Plus</option>
-                      <option value="CAPPLAYER">CAP Player</option>
-                    </select>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Quando configurado, habilita automação ao criar clientes.
-                    </p>
-                  </div>
-                )}
+                  <div className="border border-border rounded-xl p-3 space-y-2">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Configuração automática
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <Label>Configuração</Label>
+                        <select
+                          value={formIntegration}
+                          onChange={(e) => setFormIntegration(e.target.value)}
+                          className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                        >
+                          <option value="">Sem integração</option>
+                          <option value="GERENCIAAPP">
+                            GerenciaApp (IBO Revenda, etc)
+                          </option>
+                          <option value="DUPLECAST">DupleCast</option>
+                          {/* IBOSOL removido do select em 27/07/2026 (pedido do
+                              Márcio) — consolidava vários apps da família via
+                              activation.iboplayer.com, que não funciona mais.
+                              Apps que já estavam com integration_type=IBOSOL
+                              (ex: "IBO Player") continuam salvos assim até serem
+                              migrados individualmente — não afeta quem já usa. */}
+                          <option value="IBOPRO">IBO Pro Player</option>
+                          <option value="QUICKPLAYER">Quick Player</option>
+                          <option value="MESSITV">MessiTV</option>
+                          <option value="BOBPLAYER">BOB Player</option>
+                          <option value="IBOPLAYER">IBO Player</option>
+                          <option value="IPTVDUPLEX">IPTV Duplex Play</option>
+                          <option value="IPTVPLAYERIO">IPTV Playerio</option>
+                          <option value="DUPLEXTV">Duplex TV</option>
+                          <option value="CLOUDDY">ClouDDy</option>
+                          <option value="NINJAPLUS">Ninja Plus</option>
+                          <option value="CAPPLAYER">CAP Player</option>
+                        </select>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Configura o app sozinho ao criar o cliente.
+                        </p>
+                      </div>
 
-              {/* APPATIVA — de-para com o catálogo do parceiro (achado
-                    25/08/2026, pedido do Márcio: "tem confusões de nomes",
-                    vincula direto pelo id em vez de comparar nome a nome
-                    via CSV exportado). */}
-              <div>
-                <div className="flex items-center justify-between">
-                  <Label>Appativa (catálogo do parceiro)</Label>
-                  {formAppativaAppId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormAppativaAppId("");
-                        setFormAppativaAppName("");
-                        setAppativaSearchName("");
-                        setAppativaSearchId("");
-                      }}
-                      className="text-[11px] text-muted-foreground hover:text-rose-500 transition-colors flex items-center gap-1"
-                      title="Remover vínculo"
-                    >
-                      <X className="w-3 h-3" />
-                      Remover vínculo
-                    </button>
-                  )}
-                </div>
-                <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    value={appativaSearchName}
-                    onChange={(e) => {
-                      setAppativaSearchName(e.target.value);
-                      setFormAppativaAppId("");
-                      setFormAppativaAppName("");
-                      setAppativaPickerOpen(true);
-                    }}
-                    onFocus={() => setAppativaPickerOpen(true)}
-                    onBlur={() =>
-                      setTimeout(() => setAppativaPickerOpen(false), 150)
-                    }
-                    placeholder={
-                      appativaCatalog.length
-                        ? "Buscar por nome..."
-                        : "Sincronize o catálogo em Parceiros primeiro"
-                    }
-                    disabled={appativaCatalog.length === 0}
-                    className={`w-full h-10 px-3 bg-transparent border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      formAppativaAppId
-                        ? "border-emerald-500/30 bg-emerald-500/10"
-                        : "border-border"
-                    }`}
-                  />
-                  <input
-                    value={appativaSearchId}
-                    onChange={(e) => {
-                      setAppativaSearchId(e.target.value);
-                      setFormAppativaAppId("");
-                      setFormAppativaAppName("");
-                      setAppativaPickerOpen(true);
-                    }}
-                    onFocus={() => setAppativaPickerOpen(true)}
-                    onBlur={() =>
-                      setTimeout(() => setAppativaPickerOpen(false), 150)
-                    }
-                    placeholder={
-                      appativaCatalog.length
-                        ? "Buscar por ID..."
-                        : "Sincronize o catálogo em Parceiros primeiro"
-                    }
-                    disabled={appativaCatalog.length === 0}
-                    className={`w-full h-10 px-3 bg-transparent border rounded-lg text-sm text-foreground font-mono text-xs outline-none focus:border-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      formAppativaAppId
-                        ? "border-emerald-500/30 bg-emerald-500/10"
-                        : "border-border"
-                    }`}
-                  />
-                  {appativaPickerOpen &&
-                    (appativaSearchName.trim() || appativaSearchId.trim()) &&
-                    appativaCatalog.length > 0 &&
-                    (() => {
-                      const nameQ = appativaSearchName.trim().toLowerCase();
-                      const idQ = appativaSearchId.trim().toLowerCase();
-                      const matches = appativaCatalog
-                        .filter((it) => {
-                          const nameOk = !nameQ || it.nome.toLowerCase().includes(nameQ);
-                          const idOk = !idQ || it.id.toLowerCase().includes(idQ);
-                          return nameOk && idOk;
-                        })
-                        .slice(0, 30);
-                      return (
-                        <div className="absolute z-30 top-full mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-border bg-card shadow-xl">
-                          {matches.length === 0 ? (
-                            <p className="px-3 py-2 text-xs text-muted-foreground">
-                              Nenhum aplicativo encontrado no catálogo.
-                            </p>
+                      {/* AtivaApp — de-para pelo id do catálogo deles (achado
+                          25/08/2026: "tem confusões de nomes"). Desde 02/10/2026
+                          é um dropdown só: busca por nome OU id, com os já
+                          mapeados em cima e as logos de lá. */}
+                      <div className="relative" data-appativa-picker>
+                        <Label>AtivaApp</Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAppativaQuery("");
+                            setAppativaPickerOpen((o) => !o);
+                          }}
+                          disabled={appativaCatalog.length === 0 && !formAppativaAppId}
+                          className={`w-full h-10 px-2 flex items-center gap-2 border rounded-lg text-sm text-left outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            formAppativaAppId
+                              ? "border-emerald-500/30 bg-emerald-500/10"
+                              : "border-border hover:border-emerald-500/40"
+                          }`}
+                        >
+                          {formAppativaAppId ? (
+                            <>
+                              <AppativaLogo src={formAppativaItem?.logo} />
+                              <span className="flex-1 min-w-0 truncate text-foreground">
+                                {formAppativaAppName || formAppativaItem?.nome || formAppativaAppId}
+                              </span>
+                              {formAppativaItem && appativaCreditUnitPrice != null && (
+                                <span className="shrink-0 text-[11px] text-muted-foreground" title="Seu custo por ativação">
+                                  {brl(formAppativaItem.valor * appativaCreditUnitPrice)}
+                                </span>
+                              )}
+                            </>
                           ) : (
-                            matches.map((it) => (
+                            <span className="flex-1 px-1 text-muted-foreground">
+                              {appativaCatalog.length ? "Sem vínculo" : "Catálogo vazio — use o Sync"}
+                            </span>
+                          )}
+                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                        </button>
+                        {appativaPickerOpen && (() => {
+                          const q = appativaQuery.trim().toLowerCase();
+                          const hit = (it: AppativaCatalogItem) =>
+                            !q || it.nome.toLowerCase().includes(q) || it.id.toLowerCase().includes(q);
+                          const mapped = appativaCatalog.filter((it) => appativaMappedTo.has(it.id) && hit(it));
+                          const others = appativaCatalog.filter((it) => !appativaMappedTo.has(it.id) && hit(it));
+                          const option = (it: AppativaCatalogItem) => {
+                            const ours = appativaMappedTo.get(it.id);
+                            return (
                               <button
                                 key={it.id}
                                 type="button"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                  setFormAppativaAppId(it.id);
-                                  setFormAppativaAppName(it.nome);
-                                  setAppativaSearchName(it.nome);
-                                  setAppativaSearchId(it.id);
-                                  setAppativaPickerOpen(false);
-                                }}
-                                className="w-full flex items-center justify-between gap-2 text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                                onClick={() => pickAppativa(it)}
+                                className={`w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-muted transition-colors ${
+                                  it.id === formAppativaAppId ? "bg-emerald-500/10" : ""
+                                }`}
                               >
-                                <span className="truncate">{it.nome}</span>
-                                <span className="shrink-0 text-[10px] font-mono text-muted-foreground truncate max-w-[40%]">
-                                  {it.id}
+                                <AppativaLogo src={it.logo} />
+                                <span className="min-w-0 flex-1">
+                                  <span className="block text-sm text-foreground truncate">
+                                    {it.nome}
+                                    {it.deletado && (
+                                      <span className="ml-1 text-[10px] font-medium text-rose-500">removido lá</span>
+                                    )}
+                                  </span>
+                                  <span className="block text-[10px] text-muted-foreground truncate">
+                                    {ours?.length ? `↔ ${ours.join(", ")}` : <span className="font-mono">{it.id}</span>}
+                                  </span>
                                 </span>
+                                {appativaCreditUnitPrice != null && (
+                                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                                    {brl(it.valor * appativaCreditUnitPrice)}
+                                  </span>
+                                )}
                               </button>
-                            ))
-                          )}
-                        </div>
-                      );
-                    })()}
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Vincula este app ao aplicativo correspondente no catálogo da
-                  Appativa (de-para por id, não por nome) — busque pelo nome
-                  ou pelo id, o que for mais fácil de bater.
-                </p>
-              </div>
+                            );
+                          };
+                          return (
+                            <div className="absolute z-40 top-full mt-1 left-0 right-0 rounded-lg border border-border bg-card shadow-xl overflow-hidden">
+                              <div className="p-2 border-b border-border">
+                                <div className="relative">
+                                  <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                  <input
+                                    autoFocus
+                                    value={appativaQuery}
+                                    onChange={(e) => setAppativaQuery(e.target.value)}
+                                    placeholder="Buscar por nome ou ID..."
+                                    className="w-full h-9 pl-8 pr-2 bg-transparent border border-border rounded-md text-sm text-foreground outline-none focus:border-emerald-500/50"
+                                  />
+                                </div>
+                              </div>
+                              <div className="max-h-72 overflow-y-auto py-1">
+                                {mapped.length > 0 && (
+                                  <>
+                                    <p className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                      Já mapeados · {mapped.length}
+                                    </p>
+                                    {mapped.map(option)}
+                                  </>
+                                )}
+                                {others.length > 0 && (
+                                  <>
+                                    <p className="px-2 pt-2 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                      {q ? "Outros" : "Todos"} · {others.length}
+                                    </p>
+                                    {others.map(option)}
+                                  </>
+                                )}
+                                {mapped.length + others.length === 0 && (
+                                  <p className="px-3 py-2 text-xs text-muted-foreground">
+                                    Nenhum aplicativo encontrado na AtivaApp.
+                                  </p>
+                                )}
+                              </div>
+                              {formAppativaAppId && (
+                                <button
+                                  type="button"
+                                  onClick={() => pickAppativa(null)}
+                                  className="w-full flex items-center gap-1.5 px-3 py-2 border-t border-border text-xs text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5 transition-colors"
+                                >
+                                  <X className="w-3 h-3" />
+                                  Remover vínculo
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Ativa/renova a licença pela AtivaApp.
+                        </p>
+                      </div>
+                    </div>
 
-              {/* ✅ Escolha Duplecast x Appativa (achado 26/08/2026, pedido
-                  do Márcio) — só faz sentido quando o app É o Duplecast E
-                  também está vinculado na Appativa (as duas automações
-                  disputam a mesma renovação). Default "Duplecast" — o
-                  simples fato de vincular na Appativa aqui em cima NUNCA
-                  muda sozinho qual parceiro está ativo; só troca quando
-                  escolhido aqui explicitamente. */}
-              {formIntegration === "DUPLECAST" && formAppativaAppId && (
-                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-                  <Label>Renovar automaticamente via</Label>
-                  <select
-                    value={formRenewalSource}
-                    onChange={(e) => setFormRenewalSource(e.target.value)}
-                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-                  >
-                    <option value="duplecast">
-                      Duplecast{duplecastCreditUnitPrice != null ? ` (${duplecastCreditUnitPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}/código)` : ""}
-                    </option>
-                    <option value="appativa">Appativa (fallback)</option>
-                  </select>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Os dois estão vinculados nesse app — escolha qual realmente
-                    ativa quando um cliente paga a renovação. Útil pra trocar
-                    pra Appativa se os códigos do Duplecast acabarem.
-                  </p>
-                </div>
-              )}
+                    {/* ✅ Escolha Duplecast x Appativa (achado 26/08/2026, pedido
+                        do Márcio) — só faz sentido quando o app É o Duplecast E
+                        também está vinculado na Appativa (as duas automações
+                        disputam a mesma renovação). Default "Duplecast" — o
+                        simples fato de vincular na Appativa NUNCA muda sozinho
+                        qual parceiro está ativo; só troca quando escolhido aqui
+                        explicitamente. */}
+                    {formIntegration === "DUPLECAST" && formAppativaAppId && (
+                      <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
+                        <Label>Renovar automaticamente via</Label>
+                        <select
+                          value={formRenewalSource}
+                          onChange={(e) => setFormRenewalSource(e.target.value)}
+                          className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+                        >
+                          <option value="duplecast">
+                            DupleCast{duplecastCreditUnitPrice != null ? ` (${brl(duplecastCreditUnitPrice)}/código)` : ""}
+                          </option>
+                          <option value="appativa">AtivaApp (fallback)</option>
+                        </select>
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          Os dois estão vinculados nesse app — escolha qual realmente
+                          ativa quando um cliente paga a renovação. Útil pra trocar
+                          pra AtivaApp se os códigos do DupleCast acabarem.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/* CUSTO E PARCERIA */}
-              <div className="bg-transparent border border-border rounded-xl p-3 space-y-3">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Custo e Parceria
-                </h3>
-
+              {/* ✅ 02/10/2026: Pago/Gratuito — Pago abre preço e período na
+                  mesma linha. Parceria acabou (refactor): só aparece pra app
+                  que já é de parceria, pra não sumir o valor salvo. */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <Label>Tipo</Label>
                   <Select
@@ -1784,14 +2120,44 @@ export default function AppManagerPage() {
                     }
                   >
                     <option value="">Não definido</option>
-                    <option value="free">Gratuito (universal)</option>
-                    <option value="paid">Pago (licença à parte)</option>
-                    <option value="partnership">Parceria com servidor</option>
+                    <option value="free">Gratuito</option>
+                    <option value="paid">Pago</option>
+                    {editingApp?.cost_type === "partnership" && (
+                      <option value="partnership">Parceria (antigo)</option>
+                    )}
                   </Select>
                 </div>
-
+                {formCostType === "paid" && (
+                  <>
+                    <div>
+                      <Label>Preço da renovação (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Ex: 30.00"
+                        value={formLicensePrice}
+                        onChange={(e) => setFormLicensePrice(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Período</Label>
+                      <Select
+                        value={formLicensePeriod}
+                        onChange={(e) =>
+                          setFormLicensePeriod(
+                            e.target.value as LicensePeriod | "",
+                          )
+                        }
+                      >
+                        <option value="">Não definido</option>
+                        <option value="annual">Anual</option>
+                        <option value="lifetime">Vitalícia</option>
+                      </Select>
+                    </div>
+                  </>
+                )}
                 {formCostType === "partnership" && (
-                  <div>
+                  <div className="sm:col-span-2">
                     <Label>Servidor parceiro</Label>
                     <Select
                       value={formPartnerServerId}
@@ -1804,42 +2170,6 @@ export default function AppManagerPage() {
                         </option>
                       ))}
                     </Select>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Este app é exclusivo/gratuito para clientes deste
-                      servidor.
-                    </p>
-                  </div>
-                )}
-
-                {formCostType === "paid" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label>Valor da licença (R$)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="Ex: 30.00"
-                        value={formLicensePrice}
-                        onChange={(e) => setFormLicensePrice(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label>Período da licença</Label>
-                      <Select
-                        value={formLicensePeriod}
-                        onChange={(e) =>
-                          setFormLicensePeriod(
-                            e.target.value as LicensePeriod | "",
-                          )
-                        }
-                      >
-                        <option value="">Não definido</option>
-                        <option value="annual">Anual</option>
-                        <option value="lifetime">
-                          Vitalícia (paga uma vez)
-                        </option>
-                      </Select>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1854,55 +2184,148 @@ export default function AppManagerPage() {
                   Dispositivo e Tecnologia
                 </h3>
 
-                <div>
-                  <Label>Tecnologia</Label>
-                  <div className="flex gap-2">
-                    {(["IPTV", "P2P"] as Technology[]).map((tech) => (
-                      <button
-                        key={tech}
-                        type="button"
-                        onClick={() => setFormTechnology(tech)}
-                        className={`flex-1 h-10 rounded-lg border text-sm font-medium transition-colors ${
-                          formTechnology === tech
-                            ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-500"
-                            : "bg-transparent border-border text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {tech}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Só aparece para cliente com a mesma tecnologia (IPTV ou
-                    P2P).
-                  </p>
-                </div>
-
-                <div>
-                  <Label>Dispositivos compatíveis</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {ALL_DEVICE_TYPES.map((dt) => {
-                      const active = formDeviceTypes.includes(dt);
-                      return (
+                {/* ✅ 02/10/2026 (pedido do Márcio): IPTV | P2P | Compatibilidade
+                    numa linha só. Compatibilidade = lista de múltipla escolha
+                    com atalho "Descontinuado" e cadastro de aparelho novo. */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <Label>Tecnologia</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["IPTV", "P2P"] as Technology[]).map((tech) => (
                         <button
-                          key={dt}
+                          key={tech}
                           type="button"
-                          onClick={() => toggleDeviceType(dt)}
-                          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                            active
-                              ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
+                          onClick={() => setFormTechnology(tech)}
+                          className={`h-10 rounded-lg border text-sm font-medium transition-colors ${
+                            formTechnology === tech
+                              ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-500"
                               : "bg-transparent border-border text-muted-foreground hover:bg-muted"
                           }`}
                         >
-                          {DEVICE_TYPE_LABELS[dt]}
+                          {tech}
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Marque os aparelhos onde esse app funciona.
-                  </p>
+
+                  <div className="relative" data-devices-picker>
+                    <Label>Compatibilidade</Label>
+                    <button
+                      type="button"
+                      onClick={() => setDevicesPickerOpen((o) => !o)}
+                      className={`w-full h-10 px-3 flex items-center gap-2 border rounded-lg text-sm text-left transition-colors ${
+                        !formIsActive
+                          ? "border-rose-500/40 bg-rose-500/10 text-rose-500"
+                          : formDeviceTypes.length
+                            ? "border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                            : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <span className="flex-1 min-w-0 truncate">
+                        {!formIsActive
+                          ? "Descontinuado"
+                          : formDeviceTypes.length
+                            ? formDeviceTypes.map(deviceLabel).join(", ")
+                            : formAutoDevices.length
+                              ? `Pela AtivaApp (${formAutoDevices.length})`
+                              : "Nenhum aparelho"}
+                      </span>
+                      {formIsActive && formDeviceTypes.length > 1 && (
+                        <span className="shrink-0 text-[11px] font-semibold">{formDeviceTypes.length}</span>
+                      )}
+                      <ChevronDown className="w-4 h-4 shrink-0 opacity-70" />
+                    </button>
+
+                    {devicesPickerOpen && (
+                      <div className="absolute z-40 top-full mt-1 right-0 w-full sm:w-72 rounded-lg border border-border bg-card shadow-xl overflow-hidden">
+                        {/* atalho: Descontinuado desmarca o resto; desligar devolve o que estava marcado */}
+                        <button
+                          type="button"
+                          onClick={toggleDiscontinued}
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
+                            !formIsActive ? "bg-rose-500/10 text-rose-500" : "text-foreground hover:bg-muted"
+                          }`}
+                        >
+                          <span
+                            className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                              !formIsActive ? "bg-rose-500 border-rose-500 text-white" : "border-border"
+                            }`}
+                          >
+                            {!formIsActive && <Check className="w-3 h-3" />}
+                          </span>
+                          Descontinuado
+                        </button>
+                        {!formIsActive && (
+                          <div className="px-3 pb-2 bg-rose-500/10">
+                            <input
+                              type="text"
+                              value={formDiscontinuedReplacement}
+                              onChange={(e) => setFormDiscontinuedReplacement(e.target.value)}
+                              placeholder="Recomendar no lugar (opcional)"
+                              className="w-full h-8 px-2 bg-card border border-rose-500/30 rounded-md text-xs text-foreground outline-none focus:border-rose-500/60"
+                            />
+                          </div>
+                        )}
+
+                        <div className="max-h-64 overflow-y-auto py-1 border-t border-border">
+                          {deviceOptions.map((dt) => {
+                            const active = formIsActive && formDeviceTypes.includes(dt);
+                            return (
+                              <button
+                                key={dt}
+                                type="button"
+                                onClick={() => toggleDeviceType(dt)}
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left hover:bg-muted transition-colors ${
+                                  formIsActive ? "text-foreground" : "text-muted-foreground"
+                                }`}
+                              >
+                                <span
+                                  className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                    active ? "bg-sky-500 border-sky-500 text-white" : "border-border"
+                                  }`}
+                                >
+                                  {active && <Check className="w-3 h-3" />}
+                                </span>
+                                <span className="flex-1 truncate">{deviceLabel(dt)}</span>
+                                {formIsActive && !formDeviceTypes.length && formAutoDevices.includes(dt) && (
+                                  <span className="text-[10px] text-sky-600 dark:text-sky-400">AtivaApp</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            addCustomDevice();
+                          }}
+                          className="flex gap-1.5 p-2 border-t border-border"
+                        >
+                          <input
+                            value={newDeviceName}
+                            onChange={(e) => setNewDeviceName(e.target.value)}
+                            placeholder="Novo aparelho (ex: PS5)"
+                            maxLength={30}
+                            className="flex-1 min-w-0 h-8 px-2 bg-transparent border border-border rounded-md text-xs text-foreground outline-none focus:border-emerald-500/50"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!newDeviceName.trim()}
+                            className="h-8 px-2.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-semibold hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
+                          >
+                            Adicionar
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </div>
                 </div>
+                <p className="text-[11px] text-muted-foreground -mt-1">
+                  Só aparece pra cliente com a mesma tecnologia e nos aparelhos marcados.
+                  {formIsActive && !formDeviceTypes.length && formAutoDevices.length > 0 &&
+                    " Sem nada marcado, vale o que a AtivaApp informa."}
+                </p>
 
                 <div>
                   <Label>Dados do cliente exibidos no portal</Label>
@@ -2046,37 +2469,6 @@ export default function AppManagerPage() {
                   )}
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between">
-                    <Label>Aplicativo descontinuado</Label>
-                    <button
-                      type="button"
-                      onClick={() => setFormIsActive((v) => !v)}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${!formIsActive ? "bg-rose-500" : "bg-muted"}`}
-                    >
-                      <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-card transition ${!formIsActive ? "translate-x-4.5" : "translate-x-1"}`}
-                      />
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Continua aparecendo no catálogo de "+ Adicionar aplicativo"
-                    do portal (quem já usa precisa achar ele lá), mas ao tentar
-                    adicionar mostra um aviso pra trocar em vez de adicionar.
-                    Quem já tem também vê o aviso no card.
-                  </p>
-                  {!formIsActive && (
-                    <input
-                      type="text"
-                      value={formDiscontinuedReplacement}
-                      onChange={(e) =>
-                        setFormDiscontinuedReplacement(e.target.value)
-                      }
-                      placeholder="Recomendar no lugar (opcional) — ex: DupleCast"
-                      className="w-full h-9 px-3 mt-2 bg-transparent border border-rose-500/30 rounded-lg text-sm text-foreground outline-none focus:border-rose-500/60"
-                    />
-                  )}
-                </div>
               </div>
               </div>
               )}

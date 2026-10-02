@@ -17,12 +17,17 @@
 // só serve como filtro deste endpoint). Ver comentário na doc deles.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
+import { catalogItemFromApi, type AppativaCatalogItem } from "@/lib/apps/appativa-catalog";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_LIMIT = 200; // ✅ máximo aceito pela API deles
 
-type CatalogItem = { id: string; uuid: string; nome: string; valor: number };
+// ✅ 02/10/2026: o cache passou a guardar logo, avaliação, descrição, plano,
+// links por plataforma etc. (antes só id/uuid/nome/valor) — formato em
+// lib/apps/appativa-catalog.ts. Cache antigo continua válido (campos extras
+// opcionais), só fica completo no próximo Sync.
+type CatalogItem = AppativaCatalogItem;
 
 export async function POST(req: NextRequest) {
   const auth = await requireAdminTenant(req);
@@ -91,12 +96,7 @@ export async function POST(req: NextRequest) {
       }
 
       for (const it of data.items || []) {
-        items.push({
-          id: String(it.id ?? ""),
-          uuid: String(it.uuid ?? ""),
-          nome: String(it.aplicativos ?? ""),
-          valor: Number(it.valor ?? 0),
-        });
+        items.push(catalogItemFromApi(it));
       }
 
       hasMore = !!data.has_more;
@@ -116,6 +116,29 @@ export async function POST(req: NextRequest) {
       // ✅ Não trava a resposta por causa disso — o Márcio já tem os dados
       // frescos na tela, só o cache pra próxima abertura que falhou.
       console.error("[appativa/list-apps] falha ao salvar cache do catálogo", updErr.message);
+    }
+
+    // ✅ 02/10/2026: atualiza também o snapshot (apps.appativa_meta) dos apps
+    // já vinculados — é ele que o portal/Ver detalhes usam como padrão de
+    // logo, estrelas e aparelhos quando não há override.
+    try {
+      const { data: linked } = await supabase
+        .from("apps")
+        .select("id, appativa_app_id")
+        .eq("tenant_id", tenant_id)
+        .not("appativa_app_id", "is", null);
+      const byId = new Map(items.map((i) => [i.id, i]));
+      for (const app of linked || []) {
+        const meta = byId.get(String(app.appativa_app_id));
+        if (!meta) continue;
+        await supabase
+          .from("apps")
+          .update({ appativa_meta: { ...meta, synced_at: lastSyncAt } })
+          .eq("id", app.id)
+          .eq("tenant_id", tenant_id);
+      }
+    } catch (e: any) {
+      console.error("[appativa/list-apps] falha ao atualizar appativa_meta", e?.message);
     }
 
     return NextResponse.json({ ok: true, items, total: items.length, last_sync_at: lastSyncAt, from_cache: false });
