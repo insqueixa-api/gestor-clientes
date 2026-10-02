@@ -5758,7 +5758,7 @@ export default function RenewClient() {
                         setInstructionsAppId(null);
                     }}
                   >
-                    <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
+                    <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 sm:p-7 flex flex-col gap-3 max-h-[85vh] overflow-y-auto">
                       <p className="text-sm font-bold text-foreground shrink-0">
                         Detalhes — {instrApp?.name}
                       </p>
@@ -5768,7 +5768,7 @@ export default function RenewClient() {
                           (apps.portal_setup_instructions) já explica o resto */}
                       {instrApp?.has_integration && (
                         <p className="text-xs font-semibold text-amber-600">
-                          ⚡ Configuração automática — a gente configura o aplicativo pra você.
+                          ⚡ Configuração automática
                         </p>
                       )}
                       {instrApp && !instrApp.has_integration && !instrApp.portal_setup_instructions && (
@@ -5777,7 +5777,7 @@ export default function RenewClient() {
                           Em caso de dúvida, fale com o suporte.
                         </p>
                       )}
-                      <p className="text-xs text-muted-foreground whitespace-pre-line">
+                      <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
                         {instrApp?.portal_setup_instructions &&
                           linkifyText(instrApp.portal_setup_instructions)}
                       </p>

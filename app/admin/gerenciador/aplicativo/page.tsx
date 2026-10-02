@@ -273,6 +273,12 @@ export default function AppManagerPage() {
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [search, setSearch] = useState("");
   const [deviceTypeFilter, setDeviceTypeFilter] = useState<string>("Todos");
+  // ✅ 02/10/2026 (pedido do Márcio): filtros combinados (todos valem juntos)
+  const [starFilter, setStarFilter] = useState<string>("todas"); // "5".."1" | "sem"
+  const [configFilter, setConfigFilter] = useState<string>("todas"); // auto | manual
+  const [integrationFilter, setIntegrationFilter] = useState<string>("todas"); // valor | "none"
+  const [renewFilter, setRenewFilter] = useState<string>("todas"); // AtivaApp | DupleCast | GerenciaApp | none
+  const [costFilter, setCostFilter] = useState<string>("todos"); // free | paid | partnership
   // Seções recolhíveis da lista (legado e descontinuados começam fechadas)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     descontinuado: true,
@@ -625,15 +631,44 @@ export default function AppManagerPage() {
         !effectiveDevices(a, appativaCatalog).value.includes(deviceTypeFilter)
       )
         return false;
+      if (starFilter !== "todas") {
+        const t = effectiveTier(a, appativaCatalog).value;
+        if (starFilter === "sem" ? !!t : t !== Number(starFilter)) return false;
+      }
+      if (configFilter === "auto" && !a.integration_type) return false;
+      if (configFilter === "manual" && !!a.integration_type) return false;
+      if (integrationFilter !== "todas") {
+        if (integrationFilter === "none" ? !!a.integration_type : a.integration_type !== integrationFilter) return false;
+      }
+      if (renewFilter !== "todas") {
+        // mesma regra dos raios do card (activationProviders)
+        const via: string[] = [];
+        if (a.integration_type === "DUPLECAST") via.push("DupleCast");
+        if (a.appativa_app_id) via.push("AtivaApp");
+        if (a.integration_type === "GERENCIAAPP") via.push("GerenciaApp");
+        if (renewFilter === "none" ? via.length > 0 : !via.includes(renewFilter)) return false;
+      }
+      if (costFilter !== "todos" && (a.cost_type || "") !== costFilter) return false;
       return true;
     });
-  }, [search, apps, deviceTypeFilter, appativaCatalog]);
+  }, [search, apps, deviceTypeFilter, appativaCatalog, starFilter, configFilter, integrationFilter, renewFilter, costFilter]);
 
-  const hasActiveFilters = deviceTypeFilter !== "Todos";
+  const hasActiveFilters =
+    deviceTypeFilter !== "Todos" ||
+    starFilter !== "todas" ||
+    configFilter !== "todas" ||
+    integrationFilter !== "todas" ||
+    renewFilter !== "todas" ||
+    costFilter !== "todos";
 
   function clearFilters() {
     setSearch("");
     setDeviceTypeFilter("Todos");
+    setStarFilter("todas");
+    setConfigFilter("todas");
+    setIntegrationFilter("todas");
+    setRenewFilter("todas");
+    setCostFilter("todos");
   }
 
   // ✅ 30/09/2026 (refactor de aplicativos): a lista deixa de ser por custo
@@ -662,14 +697,15 @@ export default function AppManagerPage() {
       icon: "",
       label: "Sem classificação",
       hint: "Escolha o nível no próprio card.",
-      apps: correntes.filter((a) => !tierOf(a) && !!a.integration_type).sort(byName),
+      // ✅ 02/10/2026: vinculado na AtivaApp também é automático (renova por lá)
+      apps: correntes.filter((a) => !tierOf(a) && (!!a.integration_type || !!a.appativa_app_id)).sort(byName),
     });
     out.push({
       key: "manual",
       icon: "🔧",
       label: "Configuração manual",
-      hint: "Sem integração — configurados à mão.",
-      apps: correntes.filter((a) => !tierOf(a) && !a.integration_type).sort(byName),
+      hint: "Sem integração nem AtivaApp — configurados à mão.",
+      apps: correntes.filter((a) => !tierOf(a) && !a.integration_type && !a.appativa_app_id).sort(byName),
     });
     out.push({
       key: "legado",
@@ -705,6 +741,15 @@ export default function AppManagerPage() {
   }
 
   const isRootTenant = true;
+
+  const filterSelectCls =
+    "h-9 w-full sm:w-auto px-2.5 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500";
+  const integrationFilterOptions = React.useMemo(() => {
+    const used = new Set(apps.map((a) => a.integration_type).filter(Boolean) as string[]);
+    return [...used]
+      .map((v) => ({ value: v, label: INTEGRATION_OPTIONS.find((o) => o.value === v)?.label || v }))
+      .sort((x, y) => x.label.localeCompare(y.label, "pt-BR"));
+  }, [apps]);
 
   const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const editingApp = editingId ? apps.find((a) => a.id === editingId) || null : null;
@@ -1729,20 +1774,89 @@ export default function AppManagerPage() {
         </div>
       </div>
 
-      {/* BUSCA + APARELHO (30/09/2026: filtros de custo/parceiro/tecnologia saíram) */}
-      <div className="px-3 sm:px-0 flex flex-col sm:flex-row gap-2">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar aplicativo..."
-          className="h-10 w-full sm:max-w-sm px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500"
-        />
-        <div className="flex gap-2">
+      {/* BUSCA + FILTROS COMBINADOS (02/10/2026) — todos valem juntos */}
+      <div className="px-3 sm:px-0 space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar aplicativo..."
+            className="h-10 w-full sm:max-w-sm px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500"
+          />
+          <span className="text-xs text-muted-foreground">
+            {filteredApps.length === apps.length
+              ? `${apps.length} aplicativos`
+              : `${filteredApps.length} de ${apps.length} aplicativos`}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+          <select
+            value={starFilter}
+            onChange={(e) => setStarFilter(e.target.value)}
+            title="Estrelas"
+            className={`${filterSelectCls} ${starFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+          >
+            <option value="todas">Todas as estrelas</option>
+            <option value="5">★★★★★ 5 estrelas</option>
+            <option value="4">★★★★ 4 estrelas</option>
+            <option value="3">★★★ 3 estrelas</option>
+            <option value="2">★★ 2 estrelas</option>
+            <option value="1">★ 1 estrela</option>
+            <option value="sem">Sem estrela</option>
+          </select>
+          <select
+            value={configFilter}
+            onChange={(e) => setConfigFilter(e.target.value)}
+            title="Configuração"
+            className={`${filterSelectCls} ${configFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+          >
+            <option value="todas">Automático e manual</option>
+            <option value="auto">Automático</option>
+            <option value="manual">Manual</option>
+          </select>
+          <select
+            value={integrationFilter}
+            onChange={(e) => setIntegrationFilter(e.target.value)}
+            title="Integração"
+            className={`${filterSelectCls} ${integrationFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+          >
+            <option value="todas">Todas as integrações</option>
+            <option value="none">Sem integração</option>
+            {integrationFilterOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={renewFilter}
+            onChange={(e) => setRenewFilter(e.target.value)}
+            title="Ativação / renovação"
+            className={`${filterSelectCls} ${renewFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+          >
+            <option value="todas">Toda ativação</option>
+            <option value="AtivaApp">⚡ AtivaApp</option>
+            <option value="DupleCast">⚡ DupleCast</option>
+            <option value="GerenciaApp">⚡ GerenciaApp</option>
+            <option value="none">Sem ativação automática</option>
+          </select>
+          <select
+            value={costFilter}
+            onChange={(e) => setCostFilter(e.target.value)}
+            title="Tipo"
+            className={`${filterSelectCls} ${costFilter !== "todos" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
+          >
+            <option value="todos">Pago, grátis e parceria</option>
+            <option value="paid">Pago</option>
+            <option value="free">Gratuito</option>
+            <option value="partnership">Parceria</option>
+          </select>
           <select
             value={deviceTypeFilter}
             onChange={(e) => setDeviceTypeFilter(e.target.value)}
-            className="h-10 flex-1 sm:flex-none px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500"
+            title="Aparelho"
+            className={`${filterSelectCls} ${deviceTypeFilter !== "Todos" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
           >
             <option value="Todos">Todos os aparelhos</option>
             {deviceOptions.map((dt) => (
@@ -1755,9 +1869,9 @@ export default function AppManagerPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="h-10 px-3 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
+              className="h-9 px-3 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted transition-colors"
             >
-              Limpar
+              Limpar filtros
             </button>
           )}
         </div>
