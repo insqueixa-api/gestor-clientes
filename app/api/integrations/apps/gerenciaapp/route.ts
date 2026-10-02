@@ -459,7 +459,7 @@ export async function POST(req: Request) {
       const { user, playlists } = await getEditData(BASE_URL, session, existing[0].id);
 
       // ✅ Achado 26/08/2026 (GPC Roku, pedido do Márcio — ver docs/sql/
-      // gpc_roku_activations.sql): esse app é pago com validade de 10 anos
+      // gpc_roku_activations.sql): esse app é pago com validade explícita (1 ano desde 02/10/2026)
       // a contar do pagamento, não +1 ano a partir do vencimento atual —
       // quando o body traz uma data explícita, usa ela DIRETO (sem somar
       // nada). Sem esse campo, comportamento idêntico ao de sempre pro

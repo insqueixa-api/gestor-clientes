@@ -16,7 +16,7 @@
 // nosso registro. O vencimento de verdade só é empurrado pro parceiro
 // quando o MAC é (re)configurado normalmente (lib/apps/orchestration.ts já
 // lê esse registro nessa hora) ou via o botão "Marcar pago" na tela do
-// cliente (que aciona lib/apps/gpc-roku-registry.ts's renewGpcRokuTenYears).
+// cliente (que aciona lib/apps/gpc-roku-registry.ts's renewGpcRokuOneYear).
 import { useEffect, useRef, useState } from "react";
 import { Search, X, Pencil, Trash2, Plus } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -209,7 +209,7 @@ export default function GpcRokuActivationsModal({
   function openAddForm() {
     resetForm();
     const target = new Date();
-    target.setFullYear(target.getFullYear() + 10);
+    target.setFullYear(target.getFullYear() + 1);
     setValidUntilInput(formatDateOnly(target));
     setShowAddForm(true);
   }
@@ -308,7 +308,7 @@ export default function GpcRokuActivationsModal({
       <ModalHeader onClose={onClose}>
         <h2 className="text-lg font-medium text-foreground tracking-tight">GPC Roku — MACs ativados</h2>
         <div className="text-xs text-muted-foreground mt-0.5">
-          Validade controlada por MAC — trial de 7 dias em MAC novo, 10 anos ao pagar.
+          Validade controlada por MAC — trial de 7 dias em MAC novo, 1 ano a cada pagamento.
         </div>
       </ModalHeader>
 

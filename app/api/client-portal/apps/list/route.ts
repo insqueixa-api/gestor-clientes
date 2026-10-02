@@ -291,6 +291,15 @@ export async function POST(req: NextRequest) {
           : clientCurrency === "BRL"
             ? licensePriceBRL
             : await convertAmount(supabaseAdmin, ctx.tenant_id, licensePriceBRL, "BRL", clientCurrency);
+      // ✅ 02/10/2026: variável {licenca} nas instruções (ex: "R$ 30,00 por
+      // ano") — o texto nunca mais fica com preço fixo/desatualizado; é o
+      // mesmo valor do botão Renovar.
+      const licencaText =
+        licensePriceDisplay == null
+          ? ""
+          : `${new Intl.NumberFormat("pt-BR", { style: "currency", currency: clientCurrency }).format(licensePriceDisplay)}${
+              row.apps?.license_period === "annual" ? " por ano" : row.apps?.license_period === "lifetime" ? " (pagamento único)" : ""
+            }`;
 
       return {
         id: row.id,
@@ -317,10 +326,13 @@ export async function POST(req: NextRequest) {
           is_trial: !isPartnership && vals["_trial_hint"] === "1",
         is_partnership: isPartnership,
         fields: extractEditableFields(vals, config),
-        portal_setup_instructions:
-          row.apps?.portal_setup_instructions && instructionVars
-            ? renderTemplate(row.apps.portal_setup_instructions, { ...instructionVars, codigo: row.apps?.access_code || "" })
-            : row.apps?.portal_setup_instructions || null,
+        portal_setup_instructions: row.apps?.portal_setup_instructions
+          ? renderTemplate(row.apps.portal_setup_instructions, {
+              ...(instructionVars || {}),
+              codigo: row.apps?.access_code || "",
+              licenca: licencaText,
+            })
+          : null,
         variable_fields: buildPortalVariableFields(
           row.apps?.portal_variable_fields,
           { codigo: row.apps?.access_code || "", ...(instructionVars || {}) },

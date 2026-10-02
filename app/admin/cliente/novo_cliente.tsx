@@ -2656,7 +2656,7 @@ export default function NovoCliente({
   // ✅ "Marcar pago" do GPC Roku (achado 26/08/2026, pedido do Márcio — ver
   // docs/sql/gpc_roku_activations.sql): único membro cobrado da família
   // GerenciaApp — quando o cliente paga por fora do Portal, este botão
-  // marca o MAC como pago (10 anos) direto no registro + no painel real.
+  // marca o MAC como pago (1 ano) direto no registro + no painel real.
   async function handleMarkGpcRokuPaid(instanceId: string) {
     const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
     if (!currentApp) return;
@@ -2674,7 +2674,7 @@ export default function NovoCliente({
 
     const ok = await confirm({
       title: "Marcar GPC Roku como pago?",
-      subtitle: "Valida a licença por 10 anos a contar de agora — use só quando o cliente já pagou (por fora do Portal).",
+      subtitle: "Soma 1 ano à licença — use só quando o cliente já pagou (por fora do Portal).",
       tone: "emerald",
       confirmText: "Sim, marcar como pago",
       cancelText: "Cancelar",

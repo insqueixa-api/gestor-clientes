@@ -11,7 +11,7 @@
 // de sessão do cliente por admin autenticado.
 //
 // ⚠️ GPC Roku é da MESMA família GerenciaApp mas é PAGO (cost_type=
-// "paid") — usa "Marcar pago" (10 anos, gpc-roku-registry.ts), NUNCA
+// "paid") — usa "Marcar pago" (1 ano, gpc-roku-registry.ts), NUNCA
 // esta rota. Guard explícito abaixo, mesma defesa em profundidade que a
 // rota do Portal já tem.
 import { NextRequest, NextResponse } from "next/server";

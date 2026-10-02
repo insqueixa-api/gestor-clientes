@@ -81,14 +81,18 @@ export function formatDateOnly(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// ✅ Núcleo único do "marca como pago, 10 anos a contar de agora" — chamado
+// ✅ Núcleo único do "marca como pago" — chamado
 // tanto quando o cliente paga pelo Portal (lib/client-portal/fulfillment.ts)
 // quanto quando o Márcio marca manualmente pelo admin porque o cliente pagou
 // por fora (app/api/admin/apps/gpc-roku/mark-paid/route.ts). Só troca o
 // vencimento no painel real do GerenciaApp + grava no registro — quem chama
 // decide o que fazer depois (notificar, mandar WhatsApp, marcar pagamento
 // como concluído etc.), porque isso difere entre os 2 casos.
-export async function renewGpcRokuTenYears(
+// ✅ 02/10/2026 (pedido do Márcio): a licença deixou de ser vitalícia
+// (10 anos) e passou a ser ANUAL — cada pagamento soma 1 ano a partir da
+// data que vencer por último (hoje ou a validade paga atual do MAC), pra
+// quem renova antes de vencer não perder os dias que ainda tinha.
+export async function renewGpcRokuOneYear(
   supabaseAdmin: SupabaseClient,
   params: {
     tenantId: string;
@@ -109,8 +113,15 @@ export async function renewGpcRokuTenYears(
     .eq("app_name", "GERENCIAAPP")
     .maybeSingle();
 
-  const targetExpire = new Date();
-  targetExpire.setFullYear(targetExpire.getFullYear() + 10);
+  const current = await getGpcRokuActivation(supabaseAdmin, params.tenantId, params.macValue);
+  const todayStr = formatDateOnly(new Date());
+  const baseStr =
+    current?.status === "paid" && current.valid_until && current.valid_until.slice(0, 10) > todayStr
+      ? current.valid_until.slice(0, 10)
+      : todayStr;
+  const [by, bm, bd] = baseStr.split("-").map(Number);
+  const targetExpire = new Date(by, bm - 1, bd);
+  targetExpire.setFullYear(targetExpire.getFullYear() + 1);
   const targetExpireDate = formatDateOnly(targetExpire);
 
   let apiJson: any;

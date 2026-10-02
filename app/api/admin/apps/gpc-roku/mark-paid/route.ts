@@ -1,16 +1,16 @@
 // app/api/admin/apps/gpc-roku/mark-paid/route.ts
 //
-// "Marcar como pago (10 anos)" — botão manual na tela do cliente pra quando
+// "Marcar como pago (1 ano, desde 02/10/2026)" — botão manual na tela do cliente pra quando
 // alguém paga o GPC Roku por fora do Portal (achado 26/08/2026, pedido do
 // Márcio — ver docs/sql/gpc_roku_activations.sql). Mesmo núcleo
-// (renewGpcRokuTenYears, lib/apps/gpc-roku-registry.ts) usado quando o
+// (renewGpcRokuOneYear, lib/apps/gpc-roku-registry.ts) usado quando o
 // cliente paga pelo Portal (lib/client-portal/fulfillment.ts) — só que aqui
 // não existe pagamento nenhum pra marcar como concluído, é 100% manual.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant, getBearerToken } from "@/lib/api/auth";
 import { loadClientApp } from "@/lib/apps/orchestration";
 import { extractFieldByType } from "@/lib/apps/panel";
-import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
+import { renewGpcRokuOneYear } from "@/lib/apps/gpc-roku-registry";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   const { data: authUser } = token ? await supabase.auth.getUser(token) : { data: null as any };
   const activatedBy = authUser?.user?.email || undefined;
 
-  const result = await renewGpcRokuTenYears(supabase, {
+  const result = await renewGpcRokuOneYear(supabase, {
     tenantId,
     clientId: row.client_id,
     clientAppId: row.id,

@@ -29,7 +29,7 @@ import {
 // dedicado (app/api/cron/appativa-payment-watchdog), que roda de 1 em 1 min
 // só verificando se HÁ pendência antes de bater na API da Appativa.
 const FULFILLMENT_APPATIVA_POLL_ATTEMPTS = 5;
-import { renewGpcRokuTenYears } from "@/lib/apps/gpc-roku-registry";
+import { renewGpcRokuOneYear } from "@/lib/apps/gpc-roku-registry";
 import { renewDuplecastWithCode } from "@/lib/apps/duplecast-renewal";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
 
@@ -603,7 +603,7 @@ export async function markAppRenewalPaid(
         // do Márcio — ver docs/sql/gpc_roku_activations.sql): diferente do
         // resto da família GerenciaApp (grátis de verdade), esse app tem
         // custo real pra ele. Ao pagar, marca o MAC como "pago" com
-        // validade de 10 anos A CONTAR DO PAGAMENTO (não uma extensão a
+        // validade de 1 ano (desde 02/10/2026; antes 10 anos/vitalícia) (não a
         // partir do vencimento atual) e chama a MESMA action "renew" do
         // GerenciaApp (app/api/integrations/apps/gerenciaapp/route.ts),
         // agora aceitando uma data explícita — síncrono, sem precisar de
@@ -625,7 +625,7 @@ export async function markAppRenewalPaid(
           // (app/api/admin/apps/gpc-roku/mark-paid/route.ts) — só o que vem
           // DEPOIS (marcar pagamento concluído, notificar, WhatsApp) é
           // específico do fluxo de pagamento, fica aqui.
-          const result = await renewGpcRokuTenYears(supabaseAdmin, {
+          const result = await renewGpcRokuOneYear(supabaseAdmin, {
             tenantId,
             clientId: payment.client_id,
             clientAppId: payment.client_app_id,

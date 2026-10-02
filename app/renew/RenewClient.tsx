@@ -4767,7 +4767,11 @@ export default function RenewClient() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             {!installedAppsLoading &&
               !installedAppsError &&
-              installedApps.map((app) => {
+              // ✅ 02/10/2026: mais estrelas primeiro (sem estrela no fim);
+              // empate mantém a ordem que já vinha
+              [...installedApps]
+                .sort((x, y) => (y.tier ?? 0) - (x.tier ?? 0))
+                .map((app) => {
                 const isEditing = editingAppId === app.id;
                 const busy = appActionBusy === app.id;
                 const ambienteField = app.fields.find((f) => f.type === "obs");
@@ -4801,14 +4805,46 @@ export default function RenewClient() {
                   expirationDiffDays !== null &&
                   expirationDiffDays >= 0 &&
                   expirationDiffDays <= expiringSoonThresholdDays;
+                const showRenewNow =
+                  app.is_active &&
+                  (expirationDiffDays === null || isExpired || isExpiringSoon) &&
+                  (app.is_gerenciaapp_family || app.license_price != null);
                 // ✅ 02/10/2026 (pedido do Márcio): card no estilo do
                 // catálogo do admin — logo, nome (ambiente), estrelas no
                 // canto superior direito, vencimento + Checar, dados com
                 // copiar rápido e botões escritos (Detalhes, Editar,
                 // Reconfigurar, Excluir; Renovar só perto do vencimento).
                 // O texto de instruções saiu do card e foi pro "Detalhes".
+                // botões da linha de baixo dividem a largura toda (flex-1)
                 const btn =
-                  "inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-bold transition-colors disabled:opacity-50";
+                  "flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2.5 rounded-lg border text-xs font-bold whitespace-nowrap transition-colors disabled:opacity-50";
+                const renewBtn =
+                  "inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold whitespace-nowrap transition-colors disabled:opacity-50";
+                const renewButton = !showRenewNow
+                  ? null
+                  : app.is_gerenciaapp_family ? (
+                      <button
+                        disabled={busy}
+                        onClick={() => handleFreeRenewGerenciaApp(app.id)}
+                        className={renewBtn}
+                      >
+                        {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                        {busy ? "Renovando..." : "Renovar — Grátis"}
+                      </button>
+                    ) : (
+                      <button
+                        disabled={renewPaymentBusyId === app.id}
+                        onClick={() => handleRenewPaymentClick(app.id)}
+                        className={renewBtn}
+                      >
+                        {renewPaymentBusyId === app.id && (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        )}
+                        {renewPaymentBusyId === app.id
+                          ? "Gerando pagamento..."
+                          : `Renovar · ${formatMoney(app.license_price_display ?? app.license_price, app.license_price_display_currency || "BRL")}`}
+                      </button>
+                    );
                 const copyIcon = (
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -4838,10 +4874,6 @@ export default function RenewClient() {
                     {extra}
                   </span>
                 );
-                const showRenew =
-                  app.is_active &&
-                  (expirationDiffDays === null || isExpired || isExpiringSoon) &&
-                  (app.is_gerenciaapp_family || app.license_price != null);
                 return (
                   <div
                     key={app.id}
@@ -4861,7 +4893,6 @@ export default function RenewClient() {
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-bold text-foreground truncate pt-0.5">
                             {app.name}
                             {ambienteField?.value ? (
@@ -4871,12 +4902,6 @@ export default function RenewClient() {
                               </span>
                             ) : null}
                           </p>
-                          {app.tier ? (
-                            <span className="shrink-0 pt-1">
-                              <TierStars value={app.tier} size={14} />
-                            </span>
-                          ) : null}
-                        </div>
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <p
                             className={`text-xs ${
@@ -4915,6 +4940,12 @@ export default function RenewClient() {
                             </span>
                           )}
                         </div>
+                      </div>
+                      {/* direita: estrelas em cima; Renovar logo abaixo, na
+                          altura do vencimento (só perto de vencer) */}
+                      <div className="shrink-0 flex flex-col items-end gap-2 pt-1">
+                        {app.tier ? <TierStars value={app.tier} size={14} /> : null}
+                        {!isEditing && renewButton}
                       </div>
                     </div>
 
@@ -5049,10 +5080,10 @@ export default function RenewClient() {
                           </div>
                         )}
 
-                        {/* Botões escritos — Renovar à direita, só perto do
-                            vencimento (30 dias; 7 na Appativa) ou sem
-                            vencimento conhecido. */}
-                        <div className="mt-auto flex items-center justify-between gap-2 flex-wrap pt-1">
+                        {/* Botões escritos ocupando a linha toda (quebram
+                            linha só se não couberem). Renovar fica no
+                            cabeçalho, embaixo das estrelas. */}
+                        <div className="mt-auto pt-1">
                           <div className="flex flex-wrap gap-1.5">
                             <button
                               onClick={() => setInstructionsAppId(app.id)}
@@ -5119,30 +5150,6 @@ export default function RenewClient() {
                               </button>
                             )}
                           </div>
-                          {showRenew &&
-                            (app.is_gerenciaapp_family ? (
-                              <button
-                                disabled={busy}
-                                onClick={() => handleFreeRenewGerenciaApp(app.id)}
-                                className={`${btn} bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-500`}
-                              >
-                                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                {busy ? "Renovando..." : "Renovar — Grátis"}
-                              </button>
-                            ) : (
-                              <button
-                                disabled={renewPaymentBusyId === app.id}
-                                onClick={() => handleRenewPaymentClick(app.id)}
-                                className={`${btn} bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-500`}
-                              >
-                                {renewPaymentBusyId === app.id && (
-                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                )}
-                                {renewPaymentBusyId === app.id
-                                  ? "Gerando pagamento..."
-                                  : `Renovar ${app.license_period === "annual" ? "anual" : app.license_period === "lifetime" ? "vitalícia" : ""} · ${formatMoney(app.license_price_display ?? app.license_price, app.license_price_display_currency || "BRL")}`}
-                              </button>
-                            ))}
                         </div>
                       </>
                     )}
@@ -5757,14 +5764,11 @@ export default function RenewClient() {
                       </p>
                       {/* ✅ 02/10/2026: o aviso de configuração automática
                           saiu do card e veio pra cá (botão Detalhes) */}
+                      {/* curto de propósito: o passo a passo de cada app
+                          (apps.portal_setup_instructions) já explica o resto */}
                       {instrApp?.has_integration && (
-                        <p className="text-xs text-muted-foreground">
-                          ⚡ Esse aplicativo tem configuração automática — não
-                          precisa mexer em nada nele, é só clicar em{" "}
-                          <strong className="text-foreground font-semibold">
-                            {instrApp.expiration ? "Reconfigurar" : "Configurar"}
-                          </strong>{" "}
-                          que a gente ajusta tudo pra você.
+                        <p className="text-xs font-semibold text-amber-600">
+                          ⚡ Configuração automática — a gente configura o aplicativo pra você.
                         </p>
                       )}
                       {instrApp && !instrApp.has_integration && !instrApp.portal_setup_instructions && (
