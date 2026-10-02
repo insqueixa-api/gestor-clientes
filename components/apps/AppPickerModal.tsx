@@ -92,6 +92,8 @@ export default function AppPickerModal({
   const [costTab, setCostTab] = useState<"paid" | "partner">("paid");
   const [loadedIcons, setLoadedIcons] = useState<Record<string, string>>({});
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  // aparelho com o painel "colar / arrastar / selecionar" aberto (lápis)
+  const [editingIconKey, setEditingIconKey] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingKeyRef = useRef<string | null>(null);
 
@@ -102,6 +104,7 @@ export default function AppPickerModal({
       setDeviceType(null);
       setSearch("");
       setCostTab("paid");
+      setEditingIconKey(null);
     }
   }, [open]);
 
@@ -131,11 +134,17 @@ export default function AppPickerModal({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (editingIconKey) {
+          setEditingIconKey(null);
+          return;
+        }
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, editingIconKey]);
 
   // ✅ 02/10/2026: aparelhos = os 9 fixos + os cadastrados à mão em algum
   // app do catálogo (ex: "PS5").
@@ -182,9 +191,10 @@ export default function AppPickerModal({
       .sort((a, b) => Number(!!b.has_integration) - Number(!!a.has_integration));
   }, [appsForDevice, costTab, q, showCostTabs]);
 
-  async function handleIconFile(file: File) {
-    const key = pendingKeyRef.current;
+  async function handleIconFile(file: File, keyArg?: string) {
+    const key = keyArg ?? pendingKeyRef.current;
     pendingKeyRef.current = null;
+    setEditingIconKey(null);
     if (!key || !tenantId) return;
     if (!file.type.startsWith("image/")) return;
     setUploadingKey(key);
@@ -204,6 +214,21 @@ export default function AppPickerModal({
       setUploadingKey(null);
     }
   }
+
+  // ✅ 02/10/2026 (pedido do Márcio): colar a logo (Ctrl+V), igual à tela
+  // de aplicativos — nem sempre a imagem está salva no computador.
+  useEffect(() => {
+    if (!editingIconKey) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const file = Array.from(e.clipboardData?.files || []).find((f) => f.type.startsWith("image/"));
+      if (file) {
+        e.preventDefault();
+        void handleIconFile(file, editingIconKey);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [editingIconKey]);
 
   if (!open) return null;
 
@@ -284,7 +309,21 @@ export default function AppPickerModal({
               const icon = deviceIcons[dt];
               const fallback = (DEFAULT_DEVICE_ICONS as Record<string, string>)[dt] ?? "📟";
               return (
-                <div key={dt} className="relative group">
+                <div
+                  key={dt}
+                  className="relative group"
+                  onDragOver={canEditIcons ? (e) => e.preventDefault() : undefined}
+                  onDrop={
+                    canEditIcons
+                      ? (e) => {
+                          const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith("image/"));
+                          if (!file) return;
+                          e.preventDefault();
+                          void handleIconFile(file, dt);
+                        }
+                      : undefined
+                  }
+                >
                   <button
                     onClick={() => setDeviceType(dt)}
                     className={`w-full h-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted transition-colors ${
@@ -300,15 +339,39 @@ export default function AppPickerModal({
                     )}
                     <span className="text-xs font-bold text-foreground text-center">{deviceLabel(dt)}</span>
                   </button>
-                  {canEditIcons && (
+                  {canEditIcons && editingIconKey === dt && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 p-2 rounded-xl border-2 border-dashed border-emerald-500/60 bg-card/95 text-center">
+                      <p className="text-[11px] font-semibold text-foreground leading-tight">
+                        Cole a imagem (Ctrl+V)
+                        <span className="block font-normal text-muted-foreground">ou arraste aqui</span>
+                      </p>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            pendingKeyRef.current = dt;
+                            fileInputRef.current?.click();
+                          }}
+                          className="h-7 px-2.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold"
+                        >
+                          Selecionar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingIconKey(null)}
+                          className="h-7 px-2.5 rounded-md border border-border bg-muted text-[11px] font-bold text-foreground"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {canEditIcons && editingIconKey !== dt && (
                     <button
                       type="button"
-                      onClick={() => {
-                        pendingKeyRef.current = dt;
-                        fileInputRef.current?.click();
-                      }}
+                      onClick={() => setEditingIconKey(dt)}
                       className="absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-md bg-card border border-border text-muted-foreground hover:text-emerald-500 shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                      title="Trocar logo (aparece também no portal)"
+                      title="Trocar logo — colar, arrastar ou selecionar (aparece também no portal)"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
