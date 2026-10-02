@@ -7,6 +7,7 @@ import { CHECK_VALIDITY_HANDLERS, buildM3uUrlFromDns, buildM3uUrlSecondary, natv
 import { buildPortalVariableFields } from "@/lib/apps/portal-variable-rules";
 import { renderTemplate, pickRandomDns } from "@/lib/whatsapp/template-vars";
 import { convertAmount } from "@/lib/fx";
+import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
-        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id)")
+        .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id, tier, appativa_meta)")
         .eq("client_id", client_id),
       // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
       // configuração"/"Exclusão solicitada" quando já existe um pedido
@@ -295,7 +296,10 @@ export async function POST(req: NextRequest) {
         id: row.id,
         app_id: row.app_id,
         name: row.apps?.name || "Aplicativo",
-        icon_url: row.apps?.icon_url || null,
+        // ✅ 02/10/2026: logo e estrelas com o padrão da AtivaApp quando o
+        // admin não definiu (lib/apps/appativa-catalog.ts)
+        icon_url: row.apps ? effectiveIcon(row.apps) : null,
+        tier: row.apps ? effectiveTier(row.apps).value : null,
         has_integration: hasIntegration,
         can_check_validity: canCheckValidity,
         requires_admin_setup: requiresAdminSetup,

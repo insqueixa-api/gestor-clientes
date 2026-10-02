@@ -1,6 +1,6 @@
 ﻿"use client";
 // app/admin/gerenciador/aplicativo/page.tsx
-import { X, Pencil, Trash2, Download, Settings, Star, Zap, Wrench, RefreshCw, ChevronDown, Search, Check } from "lucide-react";
+import { X, Pencil, Trash2, Download, Settings, Zap, Wrench, RefreshCw, ChevronDown, Search, Check } from "lucide-react";
 
 import React, { useEffect, useState, useRef } from "react";
 import {
@@ -40,6 +40,7 @@ import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import GpcRokuActivationsModal from "./gpc_roku_activations_modal";
 import DeviceBadges from "@/components/apps/DeviceBadges";
+import TierStars from "@/components/apps/TierStars";
 import FloatingPanel from "@/components/ui/FloatingPanel";
 import {
   type AppativaCatalogItem,
@@ -116,23 +117,6 @@ const APP_TIERS: { value: number; icon: string; label: string }[] = [5, 4, 3, 2,
   icon: "★".repeat(n),
   label: n === 1 ? "1 estrela" : `${n} estrelas`,
 }));
-
-// ✅ Estrelas da classificação — sempre as 5 (acesas = nível, apagadas = o resto).
-function TierStars({ value, size = 14 }: { value: number | null | undefined; size?: number }) {
-  const n = Number(value) || 0;
-  return (
-    <span className="inline-flex items-center gap-0.5" aria-label={n ? `${n} de 5 estrelas` : "Sem classificação"}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Star
-          key={i}
-          style={{ width: size, height: size }}
-          className={i <= n ? "fill-amber-400 text-amber-400" : "fill-transparent text-muted-foreground/30"}
-          strokeWidth={1.5}
-        />
-      ))}
-    </span>
-  );
-}
 
 // Integrações de configuração automática (apps.integration_type).
 // IBOSOL saiu da lista em 27/07/2026 (pedido do Márcio) — consolidava vários

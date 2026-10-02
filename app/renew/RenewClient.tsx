@@ -2,7 +2,7 @@
 // app/renew/RenewClient.tsx
 
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
-import { Fragment, useState, useEffect, useMemo, useRef } from "react";
+import { Fragment, useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
 import {
@@ -21,6 +21,7 @@ import ReconfigureModeModal, {
   ReconfigureMode,
 } from "@/components/apps/ReconfigureModeModal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
+import TierStars from "@/components/apps/TierStars";
 import { PORTAL_ADD_APP_HIDDEN, PORTAL_APPS_DISABLED } from "@/lib/apps/portal-apps-flag";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 
@@ -388,6 +389,8 @@ export default function RenewClient() {
     app_id: string;
     name: string;
     icon_url: string | null;
+    // estrelas (apps.tier, ou a nota da AtivaApp) — null = sem classificação
+    tier: number | null;
     has_integration: boolean;
     can_check_validity: boolean;
     requires_admin_setup: boolean;
@@ -4761,6 +4764,7 @@ export default function RenewClient() {
                 </div>
               )}
 
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             {!installedAppsLoading &&
               !installedAppsError &&
               installedApps.map((app) => {
@@ -4797,26 +4801,68 @@ export default function RenewClient() {
                   expirationDiffDays !== null &&
                   expirationDiffDays >= 0 &&
                   expirationDiffDays <= expiringSoonThresholdDays;
+                // ✅ 02/10/2026 (pedido do Márcio): card no estilo do
+                // catálogo do admin — logo, nome (ambiente), estrelas no
+                // canto superior direito, vencimento + Checar, dados com
+                // copiar rápido e botões escritos (Detalhes, Editar,
+                // Reconfigurar, Excluir; Renovar só perto do vencimento).
+                // O texto de instruções saiu do card e foi pro "Detalhes".
+                const btn =
+                  "inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-bold transition-colors disabled:opacity-50";
+                const copyIcon = (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                );
+                const copyChip = (key: string, label: string, value: string, extra?: ReactNode) => (
+                  <span
+                    key={key}
+                    className="inline-flex items-center gap-1.5 max-w-full h-7 px-2 bg-muted/60 border border-border rounded-md text-[11px]"
+                  >
+                    <span className="font-semibold text-muted-foreground shrink-0">{label}</span>
+                    <span className="font-mono text-foreground truncate">{value || "—"}</span>
+                    {value && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(value);
+                          addToast("success", "Copiado!", `${label} copiado.`);
+                        }}
+                        className="shrink-0 p-1 -m-1 text-muted-foreground hover:text-sky-500 transition-colors"
+                        title="Copiar"
+                      >
+                        {copyIcon}
+                      </button>
+                    )}
+                    {extra}
+                  </span>
+                );
+                const showRenew =
+                  app.is_active &&
+                  (expirationDiffDays === null || isExpired || isExpiringSoon) &&
+                  (app.is_gerenciaapp_family || app.license_price != null);
                 return (
                   <div
                     key={app.id}
-                    className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-3"
+                    className="bg-card rounded-xl p-4 border border-border shadow-sm flex flex-col gap-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {app.icon_url ? (
-                          <img
-                            src={app.icon_url}
-                            alt={app.name}
-                            className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-xl shrink-0">
-                            📱
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-foreground truncate">
+                    {/* Cabeçalho: logo | nome + vencimento | estrelas */}
+                    <div className="flex items-start gap-3">
+                      {app.icon_url ? (
+                        <img
+                          src={app.icon_url}
+                          alt={app.name}
+                          className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-xl shrink-0">
+                          📱
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-bold text-foreground truncate pt-0.5">
                             {app.name}
                             {ambienteField?.value ? (
                               <span className="font-normal text-muted-foreground">
@@ -4825,218 +4871,52 @@ export default function RenewClient() {
                               </span>
                             ) : null}
                           </p>
-                          {app.is_partnership ? (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              Vencimento: Parceria (gratuito)
-                            </p>
-                          ) : app.expiration && !app.is_trial ? (
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              <p
-                                className={`text-xs ${isExpired ? "text-rose-500 font-bold" : isExpiringSoon ? "text-amber-500 font-bold" : "text-muted-foreground"}`}
-                              >
-                                {isExpired
-                                  ? "Vencido"
-                                  : isExpiringSoon
-                                    ? "Vencendo"
-                                    : "Validade"}
-                                :{" "}
-                                {expirationDatePart
-                                  .split("-")
-                                  .reverse()
-                                  .join("/")}
-                              </p>
-                              {app.has_pending_manual_renewal && (
-                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-1 text-[11px] font-bold text-rose-600">
-                                  Licença paga • renovação em andamento
-                                </span>
-                              )}
-                              {app.can_check_validity && (
-                                <button
-                                  disabled={busy}
-                                  onClick={() => handleCheckValidity(app.id)}
-                                  className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                >
-                                  {busy && (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  )}
-                                  Ver validade
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            // ✅ Sem data configurada ainda (pedido do Márcio, 26/07/2026) — antes
-                            // não mostrava nada, e sem o botão Atualizar aqui, só reconfigurando
-                            // o app inteiro dava pra popular a validade. Agora mostra "vazio" +
-                            // Atualizar (quando disponível) pra checar sem precisar reconfigurar.
-                            // ✅ Trial (pedido do Márcio, 10/08/2026): quando o parceiro sinaliza
-                            // "trial sem vencimento" (ex: DUPLECAST, 15 dias grátis), "—" sozinho
-                            // parecia falha — troca por um aviso explicando o motivo.
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              <p className={`text-xs ${app.is_trial ? "text-amber-500 font-bold" : "text-muted-foreground"}`}>
-                                {app.is_trial
-                                  ? "Vencimento: Modo de avaliação"
+                          {app.tier ? (
+                            <span className="shrink-0 pt-1">
+                              <TierStars value={app.tier} size={14} />
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <p
+                            className={`text-xs ${
+                              app.is_partnership
+                                ? "text-muted-foreground"
+                                : app.is_trial
+                                  ? "text-amber-500 font-bold"
+                                  : isExpired
+                                    ? "text-rose-500 font-bold"
+                                    : isExpiringSoon
+                                      ? "text-amber-500 font-bold"
+                                      : "text-muted-foreground"
+                            }`}
+                          >
+                            {app.is_partnership
+                              ? "Vencimento: Parceria (gratuito)"
+                              : app.is_trial
+                                ? "Vencimento: Modo de avaliação"
+                                : expirationDatePart
+                                  ? `${isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: ${expirationDatePart.split("-").reverse().join("/")}`
                                   : "Vencimento: —"}
-                              </p>
-                              {app.has_pending_manual_renewal && (
-                                <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-1 text-[11px] font-bold text-rose-600">
-                                  Licença paga • renovação em andamento
-                                </span>
-                              )}
-                              {app.can_check_validity && (
-                                <button
-                                  disabled={busy}
-                                  onClick={() => handleCheckValidity(app.id)}
-                                  className="px-2 py-1 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[11px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
-                                >
-                                  {busy && (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  )}
-                                  Ver validade
-                                </button>
-                              )}
-                            </div>
+                          </p>
+                          {!app.is_partnership && app.can_check_validity && (
+                            <button
+                              disabled={busy}
+                              onClick={() => handleCheckValidity(app.id)}
+                              className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                            >
+                              {busy && <Loader2 className="w-3 h-3 animate-spin" />}
+                              Checar vencimento
+                            </button>
+                          )}
+                          {app.has_pending_manual_renewal && (
+                            <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">
+                              Licença paga • renovação em andamento
+                            </span>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {app.portal_setup_instructions && (
-                          <button
-                            onClick={() => setInstructionsAppId(app.id)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-muted text-foreground border border-border hover:bg-muted/70 transition-colors"
-                            title="Como configurar"
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <circle cx="12" cy="12" r="10"></circle>
-                              <line x1="12" y1="16" x2="12" y2="12"></line>
-                              <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                            </svg>
-                          </button>
-                        )}
-                        <button
-                          onClick={() => startEditingApp(app)}
-                          className="shrink-0 px-3 py-1.5 rounded-lg bg-muted text-foreground border border-border text-xs font-bold hover:bg-muted/70 transition-colors"
-                        >
-                          Editar
-                        </button>
-                      </div>
                     </div>
-
-                    {/* Instruções — fora do isEditing de propósito (pedido do
-                          Márcio, 31/07/2026): antes sumiam assim que o
-                          formulário de edição abria, mas é justamente aí que
-                          o cliente mais precisa delas (preenchendo os campos
-                          pela primeira vez). Ficam visíveis nos dois estados. */}
-                    {!app.has_integration && app.portal_setup_instructions && (
-                      <p className="text-[11px] text-muted-foreground bg-muted/40 border border-border rounded-lg px-2.5 py-1.5 whitespace-pre-line">
-                        {linkifyText(app.portal_setup_instructions)}
-                      </p>
-                    )}
-
-                    {/* ✅ Apps com integração automática não têm
-                          portal_setup_instructions (não precisam de passo a
-                          passo), mas o cliente não tinha como saber que o
-                          botão sozinho já resolve tudo — pedido do Márcio,
-                          10/08/2026, pra deixar isso explícito igual acontece
-                          nos apps com instruções manuais. */}
-                    {app.has_integration && (
-                      <p className="text-[11px] text-muted-foreground px-0.5">
-                        ⚡ Esse aplicativo tem configuração automática — não
-                        precisa mexer em nada nele, é só clicar em{" "}
-                        <strong className="text-foreground font-semibold">
-                          {app.expiration
-                            ? "Reconfigurar aplicativo"
-                            : "Configurar aplicativo"}
-                        </strong>{" "}
-                        que a gente ajusta tudo pra você.
-                      </p>
-                    )}
-
-                    {/* Campos-variável citados nas instruções (Código,
-                          Usuário, Senha, DNS) — mesmo texto acima já
-                          substitui o valor inline, mas isso aqui dá um botão
-                          de copiar de verdade, igual Device ID/MAC/Key
-                          (pedido do Márcio, 31/07/2026: "são informações
-                          reais que os clientes vão usar"). DNS ganha
-                          "Atualizar" do lado pra sortear outra a qualquer
-                          momento. Mesma trava "!has_integration" do parágrafo
-                          acima — sem isso, um app com integração automática
-                          (ex: GPC Computador) mostraria os badges soltos, sem
-                          o texto que explica pra que servem (esse só aparece
-                          no popup (i) quando has_integration é true). */}
-                    {!app.has_integration && app.variable_fields.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {app.variable_fields.map((f) => (
-                          <span
-                            key={f.id}
-                            className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded"
-                          >
-                            <span className="font-bold text-foreground/80">
-                              {f.label}
-                            </span>
-                            : {f.value}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard?.writeText(f.value);
-                                addToast(
-                                  "success",
-                                  "Copiado!",
-                                  `${f.label} copiado.`,
-                                );
-                              }}
-                              className="p-1 -m-1 text-muted-foreground hover:text-sky-500 transition-colors"
-                              title="Copiar"
-                            >
-                              <svg
-                                width="13"
-                                height="13"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <rect
-                                  x="9"
-                                  y="9"
-                                  width="13"
-                                  height="13"
-                                  rx="2"
-                                  ry="2"
-                                ></rect>
-                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                              </svg>
-                            </button>
-                            {(f.id === "dns_servidor" ||
-                              f.id === "dns_servidor_r2" ||
-                              f.id === "m3u_url" ||
-                              f.id === "m3u_url_r2") && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                onClick={() => handleRerollDns(app.id)}
-                                className="p-1 -m-1 text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
-                                title="Sortear outro"
-                              >
-                                <RefreshCw
-                                  className={`w-3 h-3 ${busy ? "animate-spin" : ""}`}
-                                />
-                              </button>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    )}
 
                     {isEditing ? (
                       <div className="space-y-2">
@@ -5094,90 +4974,42 @@ export default function RenewClient() {
                       </div>
                     ) : (
                       <>
-                        {/* Linha 2: campos (Device ID, Device Key, Ambiente...) à
-                              esquerda, Excluir à direita (Editar subiu pro
-                              cabeçalho, Ambiente saiu daqui — vai junto do nome).
-                              Instruções (quando existem) já apareceram acima,
-                              fora deste bloco. */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
-                            {otherFields.map((f) => (
-                              <span
-                                key={f.id}
-                                className="flex items-center gap-1 px-2 py-0.5 bg-muted text-muted-foreground border border-border text-[10px] font-mono rounded"
-                              >
-                                <span className="font-bold text-foreground/80">
-                                  {f.label}
-                                </span>
-                                : {f.value || "—"}
-                                {f.value && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      navigator.clipboard?.writeText(f.value);
-                                      addToast(
-                                        "success",
-                                        "Copiado!",
-                                        `${f.label} copiado.`,
-                                      );
-                                    }}
-                                    className="p-1 -m-1 text-muted-foreground hover:text-sky-500 transition-colors"
-                                    title="Copiar"
-                                  >
-                                    <svg
-                                      width="13"
-                                      height="13"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      strokeWidth="2.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
+                        {/* Dados do app (Device ID, Key, MAC, e-mail...) +
+                            dados de acesso (Código, Usuário, Senha, DNS) —
+                            sempre com copiar rápido. */}
+                        {(otherFields.length > 0 ||
+                          (!app.has_integration && app.variable_fields.length > 0)) && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {otherFields.map((f) => copyChip(f.id, f.label, f.value))}
+                            {!app.has_integration &&
+                              app.variable_fields.map((f) =>
+                                copyChip(
+                                  `v-${f.id}`,
+                                  f.label,
+                                  f.value,
+                                  (f.id === "dns_servidor" ||
+                                    f.id === "dns_servidor_r2" ||
+                                    f.id === "m3u_url" ||
+                                    f.id === "m3u_url_r2") && (
+                                    <button
+                                      type="button"
+                                      disabled={busy}
+                                      onClick={() => handleRerollDns(app.id)}
+                                      className="shrink-0 p-1 -m-1 text-muted-foreground hover:text-emerald-500 transition-colors disabled:opacity-50"
+                                      title="Sortear outro"
                                     >
-                                      <rect
-                                        x="9"
-                                        y="9"
-                                        width="13"
-                                        height="13"
-                                        rx="2"
-                                        ry="2"
-                                      ></rect>
-                                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                                    </svg>
-                                  </button>
-                                )}
-                              </span>
-                            ))}
-                          </div>
-                          {app.has_pending_removal_request ? (
-                            <span className="shrink-0 px-2 py-1 rounded-lg bg-muted text-muted-foreground border border-border text-[10px] font-bold">
-                              Exclusão solicitada
-                            </span>
-                          ) : (
-                            <button
-                              disabled={busy}
-                              onClick={() =>
-                                handleRemoveApp(
-                                  app.id,
-                                  app.name,
-                                  app.has_integration,
-                                  app.requires_admin_setup,
-                                )
-                              }
-                              className="shrink-0 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[11px] font-bold uppercase hover:bg-rose-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
-                            >
-                              {busy && (
-                                <Loader2 className="w-3 h-3 animate-spin" />
+                                      <RefreshCw className={`w-3 h-3 ${busy ? "animate-spin" : ""}`} />
+                                    </button>
+                                  ),
+                                ),
                               )}
-                              {busy ? "Excluindo..." : "Excluir Aplicativo"}
-                            </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
 
                         {/* ✅ Ativação automática via Appativa falhou
                               (achado 25/08/2026) — mostra o motivo real e
                               deixa o cliente reenviar depois de corrigir o
-                              campo (ex: MAC) nos campos acima. */}
+                              campo (ex: MAC). */}
                         {app.pending_renewal_error && (
                           <div className="text-xs font-medium text-amber-600 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
                             <span>
@@ -5198,13 +5030,9 @@ export default function RenewClient() {
                           </div>
                         )}
 
-                        {/* Linha 3: Configurar/Reconfigurar à esquerda,
-                              Renovar aplicativo à direita (Verificar virou o
-                              "Atualizar" ao lado da validade, lá em cima).
-                              Se o app foi descontinuado (apps.is_active=false,
-                              ex: DuplexPlay), não faz mais sentido oferecer
-                              configurar/renovar — vira um aviso pra trocar. */}
-                        {!app.is_active ? (
+                        {/* Descontinuado (apps.is_active=false): não oferece
+                            configurar/renovar — vira aviso pra trocar. */}
+                        {!app.is_active && (
                           <div className="text-xs font-medium text-rose-500/70 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
                             Aplicativo descontinuado — exclua e configure um
                             novo.
@@ -5219,114 +5047,109 @@ export default function RenewClient() {
                               </>
                             )}
                           </div>
-                        ) : (
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <div className="flex flex-wrap gap-2">
-                              {app.has_integration && (
+                        )}
+
+                        {/* Botões escritos — Renovar à direita, só perto do
+                            vencimento (30 dias; 7 na Appativa) ou sem
+                            vencimento conhecido. */}
+                        <div className="mt-auto flex items-center justify-between gap-2 flex-wrap pt-1">
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              onClick={() => setInstructionsAppId(app.id)}
+                              className={`${btn} bg-muted text-foreground border-border hover:bg-muted/70`}
+                            >
+                              Detalhes
+                            </button>
+                            <button
+                              onClick={() => startEditingApp(app)}
+                              className={`${btn} bg-muted text-foreground border-border hover:bg-muted/70`}
+                            >
+                              Editar
+                            </button>
+                            {app.is_active && app.has_integration && (
+                              <button
+                                disabled={busy}
+                                onClick={() => handleConfigureApp(app.id)}
+                                className={`${btn} bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 hover:bg-sky-500/20`}
+                              >
+                                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                {busy ? "Configurando..." : app.expiration ? "Reconfigurar" : "Configurar"}
+                              </button>
+                            )}
+                            {/* "Solicitar configuração" só pra app PAGO sem
+                                integração e ainda sem vencimento (ver
+                                achado de 06/09/2026: depois que o admin
+                                configura, o vencimento real aparece e o
+                                botão some). */}
+                            {app.is_active &&
+                              app.requires_admin_setup &&
+                              !app.expiration &&
+                              (app.has_pending_setup_request ? (
+                                <span className={`${btn} bg-muted text-muted-foreground border-border`}>
+                                  ✓ Configuração solicitada
+                                </span>
+                              ) : (
                                 <button
                                   disabled={busy}
-                                  onClick={() => handleConfigureApp(app.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/10 text-sky-500 border border-sky-500/20 text-xs font-bold hover:bg-sky-500/20 transition-colors disabled:opacity-50"
+                                  onClick={() => handleRequestSetup(app.id)}
+                                  className={`${btn} bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20`}
                                 >
-                                  {busy && (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  )}
-                                  {busy
-                                    ? "Configurando..."
-                                    : app.expiration
-                                      ? "Reconfigurar aplicativo"
-                                      : "Configurar aplicativo"}
+                                  {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  {busy ? "Solicitando..." : "Solicitar configuração"}
                                 </button>
-                              )}
-                              {/* ✅ "Solicitar configuração" só existe pra app PAGO sem
-                                    integração automática (ex: extensão do Chrome ainda não
-                                    pronta) — pedido do Márcio, 31/07/2026: parceria/gratuito
-                                    sem integração é self-service (o cliente configura
-                                    sozinho olhando os dados acima), nunca vira pendência
-                                    pro suporte.
-                                    ⚠️ Bug real achado 06/09/2026 (Márcio configurou o ClouDDy
-                                    pelo admin, vencimento real já apareceu lá em cima, mas o
-                                    botão de solicitar continuava aparecendo embaixo): faltava
-                                    checar `!app.expiration` aqui — sem isso, esse bloco nunca
-                                    saía do estado "precisa configurar", mesmo depois do admin
-                                    terminar de verdade (não existe nenhum flag "concluído" pra
-                                    esses apps, só vencimento real preenchido ou não). */}
-                              {app.requires_admin_setup && !app.expiration &&
-                                (app.has_pending_setup_request ? (
-                                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground border border-border text-xs font-bold">
-                                    ✓ Configuração solicitada
-                                  </span>
-                                ) : (
-                                  <button
-                                    disabled={busy}
-                                    onClick={() => handleRequestSetup(app.id)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/20 text-xs font-bold hover:bg-amber-500/20 transition-colors disabled:opacity-50"
-                                  >
-                                    {busy && (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    )}
-                                    {busy
-                                      ? "Solicitando..."
-                                      : "Solicitar configuração"}
-                                  </button>
-                                ))}
-                            </div>
-                            {app.is_gerenciaapp_family
-                              ? // ✅ Mesmo limiar de 30 dias do botão pago
-                                // (pedido do Márcio, 28/07/2026) — achado em
-                                // produção: ficava visível mesmo logo depois
-                                // de renovar pra 2028, um ano+ antes de
-                                // precisar de novo.
-                                (expirationDiffDays === null ||
-                                  isExpired ||
-                                  isExpiringSoon) && (
-                                  <button
-                                    disabled={busy}
-                                    onClick={() =>
-                                      handleFreeRenewGerenciaApp(app.id)
-                                    }
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
-                                  >
-                                    {busy && (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    )}
-                                    {busy
-                                      ? "Renovando..."
-                                      : "Renovar licença — Grátis"}
-                                  </button>
-                                )
-                              : // ✅ Só aparece perto do vencimento (pedido do
-                                // Márcio, 28/07/2026) — um app válido até
-                                // 2054 não precisa desse botão visível o
-                                // tempo todo. Sem vencimento conhecido
-                                // (nunca configurado/verificado) mostra por
-                                // segurança — mesmo limiar de "Vencendo"
-                                // (isExpiringSoon) usado acima nessa mesma
-                                // linha do tempo.
-                                app.license_price != null &&
-                                (expirationDiffDays === null ||
-                                  isExpired ||
-                                  isExpiringSoon) && (
-                                  <button
-                                    disabled={renewPaymentBusyId === app.id}
-                                    onClick={() => handleRenewPaymentClick(app.id)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors disabled:opacity-50"
-                                  >
-                                    {renewPaymentBusyId === app.id && (
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    )}
-                                    {renewPaymentBusyId === app.id
-                                      ? "Gerando pagamento..."
-                                      : `Pagar licença ${app.license_period === "annual" ? "Anual" : app.license_period === "lifetime" ? "Vitalícia" : ""}: ${formatMoney(app.license_price_display ?? app.license_price, app.license_price_display_currency || "BRL")}`}
-                                  </button>
-                                )}
+                              ))}
+                            {app.has_pending_removal_request ? (
+                              <span className={`${btn} bg-muted text-muted-foreground border-border`}>
+                                Exclusão solicitada
+                              </span>
+                            ) : (
+                              <button
+                                disabled={busy}
+                                onClick={() =>
+                                  handleRemoveApp(
+                                    app.id,
+                                    app.name,
+                                    app.has_integration,
+                                    app.requires_admin_setup,
+                                  )
+                                }
+                                className={`${btn} bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/20`}
+                              >
+                                {busy ? "Excluindo..." : "Excluir"}
+                              </button>
+                            )}
                           </div>
-                        )}
+                          {showRenew &&
+                            (app.is_gerenciaapp_family ? (
+                              <button
+                                disabled={busy}
+                                onClick={() => handleFreeRenewGerenciaApp(app.id)}
+                                className={`${btn} bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-500`}
+                              >
+                                {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                {busy ? "Renovando..." : "Renovar — Grátis"}
+                              </button>
+                            ) : (
+                              <button
+                                disabled={renewPaymentBusyId === app.id}
+                                onClick={() => handleRenewPaymentClick(app.id)}
+                                className={`${btn} bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-500`}
+                              >
+                                {renewPaymentBusyId === app.id && (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                )}
+                                {renewPaymentBusyId === app.id
+                                  ? "Gerando pagamento..."
+                                  : `Renovar ${app.license_period === "annual" ? "anual" : app.license_period === "lifetime" ? "vitalícia" : ""} · ${formatMoney(app.license_price_display ?? app.license_price, app.license_price_display_currency || "BRL")}`}
+                              </button>
+                            ))}
+                        </div>
                       </>
                     )}
                   </div>
                 );
               })}
+            </div>
 
             {/* ✅ Volta a linha pontilhada de antes (pedido do Márcio, 26/07/2026)
                   — não é mais o botão de adicionar (isso subiu pro cabeçalho), agora
@@ -5930,8 +5753,26 @@ export default function RenewClient() {
                   >
                     <div className="w-full max-w-sm bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3 max-h-[80vh] overflow-y-auto">
                       <p className="text-sm font-bold text-foreground shrink-0">
-                        Como configurar — {instrApp?.name}
+                        Detalhes — {instrApp?.name}
                       </p>
+                      {/* ✅ 02/10/2026: o aviso de configuração automática
+                          saiu do card e veio pra cá (botão Detalhes) */}
+                      {instrApp?.has_integration && (
+                        <p className="text-xs text-muted-foreground">
+                          ⚡ Esse aplicativo tem configuração automática — não
+                          precisa mexer em nada nele, é só clicar em{" "}
+                          <strong className="text-foreground font-semibold">
+                            {instrApp.expiration ? "Reconfigurar" : "Configurar"}
+                          </strong>{" "}
+                          que a gente ajusta tudo pra você.
+                        </p>
+                      )}
+                      {instrApp && !instrApp.has_integration && !instrApp.portal_setup_instructions && (
+                        <p className="text-xs text-muted-foreground">
+                          Preencha os dados do aplicativo em <strong className="text-foreground font-semibold">Editar</strong>.
+                          Em caso de dúvida, fale com o suporte.
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground whitespace-pre-line">
                         {instrApp?.portal_setup_instructions &&
                           linkifyText(instrApp.portal_setup_instructions)}
