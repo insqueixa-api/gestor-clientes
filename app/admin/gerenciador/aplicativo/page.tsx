@@ -134,6 +134,27 @@ function TierStars({ value, size = 14 }: { value: number | null | undefined; siz
   );
 }
 
+// Integrações de configuração automática (apps.integration_type).
+// IBOSOL saiu da lista em 27/07/2026 (pedido do Márcio) — consolidava vários
+// apps da família via activation.iboplayer.com, que não funciona mais. Apps
+// que já estavam com IBOSOL continuam salvos assim até serem migrados
+// individualmente — o dropdown mostra o valor mesmo fora da lista.
+const INTEGRATION_OPTIONS: { value: string; label: string }[] = [
+  { value: "GERENCIAAPP", label: "GerenciaApp (IBO Revenda, etc)" },
+  { value: "DUPLECAST", label: "DupleCast" },
+  { value: "IBOPRO", label: "IBO Pro Player" },
+  { value: "QUICKPLAYER", label: "Quick Player" },
+  { value: "MESSITV", label: "MessiTV" },
+  { value: "BOBPLAYER", label: "BOB Player" },
+  { value: "IBOPLAYER", label: "IBO Player" },
+  { value: "IPTVDUPLEX", label: "IPTV Duplex Play" },
+  { value: "IPTVPLAYERIO", label: "IPTV Playerio" },
+  { value: "DUPLEXTV", label: "Duplex TV" },
+  { value: "CLOUDDY", label: "ClouDDy" },
+  { value: "NINJAPLUS", label: "Ninja Plus" },
+  { value: "CAPPLAYER", label: "CAP Player" },
+];
+
 // Logo pequena de item do catálogo da AtivaApp (dropdown do modal).
 function AppativaLogo({ src }: { src?: string | null }) {
   return src ? (
@@ -263,7 +284,7 @@ export default function AppManagerPage() {
   const [apps, setApps] = useState<AppData[]>([]);
   const [myTenantId, setMyTenantId] = useState<string | null>(null);
   const [configuredIntegrations, setConfiguredIntegrations] = useState<
-    { name: string; url: string }[]
+    { name: string; url: string; icon: string | null }[]
   >([]);
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [search, setSearch] = useState("");
@@ -408,6 +429,19 @@ export default function AppManagerPage() {
   // id da integração AtivaApp (api_integrations) — usado pelo botão Sync.
   const [appativaIntegrationId, setAppativaIntegrationId] = useState<string | null>(null);
   const [syncingAppativa, setSyncingAppativa] = useState(false);
+  // ✅ 02/10/2026: "Configuração" virou dropdown com ícone (igual AtivaApp)
+  const [integrationPickerOpen, setIntegrationPickerOpen] = useState(false);
+  const integrationBtnRef = useRef<HTMLButtonElement>(null);
+  const [duplecastIcon, setDuplecastIcon] = useState<string | null>(null);
+  useEffect(() => {
+    if (!integrationPickerOpen) return;
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("[data-integration-picker]")) setIntegrationPickerOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [integrationPickerOpen]);
   // botões que ancoram os painéis flutuantes (components/ui/FloatingPanel)
   const appativaBtnRef = useRef<HTMLButtonElement>(null);
   const devicesBtnRef = useRef<HTMLButtonElement>(null);
@@ -517,7 +551,7 @@ export default function AppManagerPage() {
           .order("name", { ascending: true }),
         supabaseBrowser
           .from("app_integrations")
-          .select("app_name, api_url")
+          .select("app_name, api_url, icon_url")
           .eq("tenant_id", tid)
           .eq("is_active", true),
         supabaseBrowser
@@ -542,7 +576,7 @@ export default function AppManagerPage() {
         // padrão da Appativa acima, só que sem catálogo (preço flat).
         supabaseBrowser
           .from("api_integrations")
-          .select("credit_unit_price")
+          .select("credit_unit_price, icon_url")
           .eq("tenant_id", tid)
           .eq("provider", "DUPLECAST")
           .eq("is_active", true)
@@ -569,6 +603,7 @@ export default function AppManagerPage() {
         integrationsRes.data?.map((i) => ({
           name: i.app_name,
           url: i.api_url || "",
+          icon: i.icon_url || null,
         })) || [],
       );
       setServers(serversRes.data || []);
@@ -581,6 +616,7 @@ export default function AppManagerPage() {
           ? Number(appativaRes.data.credit_unit_price)
           : null,
       );
+      setDuplecastIcon(duplecastRes.data?.icon_url || null);
       setDuplecastCreditUnitPrice(
         duplecastRes.data?.credit_unit_price != null
           ? Number(duplecastRes.data.credit_unit_price)
@@ -716,6 +752,20 @@ export default function AppManagerPage() {
     ] as string[];
   }, [apps, sessionCustomDevices, formDeviceTypes, devicesBeforeDiscontinue]);
   const formAutoDevices: string[] = devicesFromAppativa(formAppativaItem);
+
+  // Ícone de cada integração: o salvo nela (API de Integrações); senão o da
+  // API do DupleCast; senão o de um app do catálogo que já usa essa
+  // integração (a maioria não tem ícone próprio cadastrado).
+  const integrationIcon = (value: string): string | null =>
+    configuredIntegrations.find((i) => i.name === value)?.icon ||
+    (value === "DUPLECAST" ? duplecastIcon : null) ||
+    apps
+      .filter((a) => a.integration_type === value)
+      .map((a) => effectiveIcon(a, appativaCatalog))
+      .find(Boolean) ||
+    null;
+  const integrationLabel = (value: string) =>
+    INTEGRATION_OPTIONS.find((o) => o.value === value)?.label || value;
 
   function pickAppativa(it: AppativaCatalogItem | null) {
     setFormAppativaAppId(it?.id || "");
@@ -1917,34 +1967,70 @@ export default function AppManagerPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <Label>Configuração</Label>
-                        <select
-                          value={formIntegration}
-                          onChange={(e) => setFormIntegration(e.target.value)}
-                          className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-                        >
-                          <option value="">Sem integração</option>
-                          <option value="GERENCIAAPP">
-                            GerenciaApp (IBO Revenda, etc)
-                          </option>
-                          <option value="DUPLECAST">DupleCast</option>
-                          {/* IBOSOL removido do select em 27/07/2026 (pedido do
-                              Márcio) — consolidava vários apps da família via
-                              activation.iboplayer.com, que não funciona mais.
-                              Apps que já estavam com integration_type=IBOSOL
-                              (ex: "IBO Player") continuam salvos assim até serem
-                              migrados individualmente — não afeta quem já usa. */}
-                          <option value="IBOPRO">IBO Pro Player</option>
-                          <option value="QUICKPLAYER">Quick Player</option>
-                          <option value="MESSITV">MessiTV</option>
-                          <option value="BOBPLAYER">BOB Player</option>
-                          <option value="IBOPLAYER">IBO Player</option>
-                          <option value="IPTVDUPLEX">IPTV Duplex Play</option>
-                          <option value="IPTVPLAYERIO">IPTV Playerio</option>
-                          <option value="DUPLEXTV">Duplex TV</option>
-                          <option value="CLOUDDY">ClouDDy</option>
-                          <option value="NINJAPLUS">Ninja Plus</option>
-                          <option value="CAPPLAYER">CAP Player</option>
-                        </select>
+                        <div data-integration-picker>
+                          <button
+                            ref={integrationBtnRef}
+                            type="button"
+                            onClick={() => setIntegrationPickerOpen((o) => !o)}
+                            className={`w-full h-10 px-2 flex items-center gap-2 border rounded-lg text-sm text-left outline-none transition-colors ${
+                              formIntegration
+                                ? "border-emerald-500/30 bg-emerald-500/10"
+                                : "border-border hover:border-emerald-500/40"
+                            }`}
+                          >
+                            {formIntegration ? (
+                              <>
+                                <AppativaLogo src={integrationIcon(formIntegration)} />
+                                <span className="flex-1 min-w-0 truncate text-foreground">
+                                  {integrationLabel(formIntegration)}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="flex-1 px-1 text-muted-foreground">Sem integração</span>
+                            )}
+                            <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </button>
+                          {integrationPickerOpen && (
+                            <FloatingPanel
+                              anchorRef={integrationBtnRef}
+                              open
+                              preferredHeight={460}
+                              dataAttr="data-integration-picker"
+                            >
+                              <div className="flex-1 min-h-0 overflow-y-auto py-1">
+                                {[{ value: "", label: "Sem integração" }, ...INTEGRATION_OPTIONS].map((opt) => {
+                                  const configured =
+                                    !opt.value || configuredIntegrations.some((i) => i.name === opt.value);
+                                  return (
+                                    <button
+                                      key={opt.value || "none"}
+                                      type="button"
+                                      onClick={() => {
+                                        setFormIntegration(opt.value);
+                                        setIntegrationPickerOpen(false);
+                                      }}
+                                      className={`w-full flex items-center gap-2 px-2 py-1.5 text-left hover:bg-muted transition-colors ${
+                                        opt.value === formIntegration ? "bg-emerald-500/10" : ""
+                                      }`}
+                                    >
+                                      {opt.value ? (
+                                        <AppativaLogo src={integrationIcon(opt.value)} />
+                                      ) : (
+                                        <span className="w-7 h-7 rounded-md border border-dashed border-border flex items-center justify-center shrink-0">
+                                          <Wrench className="w-3.5 h-3.5 text-muted-foreground" />
+                                        </span>
+                                      )}
+                                      <span className="flex-1 min-w-0 truncate text-sm text-foreground">{opt.label}</span>
+                                      {!configured && (
+                                        <span className="shrink-0 text-[10px] font-medium text-amber-500">API não configurada</span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </FloatingPanel>
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground mt-1">
                           Configura o app sozinho ao criar o cliente.
                         </p>
