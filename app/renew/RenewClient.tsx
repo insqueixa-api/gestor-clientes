@@ -167,6 +167,12 @@ function getFirstName(fullName?: string | null) {
   return first.charAt(0).toUpperCase() + first.slice(1).toLowerCase();
 }
 
+// ✅ 02/10/2026 (pedido do Márcio): valor de licença de app SEMPRE com o
+// período — o cliente podia achar que R$ 30 era mensal.
+function licensePeriodSuffix(period: string | null | undefined): string {
+  return period === "annual" ? " / ano" : period === "lifetime" ? " (vitalícia)" : "";
+}
+
 function formatMoney(amount: number, currency: string = "BRL") {
   const formatted = new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -973,7 +979,7 @@ export default function RenewClient() {
     string[]
   >([]);
   const [confirmedAppRenewals, setConfirmedAppRenewals] = useState<
-    { app_name: string; price_amount: number }[]
+    { app_name: string; price_amount: number; license_period?: string | null }[]
   >([]);
 
   // ✅ Apps elegíveis pro alerta "vencendo em 7 dias" no Bloco 1 — mesma
@@ -2479,6 +2485,7 @@ export default function RenewClient() {
       appsToRenew.map((app) => ({
         app_name: appNameWithAmbiente(app),
         price_amount: Number(app.license_price_display ?? 0),
+        license_period: app.license_period,
       })),
     );
 
@@ -2813,6 +2820,7 @@ export default function RenewClient() {
                         app.license_price_display ?? 0,
                         app.license_price_display_currency || "BRL",
                       )}
+                      {licensePeriodSuffix(app.license_period)}
                     </span>
                   </div>
                 ))}
@@ -2950,7 +2958,7 @@ export default function RenewClient() {
         {confirmedAppRenewals.map((it, idx) => (
           <div key={idx} className="flex justify-between text-foreground/80">
             <span>Renovação — {it.app_name}</span>
-            <span>{formatMoney(it.price_amount, summaryCurrency)}</span>
+            <span>{formatMoney(it.price_amount, summaryCurrency)}{licensePeriodSuffix(it.license_period)}</span>
           </div>
         ))}
         <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
@@ -4857,7 +4865,7 @@ export default function RenewClient() {
                         )}
                         {renewPaymentBusyId === app.id
                           ? "Gerando pagamento..."
-                          : `Renovar · ${formatMoney(app.license_price_display ?? app.license_price, app.license_price_display_currency || "BRL")}`}
+                          : `Renovar · ${formatMoney(app.license_price_display ?? app.license_price, app.license_price_display_currency || "BRL")}${licensePeriodSuffix(app.license_period)}`}
                       </button>
                     );
                 const copyIcon = (
@@ -5321,6 +5329,7 @@ export default function RenewClient() {
                             </div>
                             <span className="text-sm font-bold text-foreground shrink-0">
                               {formatMoney(mainApp.license_price_display ?? 0, currency)}
+                              {licensePeriodSuffix(mainApp.license_period)}
                             </span>
                           </div>
                         )}
@@ -5353,6 +5362,7 @@ export default function RenewClient() {
                               </span>
                               <span className="text-sm font-bold text-foreground shrink-0">
                                 + {formatMoney(c.license_price_display ?? 0, c.license_price_display_currency || currency)}
+                                {licensePeriodSuffix(c.license_period)}
                               </span>
                             </label>
                           );
@@ -5520,7 +5530,10 @@ export default function RenewClient() {
                               return (
                                 <div key={b.client_app_id} className="flex justify-between text-foreground/80">
                                   <span>+ {extraApp ? appNameWithAmbiente(extraApp) : b.app_name}</span>
-                                  <span>{formatMoney(b.price_amount, renewPayment.currency)}</span>
+                                  <span>
+                                    {formatMoney(b.price_amount, renewPayment.currency)}
+                                    {licensePeriodSuffix(extraApp?.license_period)}
+                                  </span>
                                 </div>
                               );
                             })}
@@ -6498,7 +6511,7 @@ export default function RenewClient() {
                                 app.license_price_display ?? 0,
                                 app.license_price_display_currency || "BRL",
                               )}
-                              )
+                              {licensePeriodSuffix(app.license_period)})
                             </span>
                           </label>
                         </div>
