@@ -8,6 +8,7 @@ import { buildPortalVariableFields } from "@/lib/apps/portal-variable-rules";
 import { renderTemplate, pickRandomDns } from "@/lib/whatsapp/template-vars";
 import { convertAmount } from "@/lib/fx";
 import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
+import { formatLicenca } from "@/lib/apps/license-text";
 
 export const dynamic = "force-dynamic";
 
@@ -294,13 +295,7 @@ export async function POST(req: NextRequest) {
       // ✅ 02/10/2026: variável {licenca} nas instruções (ex: "R$ 30,00 por
       // ano, por aparelho") — o texto nunca mais fica com preço fixo/desatualizado; é o
       // mesmo valor do botão Renovar.
-      const licencaText =
-        licensePriceDisplay == null
-          ? ""
-          : `${new Intl.NumberFormat("pt-BR", { style: "currency", currency: clientCurrency }).format(licensePriceDisplay)}${
-              // licença é por aparelho (cada um tem o seu MAC e a sua ativação)
-              row.apps?.license_period === "annual" ? " por ano, por aparelho" : row.apps?.license_period === "lifetime" ? " (pagamento único), por aparelho" : " por aparelho"
-            }`;
+      const licencaText = formatLicenca(licensePriceDisplay, clientCurrency, row.apps?.license_period);
 
       return {
         id: row.id,

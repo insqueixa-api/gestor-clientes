@@ -24,7 +24,8 @@ import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
-import { effectiveIcon } from "@/lib/apps/appativa-catalog";
+import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
+import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { withoutLegacyDevices } from "@/lib/apps/device-types";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
@@ -964,6 +965,11 @@ export default function NovoCliente({
     license_price?: number | null;
     license_period?: "annual" | "lifetime" | null;
     partner_server_id?: string | null;
+    // ✅ 02/10/2026: vitrine nova (estrelas, logo e descrição da AtivaApp)
+    tier?: number | null;
+    appativa_app_id?: string | null;
+    appativa_meta?: any;
+    portal_setup_instructions?: string | null;
   };
   type SelectedAppInstance = {
     instanceId: string;
@@ -6750,6 +6756,15 @@ export default function NovoCliente({
                     name: app.name,
                     // ✅ 02/10/2026: logo da AtivaApp quando não há a própria
                     icon_url: effectiveIcon(app) ?? null,
+                    tier: effectiveTier(app).value,
+                    description: renderAppDescription(
+                      app.portal_setup_instructions,
+                      formatLicenca(
+                        app.cost_type === "paid" ? app.license_price : null,
+                        "BRL",
+                        app.license_period,
+                      ),
+                    ),
                     device_types: withoutLegacyDevices(
                       Array.isArray(app.device_types) ? app.device_types : [],
                     ),

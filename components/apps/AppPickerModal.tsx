@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Pencil, Search } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search } from "lucide-react";
+import FloatingPanel from "@/components/ui/FloatingPanel";
+import TierStars from "@/components/apps/TierStars";
+import DeviceBadges from "@/components/apps/DeviceBadges";
 import { Modal } from "@/components/ui/Modal";
 import {
   ALL_DEVICE_TYPES,
@@ -31,7 +34,75 @@ export type AppPickerCatalogItem = {
   is_active?: boolean;
   discontinued_replacement_name?: string | null;
   has_integration?: boolean;
+  /** estrelas (apps.tier, ou a nota da AtivaApp) — null = sem classificação */
+  tier?: number | null;
+  /** instruções do app com {licenca} preenchida — mostrada no "Detalhes" */
+  description?: string | null;
 };
+
+// ✅ 02/10/2026 (pedido do Márcio): filtro rápido ao lado da busca (seta)
+const QUICK_FILTERS: { value: string; label: string }[] = [
+  { value: "", label: "Todos os aplicativos" },
+  { value: "5", label: "★★★★★ 5 estrelas" },
+  { value: "4", label: "★★★★ 4 estrelas" },
+  { value: "3", label: "★★★ 3 estrelas" },
+  { value: "2", label: "★★ 2 estrelas" },
+  { value: "1", label: "★ 1 estrela" },
+  { value: "free", label: "Gratuitos" },
+  { value: "partner", label: "Parceiros" },
+];
+
+function matchesQuickFilter(app: AppPickerCatalogItem, f: string): boolean {
+  if (!f) return true;
+  if (f === "partner") return app.cost_type === "partnership";
+  if (f === "free") return app.cost_type !== "partnership" && (app.cost_type === "free" || app.license_price == null);
+  return app.cost_type !== "partnership" && Number(app.tier) === Number(f);
+}
+
+// **negrito** + quebras de linha (mesmo formato das instruções no portal)
+function renderRichText(text: string) {
+  const out: React.ReactNode[] = [];
+  const re = /\*\*(.+?)\*\*/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(<span key={i++}>{text.slice(last, m.index)}</span>);
+    out.push(<strong key={i++} className="text-foreground font-bold">{m[1]}</strong>);
+    last = re.lastIndex;
+  }
+  if (last < text.length) out.push(<span key={i++}>{text.slice(last)}</span>);
+  return out;
+}
+
+// Linha em carrossel (rolagem lateral; setas no computador)
+function Carousel({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const scroll = (dir: number) => ref.current?.scrollBy({ left: dir * (ref.current.clientWidth * 0.8), behavior: "smooth" });
+  return (
+    <div className="relative group/car">
+      <button
+        type="button"
+        onClick={() => scroll(-1)}
+        className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 z-10 w-8 h-8 items-center justify-center rounded-full bg-card border border-border shadow-md text-foreground opacity-0 group-hover/car:opacity-100 transition-opacity"
+        title="Anterior"
+      >
+        <ChevronLeft className="w-4 h-4" />
+      </button>
+      <div ref={ref} className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2 custom-scrollbar">
+        {children}
+      </div>
+      <button
+        type="button"
+        onClick={() => scroll(1)}
+        className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 z-10 w-8 h-8 items-center justify-center rounded-full bg-card border border-border shadow-md text-foreground opacity-0 group-hover/car:opacity-100 transition-opacity"
+        title="Próximo"
+      >
+        <ChevronRight className="w-4 h-4" />
+      </button>
+    </div>
+  );
+}
 
 // Ícone padrão de cada aparelho enquanto não há logo própria
 // (public.app_device_types.icon_url — trocada pelo lápis no admin).
@@ -89,7 +160,11 @@ export default function AppPickerModal({
 
   const [deviceType, setDeviceType] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [costTab, setCostTab] = useState<"paid" | "partner">("paid");
+  // ✅ 02/10/2026: "Detalhes" do app (descrição, estrelas, aparelhos)
+  const [detailsAppId, setDetailsAppId] = useState<string | null>(null);
+  const [quickFilter, setQuickFilter] = useState("");
+  const [quickFilterOpen, setQuickFilterOpen] = useState(false);
+  const quickFilterAnchor = useRef<HTMLElement | null>(null);
   const [loadedIcons, setLoadedIcons] = useState<Record<string, string>>({});
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   // aparelho com o painel "colar / arrastar / selecionar" aberto (lápis)
@@ -103,14 +178,13 @@ export default function AppPickerModal({
     if (open) {
       setDeviceType(null);
       setSearch("");
-      setCostTab("paid");
+      setDetailsAppId(null);
+      setQuickFilter("");
+      setQuickFilterOpen(false);
       setEditingIconKey(null);
     }
   }, [open]);
 
-  useEffect(() => {
-    setCostTab("paid");
-  }, [deviceType]);
 
   // ✅ 02/10/2026: admin carrega as logos dos aparelhos direto (RLS por conta)
   useEffect(() => {
@@ -130,6 +204,16 @@ export default function AppPickerModal({
       cancelled = true;
     };
   }, [open, deviceIconsProp, canEditIcons, tenantId]);
+
+  useEffect(() => {
+    if (!quickFilterOpen) return;
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("[data-quick-filter]")) setQuickFilterOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [quickFilterOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -164,7 +248,7 @@ export default function AppPickerModal({
     return catalog.filter((app) => {
       // ✅ 02/10/2026 (pedido do Márcio): com busca digitada, procura em
       // TODOS os aplicativos, independente do aparelho escolhido.
-      if (q) return true;
+      if (q || quickFilter) return true;
       if (!deviceType && !hasPresetDeviceTypes) return true;
       // ✅ Trava de parceria (só app do servidor certo do cliente) — entra
       // em vigor só depois que um aparelho é escolhido.
@@ -178,18 +262,34 @@ export default function AppPickerModal({
       // faltando no catálogo; só aparece pela busca.
       return Boolean(deviceType && app.device_types?.includes(deviceType));
     });
-  }, [catalog, deviceType, clientServerId, presetDeviceTypes, hasPresetDeviceTypes, q]);
+  }, [catalog, deviceType, clientServerId, presetDeviceTypes, hasPresetDeviceTypes, q, quickFilter]);
 
-  const hasPaidApps = appsForDevice.some((app) => app.cost_type === "paid");
-  const hasFreeApps = appsForDevice.some((app) => app.cost_type !== "paid");
-  const showCostTabs = !q && hasPaidApps && hasFreeApps;
-
-  const filteredApps = useMemo(() => {
-    return appsForDevice
-      .filter((app) => !showCostTabs || (costTab === "paid" ? app.cost_type === "paid" : app.cost_type !== "paid"))
+  // ✅ 02/10/2026 (pedido do Márcio): vitrine por estrelas (5 → 1, depois
+  // sem classificação), cada nível num carrossel. As abas Pagos/Parceiros
+  // saíram — o preço (ou "Grátis"/"Parceria") aparece no próprio card.
+  const sections = useMemo(() => {
+    const list = appsForDevice
       .filter((app) => app.name.toLowerCase().includes(q))
-      .sort((a, b) => Number(!!b.has_integration) - Number(!!a.has_integration));
-  }, [appsForDevice, costTab, q, showCostTabs]);
+      .filter((app) => matchesQuickFilter(app, quickFilter))
+      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+    const out: { key: string; tier: number | null; label?: string; apps: AppPickerCatalogItem[] }[] = [];
+    // ✅ 02/10/2026 (pedido do Márcio): parceria (ex: Elite, NaTV) fica
+    // fora das estrelas, numa seção própria no fim. Conta P2P com parceria
+    // disponível vê só a parceria.
+    const partner = list.filter((a) => a.cost_type === "partnership");
+    const regular = list.filter((a) => a.cost_type !== "partnership");
+    const partnerSection = { key: "parceria", tier: null, label: "Parceria com o seu servidor", apps: partner };
+    if (hasPresetDeviceTypes && !q && !quickFilter && partner.length) return [partnerSection];
+    for (const t of [5, 4, 3, 2, 1]) {
+      const apps = regular.filter((a) => Number(a.tier) === t);
+      if (apps.length) out.push({ key: `t${t}`, tier: t, apps });
+    }
+    const none = regular.filter((a) => !a.tier);
+    if (none.length) out.push({ key: "sem", tier: null, label: "Outros aplicativos", apps: none });
+    if (partner.length) out.push(partnerSection);
+    return out;
+  }, [appsForDevice, q, hasPresetDeviceTypes, quickFilter]);
+  const totalApps = sections.reduce((n, sec) => n + sec.apps.length, 0);
 
   async function handleIconFile(file: File, keyArg?: string) {
     const key = keyArg ?? pendingKeyRef.current;
@@ -230,6 +330,38 @@ export default function AppPickerModal({
     return () => window.removeEventListener("paste", onPaste);
   }, [editingIconKey]);
 
+  const detailsApp = detailsAppId ? catalog.find((a) => a.id === detailsAppId) || null : null;
+
+  function priceOf(app: AppPickerCatalogItem): { main: string; sub: string } {
+    if (app.cost_type === "partnership") return { main: "Grátis", sub: "Parceria" };
+    if (app.license_price == null) return { main: "Grátis", sub: "Sem licença" };
+    const main = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: app.license_price_display_currency || "BRL",
+    }).format(app.license_price_display ?? app.license_price);
+    return {
+      main,
+      sub: app.license_period === "annual" ? "Licença anual" : app.license_period === "lifetime" ? "Licença vitalícia" : "Licença",
+    };
+  }
+
+  function chooseButton(app: AppPickerCatalogItem, size: string) {
+    const busy = busyAppId === app.id;
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onSelectApp(app.id)}
+        className={`${size} inline-flex items-center justify-center gap-1.5 rounded-lg text-white text-xs font-bold transition-colors disabled:opacity-60 ${
+          isPortal ? "bg-sky-600 hover:bg-sky-500" : "bg-emerald-600 hover:bg-emerald-500"
+        }`}
+      >
+        {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+        {busy ? "Adicionando..." : isPortal ? "Escolher" : "Adicionar"}
+      </button>
+    );
+  }
+
   if (!open) return null;
 
   const accentClass = isPortal
@@ -239,23 +371,39 @@ export default function AppPickerModal({
     ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
     : "bg-emerald-500/10 border-emerald-500/40 text-emerald-500";
   const inputFocusClass = isPortal ? "focus:border-sky-500" : "focus:border-emerald-500";
-  const showTiles = !hasPresetDeviceTypes && !deviceType && !q;
+  const showTiles = !detailsAppId && !hasPresetDeviceTypes && !deviceType && !q && !quickFilter;
+  const quickFilterLabel = QUICK_FILTERS.find((o) => o.value === quickFilter)?.label || "";
 
   const searchInput = (extra: string) => (
-    <div className={`relative ${extra}`}>
-      <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-      <input
-        type="text"
-        placeholder="Buscar aplicativo..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className={`w-full h-9 pl-8 pr-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
-      />
+    <div className={`flex gap-1.5 ${extra}`} data-quick-filter>
+      <div className="relative flex-1 min-w-0">
+        <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Buscar aplicativo..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={`w-full h-9 pl-8 pr-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          quickFilterAnchor.current = e.currentTarget;
+          setQuickFilterOpen((o) => !o);
+        }}
+        title={quickFilter ? `Filtro: ${quickFilterLabel}` : "Filtrar"}
+        className={`shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${
+          quickFilter ? activeButtonClass : "bg-muted border-border text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        <ChevronDown className="w-4 h-4" />
+      </button>
     </div>
   );
 
   return (
-    <Modal onClose={onClose} maxWidth="max-w-3xl" zIndex="z-[100000]">
+    <Modal onClose={onClose} maxWidth="max-w-4xl" zIndex="z-[100000]">
       <div className="p-6 flex flex-col gap-4 overflow-y-auto min-h-0 custom-scrollbar">
         <input
           ref={fileInputRef}
@@ -269,9 +417,9 @@ export default function AppPickerModal({
           }}
         />
         <div className="flex items-start gap-3">
-          {deviceType && !q && (
+          {(detailsAppId || (deviceType && !q && !quickFilter)) && (
             <button
-              onClick={() => setDeviceType(null)}
+              onClick={() => (detailsAppId ? setDetailsAppId(null) : setDeviceType(null))}
               className="w-8 h-8 flex items-center justify-center bg-muted hover:bg-muted/70 rounded-lg text-foreground transition-colors shrink-0"
               title="Voltar"
             >
@@ -280,10 +428,10 @@ export default function AppPickerModal({
           )}
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-semibold text-foreground truncate">
-              {q ? "Buscar aplicativo" : deviceType ? deviceLabel(deviceType) : title}
+              {detailsApp ? "Detalhes" : q ? "Buscar aplicativo" : quickFilter ? quickFilterLabel.replace(/^★+ /, "") : deviceType ? deviceLabel(deviceType) : title}
             </h3>
             <p className="text-xs text-foreground/70">
-              {q ? "Todos os aplicativos" : deviceType ? "Escolha o aplicativo" : subtitle}
+              {detailsApp ? detailsApp.name : q || quickFilter ? "Todos os aparelhos" : deviceType ? "Escolha o aplicativo" : subtitle}
             </p>
             {helperText && (
               <p className={`mt-1 text-[11px] ${accentClass} rounded-md border px-2 py-1 inline-flex w-fit`}>
@@ -302,6 +450,38 @@ export default function AppPickerModal({
         </div>
 
         {searchInput("sm:hidden w-full")}
+
+        {quickFilterOpen && (
+          <FloatingPanel
+            anchorRef={quickFilterAnchor}
+            open
+            minWidth={200}
+            align="right"
+            preferredHeight={360}
+            dataAttr="data-quick-filter"
+            zClass="z-[100010]"
+          >
+            <div className="py-1 overflow-y-auto">
+              {QUICK_FILTERS.map((o) => (
+                <button
+                  key={o.value || "todos"}
+                  type="button"
+                  onClick={() => {
+                    setQuickFilter(o.value);
+                    setQuickFilterOpen(false);
+                    setDetailsAppId(null);
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted transition-colors ${
+                    quickFilter === o.value ? "font-semibold text-foreground" : "text-foreground/80"
+                  }`}
+                >
+                  <span className="w-4 shrink-0">{quickFilter === o.value && <Check className="w-4 h-4" />}</span>
+                  <span className={o.value && /^[1-5]$/.test(o.value) ? "text-amber-500" : ""}>{o.label}</span>
+                </button>
+              ))}
+            </div>
+          </FloatingPanel>
+        )}
 
         {showTiles ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
@@ -380,99 +560,101 @@ export default function AppPickerModal({
               );
             })}
           </div>
-        ) : (
-          <div className="flex flex-col gap-3 min-h-0">
-            {showCostTabs && (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCostTab("paid")}
-                  className={`flex flex-col items-center gap-0.5 py-2 rounded-lg border transition-colors ${
-                    costTab === "paid"
-                      ? activeButtonClass
-                      : "bg-transparent border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <span className="text-xs font-bold">Aplicativos Pagos</span>
-                  <span className="text-[10px] opacity-80">(Recomendado)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCostTab("partner")}
-                  className={`flex flex-col items-center gap-0.5 py-2 rounded-lg border transition-colors ${
-                    costTab === "partner"
-                      ? activeButtonClass
-                      : "bg-transparent border-border text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  <span className="text-xs font-bold">Aplicativos Parceiros</span>
-                  <span className="text-[10px] opacity-80">(Gratuito)</span>
-                </button>
+        ) : detailsApp ? (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-4">
+              {detailsApp.icon_url ? (
+                <img src={detailsApp.icon_url} alt="" className="w-20 h-20 rounded-2xl object-cover border border-border shrink-0" />
+              ) : (
+                <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center text-3xl shrink-0">📱</div>
+              )}
+              <div className="min-w-0 space-y-1">
+                <p className="text-lg font-bold text-foreground">{detailsApp.name}</p>
+                {detailsApp.tier ? <TierStars value={detailsApp.tier} size={16} /> : null}
+                <p className="text-sm font-semibold text-foreground">{priceOf(detailsApp).main}
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">{priceOf(detailsApp).sub}</span>
+                </p>
+              </div>
+            </div>
+            {(detailsApp.device_types?.length || 0) > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Aparelhos compatíveis</p>
+                <DeviceBadges types={detailsApp.device_types} />
               </div>
             )}
-            <div className="space-y-1.5 overflow-y-auto max-h-[50vh]">
-              {catalogLoading ? (
-                <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
-              ) : filteredApps.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-6">
-                  {q
-                    ? "Nenhum aplicativo encontrado pra essa busca."
-                    : "Nenhum aplicativo disponível pra esse aparelho ainda."}
-                </p>
-              ) : (
-                filteredApps.map((app) => {
-                  const busy = busyAppId === app.id;
-                  return (
-                    <button
-                      key={app.id}
-                      disabled={busy}
-                      onClick={() => onSelectApp(app.id)}
-                      className="w-full flex items-center gap-2.5 p-2.5 rounded-lg hover:bg-muted transition-colors text-left disabled:opacity-50"
-                    >
-                      {busy ? (
-                        <Loader2 className="w-8 h-8 p-1.5 animate-spin text-sky-500 shrink-0" />
-                      ) : app.icon_url ? (
-                        <img src={app.icon_url} alt={app.name} className="w-8 h-8 rounded-lg object-cover border border-border shrink-0" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm shrink-0">📱</div>
-                      )}
-                      <span className="flex-1 min-w-0 flex items-center justify-between gap-2">
-                        <span className="flex flex-col min-w-0">
-                          <span className="text-sm text-foreground font-medium truncate">{busy ? "Adicionando..." : app.name}</span>
-                          {app.has_integration && (
-                            <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold w-fit">
-                              ⚡ Configuração automática
-                            </span>
+            {detailsApp.description ? (
+              <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+                {renderRichText(detailsApp.description)}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Sem descrição cadastrada.</p>
+            )}
+            {chooseButton(detailsApp, "w-full h-10")}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4 min-h-0">
+            {catalogLoading ? (
+              <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
+            ) : totalApps === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-6">
+                {q ? "Nenhum aplicativo encontrado pra essa busca." : "Nenhum aplicativo disponível pra esse aparelho ainda."}
+              </p>
+            ) : (
+              sections.map((sec) => (
+                <section key={sec.key} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {sec.tier ? (
+                      <TierStars value={sec.tier} size={14} />
+                    ) : (
+                      <span className="text-xs font-bold text-foreground">{sec.label}</span>
+                    )}
+                    <span className="text-[11px] text-muted-foreground">{sec.apps.length}</span>
+                  </div>
+                  <Carousel>
+                    {sec.apps.map((app) => {
+                      const price = priceOf(app);
+                      return (
+                        <div
+                          key={app.id}
+                          className="snap-start shrink-0 w-40 sm:w-44 flex flex-col items-center text-center gap-2 p-3 rounded-xl border border-border bg-muted/30"
+                        >
+                          {app.icon_url ? (
+                            <img src={app.icon_url} alt="" loading="lazy" className="w-16 h-16 rounded-xl object-cover border border-border" />
+                          ) : (
+                            <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center text-2xl">📱</div>
                           )}
-                        </span>
-                        {app.is_active === false ? (
-                          <span
-                            title={
-                              app.discontinued_replacement_name
-                                ? `Descontinuado — recomendado migrar para ${app.discontinued_replacement_name}`
-                                : "Descontinuado"
-                            }
-                            className="shrink-0 px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold"
-                          >
-                            Descontinuado
-                          </span>
-                        ) : (
-                          app.license_price != null && (
-                            <span className="shrink-0 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-bold">
-                              {new Intl.NumberFormat("pt-BR", {
-                                style: "currency",
-                                currency: app.license_price_display_currency || "BRL",
-                              }).format(app.license_price_display ?? app.license_price)}
-                              {app.license_period === "annual" ? "/ano" : app.license_period === "lifetime" ? " vitalícia" : ""}
+                          <p className="text-xs font-bold text-foreground leading-tight line-clamp-2 min-h-[2rem] flex items-center">
+                            {app.name}
+                          </p>
+                          <div className="h-3.5">{app.tier ? <TierStars value={app.tier} size={12} /> : null}</div>
+                          {app.is_active === false ? (
+                            <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold">
+                              Descontinuado
                             </span>
-                          )
-                        )}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
+                          ) : (
+                            <div className="leading-tight">
+                              <p className="text-base font-extrabold text-foreground">{price.main}</p>
+                              <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{price.sub}</p>
+                            </div>
+                          )}
+                          <div className="mt-auto w-full flex flex-col gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setDetailsAppId(app.id)}
+                              className="w-full h-8 inline-flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card text-xs font-semibold text-foreground hover:bg-muted transition-colors"
+                            >
+                              <Search className="w-3.5 h-3.5" />
+                              Detalhes
+                            </button>
+                            {chooseButton(app, "w-full h-8")}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </Carousel>
+                </section>
+              ))
+            )}
           </div>
         )}
       </div>

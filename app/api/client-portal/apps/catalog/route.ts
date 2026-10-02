@@ -7,7 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { convertAmount } from "@/lib/fx";
-import { effectiveIcon } from "@/lib/apps/appativa-catalog";
+import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
+import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { withoutLegacyDevices } from "@/lib/apps/device-types";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
       // adicionar (bloqueado em /apps/add, defesa em profundidade).
       supabaseAdmin
         .from("apps")
-        .select("id, name, icon_url, technology, device_types, integration_type, cost_type, partner_server_id, license_price, license_period, is_active, discontinued_replacement_name, appativa_app_id, appativa_meta")
+        .select("id, name, icon_url, technology, device_types, integration_type, cost_type, partner_server_id, license_price, license_period, is_active, discontinued_replacement_name, appativa_app_id, appativa_meta, tier, portal_setup_instructions")
         .eq("tenant_id", ctx.tenant_id)
         .order("name", { ascending: true }),
     ]);
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
         // DAQUELE servidor específico; oferecer pra cliente de outro servidor
         // mostraria um app "grátis" que na prática ele não tem direito a usar.
         .filter((a: any) => a.cost_type !== "partnership" || (a.partner_server_id && a.partner_server_id === client?.server_id))
-        .map(async ({ integration_type, partner_server_id, cost_type, license_price, license_period, appativa_app_id, appativa_meta, ...rest }: any) => {
+        .map(async ({ integration_type, partner_server_id, cost_type, license_price, license_period, appativa_app_id, appativa_meta, tier, portal_setup_instructions, ...rest }: any) => {
           // ✅ Mesmo cálculo do has_integration em list/route.ts — sinaliza no
           // picker (ícone ⚡, pedido do Márcio 26/07/2026) quais apps ativam
           // sozinhos vs. precisam de configuração manual pelo suporte.
@@ -100,6 +101,13 @@ export async function POST(req: NextRequest) {
             // ✅ 02/10/2026: logo da AtivaApp quando o app não tem a própria
             icon_url: effectiveIcon({ icon_url: rest.icon_url, appativa_app_id, appativa_meta }),
             device_types: withoutLegacyDevices(rest.device_types),
+            // estrelas (com a nota da AtivaApp de padrão) + descrição pro
+            // "Detalhes" da vitrine
+            tier: effectiveTier({ tier, appativa_app_id, appativa_meta }).value,
+            description: renderAppDescription(
+              portal_setup_instructions,
+              formatLicenca(licensePriceDisplay, clientCurrency, cost_type === "paid" ? license_period : null),
+            ),
             cost_type: cost_type || null,
             license_price: licensePriceBRL,
             license_price_display: licensePriceDisplay,

@@ -26,6 +26,7 @@ export default function FloatingPanel({
   align = "left",
   dataAttr,
   className = "",
+  zClass = "z-[99995]",
 }: {
   anchorRef: RefObject<HTMLElement | null>;
   open: boolean;
@@ -38,6 +39,8 @@ export default function FloatingPanel({
   align?: "left" | "right";
   dataAttr?: string;
   className?: string;
+  /** camada (acima do modal que abriu o painel; padrão cobre o <Modal> comum) */
+  zClass?: string;
 }) {
   const [pos, setPos] = useState<Pos | null>(null);
 
@@ -79,7 +82,7 @@ export default function FloatingPanel({
     <div
       {...(dataAttr ? { [dataAttr]: "" } : {})}
       style={{ position: "fixed", left: pos.left, width: pos.width, top: pos.top, bottom: pos.bottom, maxHeight: pos.maxHeight }}
-      className={`z-[99995] flex flex-col rounded-lg border border-border bg-card shadow-xl overflow-hidden ${className}`}
+      className={`${zClass} flex flex-col rounded-lg border border-border bg-card shadow-xl overflow-hidden ${className}`}
     >
       {children}
     </div>,
