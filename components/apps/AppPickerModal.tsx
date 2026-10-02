@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search, Zap } from "lucide-react";
 import FloatingPanel from "@/components/ui/FloatingPanel";
 import TierStars from "@/components/apps/TierStars";
 import DeviceBadges from "@/components/apps/DeviceBadges";
@@ -50,10 +50,12 @@ const QUICK_FILTERS: { value: string; label: string }[] = [
   { value: "1", label: "★ 1 estrela" },
   { value: "free", label: "Gratuitos" },
   { value: "partner", label: "Parceiros" },
+  { value: "discontinued", label: "Descontinuados" },
 ];
 
 function matchesQuickFilter(app: AppPickerCatalogItem, f: string): boolean {
   if (!f) return true;
+  if (f === "discontinued") return app.is_active === false;
   if (f === "partner") return app.cost_type === "partnership";
   if (f === "free") return app.cost_type !== "partnership" && (app.cost_type === "free" || app.license_price == null);
   return app.cost_type !== "partnership" && Number(app.tier) === Number(f);
@@ -276,8 +278,11 @@ export default function AppPickerModal({
     // ✅ 02/10/2026 (pedido do Márcio): parceria (ex: Elite, NaTV) fica
     // fora das estrelas, numa seção própria no fim. Conta P2P com parceria
     // disponível vê só a parceria.
-    const partner = list.filter((a) => a.cost_type === "partnership");
-    const regular = list.filter((a) => a.cost_type !== "partnership");
+    // ✅ descontinuados numa seção própria, a última (pedido do Márcio)
+    const discontinued = list.filter((a) => a.is_active === false);
+    const active = list.filter((a) => a.is_active !== false);
+    const partner = active.filter((a) => a.cost_type === "partnership");
+    const regular = active.filter((a) => a.cost_type !== "partnership");
     const partnerSection = { key: "parceria", tier: null, label: "Parceria com o seu servidor", apps: partner };
     if (hasPresetDeviceTypes && !q && !quickFilter && partner.length) return [partnerSection];
     for (const t of [5, 4, 3, 2, 1]) {
@@ -287,6 +292,7 @@ export default function AppPickerModal({
     const none = regular.filter((a) => !a.tier);
     if (none.length) out.push({ key: "sem", tier: null, label: "Outros aplicativos", apps: none });
     if (partner.length) out.push(partnerSection);
+    if (discontinued.length) out.push({ key: "descontinuados", tier: null, label: "Descontinuados", apps: discontinued });
     return out;
   }, [appsForDevice, q, hasPresetDeviceTypes, quickFilter]);
   const totalApps = sections.reduce((n, sec) => n + sec.apps.length, 0);
@@ -431,7 +437,19 @@ export default function AppPickerModal({
               {detailsApp ? "Detalhes" : q ? "Buscar aplicativo" : quickFilter ? quickFilterLabel.replace(/^★+ /, "") : deviceType ? deviceLabel(deviceType) : title}
             </h3>
             <p className="text-xs text-foreground/70">
-              {detailsApp ? detailsApp.name : q || quickFilter ? "Todos os aparelhos" : deviceType ? "Escolha o aplicativo" : subtitle}
+              {detailsApp ? (
+                detailsApp.name
+              ) : q || quickFilter || deviceType || hasPresetDeviceTypes ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-400 text-white">
+                    <Zap className="w-2.5 h-2.5 fill-current" />
+                  </span>
+                  Aplicativos com raio têm configuração automática
+                  {q || quickFilter ? " · todos os aparelhos" : ""}
+                </span>
+              ) : (
+                subtitle
+              )}
             </p>
             {helperText && (
               <p className={`mt-1 text-[11px] ${accentClass} rounded-md border px-2 py-1 inline-flex w-fit`}>
@@ -439,7 +457,7 @@ export default function AppPickerModal({
               </p>
             )}
           </div>
-          {searchInput("hidden sm:block w-56 shrink-0")}
+          {searchInput("hidden sm:flex w-64 shrink-0")}
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -569,7 +587,14 @@ export default function AppPickerModal({
                 <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center text-3xl shrink-0">📱</div>
               )}
               <div className="min-w-0 space-y-1">
-                <p className="text-lg font-bold text-foreground">{detailsApp.name}</p>
+                <p className="text-lg font-bold text-foreground flex items-center gap-2">
+                  {detailsApp.name}
+                  {detailsApp.has_integration && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-white text-[10px] font-bold">
+                      <Zap className="w-3 h-3 fill-current" /> Configuração automática
+                    </span>
+                  )}
+                </p>
                 {detailsApp.tier ? <TierStars value={detailsApp.tier} size={16} /> : null}
                 <p className="text-sm font-semibold text-foreground">{priceOf(detailsApp).main}
                   <span className="ml-1.5 text-xs font-normal text-muted-foreground">{priceOf(detailsApp).sub}</span>
@@ -616,8 +641,16 @@ export default function AppPickerModal({
                       return (
                         <div
                           key={app.id}
-                          className="snap-start shrink-0 w-40 sm:w-44 flex flex-col items-center text-center gap-2 p-3 rounded-xl border border-border bg-muted/30"
+                          className="relative snap-start shrink-0 w-40 sm:w-44 flex flex-col items-center text-center gap-2 p-3 rounded-xl border border-border bg-muted/30"
                         >
+                          {app.has_integration && (
+                            <span
+                              className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-amber-400 text-white shadow-md ring-2 ring-amber-200 dark:ring-amber-500/30"
+                              title="Configuração automática"
+                            >
+                              <Zap className="w-4 h-4 fill-current" />
+                            </span>
+                          )}
                           {app.icon_url ? (
                             <img src={app.icon_url} alt="" loading="lazy" className="w-16 h-16 rounded-xl object-cover border border-border" />
                           ) : (
@@ -626,7 +659,6 @@ export default function AppPickerModal({
                           <p className="text-xs font-bold text-foreground leading-tight line-clamp-2 min-h-[2rem] flex items-center">
                             {app.name}
                           </p>
-                          <div className="h-3.5">{app.tier ? <TierStars value={app.tier} size={12} /> : null}</div>
                           {app.is_active === false ? (
                             <span className="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 text-[10px] font-bold">
                               Descontinuado

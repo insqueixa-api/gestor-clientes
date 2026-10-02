@@ -1,6 +1,7 @@
 // app/api/upload/presign/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { R2_PUBLIC_CACHE_CONTROL } from "@/lib/r2-folders";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createClient } from "@/lib/supabase/server";
 
@@ -43,6 +44,11 @@ export async function POST(req: NextRequest) {
         Bucket: bucketName,
         Key: key,
         ContentType: contentType,
+        // ✅ 02/10/2026: cache longo no navegador — o nome do arquivo é único
+        // (timestamp), então o conteúdo de uma URL nunca muda (immutable).
+        // Sem isso o r2.dev não manda Cache-Control e toda abertura de tela
+        // revalidava as imagens.
+        CacheControl: R2_PUBLIC_CACHE_CONTROL,
       }),
       { expiresIn: 300 } // 5 minutos
     );

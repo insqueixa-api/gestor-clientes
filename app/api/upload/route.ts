@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { createClient } from "@/lib/supabase/server";
-import { R2_DELETABLE_FOLDERS } from "@/lib/r2-folders";
+import { R2_DELETABLE_FOLDERS, R2_PUBLIC_CACHE_CONTROL } from "@/lib/r2-folders";
 
 const s3Client = new S3Client({
   region: "auto",
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
         Key: filename,
         Body: buffer,
         ContentType: file.type,
+        ...(isPrivate ? {} : { CacheControl: R2_PUBLIC_CACHE_CONTROL }),
       })
     );
 

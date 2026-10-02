@@ -1326,7 +1326,9 @@ export default function RenewClient() {
 
   async function loadAppCatalog() {
     if (!selectedAccountId || !session) return;
-    setAppCatalogLoading(true);
+    // ✅ 02/10/2026: reabrir o seletor não pisca "Carregando..." — mostra a
+    // lista que já tem e atualiza por trás (preço/estrelas podem ter mudado)
+    if (appCatalog.length === 0) setAppCatalogLoading(true);
     try {
       const res = await fetch("/api/client-portal/apps/catalog", {
         method: "POST",

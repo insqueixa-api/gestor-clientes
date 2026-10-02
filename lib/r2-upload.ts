@@ -1,5 +1,6 @@
 // lib/r2-upload.ts
 import { useRef } from "react";
+import { R2_PUBLIC_CACHE_CONTROL } from "@/lib/r2-folders";
 //
 // Upload pro R2 (presign → PUT direto) + liberação dos arquivos que
 // deixaram de ser usados. Criado 30/09/2026 (achado do Márcio: trocar logo
@@ -34,7 +35,8 @@ export async function uploadToR2(
   const putRes = await fetch(presignedUrl, {
     method: "PUT",
     body,
-    headers: { "Content-Type": contentType },
+    // tem que bater com o CacheControl assinado em /api/upload/presign
+    headers: { "Content-Type": contentType, "Cache-Control": R2_PUBLIC_CACHE_CONTROL },
   });
   if (!putRes.ok) throw new Error("Falha ao enviar o arquivo.");
 
