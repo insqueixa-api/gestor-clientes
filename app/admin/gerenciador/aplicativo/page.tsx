@@ -291,7 +291,6 @@ export default function AppManagerPage() {
   const [deviceTypeFilter, setDeviceTypeFilter] = useState<string>("Todos");
   // Seções recolhíveis da lista (legado e descontinuados começam fechadas)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
-    legado: true,
     descontinuado: true,
   });
   const [savingTierId, setSavingTierId] = useState<string | null>(null);
@@ -691,8 +690,8 @@ export default function AppManagerPage() {
     out.push({
       key: "legado",
       icon: "🤝",
-      label: "Parcerias antigas",
-      hint: "Não são mais oferecidos; quem já usa continua funcionando.",
+      label: "Parcerias com servidor",
+      hint: "Exclusivos de um servidor (ex: P2P).",
       apps: ativos.filter((a) => a.cost_type === "partnership").sort(byName),
     });
     out.push({
@@ -1242,7 +1241,7 @@ export default function AppManagerPage() {
 
   function appPriceLabel(app: AppData): string {
     return app.cost_type === "partnership"
-        ? "Parceria"
+        ? servers.find((s) => s.id === app.partner_server_id)?.name || "Parceria"
         : app.cost_type === "free" || !(Number(app.license_price) > 0)
           ? "Grátis"
           : `R$ ${Number(app.license_price).toFixed(2).replace(".", ",")}${
@@ -2205,9 +2204,10 @@ export default function AppManagerPage() {
                   </div>
                 )}
 
-              {/* ✅ 02/10/2026: Pago/Gratuito — Pago abre preço e período na
-                  mesma linha. Parceria acabou (refactor): só aparece pra app
-                  que já é de parceria, pra não sumir o valor salvo. */}
+              {/* ✅ 02/10/2026: Tipo — Pago abre preço e período na mesma
+                  linha; Parceria abre o servidor parceiro. Parceria voltou
+                  como opção normal no mesmo dia (Márcio: apps exclusivos de
+                  um servidor continuam existindo, ex: os P2P). */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <Label>Tipo</Label>
@@ -2220,9 +2220,7 @@ export default function AppManagerPage() {
                     <option value="">Não definido</option>
                     <option value="free">Gratuito</option>
                     <option value="paid">Pago</option>
-                    {editingApp?.cost_type === "partnership" && (
-                      <option value="partnership">Parceria (antigo)</option>
-                    )}
+                    <option value="partnership">Parceria com servidor</option>
                   </Select>
                 </div>
                 {formCostType === "paid" && (
