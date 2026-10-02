@@ -13,7 +13,7 @@
 // Regra de override (pedido do Márcio): o que vem da AtivaApp é o PADRÃO;
 // o que ele preenche à mão sempre vale por cima. As funções `effective*`
 // abaixo aplicam isso — usar sempre elas, nunca a coluna crua.
-import type { DeviceType } from "@/lib/apps/device-types";
+import { type DeviceType, withoutLegacyDevices } from "@/lib/apps/device-types";
 
 export type AppativaLinks = {
   androidtv?: string | null;
@@ -96,7 +96,8 @@ export function devicesFromAppativa(item: Partial<AppativaCatalogItem> | null | 
   if (!item) return [];
   const l = item.links || {};
   const out = new Set<DeviceType>();
-  if (l.samsung || l.lg) out.add("SAMSUNG_LG");
+  if (l.samsung) out.add("SAMSUNG");
+  if (l.lg) out.add("LG");
   if (l.roku) out.add("ROKU");
   if (l.androidtv) out.add("ANDROID_TV");
   if (item.downloader_code) {
@@ -163,7 +164,8 @@ export function effectiveDevices(
   app: AppLike,
   catalog?: AppativaCatalogItem[] | null,
 ): { value: string[]; auto: boolean } {
-  if (app.device_types?.length) return { value: app.device_types, auto: false };
+  const own = withoutLegacyDevices(app.device_types); // ignora chave antiga (SAMSUNG_LG)
+  if (own.length) return { value: own, auto: false };
   const auto = devicesFromAppativa(appativaItemFor(app, catalog));
   return { value: auto, auto: auto.length > 0 };
 }

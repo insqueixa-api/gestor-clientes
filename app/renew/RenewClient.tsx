@@ -863,6 +863,8 @@ export default function RenewClient() {
   const [reconfigureModeTarget, setReconfigureModeTarget] = useState<
     string | null
   >(null);
+  // logo de cada aparelho (admin edita no seletor; 02/10/2026)
+  const [appDeviceIcons, setAppDeviceIcons] = useState<Record<string, string>>({});
   const [appCatalog, setAppCatalog] = useState<
     {
       id: string;
@@ -1336,7 +1338,10 @@ export default function RenewClient() {
         cache: "no-store",
       });
       const result = await res.json().catch(() => null);
-      if (result?.ok) setAppCatalog(result.data || []);
+      if (result?.ok) {
+        setAppCatalog(result.data || []);
+        setAppDeviceIcons(result.device_icons || {});
+      }
     } catch {
     } finally {
       setAppCatalogLoading(false);
@@ -5183,6 +5188,7 @@ export default function RenewClient() {
               open={showAddAppPicker}
               onClose={() => setShowAddAppPicker(false)}
               catalog={appCatalog}
+              deviceIcons={appDeviceIcons}
               catalogLoading={appCatalogLoading}
               busyAppId={
                 appActionBusy?.startsWith("add-")

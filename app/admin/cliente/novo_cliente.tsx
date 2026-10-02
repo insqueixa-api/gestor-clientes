@@ -24,6 +24,8 @@ import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
+import { effectiveIcon } from "@/lib/apps/appativa-catalog";
+import { withoutLegacyDevices } from "@/lib/apps/device-types";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
 import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
@@ -6746,10 +6748,11 @@ export default function NovoCliente({
                   catalog={catalog.map((app) => ({
                     id: app.id,
                     name: app.name,
-                    icon_url: app.icon_url ?? null,
-                    device_types: Array.isArray(app.device_types)
-                      ? app.device_types
-                      : [],
+                    // ✅ 02/10/2026: logo da AtivaApp quando não há a própria
+                    icon_url: effectiveIcon(app) ?? null,
+                    device_types: withoutLegacyDevices(
+                      Array.isArray(app.device_types) ? app.device_types : [],
+                    ),
                     cost_type: app.cost_type as any,
                     partner_server_id: app.partner_server_id ?? null,
                     license_price: app.license_price ?? null,
@@ -6791,7 +6794,6 @@ export default function NovoCliente({
                       ? ["ANDROID_PHONE", "FIRE_TV"]
                       : undefined
                   }
-                  helperText="Os apps são adicionados diretamente ao cliente e podem usar a integração ativa do admin."
                 />
 
                 {/* ✅ Mensagem genérica opcional (pedido do Márcio, 04/08/2026)

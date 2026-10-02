@@ -36,7 +36,7 @@ describe("catálogo AtivaApp", () => {
 
   it("aparelhos pelos links + Downloader", () => {
     const d = devicesFromAppativa(catalogItemFromApi(raw));
-    expect(d.sort()).toEqual(["ANDROID_TV", "FIRE_TV", "ROKU", "SAMSUNG_LG"].sort());
+    expect(d.sort()).toEqual(["ANDROID_TV", "FIRE_TV", "ROKU", "SAMSUNG"].sort());
     expect(devicesFromAppativa(catalogItemFromApi({ id: "x" }))).toEqual([]);
   });
 

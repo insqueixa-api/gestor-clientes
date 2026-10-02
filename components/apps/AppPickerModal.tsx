@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Pencil, Search } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { ALL_DEVICE_TYPES, DEVICE_TYPE_LABELS, DeviceType } from "@/lib/apps/device-types";
+import {
+  ALL_DEVICE_TYPES,
+  DeviceType,
+  deviceLabel,
+  isCustomDevice,
+} from "@/lib/apps/device-types";
+import { supabaseBrowser } from "@/lib/supabase/browser";
+import { uploadToR2, releaseR2Files } from "@/lib/r2-upload";
+import { useTenantId } from "@/lib/tenant-context";
 
 export type AppPickerCatalogItem = {
   id: string;
@@ -25,15 +33,18 @@ export type AppPickerCatalogItem = {
   has_integration?: boolean;
 };
 
-const DEVICE_ICONS: Record<DeviceType, string> = {
-  SAMSUNG_LG: "📺",
-  ANDROID_PHONE: "📱",
+// Ícone padrão de cada aparelho enquanto não há logo própria
+// (public.app_device_types.icon_url — trocada pelo lápis no admin).
+const DEFAULT_DEVICE_ICONS: Record<DeviceType, string> = {
+  SAMSUNG: "📺",
+  LG: "📺",
+  ROKU: "🟣",
   ANDROID_TV: "📦",
-  XBOX: "🎮",
   IOS: "📱",
+  ANDROID_PHONE: "📱",
   COMPUTADOR: "💻",
   FIRE_TV: "🔥",
-  ROKU: "🟣",
+  XBOX: "🎮",
 };
 
 export default function AppPickerModal({
@@ -49,6 +60,7 @@ export default function AppPickerModal({
   helperText,
   clientServerId,
   presetDeviceTypes,
+  deviceIcons: deviceIconsProp,
 }: {
   open: boolean;
   onClose: () => void;
@@ -62,16 +74,28 @@ export default function AppPickerModal({
   helperText?: string;
   /** Servidor do cliente sendo editado (admin) — só usado pra travar apps de
    * parceria a servidor errado DEPOIS que um aparelho é escolhido. A busca
-   * livre (sem aparelho selecionado) nunca é travada por isso — pesquisa o
-   * catálogo inteiro, pra achar qualquer app rápido. */
+   * livre nunca é travada por isso — pesquisa o catálogo inteiro. */
   clientServerId?: string | null;
   /** Quando informado, pula a etapa de escolher aparelho e filtra direto
    * pelos tipos definidos aqui (ex.: P2P -> Android TV Box + Fire TV). */
   presetDeviceTypes?: DeviceType[];
+  /** Logo de cada aparelho (portal: vem da rota do catálogo). No admin,
+   * se não vier, o próprio modal carrega e deixa editar (lápis). */
+  deviceIcons?: Record<string, string>;
 }) {
-  const [deviceType, setDeviceType] = useState<DeviceType | null>(null);
+  const isPortal = variant === "portal";
+  const tenantId = useTenantId();
+  const canEditIcons = !isPortal && !!tenantId;
+
+  const [deviceType, setDeviceType] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [costTab, setCostTab] = useState<"paid" | "partner">("paid");
+  const [loadedIcons, setLoadedIcons] = useState<Record<string, string>>({});
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingKeyRef = useRef<string | null>(null);
+
+  const deviceIcons = deviceIconsProp ?? loadedIcons;
 
   useEffect(() => {
     if (open) {
@@ -85,6 +109,25 @@ export default function AppPickerModal({
     setCostTab("paid");
   }, [deviceType]);
 
+  // ✅ 02/10/2026: admin carrega as logos dos aparelhos direto (RLS por conta)
+  useEffect(() => {
+    if (!open || deviceIconsProp || !canEditIcons) return;
+    let cancelled = false;
+    supabaseBrowser
+      .from("app_device_types")
+      .select("device_key, icon_url")
+      .eq("tenant_id", tenantId)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const map: Record<string, string> = {};
+        for (const r of data) if (r.icon_url) map[r.device_key] = r.icon_url;
+        setLoadedIcons(map);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, deviceIconsProp, canEditIcons, tenantId]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -94,46 +137,76 @@ export default function AppPickerModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // ✅ 02/10/2026: aparelhos = os 9 fixos + os cadastrados à mão em algum
+  // app do catálogo (ex: "PS5").
+  const deviceList = useMemo(() => {
+    const custom = new Set<string>();
+    for (const app of catalog) for (const d of app.device_types || []) if (isCustomDevice(d)) custom.add(d);
+    return [
+      ...ALL_DEVICE_TYPES,
+      ...[...custom].sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" })),
+    ] as string[];
+  }, [catalog]);
+
+  const q = search.trim().toLowerCase();
+  const hasPresetDeviceTypes = (presetDeviceTypes?.length || 0) > 0;
+
   const appsForDevice = useMemo(() => {
-    const hasPresetDeviceTypes = (presetDeviceTypes?.length || 0) > 0;
     return catalog.filter((app) => {
+      // ✅ 02/10/2026 (pedido do Márcio): com busca digitada, procura em
+      // TODOS os aplicativos, independente do aparelho escolhido.
+      if (q) return true;
       if (!deviceType && !hasPresetDeviceTypes) return true;
       // ✅ Trava de parceria (só app do servidor certo do cliente) — entra
-      // em vigor só depois que um aparelho é escolhido. Busca livre (sem
-      // aparelho) nunca aplica essa trava, pra sempre achar qualquer app.
-      if ((deviceType || hasPresetDeviceTypes) && app.cost_type === "partnership" && clientServerId !== undefined) {
+      // em vigor só depois que um aparelho é escolhido.
+      if (app.cost_type === "partnership" && clientServerId !== undefined) {
         if (!clientServerId || app.partner_server_id !== clientServerId) return false;
       }
       if (!deviceType && hasPresetDeviceTypes) {
-        return Boolean(
-          app.device_types?.some((dt) =>
-            presetDeviceTypes?.includes(dt as DeviceType),
-          ),
-        );
+        return Boolean(app.device_types?.some((dt) => presetDeviceTypes?.includes(dt as DeviceType)));
       }
       // ✅ Sem device_types cadastrado não é "compatível com tudo" — é dado
-      // faltando no catálogo (ex: Meta Player). Precisa ficar de fora do
-      // filtro por aparelho até alguém cadastrar os dispositivos certos em
-      // /admin/gerenciador/aplicativo, senão aparece em todo aparelho sem
-      // ter sido testado lá de verdade.
-      return Boolean(app.device_types?.includes(deviceType));
+      // faltando no catálogo; só aparece pela busca.
+      return Boolean(deviceType && app.device_types?.includes(deviceType));
     });
-  }, [catalog, deviceType, clientServerId, presetDeviceTypes]);
+  }, [catalog, deviceType, clientServerId, presetDeviceTypes, hasPresetDeviceTypes, q]);
 
   const hasPaidApps = appsForDevice.some((app) => app.cost_type === "paid");
   const hasFreeApps = appsForDevice.some((app) => app.cost_type !== "paid");
-  const showCostTabs = hasPaidApps && hasFreeApps;
+  const showCostTabs = !q && hasPaidApps && hasFreeApps;
 
   const filteredApps = useMemo(() => {
     return appsForDevice
       .filter((app) => !showCostTabs || (costTab === "paid" ? app.cost_type === "paid" : app.cost_type !== "paid"))
-      .filter((app) => app.name.toLowerCase().includes(search.trim().toLowerCase()))
+      .filter((app) => app.name.toLowerCase().includes(q))
       .sort((a, b) => Number(!!b.has_integration) - Number(!!a.has_integration));
-  }, [appsForDevice, costTab, search, showCostTabs]);
+  }, [appsForDevice, costTab, q, showCostTabs]);
+
+  async function handleIconFile(file: File) {
+    const key = pendingKeyRef.current;
+    pendingKeyRef.current = null;
+    if (!key || !tenantId) return;
+    if (!file.type.startsWith("image/")) return;
+    setUploadingKey(key);
+    try {
+      const url = await uploadToR2(file, file.name, file.type, "device_icons");
+      const previous = deviceIcons[key];
+      const { error } = await supabaseBrowser
+        .from("app_device_types")
+        .upsert({ tenant_id: tenantId, device_key: key, icon_url: url, updated_at: new Date().toISOString() });
+      if (error) {
+        releaseR2Files([url]);
+        return;
+      }
+      setLoadedIcons((prev) => ({ ...prev, [key]: url }));
+      if (previous && previous !== url) releaseR2Files([previous]);
+    } finally {
+      setUploadingKey(null);
+    }
+  }
 
   if (!open) return null;
 
-  const isPortal = variant === "portal";
   const accentClass = isPortal
     ? "text-sky-600 bg-sky-500/10 border-sky-500/20"
     : "text-emerald-600 bg-emerald-500/10 border-emerald-500/20";
@@ -141,17 +214,37 @@ export default function AppPickerModal({
     ? "bg-sky-500/10 border-sky-500/40 text-sky-500"
     : "bg-emerald-500/10 border-emerald-500/40 text-emerald-500";
   const inputFocusClass = isPortal ? "focus:border-sky-500" : "focus:border-emerald-500";
-  // ✅ No admin, a busca fica sempre visível no cabeçalho (pedido do
-  // Márcio) — dá pra achar o app pelo nome sem escolher aparelho antes. No
-  // portal mantém o fluxo original (busca só depois de escolher aparelho).
-  const hasPresetDeviceTypes = (presetDeviceTypes?.length || 0) > 0;
-  const showTiles = !hasPresetDeviceTypes && !deviceType && (isPortal || !search.trim());
+  const showTiles = !hasPresetDeviceTypes && !deviceType && !q;
+
+  const searchInput = (extra: string) => (
+    <div className={`relative ${extra}`}>
+      <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <input
+        type="text"
+        placeholder="Buscar aplicativo..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className={`w-full h-9 pl-8 pr-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
+      />
+    </div>
+  );
 
   return (
     <Modal onClose={onClose} maxWidth="max-w-3xl" zIndex="z-[100000]">
       <div className="p-6 flex flex-col gap-4 overflow-y-auto min-h-0 custom-scrollbar">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleIconFile(f);
+            e.target.value = "";
+          }}
+        />
         <div className="flex items-start gap-3">
-          {deviceType && (
+          {deviceType && !q && (
             <button
               onClick={() => setDeviceType(null)}
               className="w-8 h-8 flex items-center justify-center bg-muted hover:bg-muted/70 rounded-lg text-foreground transition-colors shrink-0"
@@ -162,10 +255,10 @@ export default function AppPickerModal({
           )}
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-semibold text-foreground truncate">
-              {deviceType ? DEVICE_TYPE_LABELS[deviceType] : title}
+              {q ? "Buscar aplicativo" : deviceType ? deviceLabel(deviceType) : title}
             </h3>
             <p className="text-xs text-foreground/70">
-              {deviceType ? "Escolha o aplicativo" : subtitle}
+              {q ? "Todos os aplicativos" : deviceType ? "Escolha o aplicativo" : subtitle}
             </p>
             {helperText && (
               <p className={`mt-1 text-[11px] ${accentClass} rounded-md border px-2 py-1 inline-flex w-fit`}>
@@ -173,15 +266,7 @@ export default function AppPickerModal({
               </p>
             )}
           </div>
-          {!isPortal && (
-            <input
-              type="text"
-              placeholder="Buscar aplicativo..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={`hidden sm:block w-48 shrink-0 h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
-            />
-          )}
+          {searchInput("hidden sm:block w-56 shrink-0")}
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -191,30 +276,46 @@ export default function AppPickerModal({
           </button>
         </div>
 
-        {!isPortal && (
-          <input
-            type="text"
-            placeholder="Buscar aplicativo..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={`sm:hidden w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
-          />
-        )}
+        {searchInput("sm:hidden w-full")}
 
         {showTiles ? (
-          <div className="grid grid-cols-2 gap-2.5">
-            {ALL_DEVICE_TYPES.map((dt) => (
-              <button
-                key={dt}
-                onClick={() => setDeviceType(dt)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted transition-colors ${
-                  isPortal ? "hover:border-sky-500/40" : "hover:border-emerald-500/40"
-                }`}
-              >
-                <span className="text-3xl">{DEVICE_ICONS[dt]}</span>
-                <span className="text-xs font-bold text-foreground text-center">{DEVICE_TYPE_LABELS[dt]}</span>
-              </button>
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {deviceList.map((dt) => {
+              const icon = deviceIcons[dt];
+              const fallback = (DEFAULT_DEVICE_ICONS as Record<string, string>)[dt] ?? "📟";
+              return (
+                <div key={dt} className="relative group">
+                  <button
+                    onClick={() => setDeviceType(dt)}
+                    className={`w-full h-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted transition-colors ${
+                      isPortal ? "hover:border-sky-500/40" : "hover:border-emerald-500/40"
+                    }`}
+                  >
+                    {uploadingKey === dt ? (
+                      <Loader2 className="w-10 h-10 p-2 animate-spin text-muted-foreground" />
+                    ) : icon ? (
+                      <img src={icon} alt="" className="h-10 max-w-[7rem] object-contain" />
+                    ) : (
+                      <span className="text-3xl leading-10">{fallback}</span>
+                    )}
+                    <span className="text-xs font-bold text-foreground text-center">{deviceLabel(dt)}</span>
+                  </button>
+                  {canEditIcons && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pendingKeyRef.current = dt;
+                        fileInputRef.current?.click();
+                      }}
+                      className="absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center rounded-md bg-card border border-border text-muted-foreground hover:text-emerald-500 shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+                      title="Trocar logo (aparece também no portal)"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="flex flex-col gap-3 min-h-0">
@@ -246,24 +347,14 @@ export default function AppPickerModal({
                 </button>
               </div>
             )}
-            {isPortal && (
-              <input
-                type="text"
-                autoFocus
-                placeholder="Buscar aplicativo..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={`w-full h-10 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
-              />
-            )}
             <div className="space-y-1.5 overflow-y-auto max-h-[50vh]">
               {catalogLoading ? (
                 <p className="text-xs text-muted-foreground text-center py-6">Carregando...</p>
               ) : filteredApps.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">
-                  {deviceType
-                    ? "Nenhum aplicativo disponível pra esse aparelho ainda."
-                    : "Nenhum aplicativo encontrado pra essa busca."}
+                  {q
+                    ? "Nenhum aplicativo encontrado pra essa busca."
+                    : "Nenhum aplicativo disponível pra esse aparelho ainda."}
                 </p>
               ) : (
                 filteredApps.map((app) => {

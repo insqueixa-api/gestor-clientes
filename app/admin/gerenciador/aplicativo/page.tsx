@@ -35,6 +35,8 @@ import {
   ALL_DEVICE_TYPES,
   deviceLabel,
   isBuiltInDevice,
+  isCustomDevice,
+  withoutLegacyDevices,
 } from "@/lib/apps/device-types";
 import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
@@ -771,9 +773,9 @@ export default function AppManagerPage() {
 
   const deviceOptions = React.useMemo(() => {
     const custom = new Set<string>();
-    for (const a of apps) for (const d of a.device_types || []) if (!isBuiltInDevice(d)) custom.add(d);
+    for (const a of apps) for (const d of a.device_types || []) if (isCustomDevice(d)) custom.add(d);
     for (const d of [...sessionCustomDevices, ...formDeviceTypes, ...(devicesBeforeDiscontinue || [])])
-      if (!isBuiltInDevice(d)) custom.add(d);
+      if (isCustomDevice(d)) custom.add(d);
     return [
       ...ALL_DEVICE_TYPES,
       ...[...custom].sort((x, y) => x.localeCompare(y, "pt-BR", { sensitivity: "base" })),
@@ -955,9 +957,9 @@ export default function AppManagerPage() {
     // descontinuado: aparelhos salvos ficam guardados (voltam se desmarcar)
     if (app.is_active === false) {
       setFormDeviceTypes([]);
-      setDevicesBeforeDiscontinue(app.device_types || []);
+      setDevicesBeforeDiscontinue(withoutLegacyDevices(app.device_types));
     } else {
-      setFormDeviceTypes(app.device_types || []);
+      setFormDeviceTypes(withoutLegacyDevices(app.device_types));
       setDevicesBeforeDiscontinue(null);
     }
     setDevicesPickerOpen(false);

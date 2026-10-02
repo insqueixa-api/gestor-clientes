@@ -14,4 +14,5 @@ export const R2_DELETABLE_FOLDERS = new Set([
   "condominio-acoes",
   "condominio-pdfs",
   "geral",
+  "device_icons", // logo de aparelho (public.app_device_types, 02/10/2026)
 ]);
