@@ -52,7 +52,7 @@ import {
 
 const APP_FIELD_LABELS: Record<string, string> = {
   date: "Vencimento",
-  mac: "Device ID (MAC)",
+  mac: "ID/MAC",
   device_key: "Device Key",
   email: "E-mail",
   password: "Senha",

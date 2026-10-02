@@ -29,7 +29,7 @@ const APPATIVA_BASE_URL = "https://api.ativeapp.com";
 // "Senha" quando o app selecionado é o ClouDDy). Sem isso, TODA chamada
 // daqui (renovação automática, "Ativar via Appativa", "Reenviar via
 // Appativa") sempre buscava um campo tipo "mac" que esses apps nunca
-// tiveram, e travava pedindo "Preencha o Device ID (MAC)" pra sempre.
+// tiveram, e travava pedindo "Preencha o ID/MAC" pra sempre.
 export function extractAppativaCreds(
   fieldsConfig: AppFieldConfig[],
   values: Record<string, string>,
@@ -51,9 +51,9 @@ export function extractAppativaCreds(
 // Olha o field type de verdade cadastrado no app pra escolher o rótulo
 // certo na mensagem.
 export function appativaIdentifierLabel(fieldsConfig: AppFieldConfig[]): string {
-  if (findFieldByType(fieldsConfig, "mac")) return "Device ID (MAC)";
+  if (findFieldByType(fieldsConfig, "mac")) return "ID/MAC";
   if (findFieldByType(fieldsConfig, "email")) return "Email";
-  return "Device ID (MAC)";
+  return "ID/MAC";
 }
 
 // ✅ Janela de checagem automática pós-solicitação (achado 26/08/2026,

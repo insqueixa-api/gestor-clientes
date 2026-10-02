@@ -29,6 +29,7 @@ function normalizeMAC(raw: string): string | null {
 const LABEL_TO_TYPE: Record<string, string> = {
   "Vencimento":      "date",
   "Device ID (MAC)": "mac",
+  "ID/MAC": "mac",
   "Device Key":      "device_key",
   "E-mail":          "email",
   "Senha":           "password",

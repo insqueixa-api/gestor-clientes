@@ -194,7 +194,7 @@ export async function configureClientApp(
 
   const macValue = extractFieldByType(row.fieldsConfig, row.field_values, "mac");
   if (!macValue) {
-    return { ok: false, stage: "precondition", error: "Preencha o Device ID (MAC) antes de configurar.", status: 400 };
+    return { ok: false, stage: "precondition", error: "Preencha o ID/MAC antes de configurar.", status: 400 };
   }
   const deviceKey = extractFieldByType(row.fieldsConfig, row.field_values, "device_key");
 
@@ -395,7 +395,7 @@ export async function checkClientAppValidity(
 
   const macValue = extractFieldByType(row.fieldsConfig, row.field_values, "mac");
   if (!macValue) {
-    return { ok: false, error: "Preencha o Device ID (MAC) antes de verificar." };
+    return { ok: false, error: "Preencha o ID/MAC antes de verificar." };
   }
   const deviceKey = extractFieldByType(row.fieldsConfig, row.field_values, "device_key");
 

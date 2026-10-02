@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     const macValue = extractFieldByType(fieldsConfig, values, "mac");
     if (!macValue) {
-      return jsonError("Preencha o Device ID (MAC) antes de renovar.", 400);
+      return jsonError("Preencha o ID/MAC antes de renovar.", 400);
     }
 
     const { data: integ } = await supabaseAdmin

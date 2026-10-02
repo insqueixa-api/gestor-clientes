@@ -616,7 +616,7 @@ export async function markAppRenewalPaid(
         if (!macApp) {
           await supabaseAdmin
             .from("client_portal_payments")
-            .update({ fulfillment_error: "Preencha o Device ID (MAC) antes de renovar." })
+            .update({ fulfillment_error: "Preencha o ID/MAC antes de renovar." })
             .eq("id", paymentRowId)
             .eq("tenant_id", tenantId);
         } else {
@@ -717,7 +717,7 @@ export async function markAppRenewalPaid(
         if (!macApp) {
           await supabaseAdmin
             .from("client_portal_payments")
-            .update({ fulfillment_error: "Preencha o Device ID (MAC) antes de renovar." })
+            .update({ fulfillment_error: "Preencha o ID/MAC antes de renovar." })
             .eq("id", paymentRowId)
             .eq("tenant_id", tenantId);
         } else {

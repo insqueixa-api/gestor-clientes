@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
   const macValue = extractFieldByType(row.fieldsConfig, row.field_values, "mac");
   if (!macValue) {
-    return NextResponse.json({ ok: false, error: "Preencha o Device ID (MAC) antes de marcar como pago." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Preencha o ID/MAC antes de marcar como pago." }, { status: 400 });
   }
 
   // ✅ "Quem fez" — mesmo token já validado por requireAdminTenant, só busca

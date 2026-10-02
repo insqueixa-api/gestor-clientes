@@ -24,7 +24,7 @@ export const ALL_FIELD_TYPES: AppFieldType[] = [
 
 export const APP_FIELD_LABELS: Record<AppFieldType, string> = {
   date: "Vencimento",
-  mac: "Device ID (MAC)",
+  mac: "ID/MAC",
   device_key: "Device Key",
   email: "E-mail",
   password: "Senha",
@@ -68,7 +68,7 @@ const CREDENTIAL_FIELD_TYPES: AppFieldType[] = ["mac", "device_key", "email", "p
 // portal só via uma mensagem genérica sem dizer qual campo checar. Isso
 // resolve os nomes REAIS (label customizado do app, se tiver — ver
 // APP_FIELD_LABELS acima) dos campos de credencial desse app, pra montar
-// uma mensagem tipo "confira Device ID (MAC), Device Key". Nunca usa o
+// uma mensagem tipo "confira ID/MAC, Device Key". Nunca usa o
 // texto cru que o parceiro devolveu (em inglês, formato instável por
 // parceiro) — só os nomes dos campos que o PRÓPRIO catálogo já conhece.
 export function describeCredentialFields(fieldsConfig: unknown): string {

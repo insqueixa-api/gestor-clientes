@@ -2267,7 +2267,7 @@ export default function NovoCliente({
       addToast(
         "error",
         "MAC Obrigatório",
-        "Preencha o Device ID (MAC) na aba 'Aplicativos' antes de configurar.",
+        "Preencha o ID/MAC na aba 'Aplicativos' antes de configurar.",
       );
       return;
     }
@@ -2529,7 +2529,7 @@ export default function NovoCliente({
       addToast(
         "error",
         "MAC Obrigatório",
-        "Preencha o Device ID (MAC) antes de verificar o vencimento.",
+        "Preencha o ID/MAC antes de verificar o vencimento.",
       );
       return;
     }
@@ -2668,7 +2668,7 @@ export default function NovoCliente({
 
     const macValue = getMacFromApp(currentApp);
     if (!macValue || macValue.trim() === "") {
-      addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) antes de marcar como pago.");
+      addToast("error", "MAC Obrigatório", "Preencha o ID/MAC antes de marcar como pago.");
       return;
     }
 
@@ -2729,7 +2729,7 @@ export default function NovoCliente({
 
     const macValue = getMacFromApp(currentApp);
     if (!macValue || macValue.trim() === "") {
-      addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) antes de renovar.");
+      addToast("error", "MAC Obrigatório", "Preencha o ID/MAC antes de renovar.");
       return;
     }
     const deviceKey = getDeviceKeyFromApp(currentApp);
@@ -2795,7 +2795,7 @@ export default function NovoCliente({
 
     const macValue = getMacFromApp(currentApp);
     if (!macValue || macValue.trim() === "") {
-      addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) antes de renovar.");
+      addToast("error", "MAC Obrigatório", "Preencha o ID/MAC antes de renovar.");
       return;
     }
 
@@ -2858,7 +2858,7 @@ export default function NovoCliente({
 
     const macValue = getMacFromApp(currentApp);
     if (!macValue || macValue.trim() === "") {
-      addToast("error", "MAC Obrigatório", "Preencha o Device ID (MAC) antes de ativar.");
+      addToast("error", "MAC Obrigatório", "Preencha o ID/MAC antes de ativar.");
       return;
     }
 
@@ -3080,7 +3080,7 @@ export default function NovoCliente({
     if (!macValue) {
       return {
         ok: false,
-        error: "Preencha o Device ID (MAC) do Duplex TV antes de checar.",
+        error: "Preencha o ID/MAC do Duplex TV antes de checar.",
       };
     }
 

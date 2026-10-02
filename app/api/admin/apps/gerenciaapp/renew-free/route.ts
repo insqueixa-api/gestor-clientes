@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
   const macValue = extractFieldByType(row.fieldsConfig, row.field_values, "mac");
   if (!macValue) {
-    return NextResponse.json({ ok: false, error: "Preencha o Device ID (MAC) antes de renovar." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Preencha o ID/MAC antes de renovar." }, { status: 400 });
   }
 
   const { data: integ } = await supabase
