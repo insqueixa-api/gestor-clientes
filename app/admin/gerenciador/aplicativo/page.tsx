@@ -40,6 +40,7 @@ import { PORTAL_VARIABLE_OPTIONS } from "@/lib/apps/portal-variable-rules";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import GpcRokuActivationsModal from "./gpc_roku_activations_modal";
 import DeviceBadges from "@/components/apps/DeviceBadges";
+import FloatingPanel from "@/components/ui/FloatingPanel";
 import {
   type AppativaCatalogItem,
   type AppativaMeta,
@@ -407,6 +408,9 @@ export default function AppManagerPage() {
   // id da integração AtivaApp (api_integrations) — usado pelo botão Sync.
   const [appativaIntegrationId, setAppativaIntegrationId] = useState<string | null>(null);
   const [syncingAppativa, setSyncingAppativa] = useState(false);
+  // botões que ancoram os painéis flutuantes (components/ui/FloatingPanel)
+  const appativaBtnRef = useRef<HTMLButtonElement>(null);
+  const devicesBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!devicesPickerOpen) return;
     const close = (e: MouseEvent) => {
@@ -1533,7 +1537,7 @@ export default function AppManagerPage() {
           </div>
         );
         return (
-          <Modal onClose={() => setDetailsApp(null)} maxWidth="max-w-lg">
+          <Modal onClose={() => setDetailsApp(null)} maxWidth="max-w-3xl">
             <ModalHeader onClose={() => setDetailsApp(null)}>
               <div className="flex items-center gap-3 min-w-0">
                 {icon ? (
@@ -1953,6 +1957,7 @@ export default function AppManagerPage() {
                       <div className="relative" data-appativa-picker>
                         <Label>AtivaApp</Label>
                         <button
+                          ref={appativaBtnRef}
                           type="button"
                           onClick={() => {
                             setAppativaQuery("");
@@ -2022,8 +2027,15 @@ export default function AppManagerPage() {
                             );
                           };
                           return (
-                            <div className="absolute z-40 top-full mt-1 left-0 right-0 rounded-lg border border-border bg-card shadow-xl overflow-hidden">
-                              <div className="p-2 border-b border-border">
+                            <FloatingPanel
+                              anchorRef={appativaBtnRef}
+                              open
+                              preferredHeight={420}
+                              minWidth={320}
+                              align="right"
+                              dataAttr="data-appativa-picker"
+                            >
+                              <div className="shrink-0 p-2 border-b border-border">
                                 <div className="relative">
                                   <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
                                   <input
@@ -2035,7 +2047,7 @@ export default function AppManagerPage() {
                                   />
                                 </div>
                               </div>
-                              <div className="max-h-72 overflow-y-auto py-1">
+                              <div className="flex-1 min-h-0 overflow-y-auto py-1">
                                 {mapped.length > 0 && (
                                   <>
                                     <p className="px-2 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -2062,13 +2074,13 @@ export default function AppManagerPage() {
                                 <button
                                   type="button"
                                   onClick={() => pickAppativa(null)}
-                                  className="w-full flex items-center gap-1.5 px-3 py-2 border-t border-border text-xs text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5 transition-colors"
+                                  className="shrink-0 w-full flex items-center gap-1.5 px-3 py-2 border-t border-border text-xs text-muted-foreground hover:text-rose-500 hover:bg-rose-500/5 transition-colors"
                                 >
                                   <X className="w-3 h-3" />
                                   Remover vínculo
                                 </button>
                               )}
-                            </div>
+                            </FloatingPanel>
                           );
                         })()}
                         <p className="text-[11px] text-muted-foreground mt-1">
@@ -2211,6 +2223,7 @@ export default function AppManagerPage() {
                   <div className="relative" data-devices-picker>
                     <Label>Compatibilidade</Label>
                     <button
+                      ref={devicesBtnRef}
                       type="button"
                       onClick={() => setDevicesPickerOpen((o) => !o)}
                       className={`w-full h-10 px-3 flex items-center gap-2 border rounded-lg text-sm text-left transition-colors ${
@@ -2237,12 +2250,19 @@ export default function AppManagerPage() {
                     </button>
 
                     {devicesPickerOpen && (
-                      <div className="absolute z-40 top-full mt-1 right-0 w-full sm:w-72 rounded-lg border border-border bg-card shadow-xl overflow-hidden">
+                      <FloatingPanel
+                        anchorRef={devicesBtnRef}
+                        open
+                        preferredHeight={460}
+                        minWidth={288}
+                        align="right"
+                        dataAttr="data-devices-picker"
+                      >
                         {/* atalho: Descontinuado desmarca o resto; desligar devolve o que estava marcado */}
                         <button
                           type="button"
                           onClick={toggleDiscontinued}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
+                          className={`shrink-0 w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${
                             !formIsActive ? "bg-rose-500/10 text-rose-500" : "text-foreground hover:bg-muted"
                           }`}
                         >
@@ -2256,7 +2276,7 @@ export default function AppManagerPage() {
                           Descontinuado
                         </button>
                         {!formIsActive && (
-                          <div className="px-3 pb-2 bg-rose-500/10">
+                          <div className="shrink-0 px-3 pb-2 bg-rose-500/10">
                             <input
                               type="text"
                               value={formDiscontinuedReplacement}
@@ -2267,7 +2287,7 @@ export default function AppManagerPage() {
                           </div>
                         )}
 
-                        <div className="max-h-64 overflow-y-auto py-1 border-t border-border">
+                        <div className="flex-1 min-h-0 overflow-y-auto py-1 border-t border-border">
                           {deviceOptions.map((dt) => {
                             const active = formIsActive && formDeviceTypes.includes(dt);
                             return (
@@ -2300,7 +2320,7 @@ export default function AppManagerPage() {
                             e.preventDefault();
                             addCustomDevice();
                           }}
-                          className="flex gap-1.5 p-2 border-t border-border"
+                          className="shrink-0 flex gap-1.5 p-2 border-t border-border"
                         >
                           <input
                             value={newDeviceName}
@@ -2317,7 +2337,7 @@ export default function AppManagerPage() {
                             Adicionar
                           </button>
                         </form>
-                      </div>
+                      </FloatingPanel>
                     )}
                   </div>
                 </div>
