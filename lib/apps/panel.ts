@@ -5,7 +5,7 @@
 
 // Handlers cujo campo "password" do payload é o PIN da integração
 // (app_integrations.pin), não a senha real do cliente — mesma regra do admin.
-export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "CAPPLAYER"]);
+export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "CAPPLAYER", "OTTPLAYER"]);
 
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada).
@@ -19,6 +19,9 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // MESSITV/BOBPLAYER/IBOPLAYER/IPTVDUPLEX/IPTVPLAYERIO seguem o mesmo padrão
 // (login mac+device_key, com captcha resolvido via Gemini quando o
 // parceiro exige) e também devolvem o expire_date real do dispositivo.
+// OTTPLAYER (IPTV OTT Player, api.simpletv.live — 03/10/2026) é outra marca
+// desse mesmo backend; o check devolve a validade da LICENÇA (ou do teste
+// grátis, com isTrial), não a do m3u.
 // IPTVPLAYERIO usa o mesmo backend branco do IPTVDUPLEX (api.iptvplayer.io
 // em vez de api.iptvduplex.com), confirmado ao vivo em 28/07/2026. DUPLEXTV
 // quase nunca devolve data de verdade (o parceiro não tem endpoint de
@@ -35,7 +38,7 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // create/delete dessa API (não em is_protected/pin/confirm_pin separados),
 // buscado server-side em app_integrations — não entra em PIN_HANDLERS
 // (mesmo padrão do QUICKPLAYER).
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER", "CAPPLAYER"]);
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER", "CAPPLAYER", "OTTPLAYER"]);
 
 // Alias de CHECK_VALIDITY_HANDLERS pro botão "Verificar vencimento" do
 // ADMIN (novo_cliente.tsx) — eram dois Sets com o mesmo conteúdo mantidos

@@ -6602,12 +6602,14 @@ export default function NovoCliente({
                           >
                             <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider flex items-center gap-2">
                               {(() => {
-                                const catAppIcon = catalog.find(
+                                const catApp = catalog.find(
                                   (c) => c.id === app.app_id,
-                                ) as any;
-                                return catAppIcon?.icon_url ? (
+                                );
+                                // ✅ 03/10/2026: logo do R2, senão a da AtivaApp
+                                const iconSrc = catApp ? effectiveIcon(catApp) : null;
+                                return iconSrc ? (
                                   <img
-                                    src={catAppIcon.icon_url}
+                                    src={iconSrc}
                                     alt=""
                                     className="w-5 h-5 rounded object-cover shrink-0"
                                   />

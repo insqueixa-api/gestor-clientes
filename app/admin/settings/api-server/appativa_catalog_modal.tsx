@@ -42,6 +42,8 @@ export default function AppativaCatalogModal({
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  // ✅ 03/10/2026: logos da AtivaApp copiadas pro R2 no último sync
+  const [logoInfo, setLogoInfo] = useState<string | null>(null);
 
   async function fetchCatalog(sync: boolean) {
     if (sync) setSyncing(true);
@@ -64,6 +66,15 @@ export default function AppativaCatalogModal({
       }
       setItems(json.items || []);
       setLastSyncAt(json.last_sync_at ?? null);
+      if (sync) {
+        const copied = Number(json.logos_copied || 0);
+        const pending = Number(json.logos_pending || 0);
+        setLogoInfo(
+          copied || pending
+            ? `${copied} logo(s) copiada(s) pro R2${pending ? ` · faltam ${pending}, sincronize de novo` : ""}`
+            : null,
+        );
+      }
     } catch (e: any) {
       onErrorAction(e?.message ?? "Falha ao buscar catálogo.");
     } finally {
@@ -117,6 +128,7 @@ export default function AppativaCatalogModal({
             <> · sincronizado em {formatDateTimeBR(lastSyncAt)}</>
           )}
           {!loading && !lastSyncAt && <> · nunca sincronizado</>}
+          {logoInfo && <> · {logoInfo}</>}
         </p>
       </ModalHeader>
 

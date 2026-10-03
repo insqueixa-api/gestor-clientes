@@ -75,6 +75,7 @@ export default function AppIntegracaoModal({
   const isClouddy = appName === "CLOUDDY";
   const isNinjaPlus = appName === "NINJAPLUS";
   const isCapPlayer = appName === "CAPPLAYER";
+  const isOttPlayer = appName === "OTTPLAYER";
   const needsPin =
     isDuplecast ||
     isIboPro ||
@@ -85,7 +86,8 @@ export default function AppIntegracaoModal({
     isIptvDuplex ||
     isIptvPlayerio ||
     isNinjaPlus || // ✅ 29/08/2026: NINJAPLUS (quickplayer.life) precisa de PIN
-    isCapPlayer; // ✅ 06/09/2026: CAP Player também protege playlist por PIN
+    isCapPlayer || // ✅ 06/09/2026: CAP Player também protege playlist por PIN
+    isOttPlayer; // ✅ 03/10/2026: IPTV OTT Player protege playlist por PIN
   // no create/delete, ao contrário do NINJAPLAYER antigo — DUPLEXTV/
   // CLOUDDY/IBOSOL continuam de fora, não usam PIN.
   const noCredentials =
@@ -99,7 +101,8 @@ export default function AppIntegracaoModal({
     isDuplexTv ||
     isClouddy ||
     isNinjaPlus || // ✅ NINJAPLUS: login é por mac+device_key POR CLIENTE
-    isCapPlayer; // ✅ CAP Player: idem, login é por mac+device_key POR CLIENTE
+    isCapPlayer || // ✅ CAP Player: idem, login é por mac+device_key POR CLIENTE
+    isOttPlayer; // ✅ IPTV OTT Player: idem
   // (client_apps.field_values), não um login/senha compartilhado pelo
   // tenant — mesma razão do CLOUDDY logo acima.
   // (client_apps.field_values), não um só compartilhado pelo tenant —
@@ -277,6 +280,7 @@ export default function AppIntegracaoModal({
                 <option value="CLOUDDY">ClouDDy</option>
                 <option value="NINJAPLUS">Ninja Plus</option>
                 <option value="CAPPLAYER">CAP Player</option>
+                <option value="OTTPLAYER">IPTV OTT Player</option>
               </select>
             </div>
 
@@ -315,7 +319,9 @@ export default function AppIntegracaoModal({
                                           ? 'Ex: "Ninja Plus"'
                                           : isCapPlayer
                                             ? 'Ex: "CAP Player"'
-                                            : 'Ex: "Nome do aplicativo"'
+                                            : isOttPlayer
+                                              ? 'Ex: "IPTV OTT Player"'
+                                              : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -356,7 +362,9 @@ export default function AppIntegracaoModal({
                                           ? "Ex: https://quickplayer.life"
                                           : isCapPlayer
                                             ? "Ex: https://capplayer.com"
-                                            : "Ex: https://gerenciaapp.top"
+                                            : isOttPlayer
+                                              ? "Ex: https://simpletv.live"
+                                              : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"

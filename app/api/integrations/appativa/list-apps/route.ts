@@ -18,10 +18,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { catalogItemFromApi, type AppativaCatalogItem } from "@/lib/apps/appativa-catalog";
+import { copyRemoteImageToR2 } from "@/lib/r2-server";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_LIMIT = 200; // ✅ máximo aceito pela API deles
+// ✅ 03/10/2026: logos copiadas pro R2 por sync — o resto vai nos próximos
+// (cada uma é download + upload; sem limite o sync podia estourar o tempo).
+const LOGOS_PER_SYNC = 40;
 
 // ✅ 02/10/2026: o cache passou a guardar logo, avaliação, descrição, plano,
 // links por plataforma etc. (antes só id/uuid/nome/valor) — formato em
@@ -121,27 +125,51 @@ export async function POST(req: NextRequest) {
     // ✅ 02/10/2026: atualiza também o snapshot (apps.appativa_meta) dos apps
     // já vinculados — é ele que o portal/Ver detalhes usam como padrão de
     // logo, estrelas e aparelhos quando não há override.
+    // ✅ 03/10/2026, pedido do Márcio: app vinculado SEM logo no R2 ganha a
+    // logo da AtivaApp copiada pro R2 (icon_url). Quem já tem logo no R2
+    // (inclusive a trocada à mão) nunca é tocado. Até LOGOS_PER_SYNC por vez.
+    let logosCopied = 0;
+    let logosPending = 0;
     try {
       const { data: linked } = await supabase
         .from("apps")
-        .select("id, appativa_app_id")
+        .select("id, name, appativa_app_id, icon_url")
         .eq("tenant_id", tenant_id)
         .not("appativa_app_id", "is", null);
       const byId = new Map(items.map((i) => [i.id, i]));
       for (const app of linked || []) {
         const meta = byId.get(String(app.appativa_app_id));
         if (!meta) continue;
-        await supabase
-          .from("apps")
-          .update({ appativa_meta: { ...meta, synced_at: lastSyncAt } })
-          .eq("id", app.id)
-          .eq("tenant_id", tenant_id);
+        const patch: Record<string, unknown> = { appativa_meta: { ...meta, synced_at: lastSyncAt } };
+        if (!app.icon_url && meta.logo) {
+          if (logosCopied < LOGOS_PER_SYNC) {
+            const r2Url = await copyRemoteImageToR2(meta.logo, "apps", String(app.name || "app"));
+            if (r2Url) {
+              patch.icon_url = r2Url;
+              logosCopied++;
+            }
+          } else {
+            logosPending++;
+          }
+        }
+        let q = supabase.from("apps").update(patch).eq("id", app.id).eq("tenant_id", tenant_id);
+        // nunca sobrescreve uma logo gravada no meio do caminho
+        if (patch.icon_url) q = q.is("icon_url", null);
+        await q;
       }
     } catch (e: any) {
       console.error("[appativa/list-apps] falha ao atualizar appativa_meta", e?.message);
     }
 
-    return NextResponse.json({ ok: true, items, total: items.length, last_sync_at: lastSyncAt, from_cache: false });
+    return NextResponse.json({
+      ok: true,
+      items,
+      total: items.length,
+      last_sync_at: lastSyncAt,
+      from_cache: false,
+      logos_copied: logosCopied,
+      logos_pending: logosPending,
+    });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: "Falha ao conectar com a API da Appativa" }, { status: 502 });
   }
