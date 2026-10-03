@@ -340,6 +340,50 @@ function formatDateTime(dateStr: string) {
   return `${get("day")}/${get("month")}/${get("year")}, ${get("hour")}:${get("minute")}`;
 }
 
+// ✅ 02/10/2026: pendência (sino com valor) como vem de /pending-charges
+type PendencyItem = {
+  message: string;
+  appName: string | null;
+  convertedAmount: number;
+  activationDate: string | null;
+  kind?: string | null;
+  meta?: Record<string, any> | null;
+};
+
+// "Referente a quê" de cada pendência — mesmo texto no card "Pendência em
+// aberto" e no aviso "Pendência identificada" (antes do Renovar).
+function pendencyDescription(it: PendencyItem): { title: string; detail: string } {
+  const fmtDate = (d?: string | null) =>
+    d ? new Date(`${String(d).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "";
+  if (it.kind === "renewal_trust") {
+    const screens = Number(it.meta?.screens || 1);
+    const renewed = fmtDate(it.meta?.renewal_date);
+    return {
+      title: "Renovação antecipada em confiança",
+      detail: [
+        `Plano ${it.meta?.plan_label || "Mensal"}`,
+        `${screens} tela${screens === 1 ? "" : "s"}`,
+        renewed ? `renovado em ${renewed}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  }
+  const app =
+    it.appName || String(it.meta?.app_name || "").trim() || it.message.match(/"(.+?)"/)?.[1] || "";
+  if (it.kind === "app_activation" || app) {
+    const day = fmtDate(it.activationDate);
+    const discount = Number(it.meta?.discount_amount || 0);
+    return {
+      title: app ? `Ativação de aplicativo: ${app}` : "Ativação de aplicativo",
+      detail: [day ? `ativado em ${day}` : "", discount > 0 ? "desconto do cupom já aplicado" : ""]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  }
+  return { title: it.message || "Pendência", detail: "" };
+}
+
 // ========= MAIN COMPONENT =========
 export default function RenewClient() {
   const sp = useSearchParams();
@@ -837,6 +881,7 @@ export default function RenewClient() {
     total: number;
     currency: string;
     count: number;
+    items: PendencyItem[];
   } | null>(null);
   useEffect(() => {
     if (!selectedAccountId || !session) {
@@ -855,7 +900,12 @@ export default function RenewClient() {
         if (cancelled) return;
         setAccountPendency(
           result?.ok && result.total > 0
-            ? { total: result.total, currency: result.currency, count: (result.items || []).length }
+            ? {
+                total: result.total,
+                currency: result.currency,
+                count: (result.items || []).length,
+                items: result.items || [],
+              }
             : null,
         );
       })
@@ -2874,22 +2924,17 @@ export default function RenewClient() {
             )}
             <div className="space-y-2">
               {pendingCharges.items.map((it, idx) => {
-                const dateLabel = it.activationDate
-                  ? new Date(
-                      `${it.activationDate}T12:00:00`,
-                    ).toLocaleDateString("pt-BR")
-                  : "";
+                const d = pendencyDescription(it);
                 return (
                   <div
                     key={idx}
                     className="flex justify-between items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border"
                   >
-                    <div className="text-sm text-foreground/90 whitespace-nowrap overflow-hidden text-ellipsis">
-                      {it.kind === "renewal_trust"
-                        ? `Renovação antecipada em confiança — ${it.meta?.plan_label || "Mensal"} · ${it.meta?.screens || 1} tela${Number(it.meta?.screens || 1) === 1 ? "" : "s"}${it.meta?.renewal_date ? ` · renovado em ${new Date(`${it.meta.renewal_date}T12:00:00`).toLocaleDateString("pt-BR")}` : ""}`
-                        : it.appName
-                        ? `Ativação de aplicativo: ${it.appName}${dateLabel ? ` · dia ${dateLabel}` : ""}`
-                        : it.message || "Pendência"}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground/90 truncate">{d.title}</p>
+                      {d.detail && (
+                        <p className="text-[11px] text-muted-foreground truncate">{d.detail}</p>
+                      )}
                     </div>
                     <div className="text-sm font-bold text-foreground shrink-0">
                       {formatMoney(it.convertedAmount, pendingCharges.currency)}
@@ -6550,14 +6595,39 @@ export default function RenewClient() {
             <div className="p-3 sm:p-4 space-y-3">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {accountPendency.count > 1
-                  ? `Você tem ${accountPendency.count} valores em aberto`
-                  : "Você tem um valor em aberto"}{" "}
-                de{" "}
-                <strong className="text-foreground">
-                  {formatMoney(accountPendency.total, accountPendency.currency)}
-                </strong>
+                  ? "Você tem estes valores em aberto"
+                  : "Você tem este valor em aberto"}
                 . Pode pagar agora, sem precisar renovar a assinatura.
               </p>
+              <div className="space-y-2">
+                {accountPendency.items.map((it, idx) => {
+                  const d = pendencyDescription(it);
+                  return (
+                    <div
+                      key={idx}
+                      className="flex justify-between items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground/90 truncate">{d.title}</p>
+                        {d.detail && (
+                          <p className="text-[11px] text-muted-foreground truncate">{d.detail}</p>
+                        )}
+                      </div>
+                      <span className="text-sm font-bold text-foreground shrink-0">
+                        {formatMoney(it.convertedAmount, accountPendency.currency)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {accountPendency.count > 1 && (
+                <div className="flex justify-between items-center pt-1 border-t border-border">
+                  <span className="text-sm font-medium text-muted-foreground">Total</span>
+                  <span className="text-base font-bold text-amber-600">
+                    {formatMoney(accountPendency.total, accountPendency.currency)}
+                  </span>
+                </div>
+              )}
               <button
                 onClick={() => void handlePayPendingOnly()}
                 disabled={renewPaymentBusyId === PENDING_PAYMENT_KEY}
