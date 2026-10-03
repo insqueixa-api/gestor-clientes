@@ -3761,32 +3761,50 @@ export default function NovoCliente({
         }
 
         // Atualiza Apps
+        // ✅ 02/10/2026: ATUALIZA os apps que já existem (mantém o id) em vez
+        // de apagar e recriar tudo. Antes, todo "Salvar" trocava o id de cada
+        // app e soltava o vínculo de sinos, cupons de app, pagamentos,
+        // histórico de atividade, pedidos e ativações do GPC Roku (todos com
+        // ON DELETE SET NULL). Agora: existente → update; novo → insert;
+        // removido da tela → delete.
+        const appRow = (app: (typeof selectedApps)[number]) => ({
+          client_id: clientId,
+          tenant_id: tid,
+          app_id: app.app_id,
+          field_values: {
+            ...app.values,
+            _config_cost: app.costType,
+            _config_partner: app.partnerServerId,
+            // ✅ 30/09/2026: mantém o "Modo de avaliação" ao salvar
+            ...(app.isTrial ? { _trial_hint: "1" } : {}),
+          },
+          m3u_list: app.m3uList || null,
+          m3u_list_at: app.m3uListAt || null,
+          device_type: app.deviceType || null,
+        });
+        const keptIds = selectedApps.map((a) => a.client_app_id).filter((x): x is string => !!x);
 
-        await supabaseBrowser
-          .from("client_apps")
-          .delete()
-          .eq("client_id", clientId);
+        // removidos da tela
+        let delQuery = supabaseBrowser.from("client_apps").delete().eq("client_id", clientId);
+        if (keptIds.length) delQuery = delQuery.not("id", "in", `(${keptIds.join(",")})`);
+        const { error: delAppsErr } = await delQuery;
+        if (delAppsErr) throw new Error(`Erro ao atualizar aplicativos: ${delAppsErr.message}`);
 
-        if (selectedApps.length > 0) {
-          const toInsert = selectedApps.map((app) => ({
-            client_id: clientId,
-            tenant_id: tid,
-            app_id: app.app_id,
+        // existentes: update pelo id
+        for (const app of selectedApps.filter((a) => a.client_app_id)) {
+          const { error: upErr } = await supabaseBrowser
+            .from("client_apps")
+            .update(appRow(app))
+            .eq("id", app.client_app_id as string)
+            .eq("client_id", clientId);
+          if (upErr) throw new Error(`Erro ao atualizar aplicativo ${app.name}: ${upErr.message}`);
+        }
 
-            field_values: {
-              ...app.values,
-              _config_cost: app.costType,
-              _config_partner: app.partnerServerId,
-              // ✅ 30/09/2026: mantém o "Modo de avaliação" ao salvar (antes o
-              // save recriava o app sem a marca e o aviso sumia)
-              ...(app.isTrial ? { _trial_hint: "1" } : {}),
-            },
-            m3u_list: app.m3uList || null,
-            m3u_list_at: app.m3uListAt || null,
-            device_type: app.deviceType || null,
-          }));
-
-          await supabaseBrowser.from("client_apps").insert(toInsert);
+        // novos
+        const toInsert = selectedApps.filter((a) => !a.client_app_id).map(appRow);
+        if (toInsert.length > 0) {
+          const { error: insErr } = await supabaseBrowser.from("client_apps").insert(toInsert);
+          if (insErr) throw new Error(`Erro ao adicionar aplicativo: ${insErr.message}`);
         }
 
         // Sincroniza agenda e/ou operadora na edição se marcado

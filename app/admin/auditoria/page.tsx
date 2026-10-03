@@ -67,6 +67,8 @@ type LogRow = {
   pendencies: { label: string; amount: number; trust?: boolean }[];
   // ✅ 02/10/2026: linha que quitou um sino "Renovação em confiança"
   is_trust?: boolean;
+  // ✅ linha de app que quitou um sino "Ativação de aplicativo"
+  app_alert_label?: string | null;
   // ✅ Pagamento avulso de licença de app (25/07/2026) — nunca mexe na
   // assinatura, precisa ficar bem distinto na tela pra você nunca confundir.
   payment_type: "subscription" | "app_renewal";
@@ -657,7 +659,7 @@ function AuditoriaPageContent() {
           allAlertIds.length > 0
             ? supabaseBrowser
                 .from("client_alerts")
-                .select("id, message, amount, kind, meta, client_apps(apps(name))")
+                .select("id, message, amount, kind, meta, activation_date, client_apps(apps(name))")
                 .in("id", allAlertIds)
             : Promise.resolve({ data: null as any[] | null }),
           // 3.6 Catálogo de apps — só o ícone, casado por nome via
@@ -685,7 +687,10 @@ function AuditoriaPageContent() {
             a.icon_url ?? null;
         });
 
-        const alertsMap: Record<string, { label: string; amount: number; trust?: boolean }> = {};
+        const alertsMap: Record<
+          string,
+          { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean }
+        > = {};
         (alertsRes.data || []).forEach((a: any) => {
           const appName = a.client_apps?.apps?.name || null;
           // ✅ 02/10/2026: em confiança mostra só a data da renovação —
@@ -694,10 +699,24 @@ function AuditoriaPageContent() {
           const rd = a.meta?.renewal_date
             ? new Date(`${a.meta.renewal_date}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
             : null;
+          // ativação de app (sino novo): nome guardado no sino como reserva
+          // (o vínculo some quando o cadastro é salvo) + data da ativação
+          const appTrust = a.kind === "app_activation";
+          const ad = a.activation_date
+            ? new Date(`${String(a.activation_date).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+            : null;
+          const resolvedAppName = appName || a.meta?.app_name || null;
           alertsMap[a.id] = {
-            label: trust ? (rd ? `Renovado em ${rd}` : "Em confiança") : appName || pendencyLabelFromMessage(a.message),
+            label: trust
+              ? rd ? `Renovado em ${rd}` : "Em confiança"
+              : appTrust
+                ? `${resolvedAppName ? `${resolvedAppName} · ` : ""}ativado em ${ad || "—"}`
+                : appName || pendencyLabelFromMessage(a.message),
             amount: Number(a.amount || 0),
             trust,
+            appTrust,
+            appName: resolvedAppName,
+            receivedNow: !!a.meta?.received_now,
           };
         });
 
@@ -723,7 +742,17 @@ function AuditoriaPageContent() {
             : cInfo.display_name;
           const pendencies = ((r.settled_alert_ids as string[] | null) || [])
             .map((aid) => alertsMap[aid])
-            .filter((p): p is { label: string; amount: number; trust?: boolean } => !!p);
+            .filter((p): p is { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean } => !!p)
+            // na própria linha do app o nome já está na coluna Plano/Aplicativo
+            // e o valor em cima: basta "Ativado em DD/MM"
+            .map((p) =>
+              r.payment_type === "app_renewal" && p.appTrust
+                ? { ...p, label: p.label.replace(/^.* · ativado/, "Ativado"), trust: true }
+                : p,
+            );
+          const appAlert = ((r.settled_alert_ids as string[] | null) || [])
+            .map((aid) => alertsMap[aid])
+            .find((p) => p?.appTrust);
 
                     return {
             id: r.id,
@@ -762,6 +791,12 @@ function AuditoriaPageContent() {
                 : null,
             pendencies,
             is_trust: pendencies.some((p) => p.trust),
+            app_alert_label:
+              r.payment_type === "app_renewal" && appAlert
+                ? appAlert.receivedNow
+                  ? "Ativação de aplicativo"
+                  : "Ativação em confiança"
+                : null,
             payment_type:
               r.payment_type === "app_renewal" ? "app_renewal" : "subscription",
             app_name_snapshot: r.app_name_snapshot || null,
@@ -2180,6 +2215,11 @@ function AuditoriaPageContent() {
                                       {r.is_trust ? "Renovação em confiança" : "Renovação de Assinatura"}
                                     </span>
                                   )}
+                                {r.app_alert_label && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    {r.app_alert_label}
+                                  </span>
+                                )}
                               </div>
                             </td>
                                                         {/* Renovação */}

@@ -42,12 +42,16 @@ export async function createAppActivationAlert(params: {
   activationDate: string;
   message?: string;
   coupon?: AppCouponInput | null;
+  /** "Já recebi" (baixa na hora) — o Log mostra "Ativação de aplicativo", não "em confiança" */
+  receivedNow?: boolean;
 }): Promise<{ ok: true; alertId: string } | { ok: false; error: string }> {
   const { tenantId, clientId, clientAppId, appName, amount, currency } = params;
   if (!(amount > 0)) return { ok: false, error: "Informe um valor maior que zero." };
 
   let couponId: string | null = null;
-  let meta: Record<string, unknown> | null = null;
+  // nome do app guardado no sino: o "Salvar" do cadastro recria os
+  // client_apps e o vínculo (client_app_id) pode se perder
+  let meta: Record<string, unknown> = { app_name: appName, ...(params.receivedNow ? { received_now: true } : {}) };
   let finalAmount = amount;
   const coupon = params.coupon || null;
   if (coupon) {
@@ -75,7 +79,7 @@ export async function createAppActivationAlert(params: {
     if (error || !data) return { ok: false, error: error?.message || "Não deu pra criar o cupom (código já usado?)." };
     couponId = data.id;
     finalAmount = Number((amount - discount).toFixed(2));
-    meta = { full_amount: amount, discount_amount: discount, coupon_code: code };
+    meta = { ...meta, full_amount: amount, discount_amount: discount, coupon_code: code };
   }
 
   const { data: alert, error: alertErr } = await supabaseBrowser

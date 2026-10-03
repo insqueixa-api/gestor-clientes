@@ -122,7 +122,13 @@ begin
         a.coupon_id, v_coupon_code, v_discount
       ) returning id into v_payment_id;
     else
-      v_app_name := (select ap.name from public.client_apps ca join public.apps ap on ap.id = ca.app_id where ca.id = a.client_app_id);
+      -- nome do app: pelo vínculo; se o vínculo se perdeu (o "Salvar" do
+      -- cadastro recria os client_apps), pelo nome guardado no sino
+      v_app_name := coalesce(
+        (select ap.name from public.client_apps ca join public.apps ap on ap.id = ca.app_id where ca.id = a.client_app_id),
+        nullif(v_meta->>'app_name', ''),
+        substring(a.message from '"(.+?)"')
+      );
       insert into public.client_portal_payments (
         tenant_id, client_id, gateway_type, payment_method, payment_type, client_app_id,
         app_name_snapshot, price_amount, price_currency, status, fulfillment_status,

@@ -95,6 +95,7 @@ export default function AppTrustPrompt({
         currency,
         activationDate: isoDateToday(),
         coupon,
+        receivedNow: settleNow,
       });
       if (res.ok === false) {
         addToast("error", "Não deu pra registrar", res.error);
