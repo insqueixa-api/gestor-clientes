@@ -1107,10 +1107,6 @@ export default function RenewClient() {
       meta?: Record<string, any> | null;
     }[];
   } | null>(null);
-  const [showPendingChargesModal, setShowPendingChargesModal] = useState(false);
-  const [pendingChargesContinuation, setPendingChargesContinuation] = useState<
-    (() => void) | null
-  >(null);
   const [checkingPendingCharges, setCheckingPendingCharges] = useState(false);
   // ✅ Guardado no momento da confirmação, pro Resumo no modal de pagamento
   const [confirmedPeriod, setConfirmedPeriod] = useState<string | null>(null);
@@ -1935,17 +1931,6 @@ export default function RenewClient() {
     [availablePrices, selectedPeriod],
   );
 
-  // ✅ Mesmo fallback já usado em handleRenew/botão "Pagar e Renovar":
-  // plano selecionado, senão o plano atual do cliente. Usado pro cupom
-  // (prévia + modal de pendência) precisar de um preço antes de clicar
-  // em renovar.
-  const activeRenewPrice = useMemo(() => {
-    if (selectedPrice && selectedPrice.price_amount > 0) return selectedPrice;
-    return prices.find(
-      (p) => PERIOD_LABELS[p.period] === selectedAccount?.plan_label,
-    );
-  }, [selectedPrice, prices, selectedAccount]);
-
   // ✅ Desconto depende do preço da CONTA (client_id) + período escolhidos
   // — trocar de período OU de conta invalida o cupom aplicado (precisa
   // reaplicar). Faltava selectedAccountId aqui: como uma pessoa pode ter
@@ -2092,8 +2077,11 @@ export default function RenewClient() {
       setShowMethodSelector(true);
     };
 
-    // ✅ Checa pendências financeiras em aberto ANTES de seguir — se tiver,
-    // avisa o cliente que o valor será somado ao total. Se a checagem falhar
+    // ✅ Checa pendências financeiras em aberto ANTES de seguir — entram no
+    // resumo do pagamento (o servidor soma de novo de qualquer forma).
+    // ✅ 02/10/2026, pedido do Márcio: sem o aviso "Pendência identificada" —
+    // o card "Pendência em aberto" já mostra os detalhes e o botão verde já
+    // mostra o total com a pendência ("Pagar tudo e Renovar"). Se a checagem falhar
     // por qualquer motivo, segue normalmente (o create-payment recalcula
     // tudo de novo no servidor de qualquer forma, então nunca sub-cobra).
     setCheckingPendingCharges(true);
@@ -2114,9 +2102,8 @@ export default function RenewClient() {
           currency: result.currency,
           items: result.items || [],
         });
-        setPendingChargesContinuation(() => proceed);
-        setShowPendingChargesModal(true);
-        return;
+      } else if (result?.ok) {
+        setPendingCharges(null);
       }
     } catch {
       // segue normalmente
@@ -2875,182 +2862,6 @@ export default function RenewClient() {
     );
   }
 
-  function PendingChargesModal() {
-    if (!showPendingChargesModal || !pendingCharges) return null;
-
-    // ✅ Resumo (plano + desconto do cupom, se houver) — pedido do Marcio
-    // pra esse modal também refletir o desconto nos somatórios. Só
-    // aparece quando dá pra saber o preço do plano nesse ponto do fluxo.
-    const summaryBase = activeRenewPrice?.price_amount ?? null;
-    const summaryCouponDiscount = appliedCoupon?.discountAmount || 0;
-    const selectedAppsForModal = expiringAppsForAlert.filter((app) =>
-      selectedAppRenewalIds.includes(app.id),
-    );
-    const summaryGrandTotal =
-      (summaryBase || 0) -
-      summaryCouponDiscount +
-      pendingCharges.total +
-      selectedAppRenewalTotal;
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-          <div className="bg-gradient-to-r from-amber-600 to-amber-700 py-4 px-6 text-white text-center shrink-0">
-            <h2 className="text-lg font-bold">📋 Pendência identificada</h2>
-          </div>
-
-          <div className="p-5 space-y-3 overflow-y-auto flex-1 min-h-0">
-            {summaryBase != null && selectedAccount && (
-              <div className="space-y-1 pb-3 border-b border-border text-sm">
-                <div className="flex justify-between text-foreground/80">
-                  <span>Plano</span>
-                  <span>
-                    {formatMoney(summaryBase, selectedAccount.price_currency)}
-                  </span>
-                </div>
-                {summaryCouponDiscount > 0 && (
-                  <div className="flex justify-between text-emerald-600">
-                    <span>Desconto ({appliedCoupon?.auto ? "cupom do aplicativo" : `cupom ${appliedCoupon?.code}`})</span>
-                    <span>
-                      -
-                      {formatMoney(
-                        summaryCouponDiscount,
-                        selectedAccount.price_currency,
-                      )}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="space-y-2">
-              {pendingCharges.items.map((it, idx) => {
-                const d = pendencyDescription(it);
-                return (
-                  <div
-                    key={idx}
-                    className="flex justify-between items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground/90 truncate">{d.title}</p>
-                      {d.detail && (
-                        <p className="text-[11px] text-muted-foreground truncate">{d.detail}</p>
-                      )}
-                    </div>
-                    <div className="text-sm font-bold text-foreground shrink-0">
-                      {formatMoney(it.convertedAmount, pendingCharges.currency)}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-between items-center pt-2 border-t border-border">
-              <span className="text-sm font-medium text-muted-foreground">
-                Total da Pendência
-              </span>
-              <span className="text-lg font-bold text-amber-500">
-                {formatMoney(pendingCharges.total, pendingCharges.currency)}
-              </span>
-            </div>
-
-            {selectedAppsForModal.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-border">
-                {selectedAppsForModal.map((app) => (
-                  <div
-                    key={app.id}
-                    className="flex justify-between text-foreground/80 text-sm"
-                  >
-                    <span>Renovação — {appNameWithAmbiente(app)}</span>
-                    <span>
-                      {formatMoney(
-                        app.license_price_display ?? 0,
-                        app.license_price_display_currency || "BRL",
-                      )}
-                      {licensePeriodSuffix(app.license_period)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {summaryBase != null && selectedAccount && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-bold text-foreground">
-                  Total Geral
-                </span>
-                <span className="text-lg font-bold text-foreground">
-                  {formatMoney(
-                    summaryGrandTotal,
-                    selectedAccount.price_currency,
-                  )}
-                </span>
-              </div>
-            )}
-
-            <div className="p-3 rounded-xl bg-muted/40 border border-border text-xs text-muted-foreground leading-relaxed">
-              Se você já regularizou essa pendência, entre em contato direto com
-              o Márcio
-              {supportPhone && (
-                <>
-                  {" "}
-                  clicando aqui:{" "}
-                  <a
-                    href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=Olá,%20sobre%20a%20pendência%20da%20minha%20renovação:%20já%20paguei%20isso%20antes.`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-emerald-600 underline decoration-emerald-600/40 underline-offset-2 hover:text-emerald-500"
-                  >
-                    WhatsApp suporte
-                  </a>
-                </>
-              )}
-              .
-            </div>
-
-            {/* ✅ 02/10/2026: quita só os sinos, sem renovar a assinatura */}
-            <button
-              onClick={() => {
-                setShowPendingChargesModal(false);
-                setPendingCharges(null);
-                setPendingChargesContinuation(null);
-                void handlePayPendingOnly();
-              }}
-              disabled={renewPaymentBusyId === PENDING_PAYMENT_KEY}
-              className="w-full py-2.5 rounded-xl border border-amber-500/40 bg-amber-500/5 text-amber-600 font-bold text-sm hover:bg-amber-500/10 transition-colors disabled:opacity-50"
-            >
-              Pagar só a pendência •{" "}
-              {formatMoney(pendingCharges.total, pendingCharges.currency)}
-            </button>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => {
-                  setShowPendingChargesModal(false);
-                  setPendingCharges(null);
-                  setPendingChargesContinuation(null);
-                }}
-                className="flex-1 py-2.5 rounded-xl border border-border text-muted-foreground font-medium text-sm hover:bg-muted transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  setShowPendingChargesModal(false);
-                  const cont = pendingChargesContinuation;
-                  setPendingChargesContinuation(null);
-                  cont?.();
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-900/20 transition-all"
-              >
-                Pagar tudo e renovar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   function PaymentModal() {
     if (!paymentModal || !paymentData) return null;
 
@@ -3110,12 +2921,14 @@ export default function RenewClient() {
             <span>-{formatMoney(summaryCouponDiscount, summaryCurrency)}</span>
           </div>
         )}
-        {pendingCharges && pendingCharges.total > 0 && (
-          <div className="flex justify-between text-foreground/80">
-            <span>Pendência Aplicativo</span>
-            <span>{formatMoney(pendingCharges.total, summaryCurrency)}</span>
-          </div>
-        )}
+        {pendingCharges &&
+          pendingCharges.total > 0 &&
+          pendingCharges.items.map((it, idx) => (
+            <div key={`pend-${idx}`} className="flex justify-between gap-3 text-foreground/80">
+              <span className="min-w-0 truncate">Pendência — {pendencyDescription(it).title}</span>
+              <span className="shrink-0">{formatMoney(it.convertedAmount, summaryCurrency)}</span>
+            </div>
+          ))}
         {confirmedAppRenewals.map((it, idx) => (
           <div key={idx} className="flex justify-between text-foreground/80">
             <span>Renovação — {it.app_name}</span>
@@ -6856,9 +6669,13 @@ export default function RenewClient() {
                   0,
                   renewPrice.price_amount -
                     (appliedCoupon?.discountAmount || 0) +
-                    selectedAppRenewalTotal,
+                    selectedAppRenewalTotal +
+                    (accountPendency?.total || 0),
                 )
               : null;
+          // ✅ 02/10/2026: com pendência não renova sem quitar — o botão já
+          // mostra o total (o servidor recalcula tudo no create-payment)
+          const hasPendency = (accountPendency?.total || 0) > 0;
 
           return (
             <button
@@ -6899,7 +6716,7 @@ export default function RenewClient() {
               ) : (
                 <>
                   <CheckCircle2 className="w-5 h-5 shrink-0" />
-                  Pagar e Renovar •{" "}
+                  {hasPendency ? "Pagar tudo e Renovar" : "Pagar e Renovar"} •{" "}
                   {displayTotal != null
                     ? formatMoney(displayTotal, selectedAccount.price_currency)
                     : "—"}
@@ -6909,8 +6726,6 @@ export default function RenewClient() {
           );
         })()}
 
-        {/* Pendência financeira em aberto */}
-        {PendingChargesModal()}
 
         {/* PIX/cartão de "Pagar só a pendência" */}
         {renderRenewPaymentModal()}
