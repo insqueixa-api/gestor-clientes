@@ -19,7 +19,7 @@ import {
   Check,
 } from "lucide-react";
 
-import { useEffect, useMemo, useRef, useState, Suspense } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import dynamic from "next/dynamic";
 
 import { useTenantId } from "@/lib/tenant-context";
@@ -130,6 +130,7 @@ type SortDir = "asc" | "desc";
  */
 type VwClientRow = {
   id: string;
+  deep_archived_at?: string | null;
   tenant_id: string;
 
   client_name: string | null;
@@ -189,6 +190,8 @@ type ScheduledMsg = {
 // Dados processados para a Tabela
 type ClientRow = {
   id: string;
+  // ✅ 02/10/2026: desvinculado do portal (deep_archived_at)
+  unlinked?: boolean;
   name: string;
   username: string;
 
@@ -354,6 +357,7 @@ function mapVwClientRow(r: VwClientRow): ClientRow {
 
   return {
     id: String(r.id),
+    unlinked: !!r.deep_archived_at,
     name: String(r.client_name ?? "Sem Nome"),
     username: String(r.username ?? "—"),
 
@@ -460,6 +464,12 @@ function ClientePageContent() {
   // ✅ 02/10/2026: contas "Desvinculadas" do portal (deep_archived_at) —
   // a lista de Arquivados mostra Arquivado x Desvinculado pelo estado real
   const [unlinkedIds, setUnlinkedIds] = useState<Set<string>>(new Set());
+  // Em Arquivados: filtro Arquivado x Desvinculado e grupos que abrem/fecham
+  const [archSub, setArchSub] = useState<"Todos" | "Arquivado" | "Desvinculado">("Todos");
+  const [collapsedArchGroups, setCollapsedArchGroups] = useState<{ arquivado: boolean; desvinculado: boolean }>({
+    arquivado: false,
+    desvinculado: false,
+  });
   useEffect(() => {
     if (archivedFilter === "Não" || !resolvedTenantId) return;
     supabaseBrowser
@@ -538,6 +548,7 @@ function ClientePageContent() {
       // Isso funciona como um "Refresh" da regra de negócio da tela
       setSearch("");
       setStatusFilter("Todos");
+      setArchSub("Todos");
       setServerFilter("Todos");
       setPlanFilter("Todos");
       setDueFilter("Todos");
@@ -921,7 +932,11 @@ function ClientePageContent() {
         "get_clients_list_page",
         {
           p_archived: archivedFilter === "Sim",
-          p_status: statusFilter === "Todos" ? null : statusFilter,
+          // em Arquivados o status é sempre "Arquivado" — o filtro de lá é
+          // Arquivado x Desvinculado (p_deep_archived)
+          p_status: archivedFilter === "Sim" || statusFilter === "Todos" ? null : statusFilter,
+          p_deep_archived:
+            archivedFilter === "Sim" && archSub !== "Todos" ? archSub === "Desvinculado" : null,
           p_search: debouncedSearch.trim() || null,
           p_server_id: serverFilter === "Todos" ? null : serverFilter,
           p_plan_period: planFilter === "Todos" ? null : planFilter,
@@ -1049,6 +1064,7 @@ function ClientePageContent() {
     tenantId,
     archivedFilter,
     statusFilter,
+    archSub,
     debouncedSearch,
     serverFilter,
     planFilter,
@@ -1199,6 +1215,7 @@ function ClientePageContent() {
   }, [
     debouncedSearch,
     statusFilter,
+    archSub,
     serverFilter,
     planFilter,
     dueFilter,
@@ -1780,6 +1797,7 @@ function ClientePageContent() {
             onClick={() => setMobileFiltersOpen((v) => !v)}
             className={`h-10 px-3 rounded-lg border font-medium text-sm transition-colors ${
               statusFilter !== "Todos" ||
+              archSub !== "Todos" ||
               serverFilter !== "Todos" ||
               planFilter !== "Todos" ||
               dueFilter !== "Todos" ||
@@ -1813,6 +1831,16 @@ function ClientePageContent() {
           </div>
 
           <div className="w-[180px]">
+            {archivedFilter === "Sim" ? (
+            <Select
+              value={archSub}
+              onChange={(e) => setArchSub(e.target.value as "Todos" | "Arquivado" | "Desvinculado")}
+            >
+              <option value="Todos">Arquivados (Todos)</option>
+              <option value="Arquivado">Arquivado</option>
+              <option value="Desvinculado">Desvinculado</option>
+            </Select>
+            ) : (
             <Select
               value={statusFilter}
               onChange={(e) =>
@@ -1823,6 +1851,7 @@ function ClientePageContent() {
               <option value="Ativo">Ativo</option>
               <option value="Vencido">Vencido</option>
             </Select>
+            )}
           </div>
 
           <div className="w-[180px]">
@@ -1913,6 +1942,7 @@ function ClientePageContent() {
               // Limpa filtros
               setSearch("");
               setStatusFilter("Todos");
+      setArchSub("Todos");
               setServerFilter("Todos");
               setPlanFilter("Todos");
               setDueFilter("Todos");
@@ -1956,6 +1986,16 @@ function ClientePageContent() {
             </button>
 
             {/* ✅ Status */}
+            {archivedFilter === "Sim" ? (
+            <Select
+              value={archSub}
+              onChange={(e) => setArchSub(e.target.value as "Todos" | "Arquivado" | "Desvinculado")}
+            >
+              <option value="Todos">Arquivados (Todos)</option>
+              <option value="Arquivado">Arquivado</option>
+              <option value="Desvinculado">Desvinculado</option>
+            </Select>
+            ) : (
             <Select
               value={statusFilter}
               onChange={(e) =>
@@ -1966,6 +2006,7 @@ function ClientePageContent() {
               <option value="Ativo">Ativo</option>
               <option value="Vencido">Vencido</option>
             </Select>
+            )}
 
             {/* ✅ Servidor */}
             <Select
@@ -2048,6 +2089,7 @@ function ClientePageContent() {
               onClick={() => {
                 setSearch("");
                 setStatusFilter("Todos");
+      setArchSub("Todos");
                 setServerFilter("Todos");
                 setPlanFilter("Todos");
                 setDueFilter("Todos");
@@ -2179,9 +2221,50 @@ function ClientePageContent() {
               </thead>
 
               <tbody className="text-sm divide-y divide-border">
-                {visible.map((r) => {
+                {visible.map((r, idx) => {
                   const isExpired = r.status === "Vencido";
+                  // ✅ 02/10/2026: em Arquivados, 2 grupos (Arquivados /
+                  // Desvinculados) com abrir/fechar — a lista já vem nessa
+                  // ordem do servidor (get_clients_list_page)
+                  const grp = r.unlinked || unlinkedIds.has(r.id) ? "desvinculado" : "arquivado";
+                  const prev = idx > 0 ? visible[idx - 1] : null;
+                  const prevGrp = prev ? (prev.unlinked || unlinkedIds.has(prev.id) ? "desvinculado" : "arquivado") : null;
+                  const showHeader = archivedFilter === "Sim" && grp !== prevGrp;
+                  const groupCount = visible.filter(
+                    (x) => (x.unlinked || unlinkedIds.has(x.id) ? "desvinculado" : "arquivado") === grp,
+                  ).length;
+                  const collapsed = archivedFilter === "Sim" && collapsedArchGroups[grp];
+                  const header = showHeader ? (
+                    <tr className="bg-muted/40">
+                      <td colSpan={11} className="px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setCollapsedArchGroups((p) => ({ ...p, [grp]: !p[grp] }))
+                          }
+                          className="w-full flex items-center justify-between gap-2 text-left"
+                        >
+                          <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground">
+                            <span
+                              className={`w-2 h-2 rounded-full ${grp === "desvinculado" ? "bg-slate-400" : "bg-rose-400"}`}
+                            />
+                            {grp === "desvinculado" ? "Desvinculados do portal" : "Arquivados"}
+                            <span className="font-normal normal-case tracking-normal text-muted-foreground">
+                              {groupCount}
+                              {grp === "desvinculado" ? " · não aparecem no Portal do Cliente" : " · ainda aparecem no portal (podem reativar)"}
+                            </span>
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {collapsedArchGroups[grp] ? "Mostrar ▼" : "Ocultar ▲"}
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                  ) : null;
+                  if (collapsed) return header ? <Fragment key={`h-${grp}`}>{header}</Fragment> : null;
                   return (
+                    <Fragment key={r.id}>
+                    {header}
                     <tr
                       key={r.id}
                       className={`transition-colors group ${
@@ -2317,7 +2400,7 @@ function ClientePageContent() {
                             // Ex: Arquivado (Venceu há 36 dias) /
                             // Desvinculado (fora do portal — cron de 61
                             // dias ou manual pelo botão Portal)
-                            const word = unlinkedIds.has(r.id) ? "Desvinculado" : "Arquivado";
+                            const word = r.unlinked || unlinkedIds.has(r.id) ? "Desvinculado" : "Arquivado";
                             label = textDiff ? `${word} (${textDiff})` : word;
                           } else if (r.status !== "Teste") {
                             label = textDiff || label;
@@ -2326,10 +2409,12 @@ function ClientePageContent() {
                           // 3. Lógica de Cor — pro dia de hoje, quem manda é
                           // isPastExactTime, não r.status (que só enxerga o
                           // dia inteiro, não o horário).
-                          let colorTone: "green" | "red" | "amber" | "blue" =
+                          let colorTone: "green" | "red" | "amber" | "blue" | "slate" =
                             "blue";
 
-                          if (r.status === "Arquivado") {
+                          if (r.status === "Arquivado" && (r.unlinked || unlinkedIds.has(r.id))) {
+                            colorTone = "slate"; // desvinculado do portal
+                          } else if (r.status === "Arquivado") {
                             colorTone = "red"; // Mantém vermelho para alerta de exclusão
                           } else if (r.status === "Teste") {
                             colorTone = "blue";
@@ -2611,6 +2696,7 @@ function ClientePageContent() {
                         </div>
                       </Td>
                     </tr>
+                    </Fragment>
                   );
                 })}
 
@@ -3469,7 +3555,7 @@ function StatusBadge({
 }: {
   status: string;
   customLabel?: string;
-  customTone?: "green" | "red" | "amber" | "blue";
+  customTone?: "green" | "red" | "amber" | "blue" | "slate";
 }) {
   // Define a cor base
   let color = "sky"; // Default (Teste/Arquivado)
@@ -3480,6 +3566,7 @@ function StatusBadge({
     if (customTone === "red") color = "rose";
     if (customTone === "amber") color = "amber"; // ou yellow
     if (customTone === "blue") color = "sky";
+    if (customTone === "slate") color = "slate";
   } else {
     // Fallback para status original se não vier customTone
     if (status === "Ativo") color = "emerald";
@@ -3491,6 +3578,7 @@ function StatusBadge({
     rose: "bg-rose-500/10 text-rose-400 border-rose-500/20",
     amber: "bg-amber-500/10 text-amber-400 border-amber-500/20",
     sky: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+    slate: "bg-slate-500/10 text-slate-500 dark:text-slate-300 border-slate-500/30",
   };
 
   return (
