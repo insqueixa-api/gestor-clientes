@@ -129,7 +129,16 @@ export async function POST(req: Request) {
     }
 
     if (action === "create") {
-      return NextResponse.json({ ok: true, expireDate: vmJson.expireDate ?? null, message: "Playlist configurada com sucesso." });
+      // ✅ 02/10/2026: a VM já lê a página do aparelho depois de criar —
+      // repassa o "modo de avaliação" junto, sem precisar do "check" depois.
+      return NextResponse.json({
+        ok: true,
+        expireDate: vmJson.expireDate ?? null,
+        isTrial: !vmJson.expireDate && !!vmJson.isTrial,
+        message: vmJson.isTrial && !vmJson.expireDate
+          ? "Playlist configurada — aparelho em modo de avaliação (DupleCast não informa vencimento até ativar a licença)."
+          : "Playlist configurada com sucesso.",
+      });
     }
 
     if (action === "delete") {

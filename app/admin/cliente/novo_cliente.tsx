@@ -2370,7 +2370,14 @@ export default function NovoCliente({
           setSelectedApps((prev) =>
             prev.map((a) =>
               a.instanceId === instanceId
-                ? { ...a, m3uList: mode, m3uListAt: new Date().toISOString() }
+                ? {
+                    ...a,
+                    m3uList: mode,
+                    m3uListAt: new Date().toISOString(),
+                    // ✅ 02/10/2026: modo de avaliação já no Configurar
+                    // (antes só aparecia depois do "Checar vencimento")
+                    ...(apiJson.isTrial ? { isTrial: true } : expireDate ? { isTrial: false } : {}),
+                  }
                 : a,
             ),
           );
@@ -2391,6 +2398,12 @@ export default function NovoCliente({
               "success",
               "Integrado!",
               `App configurado! Vencimento: ${expireDate.split("T")[0].split("-").reverse().join("/")}`,
+            );
+          } else if (apiJson.isTrial) {
+            addToast(
+              "warning",
+              "Integrado — modo de avaliação",
+              "App configurado. O aparelho está em modo de avaliação: o parceiro não informa vencimento até ativar a licença.",
             );
           } else if (handler.actionPrefix === "DUPLEXTV") {
             // ✅ DUPLEXTV não tem vencimento automático na rota própria (ver

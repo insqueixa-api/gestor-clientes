@@ -523,13 +523,17 @@ export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey,
     await createPlaylist(siteRoot, jar, userAgent, { m3uName, m3uUrl, pin: cleanPin });
 
     let expireDate = null;
+    let isTrial = false;
     try {
       const mainHtml = await fetchDeviceMain(siteRoot, jar, userAgent);
       expireDate = parseExpireDate(mainHtml);
+      // ✅ 02/10/2026: mesma leitura do "check" — avisa o modo de avaliação
+      // já no create (antes precisava clicar em "Checar vencimento" depois)
+      isTrial = !expireDate && parseIsTrial(mainHtml);
     } catch {
       // best-effort — não bloqueia o create
     }
-    return { expireDate };
+    return { expireDate, isTrial };
   }
 
   if (action === "delete") {

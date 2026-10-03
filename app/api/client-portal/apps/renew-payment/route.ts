@@ -144,6 +144,9 @@ export async function POST(req: NextRequest) {
     // ✅ 30/09/2026, pedido do Márcio (Vera, 2 DupleCast): cupom pessoal de
     // app desconta em CADA instalação coberta desta cobrança.
     let couponId: string | null = null;
+    // ✅ 02/10/2026: o código também vai pro pagamento — sem ele o Log do
+    // Portal (auditoria) mostrava "—" no Desconto (só olha coupon_code)
+    let couponCode: string | null = null;
     let couponDiscountAmount = 0;
     let couponByClientAppId: Record<string, number> = {};
     if (apply_coupon) {
@@ -158,6 +161,7 @@ export async function POST(req: NextRequest) {
       });
       if (couponResult) {
         couponId = couponResult.coupon.id;
+        couponCode = couponResult.coupon.code || null;
         couponDiscountAmount = couponResult.discountAmount;
         couponByClientAppId = couponResult.byClientAppId;
       }
@@ -313,6 +317,7 @@ export async function POST(req: NextRequest) {
             client_app_id,
             app_name_snapshot: appName,
             coupon_id: couponId,
+            coupon_code: couponCode,
             coupon_discount_amount: couponDiscountAmount || null,
             bundled_app_renewals: bundledAppRenewals.length ? bundledAppRenewals : null,
             // ✅ 17/09/2026: quem de fato logou e pagou (titular ou secundário).
@@ -449,6 +454,7 @@ export async function POST(req: NextRequest) {
               client_app_id,
               app_name_snapshot: appName,
               coupon_id: couponId,
+              coupon_code: couponCode,
               coupon_discount_amount: couponDiscountAmount || null,
               bundled_app_renewals: bundledAppRenewals.length ? bundledAppRenewals : null,
               // ✅ 17/09/2026: quem de fato logou e pagou.
@@ -693,6 +699,7 @@ export async function POST(req: NextRequest) {
           client_app_id,
           app_name_snapshot: appName,
           coupon_id: couponId,
+          coupon_code: couponCode,
           coupon_discount_amount: couponDiscountAmount || null,
           bundled_app_renewals: bundledAppRenewals.length ? bundledAppRenewals : null,
           // ✅ 17/09/2026: quem de fato logou e pagou.

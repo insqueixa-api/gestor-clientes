@@ -289,14 +289,14 @@ export default function AdminServersPage() {
 
     const ok = await confirm({
       title: server.is_archived ? "Restaurar servidor?" : "Excluir servidor?",
-      subtitle: `Tem certeza que deseja ${server.is_archived ? "restaurar" : "arquivar (enviar para lixeira)"} o servidor "${server.name}"?`,
+      subtitle: `Tem certeza que deseja ${server.is_archived ? "restaurar" : "arquivar"} o servidor "${server.name}"?`,
       tone: server.is_archived ? "emerald" : "rose",
       confirmText: server.is_archived ? "Restaurar" : "Arquivar",
       cancelText: "Voltar",
       details: server.is_archived
         ? ["O servidor voltará para a lista ativa."]
         : [
-            "Ele irá para a lixeira.",
+            "Ele irá para Arquivados.",
             "Você poderá restaurar ou excluir definitivamente depois.",
           ],
     });
@@ -662,7 +662,7 @@ export default function AdminServersPage() {
                 : "bg-muted border-border text-muted-foreground"
             }`}
           >
-            {showArchived ? "Ocultar Lixeira" : "Ver Lixeira"}
+            {showArchived ? "Ocultar Arquivados" : "Ver Arquivados"}
           </button>
 
           <button
@@ -683,7 +683,7 @@ export default function AdminServersPage() {
 
         {!loading && servers.length === 0 && (
           <div className="mx-3 sm:mx-0 p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
-            Nenhum servidor encontrado {showArchived ? "na lixeira" : ""}.
+            Nenhum servidor encontrado {showArchived ? "em Arquivados" : ""}.
           </div>
         )}
 

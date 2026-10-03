@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     expireDate: result.expireDate,
+    isTrial: !!result.isTrial,
     message: result.message || "Configurado com sucesso.",
     m3u_url: result.m3uUrl || null,
     m3u_list: result.m3uList || mode,

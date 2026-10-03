@@ -457,6 +457,18 @@ function ClientePageContent() {
   const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">(
     "Não",
   );
+  // ✅ 02/10/2026: contas "Desvinculadas" do portal (deep_archived_at) —
+  // a lista de Arquivados mostra Arquivado x Desvinculado pelo estado real
+  const [unlinkedIds, setUnlinkedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (archivedFilter === "Não" || !resolvedTenantId) return;
+    supabaseBrowser
+      .from("clients")
+      .select("id")
+      .eq("tenant_id", resolvedTenantId)
+      .not("deep_archived_at", "is", null)
+      .then(({ data }) => setUnlinkedIds(new Set((data || []).map((x: { id: string }) => x.id))));
+  }, [archivedFilter, resolvedTenantId]);
   const [serverFilter, setServerFilter] = useState("Todos");
   const [planFilter, setPlanFilter] = useState("Todos");
   const [dueFilter, setDueFilter] = useState("Todos");
@@ -1355,13 +1367,13 @@ function ClientePageContent() {
     const ok = await confirm({
       title: goingToArchive ? "Arquivar cliente" : "Restaurar cliente",
       subtitle: goingToArchive
-        ? "O cliente irá para a Lixeira (pode ser restaurado depois)."
+        ? "O cliente irá para Arquivados (pode ser restaurado depois)."
         : "O cliente voltará para a lista ativa.",
       tone: goingToArchive ? "amber" : "emerald",
       icon: goingToArchive ? "🗑️" : "↩️",
       details: [
         `Cliente: ${r.name}`,
-        goingToArchive ? "Destino: Lixeira" : "Destino: Ativos",
+        goingToArchive ? "Destino: Arquivados" : "Destino: Ativos",
       ],
       confirmText: goingToArchive ? "Arquivar" : "Restaurar",
       cancelText: "Voltar",
@@ -1401,9 +1413,43 @@ function ClientePageContent() {
       addToast(
         "error",
         "Ação bloqueada",
-        "Só é possível excluir definitivamente pela Lixeira.",
+        "Só é possível excluir definitivamente em Arquivados.",
       );
       return;
+    }
+
+    const alreadyUnlinked = unlinkedIds.has(r.id);
+    // ✅ 02/10/2026 (pedido do Márcio): antes de apagar tudo, sugere só
+    // desvincular do portal — some pra pessoa, mas histórico, pagamentos e
+    // cupons ficam (e dá pra voltar).
+    if (!alreadyUnlinked) {
+      const preferUnlink = await confirm({
+        title: "Desvincular em vez de excluir?",
+        subtitle:
+          "Desvincular tira a conta do Portal do Cliente e mantém histórico, pagamentos e cupons. Excluir apaga tudo para sempre.",
+        tone: "amber",
+        icon: "🔗",
+        details: [`Cliente: ${r.name}`, "Recomendado quando a pessoa só trocou de conta/servidor"],
+        confirmText: "Desvincular (recomendado)",
+        cancelText: "Não, quero excluir",
+      });
+      if (preferUnlink) {
+        try {
+          const { data: sess } = await supabaseBrowser.auth.getSession();
+          const res = await fetch("/api/admin/clients/portal-access", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token}` },
+            body: JSON.stringify({ client_id: r.id, action: "unlink" }),
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || !json?.ok) throw new Error(json?.error || "Erro inesperado.");
+          setUnlinkedIds((prev) => new Set(prev).add(r.id));
+          addToast("success", "Desvinculado do portal", "A conta continua em Arquivados, com todo o histórico.");
+        } catch (e: any) {
+          addToast("error", "Não deu pra desvincular", e?.message);
+        }
+        return;
+      }
     }
 
     const ok = await confirm({
@@ -1685,7 +1731,7 @@ function ClientePageContent() {
                 : "bg-muted border-border text-muted-foreground"
             }`}
           >
-            {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+            {archivedFilter === "Sim" ? "Ocultar Arquivados" : "Ver Arquivados"}
           </button>
 
           <button
@@ -1887,7 +1933,7 @@ function ClientePageContent() {
         {/* ✅ Painel de filtros no mobile */}
         {mobileFiltersOpen && (
           <div className="md:hidden mt-3 p-3 rounded-xl border border-border bg-transparent space-y-2">
-            {/* ✅ Filtrar Lixeira (opção dentro do painel) */}
+            {/* ✅ Filtrar Arquivados (opção dentro do painel) */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1898,11 +1944,11 @@ function ClientePageContent() {
                   ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                   : "bg-muted border-border text-muted-foreground"
               }`}
-              title="Filtrar Lixeira"
+              title="Filtrar Arquivados"
             >
               <span className="flex items-center gap-2">
                 <IconTrash />
-                Filtrar Lixeira
+                Filtrar Arquivados
               </span>
               <span className="text-xs opacity-80">
                 {archivedFilter === "Sim" ? "ON" : "OFF"}
@@ -2256,10 +2302,7 @@ function ClientePageContent() {
                           // partir de 61 dias (quando ele seria excluído
                           // de verdade antes dessa data existir).
                           if (diff < -2)
-                            textDiff =
-                              Math.abs(diff) >= 61
-                                ? `Arquivado há ${Math.abs(diff)} dias`
-                                : `Venceu há ${Math.abs(diff)} dias`;
+                            textDiff = `Venceu há ${Math.abs(diff)} dias`;
                           else if (diff === -2) textDiff = "Venceu há 2 dias";
                           else if (diff === -1) textDiff = "Venceu Ontem";
                           else if (diff === 0)
@@ -2271,10 +2314,11 @@ function ClientePageContent() {
 
                           // 2. Aplicação do texto
                           if (r.status === "Arquivado") {
-                            // Ex: Lixeira (Venceu há 36 dias)
-                            label = textDiff
-                              ? `Lixeira (${textDiff})`
-                              : "Lixeira";
+                            // Ex: Arquivado (Venceu há 36 dias) /
+                            // Desvinculado (fora do portal — cron de 61
+                            // dias ou manual pelo botão Portal)
+                            const word = unlinkedIds.has(r.id) ? "Desvinculado" : "Arquivado";
+                            label = textDiff ? `${word} (${textDiff})` : word;
                           } else if (r.status !== "Teste") {
                             label = textDiff || label;
                           }

@@ -1233,7 +1233,7 @@ export default function TrialsPage() {
       addToast(
         "error",
         "Ação bloqueada",
-        "Só é possível excluir definitivamente pela Lixeira.",
+        "Só é possível excluir definitivamente em Arquivados.",
       );
       return;
     }
@@ -1273,13 +1273,13 @@ export default function TrialsPage() {
     const ok = await confirm({
       title: goingToArchive ? "Arquivar teste" : "Restaurar teste",
       subtitle: goingToArchive
-        ? "O teste irá para a Lixeira (pode ser restaurado depois)."
+        ? "O teste irá para Arquivados (pode ser restaurado depois)."
         : "O teste voltará para a lista ativa.",
       tone: goingToArchive ? "amber" : "emerald",
       icon: goingToArchive ? "🗑️" : "↩️",
       details: [
         `Teste: ${r.name}`,
-        goingToArchive ? "Destino: Lixeira" : "Destino: Ativos",
+        goingToArchive ? "Destino: Arquivados" : "Destino: Ativos",
       ],
       confirmText: goingToArchive ? "Arquivar" : "Restaurar",
       cancelText: "Voltar",
@@ -1386,7 +1386,7 @@ export default function TrialsPage() {
                 : "bg-muted border-border text-muted-foreground"
             }`}
           >
-            {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+            {archivedFilter === "Sim" ? "Ocultar Arquivados" : "Ver Arquivados"}
           </button>
 
           <button
@@ -1588,11 +1588,11 @@ export default function TrialsPage() {
                   ? "bg-amber-500/10 text-amber-500 border-amber-500/30"
                   : "bg-muted border-border text-muted-foreground"
               }`}
-              title="Filtrar Lixeira"
+              title="Filtrar Arquivados"
             >
               <span className="flex items-center gap-2">
                 <IconTrash />
-                Filtrar Lixeira
+                Filtrar Arquivados
               </span>
               <span className="text-xs opacity-80">
                 {archivedFilter === "Sim" ? "ON" : "OFF"}
@@ -1882,8 +1882,8 @@ export default function TrialsPage() {
                           if (r.status === "Arquivado") {
                             label =
                               diff < 0
-                                ? `Lixeira (Venceu há ${Math.abs(diff)}d)`
-                                : "Lixeira";
+                                ? `Arquivado (Venceu há ${Math.abs(diff)}d)`
+                                : "Arquivado";
                             tone = "red";
                           } else if (diff === 0) {
                             label = isPastExactTime ? "Venceu Hoje" : "Vence Hoje";

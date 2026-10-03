@@ -382,13 +382,19 @@ export async function configureClientApp(
     }
   }
 
+  // ✅ 02/10/2026 (Márcio: "no teste ele não pega o trial de primeira, preciso
+  // checar o vencimento"): o parceiro pode avisar já no create que o
+  // aparelho está em modo de avaliação (DUPLECAST lê a mesma página do
+  // "check" logo depois de criar) — marca _trial_hint na hora, igual ao
+  // checkClientAppValidity. Vencimento real tira a marca.
+  const isTrial = !expireDate && !!apiJson.isTrial;
   const dateField = findFieldByType(row.fieldsConfig, "date");
-  if (expireDate && dateField) {
+  if (dateField && (expireDate || isTrial)) {
     const fieldKey = String(dateField.id || dateField.label);
-    await supabaseAdmin
-      .from("client_apps")
-      .update({ field_values: { ...row.field_values, [fieldKey]: expireDate } })
-      .eq("id", row.id);
+    const { _trial_hint: _drop, ...semTrial } = row.field_values;
+    void _drop;
+    const next = expireDate ? { ...semTrial, [fieldKey]: expireDate } : { ...row.field_values, _trial_hint: "1" };
+    await supabaseAdmin.from("client_apps").update({ field_values: next }).eq("id", row.id);
   }
 
   // ✅ 02/10/2026: guarda qual lista foi pro app (mostrado no card)
@@ -397,7 +403,7 @@ export async function configureClientApp(
     .update({ m3u_list: mode, m3u_list_at: new Date().toISOString() })
     .eq("id", row.id);
 
-  return { ok: true, expireDate, message: apiJson.message || "Configurado com sucesso.", m3uUrl, m3uList: mode };
+  return { ok: true, expireDate, isTrial, message: apiJson.message || "Configurado com sucesso.", m3uUrl, m3uList: mode };
 }
 
 // Espelha app/api/client-portal/apps/check-validity/route.ts:51-152 (consulta

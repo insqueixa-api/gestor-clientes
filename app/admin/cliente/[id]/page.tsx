@@ -9,6 +9,11 @@ import {
   Eye,
   Trash2,
   ExternalLink,
+  ChevronDown,
+  KeyRound,
+  Link2Off,
+  Link2,
+  Copy,
 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -331,6 +336,17 @@ export default function ClientDetailsPage() {
   const [isRenewLoading, setIsRenewLoading] = useState(false); // ✅ NOVO: Estado para o aviso de alerta antes da renovação
   const [showRenewWarning, setShowRenewWarning] = useState(false);
   const [isPortalLoading, setIsPortalLoading] = useState(false);
+  // ✅ 02/10/2026: menu do botão Portal (acessar / trocar link / desvincular)
+  type PortalInfo = {
+    contacts: { key: "primary" | "secondary"; label: string; whatsapp: string }[];
+    is_archived: boolean;
+    unlinked: boolean;
+    other_active_accounts: { id: string; label: string }[];
+  };
+  const [portalMenuOpen, setPortalMenuOpen] = useState(false);
+  const [portalInfo, setPortalInfo] = useState<PortalInfo | null>(null);
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [rotatedLink, setRotatedLink] = useState<{ link: string; contact: string; sessions: number } | null>(null);
 
   // --- TOASTS (5s) ---
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -852,6 +868,106 @@ export default function ClientDetailsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientIdSafe]);
 
+  async function callPortalAccess(payload: Record<string, unknown>) {
+    const { data: sess } = await supabaseBrowser.auth.getSession();
+    const res = await fetch("/api/admin/clients/portal-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token}` },
+      body: JSON.stringify({ client_id: client?.id, ...payload }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok) throw new Error(json?.error || "Erro inesperado.");
+    return json;
+  }
+
+  async function refreshPortalInfo(): Promise<PortalInfo | null> {
+    if (!client?.id) return null;
+    try {
+      const info = (await callPortalAccess({ action: "info" })) as PortalInfo;
+      setPortalInfo(info);
+      return info;
+    } catch {
+      return null;
+    }
+  }
+
+  async function handleRotateLink(contactKey: "primary" | "secondary") {
+    const contact = portalInfo?.contacts.find((c) => c.key === contactKey);
+    setPortalMenuOpen(false);
+    const ok = await confirm({
+      tone: "amber",
+      title: "Trocar o link mágico?",
+      subtitle: "O link atual para de funcionar na hora e quem estiver logado com ele é desconectado.",
+      details: [
+        `Contato: ${contact?.label || contactKey} (${contact?.whatsapp || "—"})`,
+        "O link é da pessoa: o novo vale pra todas as contas desse WhatsApp.",
+      ],
+      confirmText: "Trocar link",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+    // ✅ confirmação final (ação importante, fácil de clicar sem querer)
+    const sure = await confirm({
+      tone: "rose",
+      icon: "⚠️",
+      title: "Confirmar a troca do link?",
+      subtitle: "O link atual deixa de funcionar AGORA. A pessoa só entra de novo com o link novo.",
+      details: [`Contato: ${contact?.label || contactKey}`],
+      confirmText: "OK, trocar agora",
+      cancelText: "Cancelar",
+    });
+    if (!sure) return;
+    setPortalBusy(true);
+    try {
+      const json = await callPortalAccess({ action: "rotate", contact: contactKey });
+      setRotatedLink({ link: json.link, contact: contact?.label || contactKey, sessions: json.sessions_closed || 0 });
+    } catch (e: any) {
+      addToast("error", "Não deu pra trocar o link", e?.message);
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  async function handleUnlinkToggle(unlink: boolean) {
+    setPortalMenuOpen(false);
+    const ok = await confirm({
+      tone: unlink ? "rose" : "emerald",
+      title: unlink ? "Desvincular do portal?" : "Vincular de novo ao portal?",
+      subtitle: unlink
+        ? "A conta some do Portal do Cliente — a pessoa não vê nem renova mais por lá. Histórico, cupons e WhatsApp continuam."
+        : "A conta volta a aparecer no Portal do Cliente.",
+      details: [`Cliente: ${client?.client_name}`, `Usuário: ${client?.username}`],
+      confirmText: unlink ? "Desvincular" : "Vincular",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+    setPortalBusy(true);
+    try {
+      await callPortalAccess({ action: unlink ? "unlink" : "relink" });
+      addToast("success", unlink ? "Desvinculado do portal" : "Vinculado ao portal");
+      await refreshPortalInfo();
+    } catch (e: any) {
+      addToast("error", "Não deu pra salvar", e?.message);
+    } finally {
+      setPortalBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (client?.id) void refreshPortalInfo();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recarrega quando muda de cliente/arquivamento
+  }, [client?.id, client?.client_is_archived]);
+
+  useEffect(() => {
+    if (!portalMenuOpen) return;
+    const close = (e: MouseEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("[data-portal-menu]")) setPortalMenuOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [portalMenuOpen]);
+
   async function handleArchiveToggle() {
     if (!client) return;
 
@@ -861,7 +977,7 @@ export default function ClientDetailsPage() {
       tone: goingToArchive ? "rose" : "emerald",
       title: goingToArchive ? "Arquivar cliente?" : "Restaurar cliente?",
       subtitle: goingToArchive
-        ? "Ele irá para a Lixeira e não aparecerá na lista principal."
+        ? "Ele irá para Arquivados e não aparecerá na lista principal."
         : "Ele voltará para a lista principal de clientes.",
       details: [
         `Cliente: ${client.client_name}`,
@@ -894,6 +1010,35 @@ export default function ClientDetailsPage() {
         goingToArchive ? "Cliente arquivado" : "Cliente restaurado",
       );
       loadData();
+
+      // ✅ 02/10/2026: a mesma pessoa tem outra conta ativa (ex: trocou de
+      // servidor)? Sugere desvincular esta do portal pra ela não renovar a
+      // conta errada.
+      if (goingToArchive) {
+        const info = await refreshPortalInfo();
+        if (info && info.other_active_accounts.length > 0 && !info.unlinked) {
+          const unlinkNow = await confirm({
+            tone: "amber",
+            title: "Desvincular também do portal?",
+            subtitle: "Essa pessoa tem outra conta ativa — sem desvincular, ela vê as duas no portal e pode renovar a errada.",
+            details: [
+              `Outra conta ativa: ${info.other_active_accounts.map((o) => o.label).join(", ")}`,
+              "Dá pra vincular de novo depois, pelo botão Portal.",
+            ],
+            confirmText: "Desvincular",
+            cancelText: "Agora não",
+          });
+          if (unlinkNow) {
+            try {
+              await callPortalAccess({ action: "unlink" });
+              addToast("success", "Desvinculado do portal");
+              await refreshPortalInfo();
+            } catch (e: any) {
+              addToast("error", "Não deu pra desvincular", e?.message);
+            }
+          }
+        }
+      }
     } catch (e: unknown) {
       const msg = (e as { message?: string })?.message || "Erro desconhecido";
       addToast("error", "Falha ao atualizar cliente", msg);
@@ -907,9 +1052,36 @@ export default function ClientDetailsPage() {
       addToast(
         "error",
         "Ação bloqueada",
-        "Só é possível excluir definitivamente um cliente que está na Lixeira.",
+        "Só é possível excluir definitivamente um cliente que está em Arquivados.",
       );
       return;
+    }
+
+    const alreadyUnlinked = !!portalInfo?.unlinked;
+    // ✅ 02/10/2026 (pedido do Márcio): antes de apagar tudo, sugere só
+    // desvincular do portal — some pra pessoa, mas histórico, pagamentos e
+    // cupons ficam (e dá pra voltar).
+    if (!alreadyUnlinked) {
+      const preferUnlink = await confirm({
+        title: "Desvincular em vez de excluir?",
+        subtitle:
+          "Desvincular tira a conta do Portal do Cliente e mantém histórico, pagamentos e cupons. Excluir apaga tudo para sempre.",
+        tone: "amber",
+        icon: "🔗",
+        details: [`Cliente: ${client.client_name}`, "Recomendado quando a pessoa só trocou de conta/servidor"],
+        confirmText: "Desvincular (recomendado)",
+        cancelText: "Não, quero excluir",
+      });
+      if (preferUnlink) {
+        try {
+          await callPortalAccess({ action: "unlink" });
+          addToast("success", "Desvinculado do portal", "A conta continua em Arquivados, com todo o histórico.");
+          await refreshPortalInfo();
+        } catch (e: any) {
+          addToast("error", "Não deu pra desvincular", e?.message);
+        }
+        return;
+      }
     }
 
     const ok = await confirm({
@@ -988,9 +1160,50 @@ export default function ClientDetailsPage() {
       </div>
     );
 
+  const rotatedLinkModal = rotatedLink && (
+    <Modal onClose={() => setRotatedLink(null)} maxWidth="max-w-lg">
+      <div className="p-6 space-y-4">
+        <div>
+          <h3 className="text-lg font-bold text-foreground">Link mágico trocado</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            {rotatedLink.contact} — o link antigo já não funciona
+            {rotatedLink.sessions > 0 ? ` e ${rotatedLink.sessions} sessão(ões) aberta(s) foram encerradas` : ""}.
+            As próximas mensagens automáticas já vão com o link novo.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <input
+            readOnly
+            value={rotatedLink.link}
+            onFocus={(e) => e.currentTarget.select()}
+            className="flex-1 min-w-0 h-10 px-3 bg-muted border border-border rounded-lg text-xs text-foreground font-mono"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard?.writeText(rotatedLink.link);
+              addToast("success", "Link copiado!");
+            }}
+            className="h-10 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center gap-1.5"
+          >
+            <Copy className="w-4 h-4" /> Copiar
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => setRotatedLink(null)}
+          className="w-full h-9 rounded-lg border border-border text-sm text-muted-foreground hover:bg-muted"
+        >
+          Fechar
+        </button>
+      </div>
+    </Modal>
+  );
+
   return (
     // ✅ Ajuste: pt-0 px-0 no mobile (full width), sm:px-6 no desktop
     <div className="space-y-4 sm:space-y-6 pt-0 pb-6 px-0 sm:px-6 min-h-screen bg-background transition-colors">
+      {rotatedLinkModal}
       {/* HEADER */}
       <div className="flex items-center justify-between gap-3 pb-0 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">
         {/* Título (Nome + Badge) */}
@@ -1000,6 +1213,14 @@ export default function ClientDetailsPage() {
               {client.client_name}
             </h1>
             <StatusBadge status={client.computed_status} />
+            {portalInfo?.unlinked && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-slate-500/30 bg-slate-500/10 text-slate-600 dark:text-slate-300 text-[10px] font-bold uppercase tracking-wider"
+                title="Não aparece no Portal do Cliente (vincule de novo pelo botão Portal)"
+              >
+                <Link2Off className="w-3 h-3" /> Desvinculado
+              </span>
+            )}
             {clientIdSafe && (
               <ClientAlertBell
                 tenantId={tenantId}
@@ -1046,15 +1267,95 @@ export default function ClientDetailsPage() {
 
           {/* ✅ Botão Portal do Cliente — abre o Portal já logado nesta conta,
               pra testar sem precisar do link mágico por WhatsApp. */}
-          <button
-            onClick={handleOpenPortalPreview}
-            disabled={isPortalLoading}
-            className="h-9 px-3 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 font-medium text-xs hover:bg-violet-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
-            title="Abrir Portal do Cliente já logado"
-          >
-            {isPortalLoading ? <IconLoading /> : <ExternalLink className="w-4 h-4" />}
-            <span className="hidden sm:inline">Portal</span>
-          </button>
+          <div className="relative" data-portal-menu>
+            <button
+              onClick={() => {
+                setPortalMenuOpen((o) => !o);
+                if (!portalInfo) void refreshPortalInfo();
+              }}
+              disabled={isPortalLoading || portalBusy}
+              className="h-9 px-3 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 font-medium text-xs hover:bg-violet-500/20 transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
+              title="Portal do Cliente"
+            >
+              {isPortalLoading || portalBusy ? <IconLoading /> : <ExternalLink className="w-4 h-4" />}
+              <span className="hidden sm:inline">Portal</span>
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+            {portalMenuOpen && (
+              <div className="absolute right-0 sm:left-0 sm:right-auto top-full mt-1 z-40 w-72 rounded-xl border border-border bg-card shadow-xl py-1 text-sm">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPortalMenuOpen(false);
+                    void handleOpenPortalPreview();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4 text-violet-500" />
+                  <span>
+                    Acessar o Portal
+                    {portalInfo?.unlinked && (
+                      <span className="block text-[11px] text-muted-foreground">Esta conta não aparece lá (desvinculada)</span>
+                    )}
+                  </span>
+                </button>
+
+                <div className="border-t border-border my-1" />
+                <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Trocar link mágico
+                </p>
+                {!portalInfo ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">Carregando...</p>
+                ) : portalInfo.contacts.length === 0 ? (
+                  <p className="px-3 py-2 text-xs text-muted-foreground">Cliente sem WhatsApp cadastrado.</p>
+                ) : (
+                  portalInfo.contacts.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => void handleRotateLink(c.key)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted transition-colors"
+                    >
+                      <KeyRound className="w-4 h-4 text-amber-500" />
+                      <span className="min-w-0">
+                        <span className="block truncate">
+                          {c.key === "primary" ? "Titular" : "Secundário"} — {c.label}
+                        </span>
+                        <span className="block text-[11px] text-muted-foreground truncate">{c.whatsapp}</span>
+                      </span>
+                    </button>
+                  ))
+                )}
+
+                <div className="border-t border-border my-1" />
+                {portalInfo?.unlinked ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleUnlinkToggle(false)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted transition-colors"
+                  >
+                    <Link2 className="w-4 h-4 text-emerald-500" />
+                    Vincular de novo ao portal
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!client.client_is_archived}
+                    onClick={() => void handleUnlinkToggle(true)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted transition-colors disabled:opacity-50 disabled:hover:bg-transparent"
+                  >
+                    <Link2Off className="w-4 h-4 text-rose-500" />
+                    <span>
+                      Desvincular do portal
+                      {!client.client_is_archived && (
+                        <span className="block text-[11px] text-muted-foreground">Arquive o cliente antes</span>
+                      )}
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* ✅ Botão Excluir Definitivamente (Só aparece se estiver arquivado) */}
           {client.client_is_archived && (

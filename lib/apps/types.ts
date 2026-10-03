@@ -99,7 +99,7 @@ export type PartnerApiResponse = {
 // (rate-limit) hoje — o portal precisa saber se a falha chegou a chamar o
 // parceiro (loga + conta pra trava) ou parou antes (não loga, igual hoje).
 export type ConfigureAppResult =
-  | { ok: true; expireDate: string | null; message: string | null; m3uUrl?: string; m3uList?: "principal" | "secundaria" }
+  | { ok: true; expireDate: string | null; isTrial?: boolean; message: string | null; m3uUrl?: string; m3uList?: "principal" | "secundaria" }
   | { ok: false; stage: "precondition"; error: string; status: number }
   | { ok: false; stage: "partner_call"; error: string };
 

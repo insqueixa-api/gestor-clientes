@@ -207,6 +207,7 @@ export async function POST(req: NextRequest) {
         expireDate: result.expireDate,
         message: result.message || "Configurado com sucesso.",
         m3u_list: result.m3uList || mode,
+        is_trial: !!result.isTrial,
         // ✅ 2ª tentativa dentro da janela (1 sucesso recente já contabilizado
         // antes dessa) — avisa o cliente que é a mesma ação de novo, mas não
         // bloqueia (só a 3ª+ bloqueia, ver trava no topo da rota).

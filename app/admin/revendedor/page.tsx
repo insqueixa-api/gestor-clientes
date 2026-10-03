@@ -679,7 +679,7 @@ export default function RevendaPage() {
       icon: goingToArchive ? "🗑️" : "↩️",
       details: [
         `Revenda: ${r.name}`,
-        goingToArchive ? "Destino: Lixeira" : "Destino: Ativos",
+        goingToArchive ? "Destino: Arquivados" : "Destino: Ativos",
       ],
       confirmText: goingToArchive ? "Arquivar" : "Restaurar",
       cancelText: "Voltar",
@@ -718,7 +718,7 @@ export default function RevendaPage() {
       addToast(
         "error",
         "Ação bloqueada",
-        "Só é possível excluir definitivamente pela Lixeira.",
+        "Só é possível excluir definitivamente em Arquivados.",
       );
       return;
     }
@@ -1011,7 +1011,7 @@ export default function RevendaPage() {
                 : "bg-muted border-border text-muted-foreground"
             }`}
           >
-            {archivedFilter === "Sim" ? "Ocultar Lixeira" : "Ver Lixeira"}
+            {archivedFilter === "Sim" ? "Ocultar Arquivados" : "Ver Arquivados"}
           </button>
 
           <button
@@ -1138,7 +1138,7 @@ export default function RevendaPage() {
               }`}
             >
               <span className="flex items-center gap-2">
-                <IconTrash /> Filtrar Lixeira
+                <IconTrash /> Filtrar Arquivados
               </span>
               <span className="text-xs opacity-80">
                 {archivedFilter === "Sim" ? "ON" : "OFF"}
