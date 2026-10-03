@@ -8,6 +8,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { uploadToR2, useR2FileTracker } from "@/lib/r2-upload";
+import { INORAIN_FAMILY, INORAIN_HANDLERS } from "@/lib/integrations/inorain-family";
 
 function normalizeApiUrl(url: string) {
   if (!url) return "";
@@ -76,13 +77,14 @@ export default function AppIntegracaoModal({
   const isMessiTv = appName === "MESSITV";
   const isBobPlayer = appName === "BOBPLAYER";
   const isIboPlayer = appName === "IBOPLAYER";
-  const isIptvDuplex = appName === "IPTVDUPLEX";
-  const isIptvPlayerio = appName === "IPTVPLAYERIO";
+  // ✅ 03/10/2026: família inoRain (IPTV Duplex, Player.io, OTT Player, IPTV 4K...)
+  // — todas com PIN e sem login/senha (lib/integrations/inorain-family.ts)
+  const isInorain = INORAIN_HANDLERS.has(appName);
+  const inorain = INORAIN_FAMILY[appName];
   const isDuplexTv = appName === "DUPLEXTV";
   const isClouddy = appName === "CLOUDDY";
   const isNinjaPlus = appName === "NINJAPLUS";
   const isCapPlayer = appName === "CAPPLAYER";
-  const isOttPlayer = appName === "OTTPLAYER";
   const needsPin =
     isDuplecast ||
     isIboPro ||
@@ -90,11 +92,9 @@ export default function AppIntegracaoModal({
     isMessiTv ||
     isBobPlayer ||
     isIboPlayer ||
-    isIptvDuplex ||
-    isIptvPlayerio ||
+    isInorain ||
     isNinjaPlus || // ✅ 29/08/2026: NINJAPLUS (quickplayer.life) precisa de PIN
-    isCapPlayer || // ✅ 06/09/2026: CAP Player também protege playlist por PIN
-    isOttPlayer; // ✅ 03/10/2026: IPTV OTT Player protege playlist por PIN
+    isCapPlayer; // ✅ 06/09/2026: CAP Player também protege playlist por PIN
   // no create/delete, ao contrário do NINJAPLAYER antigo — DUPLEXTV/
   // CLOUDDY/IBOSOL continuam de fora, não usam PIN.
   const noCredentials =
@@ -103,13 +103,11 @@ export default function AppIntegracaoModal({
     isMessiTv ||
     isBobPlayer ||
     isIboPlayer ||
-    isIptvDuplex ||
-    isIptvPlayerio ||
+    isInorain ||
     isDuplexTv ||
     isClouddy ||
     isNinjaPlus || // ✅ NINJAPLUS: login é por mac+device_key POR CLIENTE
-    isCapPlayer || // ✅ CAP Player: idem, login é por mac+device_key POR CLIENTE
-    isOttPlayer; // ✅ IPTV OTT Player: idem
+    isCapPlayer; // ✅ CAP Player: idem, login é por mac+device_key POR CLIENTE
   // (client_apps.field_values), não um login/senha compartilhado pelo
   // tenant — mesma razão do CLOUDDY logo acima.
   // (client_apps.field_values), não um só compartilhado pelo tenant —
@@ -307,13 +305,15 @@ export default function AppIntegracaoModal({
                 <option value="MESSITV">MessiTV</option>
                 <option value="BOBPLAYER">BOB Player</option>
                 <option value="IBOPLAYER">IBO Player</option>
-                <option value="IPTVDUPLEX">IPTV Duplex Play</option>
-                <option value="IPTVPLAYERIO">IPTV Playerio</option>
                 <option value="DUPLEXTV">Duplex TV</option>
                 <option value="CLOUDDY">ClouDDy</option>
                 <option value="NINJAPLUS">Ninja Plus</option>
                 <option value="CAPPLAYER">CAP Player</option>
-                <option value="OTTPLAYER">IPTV OTT Player</option>
+                {Object.entries(INORAIN_FAMILY).map(([value, f]) => (
+                  <option key={value} value={value}>
+                    {f.brand}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -340,10 +340,8 @@ export default function AppIntegracaoModal({
                               ? 'Ex: "BOB Player"'
                               : isIboPlayer
                                 ? 'Ex: "IBO Player"'
-                                : isIptvDuplex
-                                  ? 'Ex: "IPTV Duplex Play"'
-                                  : isIptvPlayerio
-                                    ? 'Ex: "IPTV Playerio"'
+                                : inorain
+                                  ? `Ex: "${inorain.brand}"`
                                     : isDuplexTv
                                       ? 'Ex: "Duplex TV"'
                                       : isClouddy
@@ -352,9 +350,7 @@ export default function AppIntegracaoModal({
                                           ? 'Ex: "Ninja Plus"'
                                           : isCapPlayer
                                             ? 'Ex: "CAP Player"'
-                                            : isOttPlayer
-                                              ? 'Ex: "IPTV OTT Player"'
-                                              : 'Ex: "Nome do aplicativo"'
+                                            : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
@@ -444,10 +440,8 @@ export default function AppIntegracaoModal({
                               ? "Ex: https://www.bobplayer.com"
                               : isIboPlayer
                                 ? "Ex: https://iboplayer.com"
-                                : isIptvDuplex
-                                  ? "Ex: https://iptvduplex.com"
-                                  : isIptvPlayerio
-                                    ? "Ex: https://iptvplayer.io"
+                                : inorain
+                                  ? `Ex: ${inorain.site}`
                                     : isDuplexTv
                                       ? "Ex: https://duplex24.com"
                                       : isClouddy
@@ -456,9 +450,7 @@ export default function AppIntegracaoModal({
                                           ? "Ex: https://quickplayer.life"
                                           : isCapPlayer
                                             ? "Ex: https://capplayer.com"
-                                            : isOttPlayer
-                                              ? "Ex: https://simpletv.live"
-                                              : "Ex: https://gerenciaapp.top"
+                                            : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors font-mono text-xs"

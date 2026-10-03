@@ -7,12 +7,10 @@ import { QuickPlayerAPI } from "./quickplayer";
 import { MessiTVIntegration } from "./messitv";
 import { BobPlayerIntegration } from "./bobplayer";
 import { IboPlayerIntegration } from "./iboplayer";
-import { IptvDuplexIntegration } from "./iptvduplex";
 import { DuplexTvIntegration } from "./duplextv";
-import { IptvPlayerioIntegration } from "./iptvplayerio";
 import { NinjaPlusIntegration } from "./ninjaplus";
 import { CapPlayerIntegration } from "./capplayer";
-import { OttPlayerIntegration } from "./ottplayer";
+import { INORAIN_FAMILY, makeInorainIntegration } from "./inorain-family";
 
 const INTEGRATION_REGISTRY: Record<string, IntegrationHandler> = {
     "GERENCIAAPP":      GerenciaAppIntegration,
@@ -31,12 +29,12 @@ const INTEGRATION_REGISTRY: Record<string, IntegrationHandler> = {
     "MESSITV":          MessiTVIntegration,
     "BOBPLAYER":        BobPlayerIntegration,
     "IBOPLAYER":        IboPlayerIntegration,
-    "IPTVDUPLEX":       IptvDuplexIntegration,
     "DUPLEXTV":         DuplexTvIntegration,
-    "IPTVPLAYERIO":     IptvPlayerioIntegration,
     "NINJAPLUS":        NinjaPlusIntegration,
     "CAPPLAYER":        CapPlayerIntegration,
-    "OTTPLAYER":        OttPlayerIntegration,
+    // ✅ 03/10/2026: família inoRain (IPTV Duplex, Player.io, OTT Player,
+    // IPTV 4K, Plus, Pro, Star...) — uma rota compartilhada pra todas.
+    ...Object.fromEntries(Object.keys(INORAIN_FAMILY).map((h) => [h, makeInorainIntegration(h)])),
     // ✅ CLOUDDY não entra aqui de propósito — igual o IBOSOL, é 100% via
     // extensão (Cloudflare Turnstile real bloqueia qualquer chamada
     // server-to-server). Ver "COMEÇO INTEGRAÇÃO: CLOUDDY" em

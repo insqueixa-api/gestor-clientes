@@ -5,7 +5,9 @@
 
 // Handlers cujo campo "password" do payload é o PIN da integração
 // (app_integrations.pin), não a senha real do cliente — mesma regra do admin.
-export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "CAPPLAYER", "OTTPLAYER"]);
+// ✅ 03/10/2026: a família inoRain inteira (IPTV Duplex, Player.io, OTT Player,
+// IPTV 4K...) entra pela lista de lib/integrations/inorain-family.ts.
+export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYER", "IBOPLAYER", "CAPPLAYER", ...INORAIN_HANDLERS]);
 
 // Handlers cuja rota de integração já implementa action:"check" (consulta
 // só leitura do vencimento real, sem criar/alterar nada).
@@ -38,7 +40,7 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // create/delete dessa API (não em is_protected/pin/confirm_pin separados),
 // buscado server-side em app_integrations — não entra em PIN_HANDLERS
 // (mesmo padrão do QUICKPLAYER).
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "IPTVDUPLEX", "IPTVPLAYERIO", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER", "CAPPLAYER", "OTTPLAYER"]);
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER", "CAPPLAYER", ...INORAIN_HANDLERS]);
 
 // Alias de CHECK_VALIDITY_HANDLERS pro botão "Verificar vencimento" do
 // ADMIN (novo_cliente.tsx) — eram dois Sets com o mesmo conteúdo mantidos
@@ -47,6 +49,7 @@ export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIA
 export const ADMIN_CHECK_HANDLERS = CHECK_VALIDITY_HANDLERS;
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { INORAIN_HANDLERS } from "@/lib/integrations/inorain-family";
 import type { AppFieldConfig } from "@/lib/apps/types";
 
 // "Salva-vidas" — deduz o integration_type pelo NOME EXATO do app quando o
