@@ -49,6 +49,13 @@ export const INORAIN_FAMILY: Record<string, { brand: string; site: string; endpo
   STZPLAYER: { brand: "STZ Player", site: "https://stzplayer.com", endpoint: "/api/integrations/apps/stzplayer" },
   SUPERPLAY: { brand: "Super Play", site: "https://super-play.io", endpoint: "/api/integrations/apps/superplay" },
   VIZZIONPLAY: { brand: "Vizzion Play", site: "https://vizzionplay.com", endpoint: "/api/integrations/apps/vizzionplay" },
+  // Magic Player (03/10/2026): mesmo site do Lazer Play (mesmo bundle), mas o
+  // login fica em magicplayerclientes.com e a API em api.magicplayer.life —
+  // por isso a integração é cadastrada com https://magicplayer.life.
+  MAGICPLAYER: { brand: "Magic Player", site: "https://magicplayer.life", endpoint: "/api/integrations/apps/magicplayer" },
+  // Dream TV (03/10/2026): config.js do site aponta pra api.dreamtv.life;
+  // AtivaApp módulo "iptv-dreamtv-life" (mesmo padrão do Lazer Play).
+  DREAMTV: { brand: "Dream TV", site: "https://dreamtv.life", endpoint: "/api/integrations/apps/dreamtv" },
 };
 
 export const INORAIN_HANDLERS = new Set(Object.keys(INORAIN_FAMILY));
