@@ -144,10 +144,31 @@ export default function ApiServerPage() {
   // cliente depende desse nome de tabela), só a exibição muda de grupo.
   const gerenciaAppRow = appList.find((a) => a.app_name === "GERENCIAAPP") ?? null;
   const appListSemParceiros = appList.filter((a) => a.app_name !== "GERENCIAAPP");
+  // ✅ 03/10/2026 (pedido do Márcio): busca única pras 3 seções — a lista
+  // de integrações vai crescer (família inoRain etc.).
+  const [search, setSearch] = useState("");
+  const searchQ = search
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const matchesSearch = (...vals: (string | null | undefined)[]) =>
+    !searchQ ||
+    vals.some((v) =>
+      String(v || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .includes(searchQ),
+    );
   const [editingApp, setEditingApp] = useState<AppIntegration | null>(null);
   const [showTypeChooser, setShowTypeChooser] = useState(false);
   const [isModalAppOpen, setIsModalAppOpen] = useState(false);
   const [partnerList, setPartnerList] = useState<PartnerIntegration[]>([]);
+  const partnerShown = partnerList.filter((r) => matchesSearch(r.label, r.provider, r.login_email));
+  const appShown = appListSemParceiros.filter((r) => matchesSearch(r.label, r.app_name, r.api_url));
+  const gerenciaAppShown = !!gerenciaAppRow && matchesSearch(gerenciaAppRow.label, gerenciaAppRow.app_name, "gerenciaapp");
+  const proxyShown = matchesSearch("ProxyBR", "proxy");
   const [editingPartner, setEditingPartner] =
     useState<PartnerIntegration | null>(null);
   const [isModalPartnerOpen, setIsModalPartnerOpen] = useState(false);
@@ -914,6 +935,12 @@ export default function ApiServerPage() {
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar integração..."
+            className="h-9 md:h-10 w-36 sm:w-56 px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+          />
           <div className="relative">
             <button
               onClick={() => setShowTypeChooser((v) => !v)}
@@ -970,7 +997,7 @@ export default function ApiServerPage() {
       <CollapsibleSection
         icon="🖥️"
         label="Servidores"
-        count={integrations.length}
+        count={integrations.filter((r) => matchesSearch(r.integration_name, r.provider)).length}
         collapsed={!!collapsedGroups.servidores}
         onToggle={() => toggleGroup("servidores")}
       >
@@ -982,7 +1009,7 @@ export default function ApiServerPage() {
           )}
           {!loading && integrations.length > 0 && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
-              {integrations.map((row) => (
+              {integrations.filter((r) => matchesSearch(r.integration_name, r.provider)).map((row) => (
                 <div
                   key={row.id}
                   className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
@@ -1187,14 +1214,14 @@ export default function ApiServerPage() {
       <CollapsibleSection
         icon="🤝"
         label="Parceiros"
-        count={partnerList.length + (gerenciaAppRow ? 1 : 0) + 1}
+        count={partnerShown.length + (gerenciaAppShown ? 1 : 0) + (proxyShown ? 1 : 0)}
         collapsed={!!collapsedGroups.parceiros}
         onToggle={() => toggleGroup("parceiros")}
       >
         <>
           {!loading && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
-              {partnerList.map((row) => (
+              {partnerShown.map((row) => (
                 <div
                   key={row.id}
                   className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
@@ -1419,7 +1446,7 @@ export default function ApiServerPage() {
                   exibido aqui no grupo Parceiros — tem validade/renovação
                   igual Appativa/Duplecast, ao contrário dos outros apps
                   (que só configuram dispositivo do cliente). */}
-              {gerenciaAppRow && (
+              {gerenciaAppRow && gerenciaAppShown && (
                 <div className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30">
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
@@ -1587,7 +1614,7 @@ export default function ApiServerPage() {
                   ProxyBR (lib/proxybr.ts). Migrado do painel "Sistema"
                   removido — só validade/saldo/renovação, que era a única
                   parte que o Márcio realmente usava de lá. */}
-              {(() => {
+              {proxyShown && (() => {
                 const order = proxyStatus?.order ?? null;
                 const diasRestantes = order
                   ? Math.ceil((new Date(order.expires_at).getTime() - Date.now()) / 86_400_000)
@@ -1745,7 +1772,7 @@ export default function ApiServerPage() {
       <CollapsibleSection
         icon="📱"
         label="Aplicativos"
-        count={appListSemParceiros.length}
+        count={appShown.length}
         collapsed={!!collapsedGroups.aplicativos}
         onToggle={() => toggleGroup("aplicativos")}
       >
@@ -1757,7 +1784,7 @@ export default function ApiServerPage() {
           )}
           {!loading && appListSemParceiros.length > 0 && (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
-              {appListSemParceiros.map((row) => (
+              {appShown.map((row) => (
                 <div
                   key={row.id}
                   className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"

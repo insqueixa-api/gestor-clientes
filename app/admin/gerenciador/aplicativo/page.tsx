@@ -427,6 +427,21 @@ export default function AppManagerPage() {
   // ✅ 02/10/2026: "Configuração" virou dropdown com ícone (igual AtivaApp)
   const [integrationPickerOpen, setIntegrationPickerOpen] = useState(false);
   const [integrationQuery, setIntegrationQuery] = useState("");
+  // ✅ 03/10/2026: relê as integrações ao abrir o seletor — renomear/criar uma
+  // na tela de Integrações com esta página aberta não aparecia até o F5.
+  async function refreshIntegrations() {
+    if (!myTenantId) return;
+    const { data } = await supabaseBrowser
+      .from("app_integrations")
+      .select("app_name, label, api_url, icon_url")
+      .eq("tenant_id", myTenantId)
+      .eq("is_active", true);
+    if (data) {
+      setConfiguredIntegrations(
+        data.map((i) => ({ name: i.app_name, label: i.label || i.app_name, url: i.api_url || "", icon: i.icon_url || null })),
+      );
+    }
+  }
   const integrationBtnRef = useRef<HTMLButtonElement>(null);
   const [duplecastIcon, setDuplecastIcon] = useState<string | null>(null);
   useEffect(() => {
@@ -2167,6 +2182,7 @@ export default function AppManagerPage() {
                             type="button"
                             onClick={() => {
                               setIntegrationQuery("");
+                              if (!integrationPickerOpen) void refreshIntegrations();
                               setIntegrationPickerOpen((o) => !o);
                             }}
                             className={`w-full h-10 px-2 flex items-center gap-2 border rounded-lg text-sm text-left outline-none transition-colors ${
