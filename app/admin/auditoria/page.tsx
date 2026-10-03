@@ -712,10 +712,12 @@ function AuditoriaPageContent() {
             : null;
           const resolvedAppName = appName || a.meta?.app_name || null;
           alertsMap[a.id] = {
+            // ✅ 03/10/2026, pedido do Márcio: sempre com o nome — pago junto
+            // com a mensalidade, sem isso não dava pra saber qual app/plano
             label: trust
-              ? rd ? `Renovado em ${rd}` : "Em confiança"
+              ? `Plano ${a.meta?.plan_label || "Mensal"} ${rd ? `renovado em ${rd}` : "em confiança"}`
               : appTrust
-                ? `${resolvedAppName ? `${resolvedAppName} · ` : ""}ativado em ${ad || "—"}`
+                ? `${resolvedAppName || "Aplicativo"} ativado em ${ad || "—"}`
                 : appName || pendencyLabelFromMessage(a.message),
             amount: Number(a.amount || 0),
             trust,
@@ -753,20 +755,14 @@ function AuditoriaPageContent() {
             // na própria linha do app o nome já está na coluna Plano/Aplicativo
             // e o valor em cima: basta "Ativado em DD/MM"
             .map((p) =>
-              r.payment_type === "app_renewal" && p.appTrust
-                ? { ...p, label: p.label.replace(/^.* · ativado/, "Ativado"), trust: true }
-                : p,
+              r.payment_type === "app_renewal" && p.appTrust ? { ...p, trust: true } : p,
             );
           // ✅ 02/10/2026: pagamento só da pendência com 1 item — o app/plano
           // vai na coluna Plano/Aplicativo e o valor já está em cima: fica só
           // a data (sem valor repetido). Com vários itens mantém nome + valor.
           const singlePending = r.payment_type === "pending_charge" && pendencies.length === 1 ? pendencies[0] : null;
           if (singlePending) {
-            pendencies[0] = {
-              ...singlePending,
-              label: singlePending.appTrust ? singlePending.label.replace(/^.* · ativado/, "Ativado") : singlePending.label,
-              trust: true,
-            };
+            pendencies[0] = { ...singlePending, trust: true };
           }
           const pendingDisplay: LogRow["pending_display"] =
             r.payment_type !== "pending_charge"
@@ -2271,9 +2267,12 @@ function AuditoriaPageContent() {
                                       {r.is_trust ? "Renovação em confiança" : "Renovação de Assinatura"}
                                     </span>
                                   )}
-                                {r.is_pending_charge && (
+                                {(r.is_pending_charge ||
+                                  (r.payment_type !== "app_renewal" &&
+                                    r.payment_method !== "manual" &&
+                                    r.pendencies.length > 0)) && (
                                   <span className="text-[10px] text-muted-foreground font-medium">
-                                    Pagamento de pendência
+                                    {r.is_pending_charge ? "Pagamento de pendência" : "Renovação + pendência"}
                                   </span>
                                 )}
                                 {r.app_alert_label && (
