@@ -272,7 +272,7 @@ export default function AppManagerPage() {
   const [apps, setApps] = useState<AppData[]>([]);
   const [myTenantId, setMyTenantId] = useState<string | null>(null);
   const [configuredIntegrations, setConfiguredIntegrations] = useState<
-    { name: string; url: string; icon: string | null }[]
+    { name: string; label: string; url: string; icon: string | null }[]
   >([]);
   const [servers, setServers] = useState<ServerOption[]>([]);
   const [search, setSearch] = useState("");
@@ -426,6 +426,7 @@ export default function AppManagerPage() {
   const [syncingAppativa, setSyncingAppativa] = useState(false);
   // ✅ 02/10/2026: "Configuração" virou dropdown com ícone (igual AtivaApp)
   const [integrationPickerOpen, setIntegrationPickerOpen] = useState(false);
+  const [integrationQuery, setIntegrationQuery] = useState("");
   const integrationBtnRef = useRef<HTMLButtonElement>(null);
   const [duplecastIcon, setDuplecastIcon] = useState<string | null>(null);
   useEffect(() => {
@@ -546,7 +547,7 @@ export default function AppManagerPage() {
           .order("name", { ascending: true }),
         supabaseBrowser
           .from("app_integrations")
-          .select("app_name, api_url, icon_url")
+          .select("app_name, label, api_url, icon_url")
           .eq("tenant_id", tid)
           .eq("is_active", true),
         supabaseBrowser
@@ -597,6 +598,7 @@ export default function AppManagerPage() {
       setConfiguredIntegrations(
         integrationsRes.data?.map((i) => ({
           name: i.app_name,
+          label: i.label || i.app_name,
           url: i.api_url || "",
           icon: i.icon_url || null,
         })) || [],
@@ -756,9 +758,9 @@ export default function AppManagerPage() {
   const integrationFilterOptions = React.useMemo(() => {
     const used = new Set(apps.map((a) => a.integration_type).filter(Boolean) as string[]);
     return [...used]
-      .map((v) => ({ value: v, label: INTEGRATION_OPTIONS.find((o) => o.value === v)?.label || v }))
+      .map((v) => ({ value: v, label: integrationLabel(v) }))
       .sort((x, y) => x.label.localeCompare(y.label, "pt-BR"));
-  }, [apps]);
+  }, [apps, configuredIntegrations]);
 
   const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const editingApp = editingId ? apps.find((a) => a.id === editingId) || null : null;
@@ -801,8 +803,27 @@ export default function AppManagerPage() {
       .map((a) => effectiveIcon(a, appativaCatalog))
       .find(Boolean) ||
     null;
-  const integrationLabel = (value: string) =>
-    INTEGRATION_OPTIONS.find((o) => o.value === value)?.label || value;
+  // ✅ 03/10/2026 (pedido do Márcio): nome = o que ele cadastrou na API de
+  // Integrações; a lista fixa do código só cobre integração ainda não cadastrada.
+  function integrationLabel(value: string) {
+    return (
+      configuredIntegrations.find((i) => i.name === value)?.label ||
+      INTEGRATION_OPTIONS.find((o) => o.value === value)?.label ||
+      value
+    );
+  }
+  // Opções do seletor = integrações cadastradas e ativas (+ a atual do app,
+  // se a dela não estiver cadastrada, pra não sumir da tela).
+  const integrationPickerOptions = (() => {
+    const opts = configuredIntegrations
+      .map((i) => ({ value: i.name, label: i.label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }));
+    if (formIntegration && !opts.some((o) => o.value === formIntegration)) {
+      opts.unshift({ value: formIntegration, label: integrationLabel(formIntegration) });
+    }
+    const q = integrationQuery.trim().toLowerCase();
+    return q ? opts.filter((o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)) : opts;
+  })();
 
   function pickAppativa(it: AppativaCatalogItem | null) {
     setFormAppativaAppId(it?.id || "");
@@ -2144,7 +2165,10 @@ export default function AppManagerPage() {
                           <button
                             ref={integrationBtnRef}
                             type="button"
-                            onClick={() => setIntegrationPickerOpen((o) => !o)}
+                            onClick={() => {
+                              setIntegrationQuery("");
+                              setIntegrationPickerOpen((o) => !o);
+                            }}
                             className={`w-full h-10 px-2 flex items-center gap-2 border rounded-lg text-sm text-left outline-none transition-colors ${
                               formIntegration
                                 ? "border-emerald-500/30 bg-emerald-500/10"
@@ -2170,8 +2194,23 @@ export default function AppManagerPage() {
                               preferredHeight={460}
                               dataAttr="data-integration-picker"
                             >
+                              <div className="shrink-0 p-2 border-b border-border">
+                                <div className="relative">
+                                  <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                  <input
+                                    autoFocus
+                                    value={integrationQuery}
+                                    onChange={(e) => setIntegrationQuery(e.target.value)}
+                                    placeholder="Buscar integração..."
+                                    className="w-full h-9 pl-8 pr-2 bg-transparent border border-border rounded-md text-sm text-foreground outline-none focus:border-emerald-500/50"
+                                  />
+                                </div>
+                              </div>
                               <div className="flex-1 min-h-0 overflow-y-auto py-1">
-                                {[{ value: "", label: "Sem integração" }, ...INTEGRATION_OPTIONS].map((opt) => {
+                                {[
+                                  ...(integrationQuery.trim() ? [] : [{ value: "", label: "Sem integração" }]),
+                                  ...integrationPickerOptions,
+                                ].map((opt) => {
                                   const configured =
                                     !opt.value || configuredIntegrations.some((i) => i.name === opt.value);
                                   return (

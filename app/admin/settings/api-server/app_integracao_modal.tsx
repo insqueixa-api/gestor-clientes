@@ -1,12 +1,13 @@
 "use client";
 // app/admin/settings/api-server/app_integracao_modal.tsx
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import { uploadToR2, useR2FileTracker } from "@/lib/r2-upload";
 
 function normalizeApiUrl(url: string) {
   if (!url) return "";
@@ -26,6 +27,7 @@ type AppIntegration = {
   login_password: string | null;
   api_url: string | null;
   pin?: string | null; // ✅ NOVO: Adicionado tipagem do PIN
+  icon_url?: string | null;
   is_active: boolean;
   created_at: string;
 };
@@ -55,6 +57,11 @@ export default function AppIntegracaoModal({
   const [apiUrl, setApiUrl] = useState(integration?.api_url ?? "");
   const [pin, setPin] = useState(integration?.pin ?? ""); // ✅ Estado do PIN
   const [isActive, setIsActive] = useState(integration?.is_active ?? true);
+  // ✅ 03/10/2026: logo da integração direto no modal (arrastar, colar ou
+  // selecionar) — mesmo padrão do modal de servidor. Só vale ao salvar.
+  const [iconUrl, setIconUrl] = useState(integration?.icon_url ?? "");
+  const [uploadingIcon, setUploadingIcon] = useState(false);
+  const r2Files = useR2FileTracker();
 
   const [saving, setSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -119,8 +126,32 @@ export default function AppIntegracaoModal({
       setApiUrl(integration.api_url ?? "");
       setPin(integration.pin ?? "");
       setIsActive(integration.is_active ?? true);
+      setIconUrl(integration.icon_url ?? "");
+      r2Files.setOriginal([integration.icon_url]);
     }
-  }, [integration]);
+  }, [integration, r2Files]);
+
+  async function handleIconUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      onErrorAction("Arquivo inválido. Selecione uma imagem.");
+      return;
+    }
+    try {
+      setUploadingIcon(true);
+      const publicUrl = await uploadToR2(file, file.name, file.type, "app_integrations");
+      r2Files.trackUpload(publicUrl);
+      setIconUrl(publicUrl);
+    } catch (e: any) {
+      onErrorAction("Erro no upload da logo: " + (e?.message || "falha ao enviar"));
+    } finally {
+      setUploadingIcon(false);
+    }
+  }
+
+  function closeModal() {
+    r2Files.discard(); // logo enviada e não salva sai do R2
+    onCloseAction();
+  }
 
   // ✅ Validação dinâmica — noCredentials e needsPin são independentes desde
   // o DUPLEXTV (27/07/2026): sem email/senha E sem PIN (só MAC), diferente
@@ -180,6 +211,7 @@ export default function AppIntegracaoModal({
         login_password: noCredentials ? null : loginPassword.trim(),
         api_url: normalizeApiUrl(apiUrl),
         pin: needsPin ? pin.trim() : null, // ✅ Salva o PIN para os apps que precisam
+        icon_url: iconUrl || null,
         is_active: isActive,
       };
 
@@ -197,6 +229,7 @@ export default function AppIntegracaoModal({
         if (error) throw error;
       }
 
+      r2Files.commit([iconUrl]); // troca/remoção: a logo antiga sai do R2
       onSuccessAction();
     } catch (e: any) {
       onErrorAction(e?.message ?? "Falha ao salvar.");
@@ -206,8 +239,8 @@ export default function AppIntegracaoModal({
   }
 
   return (
-    <Modal onClose={onCloseAction} maxWidth="max-w-3xl">
-      <ModalHeader onClose={onCloseAction}>
+    <Modal onClose={closeModal} maxWidth="max-w-3xl">
+      <ModalHeader onClose={closeModal}>
         <h2 className="text-lg font-medium text-foreground tracking-tight">
           {isEdit ? "Editar Integração" : "Nova Integração"}
         </h2>
@@ -325,6 +358,67 @@ export default function AppIntegracaoModal({
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
               />
+            </div>
+
+            {/* ✅ Logo da integração */}
+            <div className="sm:col-span-2">
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                Logo
+              </label>
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) void handleIconUpload(file);
+                }}
+                onPaste={(e) => {
+                  const file = Array.from(e.clipboardData.files).find((f) => f.type.startsWith("image/"));
+                  if (file) void handleIconUpload(file);
+                }}
+                tabIndex={0}
+                className="flex items-center gap-4 p-3 border-2 border-dashed border-border rounded-xl hover:border-emerald-500/50 transition-colors outline-none focus:border-emerald-500/50"
+              >
+                {iconUrl ? (
+                  <img src={iconUrl} alt="Logo" className="w-12 h-12 rounded-lg object-cover border border-border shrink-0" />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0 text-2xl">📱</div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {uploadingIcon ? "Enviando..." : "Arraste, cole (Ctrl+V) ou clique para selecionar"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    PNG, JPG, WebP · sem logo própria, usa a do aplicativo
+                  </p>
+                </div>
+                <label className="cursor-pointer shrink-0">
+                  <span className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-xs font-medium flex items-center hover:bg-emerald-500/20 transition-colors">
+                    {uploadingIcon ? "..." : "Selecionar"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingIcon}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handleIconUpload(f);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {iconUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setIconUrl("")}
+                    className="shrink-0 p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors"
+                    title="Remover logo"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* URL da API */}
@@ -462,7 +556,7 @@ export default function AppIntegracaoModal({
 
         <ModalFooter>
           <button
-            onClick={onCloseAction}
+            onClick={closeModal}
             className="h-10 px-5 rounded-xl text-muted-foreground text-sm font-medium hover:bg-muted transition-colors"
             type="button"
             disabled={saving}
