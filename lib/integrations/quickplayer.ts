@@ -1,9 +1,8 @@
 // lib/integrations/quickplayer.ts
 // Quick Player / Quick Player Pro — mesma API pra ambos (api.quickplayer.app),
 // login por MAC+Device Key (sem conta de revenda/e-mail-senha, é por
-// dispositivo). O servidor (route.ts) monta a URL m3u com o DNS #1 cadastrado
-// no servidor + usuário/senha do cliente — nunca reaproveita um m3u_url
-// pronto, porque só o DNS #1 libera a licença.
+// dispositivo). Desde 03/10/2026 a URL m3u é a lista do cliente (m3u_url,
+// principal/secundária) — a regra antiga do DNS #1 era da parceria, acabou.
 export const QuickPlayerAPI = {
   actionPrefix: "QUICKPLAYER",
   useApi: true,
@@ -16,6 +15,7 @@ export const QuickPlayerAPI = {
     serverId,
     finalServerName,
     serverName,
+    m3uUrl,
   }: {
     macValue: string;
     username: string;
@@ -23,6 +23,7 @@ export const QuickPlayerAPI = {
     serverId?: string;
     finalServerName?: string;
     serverName?: string;
+    m3uUrl?: string;
   }) {
     // deviceKey vem já injetado pelo modal (novo_cliente.tsx) como campo
     // top-level do body, igual acontece com IBOPRO — não precisa repetir aqui.
@@ -35,6 +36,9 @@ export const QuickPlayerAPI = {
       // Padrão usado pelos outros apps: "usuário_servidor" (finalServerName),
       // não só o nome do servidor sozinho.
       playlist_name: finalServerName || serverName || "",
+      // ✅ 03/10/2026: lista do cliente (principal/secundária, rotaciona no
+      // Reconfigurar) — acabou a obrigatoriedade do DNS #1 (era da parceria).
+      m3u_url: m3uUrl || "",
     };
   },
 

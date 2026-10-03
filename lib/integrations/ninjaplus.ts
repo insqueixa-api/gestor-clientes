@@ -26,6 +26,7 @@ export const NinjaPlusIntegration = {
     serverId,
     finalServerName,
     serverName,
+    m3uUrl,
   }: {
     macValue: string;
     username: string;
@@ -33,6 +34,7 @@ export const NinjaPlusIntegration = {
     serverId?: string;
     finalServerName?: string;
     serverName?: string;
+    m3uUrl?: string;
   }) {
     // deviceKey vem injetado pelo modal (novo_cliente.tsx) como campo
     // top-level do body, mesmo padrão do QUICKPLAYER/IBOPRO.
@@ -43,6 +45,9 @@ export const NinjaPlusIntegration = {
       password: password || "",
       server_id: serverId || "",
       playlist_name: finalServerName || serverName || "",
+      // ✅ 03/10/2026: lista do cliente (principal/secundária, rotaciona no
+      // Reconfigurar) — acabou a obrigatoriedade do DNS #1 (era da parceria).
+      m3u_url: m3uUrl || "",
     };
   },
 

@@ -10,10 +10,9 @@
 //      testado ao vivo; /api/playlist tem um `expired_date` mas fica
 //      sempre null, não usar)
 //
-// A URL m3u NUNCA reaproveita o m3u_url já salvo no cliente — é montada aqui
-// com o DNS #1 cadastrado no servidor (servers.dns[0]) + usuário/senha do
-// cliente. Só o DNS #1 libera a licença do Quick Player — se o DNS mudar,
-// só atualiza no cadastro do servidor, sem deploy.
+// URL m3u: a lista do cliente que a orquestração manda (m3u_url, principal/
+// secundária). Até 03/10/2026 era SEMPRE o DNS #1 do servidor (regra da antiga
+// parceria: "só o DNS #1 libera a licença") — hoje o DNS #1 é só reserva.
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
@@ -64,7 +63,9 @@ async function fetchDeviceExpiry(token: string): Promise<{ expireDate: string | 
   const isTrial = !payed && !!dev.free_trial;
   // Sem passar por new Date() — mesma regra do resto do projeto pra não
   // arriscar vencimento um dia a mais/a menos por fuso horário.
-  const rawDate: string | null = payed ? dev.expired : dev.free_trial_expired;
+  // ✅ 03/10/2026: o campo do pago é activation_expired (expired vem null —
+  // mesmo achado do NINJAPLUS em 13/09/2026); create/check voltavam sem data.
+  const rawDate: string | null = payed ? (dev.activation_expired ?? dev.expired) : dev.free_trial_expired;
   return { expireDate: rawDate ? String(rawDate).slice(0, 10) : null, isTrial };
 }
 
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { action, mac, deviceKey, device_key, username, password, server_id, playlist_name } = body;
+    const { action, mac, deviceKey, device_key, username, password, server_id, playlist_name, m3u_url } = body;
     const key = deviceKey || device_key; // aceita os dois formatos (o modal injeta "deviceKey")
 
     // ✅ 28/08/2026: achado ao vivo (Márcio testou com MAC real) — GET
@@ -136,11 +137,21 @@ export async function POST(req: Request) {
           .maybeSingle();
         const pin = (integ?.pin || "").trim();
 
-        const listRes = await fetch(`${API_BASE}/playlist`, {
+        // ✅ 03/10/2026, bug real achado em teste: GET /playlist passou a
+        // responder 401 — a lista vinha sempre vazia, o delete dizia "nenhuma
+        // playlist" e NUNCA apagava (cada Configurar acumulava uma cópia na
+        // TV). As playlists de verdade vêm em GET /device (mesmo token).
+        const listRes = await fetch(`${API_BASE}/device`, {
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
         const listJson = await listRes.json().catch(() => null);
-        const allPlaylists: any[] = Array.isArray(listJson?.message) ? listJson.message : [];
+        if (!listRes.ok || !listJson || listJson.error) {
+          return NextResponse.json(
+            { ok: false, error: listJson?.message || `Falha ao listar playlists (HTTP ${listRes.status}).` },
+            { status: 400 },
+          );
+        }
+        const allPlaylists: any[] = Array.isArray(listJson?.message?.playlists) ? listJson.message.playlists : [];
 
         // ✅ Antes apagava TODAS as playlists do MAC, sem isolar por
         // cliente — diferente de toda outra integração da família, que
@@ -211,11 +222,17 @@ export async function POST(req: Request) {
       .eq("id", server_id)
       .single();
 
+    // ✅ 03/10/2026, pedido do Márcio: acabou a obrigatoriedade do DNS #1
+    // (regra da antiga parceria — "só o DNS #1 libera a licença"). Usa a
+    // lista do cliente que a orquestração manda (principal/secundária, com
+    // rotação no Reconfigurar), igual aos outros apps. DNS #1 só se a lista
+    // não vier (chamada antiga/sem m3u).
     const dnsList: string[] = Array.isArray(server?.dns) ? server.dns : [];
-    if (serverErr || dnsList.length === 0) {
+    const m3uFromClient = String(m3u_url || "").trim();
+    if (!m3uFromClient && (serverErr || dnsList.length === 0)) {
       return NextResponse.json({ ok: false, error: "Servidor sem DNS cadastrado." }, { status: 400 });
     }
-    const m3uUrl = buildM3uUrl(dnsList[0], username, password || "");
+    const m3uUrl = m3uFromClient || buildM3uUrl(dnsList[0], username, password || "");
 
     // ── 2. PIN configurado em API de Integrações (protege a playlist) ────────
     const { data: integ } = await supabaseAdmin

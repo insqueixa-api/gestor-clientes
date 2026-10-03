@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { action, mac, deviceKey, device_key, username, password, server_id, playlist_name } = body;
+    const { action, mac, deviceKey, device_key, username, password, server_id, playlist_name, m3u_url } = body;
     const key = deviceKey || device_key;
 
     if (!mac || !key) {
@@ -173,11 +173,17 @@ export async function POST(req: Request) {
       .eq("id", server_id)
       .single();
 
+    // ✅ 03/10/2026, pedido do Márcio: acabou a obrigatoriedade do DNS #1
+    // (regra da antiga parceria — "só o DNS #1 libera a licença"). Usa a
+    // lista do cliente que a orquestração manda (principal/secundária, com
+    // rotação no Reconfigurar), igual aos outros apps. DNS #1 só se a lista
+    // não vier (chamada antiga/sem m3u).
     const dnsList: string[] = Array.isArray(server?.dns) ? server.dns : [];
-    if (serverErr || dnsList.length === 0) {
+    const m3uFromClient = String(m3u_url || "").trim();
+    if (!m3uFromClient && (serverErr || dnsList.length === 0)) {
       return NextResponse.json({ ok: false, error: "Servidor sem DNS cadastrado." }, { status: 400 });
     }
-    const m3uUrl = buildM3uUrl(dnsList[0], username, password || "");
+    const m3uUrl = m3uFromClient || buildM3uUrl(dnsList[0], username, password || "");
     const pin = await getPin();
 
     let token: string;
