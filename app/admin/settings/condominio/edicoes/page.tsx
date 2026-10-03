@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Download, CheckCircle2, Trash2, Loader2 } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { releaseR2Files } from "@/lib/r2-upload";
+import { releaseR2Files, uploadToR2 } from "@/lib/r2-upload";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import CondominioFilterDropdown from "../CondominioFilterDropdown";
@@ -186,22 +186,9 @@ export default function EdicoesPage() {
           edicao.versao,
         );
 
-        const presignRes = await fetch("/api/upload/presign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: nomeArquivo,
-            contentType: "application/pdf",
-            folder: "condominio-pdfs",
-          }),
-        });
-        const presignJson = await presignRes.json();
-        publicUrl = presignJson.publicUrl;
-        await fetch(presignJson.presignedUrl, {
-          method: "PUT",
-          body: blob,
-          headers: { "Content-Type": "application/pdf" },
-        });
+        // ✅ 03/10/2026: uploadToR2 confere o envio (antes publicava com link
+        // de PDF que não existia quando o R2 recusava) e tem o plano B de CORS.
+        publicUrl = await uploadToR2(blob, nomeArquivo, "application/pdf", "condominio-pdfs");
       }
 
       const { error } = await supabaseBrowser

@@ -37,6 +37,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { uploadToR2 } from "@/lib/r2-upload";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import RichTextEditor, { RICH_TEXT_CLASSES } from "@/components/ui/RichTextEditor";
@@ -855,21 +856,9 @@ export default function NovaEdicaoPage() {
       const blob = await res.blob();
 
       const nomeArquivo = nomeArquivoPdf(condominio.nome, tipo, versao);
-      const presignRes = await fetch("/api/upload/presign", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: nomeArquivo,
-          contentType: "application/pdf",
-          folder: "condominio-pdfs",
-        }),
-      });
-      const { presignedUrl, publicUrl } = await presignRes.json();
-      await fetch(presignedUrl, {
-        method: "PUT",
-        body: blob,
-        headers: { "Content-Type": "application/pdf" },
-      });
+      // ✅ 03/10/2026: uploadToR2 confere o envio (antes o link era gravado
+      // mesmo com o R2 recusando — PDF quebrado) e tem o plano B de CORS.
+      const publicUrl = await uploadToR2(blob, nomeArquivo, "application/pdf", "condominio-pdfs");
 
       const pdfUrlAntigo = pdfUrl;
 

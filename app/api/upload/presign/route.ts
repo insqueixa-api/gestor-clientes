@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
-    const { fileName, contentType, folder } = await req.json();
+    const { fileName, contentType, folder, noCache } = await req.json();
 
     if (!fileName || !contentType) {
       return NextResponse.json({ error: "fileName e contentType são obrigatórios." }, { status: 400 });
@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
         // (timestamp), então o conteúdo de uma URL nunca muda (immutable).
         // Sem isso o r2.dev não manda Cache-Control e toda abertura de tela
         // revalidava as imagens.
-        CacheControl: R2_PUBLIC_CACHE_CONTROL,
+        // ✅ 03/10/2026: noCache = plano B do navegador quando o CORS do
+        // bucket não aceita o cabeçalho Cache-Control (ver lib/r2-upload.ts).
+        ...(noCache ? {} : { CacheControl: R2_PUBLIC_CACHE_CONTROL }),
       }),
       { expiresIn: 300 } // 5 minutos
     );

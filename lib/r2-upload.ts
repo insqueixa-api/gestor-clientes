@@ -16,16 +16,17 @@ import { R2_PUBLIC_CACHE_CONTROL } from "@/lib/r2-folders";
 // URL (r2_url_in_use) — então liberar algo ainda usado em outro lugar é
 // inofensivo: o arquivo fica.
 
-export async function uploadToR2(
+async function presignAndPut(
   body: Blob,
   fileName: string,
   contentType: string,
   folder: string,
+  withCache: boolean,
 ): Promise<string> {
   const presignRes = await fetch("/api/upload/presign", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileName, contentType, folder }),
+    body: JSON.stringify({ fileName, contentType, folder, noCache: !withCache }),
   });
   const { presignedUrl, publicUrl } = await presignRes.json().catch(() => ({}));
   if (!presignRes.ok || !presignedUrl || !publicUrl) {
@@ -36,11 +37,27 @@ export async function uploadToR2(
     method: "PUT",
     body,
     // tem que bater com o CacheControl assinado em /api/upload/presign
-    headers: { "Content-Type": contentType, "Cache-Control": R2_PUBLIC_CACHE_CONTROL },
+    headers: withCache
+      ? { "Content-Type": contentType, "Cache-Control": R2_PUBLIC_CACHE_CONTROL }
+      : { "Content-Type": contentType },
   });
   if (!putRes.ok) throw new Error("Falha ao enviar o arquivo.");
 
   return publicUrl as string;
+}
+
+export async function uploadToR2(
+  body: Blob,
+  fileName: string,
+  contentType: string,
+  folder: string,
+): Promise<string> {
+  // ✅ 03/10/2026, decisão do Márcio ("tira o cache, eu tenho que poder
+  // alterar"): upload do navegador vai SEM cabeçalho de cache. O CORS do
+  // bucket não aceita "cache-control" e todo upload dava "Failed to fetch"
+  // desde 02/10. Uploads feitos pelo servidor (lib/r2-server.ts) seguem com
+  // cache — não passam por CORS.
+  return presignAndPut(body, fileName, contentType, folder, false);
 }
 
 // Best-effort, nunca lança: falha aqui só deixa um arquivo órfão no R2,
