@@ -33,3 +33,28 @@ nunca era computado.
 3. Portal: textos novos, "Pagar só a pendência" (pagamento que não renova),
    fulfillment, uso de cupom + revisão de segurança (duplicidade,
    idempotência, RLS).
+
+## Etapa 3 — como ficou (02/10/2026)
+- `client_portal_payments.payment_type = 'pending_charge'` (SQL:
+  `docs/sql/alertas_confianca_etapa3.sql`, já aplicado).
+- Portal: card "📋 Pendência em aberto" na tela de Pagamentos + botão
+  "Pagar só a pendência" no modal "Pendência identificada" (o "Continuar"
+  virou "Pagar tudo e renovar"). PIX/cartão no mesmo modal do app avulso.
+- Rota `app/api/client-portal/pay-pending` — valor sempre dos sinos OPEN no
+  banco; só gateway online (MP, FastFlow/FastPay, Stripe). Transferência
+  manual continua pelo 👍 do sino.
+- Aprovação: os 5 caminhos (webhooks MP/Stripe/FastDePix, payment-status,
+  retry-fulfillment) caem no `runFulfillment`, que desvia `pending_charge`
+  logo no início pra `settle_portal_payment_alerts` (service role): nunca
+  renova, nunca gasta crédito. renewal_trust → client_renewals PAID; cupom
+  do sino registrado; sinos fechados; pagamento concluído.
+- Mensalidade + pendência também usa a função agora (corrige: cupom do sino
+  não era registrado quando pago junto com a mensalidade).
+- Painéis/Financeiro: parte de app do pending_charge = price_amount −
+  plan_price_amount (plan_price_amount = parte da renovação em confiança).
+- Segurança: valor recalculado no servidor; sessão + posse da conta; função
+  só service_role, trava pagamento e sinos (FOR UPDATE), idempotente;
+  idempotency key no MP/Stripe e reaproveita PIX pendente igual; PIX antigo
+  de outra seleção é cancelado no MP. Sino já fechado quando o pagamento
+  chega (pago 2x) → aviso "⚠️ Pendência paga 2x?" no sino do admin
+  (sem estorno automático).

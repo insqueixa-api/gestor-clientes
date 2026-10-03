@@ -1393,10 +1393,64 @@ export async function resolveAppativaAppRenewal(
 }
 
 // ============================================================
+// Pagamento só da pendência (payment_type='pending_charge', 02/10/2026,
+// docs/alertas-confianca/PLANO.md) — quita os sinos e PARA AQUI: nunca
+// renova a assinatura nem gasta crédito. Toda a baixa é numa função do banco
+// (settle_portal_payment_alerts: trava pagamento + sinos, idempotente).
+// ============================================================
+async function settlePendingChargePayment(supabaseAdmin: any, tenantId: string, payment: any) {
+  const { data, error } = await supabaseAdmin.rpc("settle_portal_payment_alerts", {
+    p_payment_id: payment.id,
+  });
+  if (error) throw new Error(`Falha ao quitar a pendência: ${error.message}`);
+
+  // Sino já fechado antes (👍 manual no admin, ou pago junto com a
+  // mensalidade em outro PIX) = o cliente pode ter pago 2x — avisa.
+  const skipped: string[] = Array.isArray(data?.skipped) ? data.skipped : [];
+  if (skipped.length) {
+    prodLog("pending_charge.alerts_already_closed", {
+      payment_id: String(payment.id).slice(-6),
+      skipped: skipped.length,
+    });
+    try {
+      const { data: cl } = await supabaseAdmin
+        .from("clients")
+        .select("display_name, server_username, servers(name)")
+        .eq("id", payment.client_id)
+        .maybeSingle();
+      await notify({
+        tenantId,
+        type: "fulfillment_error",
+        title: "⚠️ Pendência paga 2x?",
+        message: `${formatClientLabel(cl?.display_name, cl?.server_username, (cl as any)?.servers?.name)} pagou a pendência no portal (${new Intl.NumberFormat("pt-BR", { style: "currency", currency: payment.price_currency || "BRL" }).format(Number(payment.price_amount || 0))}), mas ${skipped.length === 1 ? "o sino já estava fechado" : `${skipped.length} sinos já estavam fechados`}. Confira se não foi cobrado em dobro.`,
+        link: "/admin/auditoria",
+        sourceId: payment.id,
+      });
+    } catch (e) {
+      safeServerLog("pending_charge: notify failed", (e as any)?.message);
+    }
+  }
+
+  try {
+    await syncIptvRendimentos(supabaseAdmin, tenantId);
+  } catch (e) {
+    safeServerLog("pending_charge: failed to sync IPTV rendimentos", (e as any)?.message);
+  }
+  return { expDateISO: null as string | null };
+}
+
+// ============================================================
 // runFulfillment
 // ============================================================
 export async function runFulfillment(params: FulfillmentParams) {
   const { supabaseAdmin, tenantId, origin, payment } = params;
+
+  // ✅ 02/10/2026: os 5 caminhos de pagamento aprovado (webhooks MP/Stripe/
+  // FastDePix, payment-status e retry-fulfillment) caem aqui — então este
+  // desvio cobre todos. Pagamento só da pendência nunca renova.
+  if ((payment as any).payment_type === "pending_charge") {
+    return settlePendingChargePayment(supabaseAdmin, tenantId, payment);
+  }
 
   // 1) Carrega cliente
   const { data: client, error: cErr } = await supabaseAdmin
@@ -1431,13 +1485,23 @@ export async function runFulfillment(params: FulfillmentParams) {
   // lock ocupado) - entao isso garante que roda exatamente uma vez, nao
   // importa qual caminho venceu a corrida NEM se o resto da funcao
   // depois cai no fluxo manual ou lanca erro.
+  // ✅ 02/10/2026: pela função do banco — além de fechar os sinos, registra
+  // o uso do cupom de cada sino (antes o cupom do sino ficava "não usado"
+  // quando a pendência era paga junto com a mensalidade). Se a função
+  // falhar, fecha os sinos como sempre foi.
   const settledAlertIds = (payment as any).settled_alert_ids || [];
   if (settledAlertIds.length) {
-    await supabaseAdmin
-      .from("client_alerts")
-      .update({ status: "CLOSED", closed_at: new Date().toISOString() })
-      .in("id", settledAlertIds)
-      .eq("status", "OPEN");
+    const { error: settleErr } = await supabaseAdmin.rpc("settle_portal_payment_alerts", {
+      p_payment_id: payment.id,
+    });
+    if (settleErr) {
+      prodLog("fulfillment.settle_alerts_rpc_failed", { message: settleErr.message });
+      await supabaseAdmin
+        .from("client_alerts")
+        .update({ status: "CLOSED", closed_at: new Date().toISOString() })
+        .in("id", settledAlertIds)
+        .eq("status", "OPEN");
+    }
   }
 
   // coupon_discount_amount NUNCA entra no price_amount do cliente (que usa
@@ -1448,10 +1512,14 @@ export async function runFulfillment(params: FulfillmentParams) {
   const couponId = (payment as any).coupon_id || null;
   const couponDiscountAmount = Number((payment as any).coupon_discount_amount || 0);
   if (couponId && couponDiscountAmount > 0) {
+    // ✅ 02/10/2026: filtra pelo cupom também — o cupom de um sino quitado
+    // neste mesmo pagamento (acima) também grava payment_id e não pode
+    // esconder o cupom do próprio pagamento.
     const { count: alreadyRedeemedCount } = await supabaseAdmin
       .from("coupon_redemptions")
       .select("id", { count: "exact", head: true })
-      .eq("payment_id", payment.id);
+      .eq("payment_id", payment.id)
+      .eq("coupon_id", couponId);
 
     if (!alreadyRedeemedCount) {
       // ⚠️ coupon_redemptions tem UNIQUE(coupon_id, client_id) — rede de

@@ -374,9 +374,11 @@ export async function syncIptvRendimentos(
         .lte("created_at", mesEndStr),
       supabaseAdmin
         .from("client_portal_payments")
-        .select("price_amount, price_currency")
+        .select("price_amount, plan_price_amount, price_currency, payment_type")
         .eq("tenant_id", tenantId)
-        .eq("payment_type", "app_renewal")
+        // ✅ 02/10/2026: pagamento só da pendência — conta a parte que não é
+        // renovação em confiança (essa já entra em client_renewals)
+        .in("payment_type", ["app_renewal", "pending_charge"])
         .in("status", ["approved", "manual_approved"])
         .gte("paid_at", mesStartStr)
         .lte("paid_at", mesEndStr),
@@ -390,7 +392,10 @@ export async function syncIptvRendimentos(
     const usdToBrl = Number(fx?.usd_to_brl ?? 5);
     const eurToBrl = Number(fx?.eur_to_brl ?? 6);
     const appToBrl = (a: any) => {
-      const amount = Number(a.price_amount || 0);
+      const amount =
+        a.payment_type === "pending_charge"
+          ? Math.max(Number(a.price_amount || 0) - Number(a.plan_price_amount || 0), 0)
+          : Number(a.price_amount || 0);
       const cur = String(a.price_currency || "BRL").toUpperCase();
       if (cur === "USD") return amount * usdToBrl;
       if (cur === "EUR") return amount * eurToBrl;

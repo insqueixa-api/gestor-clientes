@@ -67,6 +67,8 @@ type LogRow = {
   pendencies: { label: string; amount: number; trust?: boolean }[];
   // ✅ 02/10/2026: linha que quitou um sino "Renovação em confiança"
   is_trust?: boolean;
+  // ✅ 02/10/2026: "Pagar só a pendência" no portal (payment_type=pending_charge)
+  is_pending_charge?: boolean;
   // ✅ linha de app que quitou um sino "Ativação de aplicativo"
   app_alert_label?: string | null;
   // ✅ Pagamento avulso de licença de app (25/07/2026) — nunca mexe na
@@ -791,6 +793,7 @@ function AuditoriaPageContent() {
                 : null,
             pendencies,
             is_trust: pendencies.some((p) => p.trust),
+            is_pending_charge: r.payment_type === "pending_charge",
             app_alert_label:
               r.payment_type === "app_renewal" && appAlert
                 ? appAlert.receivedNow
@@ -2215,6 +2218,11 @@ function AuditoriaPageContent() {
                                       {r.is_trust ? "Renovação em confiança" : "Renovação de Assinatura"}
                                     </span>
                                   )}
+                                {r.is_pending_charge && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    Pagamento de pendência
+                                  </span>
+                                )}
                                 {r.app_alert_label && (
                                   <span className="text-[10px] text-muted-foreground font-medium">
                                     {r.app_alert_label}

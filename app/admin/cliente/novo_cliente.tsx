@@ -2739,8 +2739,8 @@ export default function NovoCliente({
     }
 
     const ok = await confirm({
-      title: "Marcar GPC Roku como pago?",
-      subtitle: "Soma 1 ano à licença — use só quando o cliente já pagou (por fora do Portal).",
+      title: "Ativar licença do GPC Roku?",
+      subtitle: "Soma 1 ano de licença no GerenciaApp. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
       tone: "emerald",
       confirmText: "Sim, marcar como pago",
       cancelText: "Cancelar",
@@ -2766,17 +2766,17 @@ export default function NovoCliente({
         }
         addToast(
           "success",
-          "Marcado como pago",
+          "Licença do GPC Roku ativada",
           `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
         );
         askAppTrust(currentApp);
       } else {
-        addToast("error", "Não foi possível marcar como pago", apiJson?.error || "Falha desconhecida.");
+        addToast("error", "Não foi possível ativar a licença", apiJson?.error || "Falha desconhecida.");
       }
     } catch (err: any) {
       setLoading(false);
       setLoadingStep("");
-      addToast("error", "Não foi possível marcar como pago", err.message || "Falha.");
+      addToast("error", "Não foi possível ativar a licença", err.message || "Falha.");
     }
   }
 
@@ -2806,8 +2806,8 @@ export default function NovoCliente({
     }
 
     const ok = await confirm({
-      title: "Renovar Duplecast via código?",
-      subtitle: "Consome 1 código real da conta de revenda pra renovar esse device agora — use só quando o cliente já pagou (por fora do Portal) ou pra forçar uma renovação manual.",
+      title: "Ativar/renovar licença do DupleCast?",
+      subtitle: "Consome 1 código real da conta de revenda pra esse aparelho. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
       tone: "sky",
       confirmText: "Sim, renovar",
       cancelText: "Cancelar",
@@ -2931,8 +2931,8 @@ export default function NovoCliente({
     }
 
     const ok = await confirm({
-      title: "Ativar via Appativa?",
-      subtitle: "Solicita a ativação/renovação da licença desse app direto na Appativa, usando o MAC/Device Key salvos.",
+      title: "Ativar/renovar licença pela AtivaApp?",
+      subtitle: "Solicita a licença desse app na AtivaApp, usando o MAC/Device Key salvos. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
       tone: "sky",
       confirmText: "Sim, ativar",
       cancelText: "Cancelar",
@@ -6807,6 +6807,7 @@ export default function NovoCliente({
                                     canCheckVencimento={canCheckVencimento}
                                     showRemoveButton={canAutoDelete}
                                     loading={loading}
+                                    hasLicense={!!getExpirationDateFromApp(app) && !app.isTrial}
                                     onMarkGpcRokuPaid={
                                       catApp?.name === "GPC Roku"
                                         ? () => handleMarkGpcRokuPaid(app.instanceId)

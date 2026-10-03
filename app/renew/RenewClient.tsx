@@ -461,6 +461,10 @@ export default function RenewClient() {
   // Aplicativo" no mesmo card. Não mexe na assinatura IPTV.
   type AppPayment = {
     clientAppId: string;
+    // ✅ 02/10/2026: "Pagar só a pendência" (rota pay-pending) usa este mesmo
+    // modal — clientAppId vira PENDING_PAYMENT_KEY e as linhas vêm daqui.
+    is_pending?: boolean;
+    pending_items?: { label: string; amount: number }[];
     // ✅ 30/09/2026, carrinho: outros apps pagos no MESMO PIX (ids enviados
     // e o que o servidor confirmou, com preço já validado lá).
     extra_client_app_ids?: string[];
@@ -779,6 +783,10 @@ export default function RenewClient() {
     if (!renewPayment) return;
     if (renewPollInterval) clearInterval(renewPollInterval);
     setRenewPollInterval(null);
+    if (renewPayment.is_pending) {
+      void handlePayPendingOnly(renewPayment.gateway_type);
+      return;
+    }
     handleRenewPayment(
       renewPayment.clientAppId,
       renewPayment.gateway_type,
@@ -819,7 +827,96 @@ export default function RenewClient() {
     }
   }
 
+  // ✅ 02/10/2026 (docs/alertas-confianca/PLANO.md, etapa 3): pendência em
+  // aberto da conta (sinos com valor) — card "Pagar só a pendência" na tela
+  // de Pagamentos. Só exibição: o valor cobrado é recalculado no servidor.
+  const PENDING_PAYMENT_KEY = "__pending__";
+  // muda pra buscar a pendência de novo (ex: fechou o PIX sem esperar a baixa)
+  const [pendencyRefreshKey, setPendencyRefreshKey] = useState(0);
+  const [accountPendency, setAccountPendency] = useState<{
+    total: number;
+    currency: string;
+    count: number;
+  } | null>(null);
+  useEffect(() => {
+    if (!selectedAccountId || !session) {
+      setAccountPendency(null);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/client-portal/pending-charges", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_token: session, client_id: selectedAccountId }),
+      cache: "no-store",
+    })
+      .then((r) => r.json().catch(() => null))
+      .then((result) => {
+        if (cancelled) return;
+        setAccountPendency(
+          result?.ok && result.total > 0
+            ? { total: result.total, currency: result.currency, count: (result.items || []).length }
+            : null,
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAccountId, session, pendencyRefreshKey]);
+
+  async function handlePayPendingOnly(excludeGatewayType?: string) {
+    if (!selectedAccountId || !session) return;
+    setRenewPaymentBusyId(PENDING_PAYMENT_KEY);
+    try {
+      const res = await fetch("/api/client-portal/pay-pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          ...(excludeGatewayType ? { exclude_gateway_type: excludeGatewayType } : {}),
+          mp_device_id: (window as any).MP_DEVICE_SESSION_ID || undefined,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) throw new Error(result?.error || "Falha ao gerar pagamento.");
+      setRenewPaymentDone(false);
+      setRenewPaymentNewDate(null);
+      setRenewPaymentProcessing(false);
+      setRenewStripeError(null);
+      const isStripe = result.payment_method === "stripe";
+      setRenewPayment({
+        clientAppId: PENDING_PAYMENT_KEY,
+        is_pending: true,
+        pending_items: Array.isArray(result.items) ? result.items : [],
+        payment_id: result.payment_id,
+        pix_qr_code: result.pix_qr_code,
+        pix_qr_code_base64: result.pix_qr_code_base64,
+        price_amount: result.price_amount,
+        currency: result.currency || "BRL",
+        payment_method: isStripe ? "stripe" : "mercadopago",
+        client_secret: result.client_secret,
+        publishable_key: result.publishable_key,
+        gateway_type: result.gateway_type,
+        gateway_name: result.gateway_name,
+        has_alternate_gateway: !!result.has_alternate_gateway,
+      });
+      setRenewAppGatewayJustSwitched(!!excludeGatewayType);
+      if (!isStripe) startPollingAppPayment(result.payment_id);
+    } catch (err: any) {
+      await alertError(err?.message || "Não foi possível gerar o pagamento agora. Tente novamente em instantes.");
+    } finally {
+      setRenewPaymentBusyId(null);
+    }
+  }
+
   function closeRenewPaymentModal() {
+    // pendência paga → some o card (e o aviso no Renovar) sem recarregar
+    if (renewPayment?.is_pending) {
+      if (renewPaymentDone) setAccountPendency(null);
+      else setPendencyRefreshKey((k) => k + 1);
+    }
     if (renewPollInterval) clearInterval(renewPollInterval);
     setRenewPollInterval(null);
     setRenewPayment(null);
@@ -2865,6 +2962,21 @@ export default function RenewClient() {
               .
             </div>
 
+            {/* ✅ 02/10/2026: quita só os sinos, sem renovar a assinatura */}
+            <button
+              onClick={() => {
+                setShowPendingChargesModal(false);
+                setPendingCharges(null);
+                setPendingChargesContinuation(null);
+                void handlePayPendingOnly();
+              }}
+              disabled={renewPaymentBusyId === PENDING_PAYMENT_KEY}
+              className="w-full py-2.5 rounded-xl border border-amber-500/40 bg-amber-500/5 text-amber-600 font-bold text-sm hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+            >
+              Pagar só a pendência •{" "}
+              {formatMoney(pendingCharges.total, pendingCharges.currency)}
+            </button>
+
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => {
@@ -2885,7 +2997,7 @@ export default function RenewClient() {
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-lg shadow-amber-900/20 transition-all"
               >
-                Continuar
+                Pagar tudo e renovar
               </button>
             </div>
           </div>
@@ -4530,6 +4642,419 @@ export default function RenewClient() {
   }
 
   // ========= RENDER: MENU (2 BLOCOS) =========
+  // ✅ 02/10/2026: modal de PIX/cartão do pagamento avulso (licença de app OU
+  // só a pendência) — extraído pra função pra abrir também na tela de
+  // Pagamentos (antes só existia dentro da aba Aplicativos).
+  function renderRenewPaymentModal() {
+    return (
+      <>
+            {renewPayment &&
+              (() => {
+                const payingApp = installedApps.find(
+                  (a) => a.id === renewPayment.clientAppId,
+                );
+                const licenseLabel =
+                  payingApp?.license_period === "annual"
+                    ? "Licença anual"
+                    : payingApp?.license_period === "lifetime"
+                      ? "Licença vitalícia"
+                      : "Licença";
+                return (
+                  <div
+                    className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                    onMouseDown={(e) => {
+                      if (e.target === e.currentTarget && renewPaymentDone)
+                        closeRenewPaymentModal();
+                    }}
+                  >
+                    <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl max-h-[90vh] overflow-x-hidden overflow-y-auto">
+                      {renewPaymentDone ? (
+                        <div className="p-6 flex flex-col gap-4">
+                          <div className="flex flex-col items-center gap-2 text-center py-4">
+                            <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">
+                              {renewPaymentNewDate ? "🎉" : "✅"}
+                            </div>
+                            <p className="text-base font-bold text-foreground">
+                              {renewPayment.is_pending
+                                ? "Pendência paga!"
+                                : renewPaymentNewDate
+                                  ? "Aplicativo renovado com sucesso!"
+                                  : "Pagamento confirmado!"}
+                            </p>
+                            {/* ✅ Achado 07/09/2026 (Márcio, num caso real do
+                                DupleCast): esse texto dizia "renovação é feita
+                                manualmente" pra QUALQUER app, mesmo os com
+                                renovação automática (Appativa/Duplecast/
+                                GerenciaApp/GPC Roku — leva só uns 90s pra
+                                confirmar de verdade no painel do parceiro).
+                                Isso já confundiu o próprio Márcio, imagina o
+                                cliente. Agora reflete o que realmente vai
+                                acontecer, olhando has_integration do app que
+                                acabou de ser pago. */}
+                            {/* ✅ 16/09/2026, pedido do Márcio: essa tela só
+                                aparece depois que o polling recebeu phase:
+                                "done" — ou seja, a renovação JÁ terminou de
+                                verdade nesse momento (não é mais "vai
+                                acontecer em breve"). Com a data em mãos
+                                (renewPaymentNewDate), mostra confirmação real
+                                em vez do texto genérico de "aguarde". */}
+                            {renewPayment.is_pending ? (
+                              <p className="text-xs text-muted-foreground">
+                                Pendência quitada — obrigado! Seu pagamento já foi
+                                registrado, não precisa fazer mais nada.
+                              </p>
+                            ) : renewPaymentNewDate ? (
+                              <>
+                                <p className="text-xs text-muted-foreground">
+                                  Todo o processo foi concluído — o aplicativo já
+                                  está liberado e você já pode usar normalmente.
+                                </p>
+                                <div className="mt-1 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                                  <p className="text-[10px] text-emerald-600/80 uppercase font-bold tracking-wide">
+                                    Novo vencimento
+                                  </p>
+                                  <p className="text-sm font-bold text-emerald-600">
+                                    {String(renewPaymentNewDate)
+                                      .split("T")[0]
+                                      .split("-")
+                                      .reverse()
+                                      .join("/")}
+                                  </p>
+                                </div>
+                              </>
+                            ) : installedApps.find((a) => a.id === renewPayment.clientAppId)?.has_integration ? (
+                              <p className="text-xs text-muted-foreground">
+                                A renovação é automática — em alguns segundos a
+                                nova validade aparece sozinha na tela do
+                                aplicativo, sem você precisar fazer mais nada.
+                              </p>
+                            ) : (
+                              <>
+                                <p className="text-xs text-muted-foreground">
+                                  Recebemos seu pagamento e nosso suporte já foi
+                                  avisado.
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  A renovação dessa licença é feita manualmente por
+                                  aqui — assim que for concluída, a nova validade
+                                  aparece sozinha na tela do aplicativo, sem você
+                                  precisar fazer mais nada.
+                                </p>
+                              </>
+                            )}
+                          </div>
+                          <button
+                            onClick={() =>
+                              tryClosePortalWindow(closeRenewPaymentModal)
+                            }
+                            className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                          >
+                            Fechar
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="bg-gradient-to-r from-emerald-500 to-green-600 py-3 px-6 text-white text-center relative">
+                            <button
+                              onClick={closeRenewPaymentModal}
+                              className="absolute right-3 top-3 text-white/80 hover:text-white text-sm leading-none"
+                            >
+                              ✕
+                            </button>
+                            <h2 className="text-lg font-bold">
+                              {renewPayment.payment_method === "stripe"
+                                ? "Pague com cartão"
+                                : "Pague com PIX"}
+                            </h2>
+                            <p className="text-xs text-white/80">
+                              {/* ✅ 07/09/2026, achado do Márcio: isso vinha
+                                  fixo "Mercado Pago" pra qualquer gateway
+                                  não-Stripe, mesmo quando era FastFlow/
+                                  FastPay/DePix de verdade — usa o nome real
+                                  do gateway configurado. */}
+                              {renewPayment.gateway_name ||
+                                (renewPayment.payment_method === "stripe" ? "Stripe" : "Mercado Pago")}
+                            </p>
+                          </div>
+
+                          <div className="px-5 pt-4 space-y-1.5 text-sm">
+                            {renewPayment.is_pending ? (
+                              (renewPayment.pending_items || []).map((it, idx) => (
+                                <div key={idx} className="flex justify-between gap-3 text-foreground/80">
+                                  <span className="min-w-0 truncate">{it.label}</span>
+                                  <span className="shrink-0">{formatMoney(it.amount, renewPayment.currency)}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="flex justify-between text-foreground/80">
+                                <span>{payingApp ? appNameWithAmbiente(payingApp) : "Aplicativo"}</span>
+                                <span>{licenseLabel}</span>
+                              </div>
+                            )}
+                            {(renewPayment.bundled_apps || []).map((b) => {
+                              const extraApp = installedApps.find((a) => a.id === b.client_app_id);
+                              return (
+                                <div key={b.client_app_id} className="flex justify-between text-foreground/80">
+                                  <span>+ {extraApp ? appNameWithAmbiente(extraApp) : b.app_name}</span>
+                                  <span>
+                                    {formatMoney(b.price_amount, renewPayment.currency)}
+                                    {licensePeriodSuffix(extraApp?.license_period)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            {renewPayment.coupon_discount_amount != null &&
+                              renewPayment.coupon_discount_amount > 0 &&
+                              renewPayment.plan_price_only != null && (
+                                <>
+                                  <div className="flex justify-between text-foreground/60 text-xs">
+                                    <span>Valor cheio</span>
+                                    <span>
+                                      {formatMoney(renewPayment.plan_price_only, renewPayment.currency)}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between text-emerald-600">
+                                    <span>Desconto aplicado</span>
+                                    <span>
+                                      -{formatMoney(renewPayment.coupon_discount_amount, renewPayment.currency)}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                            <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
+                              <span>Total a Pagar</span>
+                              <span>
+                                {formatMoney(
+                                  renewPayment.price_amount,
+                                  renewPayment.currency,
+                                )}
+                              </span>
+                            </div>
+                          </div>
+
+                          {renewPayment.payment_method === "stripe" ? (
+                            <div className="px-5 pt-4 pb-3 space-y-3">
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
+                                  Número do cartão
+                                </label>
+                                <div
+                                  ref={setRenewCardNumberMountEl}
+                                  className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
+                                />
+                              </div>
+                              <div className="flex gap-3">
+                                <div className="flex-1 space-y-2">
+                                  <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
+                                    Validade
+                                  </label>
+                                  <div
+                                    ref={setRenewCardExpiryMountEl}
+                                    className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
+                                  />
+                                </div>
+                                <div className="flex-1 space-y-2">
+                                  <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
+                                    CVC
+                                  </label>
+                                  <div
+                                    ref={setRenewCardCvcMountEl}
+                                    className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
+                                  />
+                                </div>
+                              </div>
+
+                              {renewStripeError && (
+                                <p className="text-xs text-rose-500">
+                                  {renewStripeError}
+                                </p>
+                              )}
+
+                              <button
+                                onClick={handleConfirmRenewStripePayment}
+                                disabled={renewStripeSubmitting}
+                                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+                              >
+                                {renewStripeSubmitting && (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                )}
+                                {renewStripeSubmitting
+                                  ? "Processando..."
+                                  : `Pagar ${formatMoney(renewPayment.price_amount, renewPayment.currency)}`}
+                              </button>
+
+                              <button
+                                onClick={closeRenewPaymentModal}
+                                className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                          <div className="px-5 pt-4 pb-3 space-y-3">
+                            {/* ✅ 07/09/2026, pedido do Márcio: trocar de
+                                gateway gera QR Code/código novo, mas a troca
+                                visual sozinha passa despercebida — maioria
+                                usa copia-e-cola, não escaneia. Aviso explícito,
+                                fica até a pessoa copiar o código novo. */}
+                            {renewAppGatewayJustSwitched && (
+                              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-center">
+                                <p className="text-xs font-bold text-amber-600">
+                                  🔄 Novos dados de pagamento gerados!
+                                </p>
+                                <p className="text-[11px] text-amber-600/80 mt-0.5">
+                                  O código anterior não vale mais — copie o código abaixo de novo ou escaneie o QR Code atualizado.
+                                </p>
+                              </div>
+                            )}
+
+                            {/* ✅ 07/09/2026: some assim que o pagamento é
+                                detectado (renewPaymentProcessing) — mostrar
+                                "escaneie o QR Code" pra quem já pagou é
+                                confuso, só o card de status abaixo importa
+                                a partir daqui. */}
+                            {!renewPaymentProcessing && renewPayment.pix_qr_code_base64 && (
+                              <div className="bg-card p-2 sm:p-4 rounded-xl border-2 border-border">
+                                <img
+                                  src={`data:image/png;base64,${renewPayment.pix_qr_code_base64}`}
+                                  alt="QR Code PIX"
+                                  className="w-full max-w-[180px] sm:max-w-[220px] mx-auto"
+                                />
+                              </div>
+                            )}
+
+                            {!renewPaymentProcessing && renewPayment.pix_qr_code && (
+                              <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
+                                <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
+                                  Ou copie o código:
+                                </p>
+                                <div className="relative group">
+                                  <input
+                                    type="text"
+                                    value={renewPayment.pix_qr_code}
+                                    readOnly
+                                    className="w-full pr-28 pl-3 py-2.5 bg-card border-2 border-border rounded-lg text-xs font-mono text-foreground/90 outline-none focus:border-sky-500 transition-colors shadow-sm"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(
+                                        renewPayment.pix_qr_code || "",
+                                      );
+                                      setCopiedAppPixCode(true);
+                                      setRenewAppGatewayJustSwitched(false);
+                                      setTimeout(
+                                        () => setCopiedAppPixCode(false),
+                                        3000,
+                                      );
+                                    }}
+                                    className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
+                                      copiedAppPixCode
+                                        ? "bg-emerald-500 hover:bg-emerald-600"
+                                        : "bg-sky-500 hover:bg-sky-600 shadow-sm"
+                                    }`}
+                                  >
+                                    {copiedAppPixCode
+                                      ? "✅ Copiado"
+                                      : "📋 Copiar"}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            <div
+                              className={`p-3 rounded-xl border flex items-center gap-3 ${
+                                renewPaymentExpired
+                                  ? "bg-rose-500/10 border-rose-500/20"
+                                  : "bg-sky-500/10 border-sky-500/20"
+                              }`}
+                            >
+                              {renewPaymentExpired ? (
+                                <div className="w-6 h-6 flex items-center justify-center text-lg shrink-0">⏱️</div>
+                              ) : (
+                                <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <p
+                                  className={`text-sm font-bold ${
+                                    renewPaymentExpired ? "text-rose-500" : "text-sky-500"
+                                  }`}
+                                >
+                                  {renewPaymentExpired
+                                    ? "Código Pix expirado"
+                                    : renewPaymentProcessing
+                                      ? "Pagamento recebido — processando..."
+                                      : "Aguardando pagamento..."}
+                                </p>
+                                <p
+                                  className={`text-xs ${
+                                    renewPaymentExpired ? "text-rose-500/80" : "text-sky-500/80"
+                                  }`}
+                                >
+                                  {renewPaymentExpired
+                                    ? "Esse código não vale mais. Feche e comece o pagamento de novo."
+                                    : renewPaymentProcessing && renewPayment.is_pending
+                                      ? "Registrando seu pagamento — leva só um instante."
+                                      : renewPaymentProcessing
+                                      ? renewPaymentProcessingLong
+                                        ? "Ainda renovando no painel do parceiro — pode levar até uns 2 minutos, aguarde."
+                                        : "Renovando automaticamente no painel do parceiro — leva só um instante."
+                                      : "Detectaremos automaticamente quando você pagar"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* ✅ 07/09/2026, pedido do Márcio: se o gateway
+                                "Principal" estiver instável (ex: FastFlow),
+                                deixa o cliente trocar pra outro sem precisar
+                                fechar e começar tudo de novo. Só quando
+                                existe mesmo um 2º método pra essa moeda. */}
+                            {!renewPaymentExpired && !renewPaymentProcessing && renewPayment.has_alternate_gateway && (
+                              <button
+                                type="button"
+                                onClick={handleTryAlternateGateway}
+                                disabled={renewPaymentBusyId === renewPayment.clientAppId}
+                                className="w-full p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-left hover:bg-amber-500/10 transition-colors disabled:opacity-50"
+                              >
+                                <p className="text-xs font-bold text-amber-600">
+                                  Problemas com o pagamento?
+                                </p>
+                                <p className="text-[11px] text-amber-600/80">
+                                  {renewPaymentBusyId === renewPayment.clientAppId
+                                    ? "Gerando novo código..."
+                                    : "Tente outra forma aqui"}
+                                </p>
+                              </button>
+                            )}
+
+                            <button
+                              onClick={closeRenewPaymentModal}
+                              className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                          )}
+
+                          <div className="px-5 pb-4 pt-2">
+                            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                              Conexão segura (SSL) — pagamento processado direto
+                              pelo{" "}
+                              {renewPayment.payment_method === "stripe"
+                                ? "Stripe"
+                                : "Mercado Pago"}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+      </>
+    );
+  }
+
   if (activeSection === "menu") {
     return (
       <div className="h-dvh overflow-hidden sm:h-auto sm:min-h-screen sm:overflow-visible bg-background flex flex-col">
@@ -5402,391 +5927,7 @@ export default function RenewClient() {
                   </div>
                 );
               })()}
-            {renewPayment &&
-              (() => {
-                const payingApp = installedApps.find(
-                  (a) => a.id === renewPayment.clientAppId,
-                );
-                const licenseLabel =
-                  payingApp?.license_period === "annual"
-                    ? "Licença anual"
-                    : payingApp?.license_period === "lifetime"
-                      ? "Licença vitalícia"
-                      : "Licença";
-                return (
-                  <div
-                    className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                    onMouseDown={(e) => {
-                      if (e.target === e.currentTarget && renewPaymentDone)
-                        closeRenewPaymentModal();
-                    }}
-                  >
-                    <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl max-h-[90vh] overflow-x-hidden overflow-y-auto">
-                      {renewPaymentDone ? (
-                        <div className="p-6 flex flex-col gap-4">
-                          <div className="flex flex-col items-center gap-2 text-center py-4">
-                            <div className="w-14 h-14 rounded-full bg-emerald-500/10 flex items-center justify-center text-3xl">
-                              {renewPaymentNewDate ? "🎉" : "✅"}
-                            </div>
-                            <p className="text-base font-bold text-foreground">
-                              {renewPaymentNewDate
-                                ? "Aplicativo renovado com sucesso!"
-                                : "Pagamento confirmado!"}
-                            </p>
-                            {/* ✅ Achado 07/09/2026 (Márcio, num caso real do
-                                DupleCast): esse texto dizia "renovação é feita
-                                manualmente" pra QUALQUER app, mesmo os com
-                                renovação automática (Appativa/Duplecast/
-                                GerenciaApp/GPC Roku — leva só uns 90s pra
-                                confirmar de verdade no painel do parceiro).
-                                Isso já confundiu o próprio Márcio, imagina o
-                                cliente. Agora reflete o que realmente vai
-                                acontecer, olhando has_integration do app que
-                                acabou de ser pago. */}
-                            {/* ✅ 16/09/2026, pedido do Márcio: essa tela só
-                                aparece depois que o polling recebeu phase:
-                                "done" — ou seja, a renovação JÁ terminou de
-                                verdade nesse momento (não é mais "vai
-                                acontecer em breve"). Com a data em mãos
-                                (renewPaymentNewDate), mostra confirmação real
-                                em vez do texto genérico de "aguarde". */}
-                            {renewPaymentNewDate ? (
-                              <>
-                                <p className="text-xs text-muted-foreground">
-                                  Todo o processo foi concluído — o aplicativo já
-                                  está liberado e você já pode usar normalmente.
-                                </p>
-                                <div className="mt-1 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                  <p className="text-[10px] text-emerald-600/80 uppercase font-bold tracking-wide">
-                                    Novo vencimento
-                                  </p>
-                                  <p className="text-sm font-bold text-emerald-600">
-                                    {String(renewPaymentNewDate)
-                                      .split("T")[0]
-                                      .split("-")
-                                      .reverse()
-                                      .join("/")}
-                                  </p>
-                                </div>
-                              </>
-                            ) : installedApps.find((a) => a.id === renewPayment.clientAppId)?.has_integration ? (
-                              <p className="text-xs text-muted-foreground">
-                                A renovação é automática — em alguns segundos a
-                                nova validade aparece sozinha na tela do
-                                aplicativo, sem você precisar fazer mais nada.
-                              </p>
-                            ) : (
-                              <>
-                                <p className="text-xs text-muted-foreground">
-                                  Recebemos seu pagamento e nosso suporte já foi
-                                  avisado.
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  A renovação dessa licença é feita manualmente por
-                                  aqui — assim que for concluída, a nova validade
-                                  aparece sozinha na tela do aplicativo, sem você
-                                  precisar fazer mais nada.
-                                </p>
-                              </>
-                            )}
-                          </div>
-                          <button
-                            onClick={() =>
-                              tryClosePortalWindow(closeRenewPaymentModal)
-                            }
-                            className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-                          >
-                            Fechar
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="bg-gradient-to-r from-emerald-500 to-green-600 py-3 px-6 text-white text-center relative">
-                            <button
-                              onClick={closeRenewPaymentModal}
-                              className="absolute right-3 top-3 text-white/80 hover:text-white text-sm leading-none"
-                            >
-                              ✕
-                            </button>
-                            <h2 className="text-lg font-bold">
-                              {renewPayment.payment_method === "stripe"
-                                ? "Pague com cartão"
-                                : "Pague com PIX"}
-                            </h2>
-                            <p className="text-xs text-white/80">
-                              {/* ✅ 07/09/2026, achado do Márcio: isso vinha
-                                  fixo "Mercado Pago" pra qualquer gateway
-                                  não-Stripe, mesmo quando era FastFlow/
-                                  FastPay/DePix de verdade — usa o nome real
-                                  do gateway configurado. */}
-                              {renewPayment.gateway_name ||
-                                (renewPayment.payment_method === "stripe" ? "Stripe" : "Mercado Pago")}
-                            </p>
-                          </div>
-
-                          <div className="px-5 pt-4 space-y-1.5 text-sm">
-                            <div className="flex justify-between text-foreground/80">
-                              <span>{payingApp ? appNameWithAmbiente(payingApp) : "Aplicativo"}</span>
-                              <span>{licenseLabel}</span>
-                            </div>
-                            {(renewPayment.bundled_apps || []).map((b) => {
-                              const extraApp = installedApps.find((a) => a.id === b.client_app_id);
-                              return (
-                                <div key={b.client_app_id} className="flex justify-between text-foreground/80">
-                                  <span>+ {extraApp ? appNameWithAmbiente(extraApp) : b.app_name}</span>
-                                  <span>
-                                    {formatMoney(b.price_amount, renewPayment.currency)}
-                                    {licensePeriodSuffix(extraApp?.license_period)}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                            {renewPayment.coupon_discount_amount != null &&
-                              renewPayment.coupon_discount_amount > 0 &&
-                              renewPayment.plan_price_only != null && (
-                                <>
-                                  <div className="flex justify-between text-foreground/60 text-xs">
-                                    <span>Valor cheio</span>
-                                    <span>
-                                      {formatMoney(renewPayment.plan_price_only, renewPayment.currency)}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between text-emerald-600">
-                                    <span>Desconto aplicado</span>
-                                    <span>
-                                      -{formatMoney(renewPayment.coupon_discount_amount, renewPayment.currency)}
-                                    </span>
-                                  </div>
-                                </>
-                              )}
-                            <div className="flex justify-between font-bold text-foreground pt-1.5 border-t border-border">
-                              <span>Total a Pagar</span>
-                              <span>
-                                {formatMoney(
-                                  renewPayment.price_amount,
-                                  renewPayment.currency,
-                                )}
-                              </span>
-                            </div>
-                          </div>
-
-                          {renewPayment.payment_method === "stripe" ? (
-                            <div className="px-5 pt-4 pb-3 space-y-3">
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
-                                  Número do cartão
-                                </label>
-                                <div
-                                  ref={setRenewCardNumberMountEl}
-                                  className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
-                                />
-                              </div>
-                              <div className="flex gap-3">
-                                <div className="flex-1 space-y-2">
-                                  <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
-                                    Validade
-                                  </label>
-                                  <div
-                                    ref={setRenewCardExpiryMountEl}
-                                    className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
-                                  />
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                  <label className="text-xs font-bold text-foreground/70 uppercase tracking-wider">
-                                    CVC
-                                  </label>
-                                  <div
-                                    ref={setRenewCardCvcMountEl}
-                                    className="px-3 py-2.5 bg-card border-2 border-border rounded-lg"
-                                  />
-                                </div>
-                              </div>
-
-                              {renewStripeError && (
-                                <p className="text-xs text-rose-500">
-                                  {renewStripeError}
-                                </p>
-                              )}
-
-                              <button
-                                onClick={handleConfirmRenewStripePayment}
-                                disabled={renewStripeSubmitting}
-                                className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-                              >
-                                {renewStripeSubmitting && (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                )}
-                                {renewStripeSubmitting
-                                  ? "Processando..."
-                                  : `Pagar ${formatMoney(renewPayment.price_amount, renewPayment.currency)}`}
-                              </button>
-
-                              <button
-                                onClick={closeRenewPaymentModal}
-                                className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                Cancelar
-                              </button>
-                            </div>
-                          ) : (
-                          <div className="px-5 pt-4 pb-3 space-y-3">
-                            {/* ✅ 07/09/2026, pedido do Márcio: trocar de
-                                gateway gera QR Code/código novo, mas a troca
-                                visual sozinha passa despercebida — maioria
-                                usa copia-e-cola, não escaneia. Aviso explícito,
-                                fica até a pessoa copiar o código novo. */}
-                            {renewAppGatewayJustSwitched && (
-                              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-center">
-                                <p className="text-xs font-bold text-amber-600">
-                                  🔄 Novos dados de pagamento gerados!
-                                </p>
-                                <p className="text-[11px] text-amber-600/80 mt-0.5">
-                                  O código anterior não vale mais — copie o código abaixo de novo ou escaneie o QR Code atualizado.
-                                </p>
-                              </div>
-                            )}
-
-                            {/* ✅ 07/09/2026: some assim que o pagamento é
-                                detectado (renewPaymentProcessing) — mostrar
-                                "escaneie o QR Code" pra quem já pagou é
-                                confuso, só o card de status abaixo importa
-                                a partir daqui. */}
-                            {!renewPaymentProcessing && renewPayment.pix_qr_code_base64 && (
-                              <div className="bg-card p-2 sm:p-4 rounded-xl border-2 border-border">
-                                <img
-                                  src={`data:image/png;base64,${renewPayment.pix_qr_code_base64}`}
-                                  alt="QR Code PIX"
-                                  className="w-full max-w-[180px] sm:max-w-[220px] mx-auto"
-                                />
-                              </div>
-                            )}
-
-                            {!renewPaymentProcessing && renewPayment.pix_qr_code && (
-                              <div className="bg-muted/50 p-3 rounded-xl border border-border space-y-2">
-                                <p className="text-xs font-bold text-foreground/70 uppercase tracking-wider text-center">
-                                  Ou copie o código:
-                                </p>
-                                <div className="relative group">
-                                  <input
-                                    type="text"
-                                    value={renewPayment.pix_qr_code}
-                                    readOnly
-                                    className="w-full pr-28 pl-3 py-2.5 bg-card border-2 border-border rounded-lg text-xs font-mono text-foreground/90 outline-none focus:border-sky-500 transition-colors shadow-sm"
-                                  />
-                                  <button
-                                    onClick={() => {
-                                      navigator.clipboard?.writeText(
-                                        renewPayment.pix_qr_code || "",
-                                      );
-                                      setCopiedAppPixCode(true);
-                                      setRenewAppGatewayJustSwitched(false);
-                                      setTimeout(
-                                        () => setCopiedAppPixCode(false),
-                                        3000,
-                                      );
-                                    }}
-                                    className={`absolute right-1 top-1 bottom-1 px-4 text-white font-bold text-xs rounded-md transition-all flex items-center justify-center gap-1.5 min-w-[90px] ${
-                                      copiedAppPixCode
-                                        ? "bg-emerald-500 hover:bg-emerald-600"
-                                        : "bg-sky-500 hover:bg-sky-600 shadow-sm"
-                                    }`}
-                                  >
-                                    {copiedAppPixCode
-                                      ? "✅ Copiado"
-                                      : "📋 Copiar"}
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-
-                            <div
-                              className={`p-3 rounded-xl border flex items-center gap-3 ${
-                                renewPaymentExpired
-                                  ? "bg-rose-500/10 border-rose-500/20"
-                                  : "bg-sky-500/10 border-sky-500/20"
-                              }`}
-                            >
-                              {renewPaymentExpired ? (
-                                <div className="w-6 h-6 flex items-center justify-center text-lg shrink-0">⏱️</div>
-                              ) : (
-                                <div className="w-6 h-6 border-4 border-sky-500 border-t-transparent rounded-full animate-spin shrink-0" />
-                              )}
-                              <div className="flex-1">
-                                <p
-                                  className={`text-sm font-bold ${
-                                    renewPaymentExpired ? "text-rose-500" : "text-sky-500"
-                                  }`}
-                                >
-                                  {renewPaymentExpired
-                                    ? "Código Pix expirado"
-                                    : renewPaymentProcessing
-                                      ? "Pagamento recebido — processando..."
-                                      : "Aguardando pagamento..."}
-                                </p>
-                                <p
-                                  className={`text-xs ${
-                                    renewPaymentExpired ? "text-rose-500/80" : "text-sky-500/80"
-                                  }`}
-                                >
-                                  {renewPaymentExpired
-                                    ? "Esse código não vale mais. Feche e comece o pagamento de novo."
-                                    : renewPaymentProcessing
-                                      ? renewPaymentProcessingLong
-                                        ? "Ainda renovando no painel do parceiro — pode levar até uns 2 minutos, aguarde."
-                                        : "Renovando automaticamente no painel do parceiro — leva só um instante."
-                                      : "Detectaremos automaticamente quando você pagar"}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* ✅ 07/09/2026, pedido do Márcio: se o gateway
-                                "Principal" estiver instável (ex: FastFlow),
-                                deixa o cliente trocar pra outro sem precisar
-                                fechar e começar tudo de novo. Só quando
-                                existe mesmo um 2º método pra essa moeda. */}
-                            {!renewPaymentExpired && !renewPaymentProcessing && renewPayment.has_alternate_gateway && (
-                              <button
-                                type="button"
-                                onClick={handleTryAlternateGateway}
-                                disabled={renewPaymentBusyId === renewPayment.clientAppId}
-                                className="w-full p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-left hover:bg-amber-500/10 transition-colors disabled:opacity-50"
-                              >
-                                <p className="text-xs font-bold text-amber-600">
-                                  Problemas com o pagamento?
-                                </p>
-                                <p className="text-[11px] text-amber-600/80">
-                                  {renewPaymentBusyId === renewPayment.clientAppId
-                                    ? "Gerando novo código..."
-                                    : "Tente outra forma aqui"}
-                                </p>
-                              </button>
-                            )}
-
-                            <button
-                              onClick={closeRenewPaymentModal}
-                              className="w-full pb-1 pt-0 !mt-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                          )}
-
-                          <div className="px-5 pb-4 pt-2">
-                            <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                              Conexão segura (SSL) — pagamento processado direto
-                              pelo{" "}
-                              {renewPayment.payment_method === "stripe"
-                                ? "Stripe"
-                                : "Mercado Pago"}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
+            {renderRenewPaymentModal()}
 
             {/* Modal de instruções de configuração — substitui a página de
                   detalhe (/renew-beta/apps/[id]), que ficou redundante */}
@@ -6397,6 +6538,39 @@ export default function RenewClient() {
           </div>
         </div>
 
+        {/* ✅ 02/10/2026: pendência em aberto (renovação em confiança,
+              ativação de app) — paga sozinha, sem renovar a assinatura */}
+        {accountPendency && (
+          <div className="bg-card rounded-xl shadow-sm border border-amber-500/30 overflow-hidden">
+            <div className="bg-amber-500/10 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-amber-500/20">
+              <h2 className="text-sm font-bold text-amber-600 flex items-center gap-2">
+                📋 Pendência em aberto
+              </h2>
+            </div>
+            <div className="p-3 sm:p-4 space-y-3">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {accountPendency.count > 1
+                  ? `Você tem ${accountPendency.count} valores em aberto`
+                  : "Você tem um valor em aberto"}{" "}
+                de{" "}
+                <strong className="text-foreground">
+                  {formatMoney(accountPendency.total, accountPendency.currency)}
+                </strong>
+                . Pode pagar agora, sem precisar renovar a assinatura.
+              </p>
+              <button
+                onClick={() => void handlePayPendingOnly()}
+                disabled={renewPaymentBusyId === PENDING_PAYMENT_KEY}
+                className="w-full h-11 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {renewPaymentBusyId === PENDING_PAYMENT_KEY && <Loader2 className="w-4 h-4 animate-spin" />}
+                Pagar só a pendência •{" "}
+                {formatMoney(accountPendency.total, accountPendency.currency)}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ✅ Renovação antecipada de app embutida no pagamento (achado
               24/08/2026) — mesmo padrão de "Pendência" acima, só que
               opt-in por app via checkbox. license_price_display já vem
@@ -6667,6 +6841,9 @@ export default function RenewClient() {
 
         {/* Pendência financeira em aberto */}
         {PendingChargesModal()}
+
+        {/* PIX/cartão de "Pagar só a pendência" */}
+        {renderRenewPaymentModal()}
 
         {/* Seletor de Método */}
         {MethodSelectorModal()}

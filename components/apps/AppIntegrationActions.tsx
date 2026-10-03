@@ -100,6 +100,11 @@ export type AppIntegrationActionsProps = {
    * verdade acontece pelo botão "Concluir & Excluir" do modal, não aqui). */
   showRemoveButton?: boolean;
   loading?: boolean;
+  /** ✅ 02/10/2026: o app já tem licença (vencimento real, fora do modo de
+   * avaliação)? Define o rótulo padrão dos botões de licença: "Renovar
+   * licença" (tem) ou "Ativar licença" (não tem). Pago já ou em confiança
+   * é escolhido depois, na pergunta (components/alerts/AppTrustPrompt). */
+  hasLicense?: boolean;
   onOpenPanel: () => void;
   onConfigure: (mode: ReconfigureMode) => void | Promise<void>;
   onCheck: () => void | Promise<void>;
@@ -156,6 +161,7 @@ export default function AppIntegrationActions({
   panelUrl,
   canCheckVencimento,
   showRemoveButton = true,
+  hasLicense = false,
   loading = false,
   onOpenPanel,
   onConfigure,
@@ -285,6 +291,7 @@ export default function AppIntegrationActions({
   }
 
   const showRemove = showRemoveButton && !!onRemove;
+  const licenseLabel = hasLicense ? "Renovar licença" : "Ativar licença";
   const showMarkPaid = !!onMarkGpcRokuPaid;
   const showRenewDuplecast = !!onRenewDuplecast;
   const showFreeRenewGerenciaApp = !!onFreeRenewGerenciaApp;
@@ -360,10 +367,10 @@ export default function AppIntegrationActions({
             onClick={() => onMarkGpcRokuPaid!()}
             disabled={loading}
             className="h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
-            title="Cliente pagou por fora do Portal — marca como pago, soma 1 ano de validade"
+            title="GPC Roku: soma 1 ano de licença no GerenciaApp — depois você escolhe se já recebeu ou se é em confiança"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconMoney />}
-            <span className="hidden sm:inline">Marcar pago</span>
+            <span className="hidden sm:inline">{licenseLabel}</span>
           </button>
         )}
 
@@ -373,10 +380,10 @@ export default function AppIntegrationActions({
             onClick={() => onRenewDuplecast!()}
             disabled={loading}
             className="h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
-            title="Consome 1 código real da conta de revenda pra renovar esse device agora"
+            title="DupleCast: consome 1 código da conta de revenda — depois você escolhe se já recebeu ou se é em confiança"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconMoney />}
-            <span className="hidden sm:inline">Renovar Duplecast</span>
+            <span className="hidden sm:inline">{licenseLabel}</span>
           </button>
         )}
 
@@ -386,10 +393,10 @@ export default function AppIntegrationActions({
             onClick={() => onFreeRenewGerenciaApp!()}
             disabled={loading}
             className="h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
-            title="Estende o vencimento em +1 ano no painel do parceiro, sem cobrar nada"
+            title="Grátis: estende o vencimento em +1 ano no painel do parceiro, sem cobrar nada"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconGift />}
-            <span className="hidden sm:inline">Renovar Grátis</span>
+            <span className="hidden sm:inline">Renovar licença</span>
           </button>
         )}
 
@@ -425,10 +432,13 @@ export default function AppIntegrationActions({
             onClick={() => onActivateAppativa!()}
             disabled={loading}
             className="h-9 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-500 hover:bg-sky-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
-            title="Solicita a ativação/renovação da licença via Appativa"
+            title="AtivaApp: solicita a ativação/renovação da licença — depois você escolhe se já recebeu ou se é em confiança"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconZap />}
-            <span className="hidden sm:inline">Ativar Appativa</span>
+            <span className="hidden sm:inline">
+              {licenseLabel}
+              {showRenewDuplecast ? " · AtivaApp" : ""}
+            </span>
           </button>
         )}
 
