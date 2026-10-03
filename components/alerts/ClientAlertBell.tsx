@@ -20,7 +20,32 @@ export type ClientAlertBellHandle = {
   openCreate: () => void;
 };
 
-type AlertKind = "note" | "app_charge" | "generic_charge";
+// ✅ 02/10/2026 (docs/alertas-confianca/PLANO.md): "generic_charge"
+// (Pendência qualquer) não se cria mais — só aparece pra editar as antigas.
+type AlertKind = "note" | "app_charge" | "renewal_trust" | "generic_charge";
+
+const PERIODS: { value: string; label: string; months: number }[] = [
+  { value: "MONTHLY", label: "Mensal", months: 1 },
+  { value: "BIMONTHLY", label: "Bimestral", months: 2 },
+  { value: "QUARTERLY", label: "Trimestral", months: 3 },
+  { value: "SEMIANNUAL", label: "Semestral", months: 6 },
+  { value: "ANNUAL", label: "Anual", months: 12 },
+];
+const periodFromLabel = (label: string | null | undefined) =>
+  PERIODS.find((p) => p.label.toLowerCase() === String(label || "").trim().toLowerCase())?.value || "MONTHLY";
+
+type TrustClientInfo = {
+  plan_table_id: string | null;
+  screens: number;
+  plan_label: string | null;
+  price_amount: number | null;
+  price_currency: string;
+};
+
+function randomCouponCode(appName: string) {
+  const base = appName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 6) || "APP";
+  return `${base}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
 
 type ClientAppOption = {
   id: string;
@@ -42,8 +67,15 @@ function buildAppChargeMessage(appName: string, activationDateISO: string) {
     ? new Date(`${activationDateISO}T12:00:00`).toLocaleDateString("pt-BR")
     : "";
   return datePart
-    ? `Ativação: "${appName}" - dia ${datePart}`
-    : `Ativação: "${appName}"`;
+    ? `Ativação de aplicativo: "${appName}" - dia ${datePart}`
+    : `Ativação de aplicativo: "${appName}"`;
+}
+
+function buildTrustMessage(periodLabel: string, screens: number, renewalDateISO: string) {
+  const datePart = renewalDateISO
+    ? new Date(`${renewalDateISO}T12:00:00`).toLocaleDateString("pt-BR")
+    : "";
+  return `Renovação em confiança: ${periodLabel} · ${screens} tela${screens === 1 ? "" : "s"}${datePart ? ` · dia ${datePart}` : ""}`;
 }
 
 function isoDateToday() {
@@ -155,6 +187,18 @@ const ClientAlertBell = forwardRef<
   const [activationDate, setActivationDate] = useState("");
   const [clientApps, setClientApps] = useState<ClientAppOption[]>([]);
   const [loadingApps, setLoadingApps] = useState(false);
+  // cupom do app (opcional) — cria cupom pessoal e já desconta no sino
+  const [useCoupon, setUseCoupon] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponType, setCouponType] = useState<"percent" | "fixed">("percent");
+  const [couponValue, setCouponValue] = useState("");
+  const [lockedCouponLabel, setLockedCouponLabel] = useState<string | null>(null);
+  // renovação em confiança (mensalidade)
+  const [trustInfo, setTrustInfo] = useState<TrustClientInfo | null>(null);
+  const [trustPrices, setTrustPrices] = useState<{ period: string; months: number; screens: number; price: number }[]>([]);
+  const [trustPeriod, setTrustPeriod] = useState("MONTHLY");
+  const [trustScreens, setTrustScreens] = useState(1);
+  const [trustDate, setTrustDate] = useState("");
 
   function resetForm() {
     setShowForm(false);
@@ -166,6 +210,73 @@ const ClientAlertBell = forwardRef<
     setClientAppId("");
     setActivationDate("");
     setClientApps([]);
+    setUseCoupon(false);
+    setCouponCode("");
+    setCouponType("percent");
+    setCouponValue("");
+    setLockedCouponLabel(null);
+    setTrustInfo(null);
+    setTrustPrices([]);
+    setTrustPeriod("MONTHLY");
+    setTrustScreens(1);
+    setTrustDate("");
+  }
+
+  // valor sugerido da renovação: o preço do cliente se for o período/telas
+  // atuais dele (pode ter desconto próprio); senão o da tabela do plano
+  function suggestTrustAmount(info: TrustClientInfo | null, prices: typeof trustPrices, period: string, screens: number) {
+    if (!info) return "";
+    if (period === periodFromLabel(info.plan_label) && screens === info.screens && info.price_amount != null) {
+      return String(info.price_amount);
+    }
+    const p = prices.find((x) => x.period === period && x.screens === screens);
+    return p ? String(p.price) : "";
+  }
+
+  async function loadTrustInfo(keepAmount = false) {
+    try {
+      const { data: c, error } = await supabaseBrowser
+        .from("clients")
+        .select("plan_table_id, screens, plan_label, price_amount, price_currency")
+        .eq("id", clientId)
+        .single();
+      if (error) throw error;
+      const info: TrustClientInfo = {
+        plan_table_id: c.plan_table_id || null,
+        screens: Number(c.screens || 1),
+        plan_label: c.plan_label || null,
+        price_amount: c.price_amount != null ? Number(c.price_amount) : null,
+        price_currency: String(c.price_currency || "BRL"),
+      };
+      let prices: typeof trustPrices = [];
+      if (info.plan_table_id) {
+        const { data: items } = await supabaseBrowser
+          .from("plan_table_items")
+          .select("period, months, plan_table_item_prices(screens_count, price_amount)")
+          .eq("plan_table_id", info.plan_table_id);
+        prices = ((items as any[]) || []).flatMap((it) =>
+          ((it.plan_table_item_prices as any[]) || []).map((p) => ({
+            period: String(it.period),
+            months: Number(it.months || 1),
+            screens: Number(p.screens_count),
+            price: Number(p.price_amount),
+          })),
+        );
+      }
+      setTrustInfo(info);
+      setTrustPrices(prices);
+      if (!keepAmount) {
+        const period = periodFromLabel(info.plan_label);
+        setTrustPeriod(period);
+        setTrustScreens(info.screens);
+        setCurrency(info.price_currency);
+        setAmount(suggestTrustAmount(info, prices, period, info.screens));
+        const label = PERIODS.find((p) => p.value === period)?.label || "Mensal";
+        setText(buildTrustMessage(label, info.screens, trustDate || isoDateToday()));
+      }
+    } catch (e: any) {
+      addToast("error", "Erro ao carregar o plano do cliente", e.message);
+    }
   }
 
   async function loadClientApps() {
@@ -243,11 +354,13 @@ const ClientAlertBell = forwardRef<
 
   function openEdit(alert: any) {
     const inferredKind: AlertKind =
-      alert.amount == null
-        ? "note"
-        : alert.client_app_id
-          ? "app_charge"
-          : "generic_charge";
+      alert.kind === "renewal_trust"
+        ? "renewal_trust"
+        : alert.amount == null
+          ? "note"
+          : alert.client_app_id
+            ? "app_charge"
+            : "generic_charge";
     setEditingAlertId(String(alert.id));
     setKind(inferredKind);
     setText(alert.message || "");
@@ -255,6 +368,18 @@ const ClientAlertBell = forwardRef<
     setCurrency(alert.currency || "BRL");
     setClientAppId(alert.client_app_id || "");
     setActivationDate(alert.activation_date || "");
+    setLockedCouponLabel(
+      alert.coupon_id && alert.meta?.coupon_code
+        ? `${alert.meta.coupon_code} (-${formatMoney(Number(alert.meta.discount_amount || 0), alert.currency || "BRL")})`
+        : null,
+    );
+    if (inferredKind === "renewal_trust") {
+      const m = alert.meta || {};
+      setTrustPeriod(String(m.period || "MONTHLY"));
+      setTrustScreens(Number(m.screens || 1));
+      setTrustDate(String(m.renewal_date || ""));
+      void loadTrustInfo(true);
+    }
     setShowList(false);
     setShowForm(true);
     if (inferredKind === "app_charge") loadClientApps();
@@ -292,10 +417,61 @@ const ClientAlertBell = forwardRef<
         }
         const app = clientApps.find((a) => a.id === clientAppId);
         payload.client_app_id = clientAppId;
+        payload.kind = "app_activation";
         payload.message =
           text.trim() ||
           buildAppChargeMessage(app?.appName ?? "", activationDate);
         if (activationDate) payload.activation_date = activationDate;
+
+        // ✅ cupom pessoal do app (opcional): cria o cupom e o desconto já
+        // entra no valor do sino; o uso é registrado na quitação
+        // (settle_client_alert / portal). Só na criação.
+        if (useCoupon && !editingAlertId) {
+          const value = Number(couponValue.replace(",", "."));
+          const code = couponCode.trim().toUpperCase();
+          if (!code || !Number.isFinite(value) || value <= 0 || (couponType === "percent" && value > 100)) {
+            addToast("error", "Cupom inválido", "Confira o código e o valor do desconto.");
+            return;
+          }
+          const discount = Number(
+            Math.min(amountNum, couponType === "percent" ? (amountNum * value) / 100 : value).toFixed(2),
+          );
+          const { data: coupon, error: couponErr } = await supabaseBrowser
+            .from("coupons")
+            .insert({
+              tenant_id: tenantId,
+              code,
+              description: `${app?.appName || "Aplicativo"} — ${clientName}`,
+              discount_type: couponType,
+              discount_value: value,
+              currency: couponType === "fixed" ? currency : null,
+              is_active: true,
+              client_id: clientId,
+              target_client_app_ids: [clientAppId],
+              max_total_redemptions: 1,
+            })
+            .select("id")
+            .single();
+          if (couponErr || !coupon) {
+            addToast("error", "Não deu pra criar o cupom", couponErr?.message || "Código já usado? Tente outro.");
+            return;
+          }
+          payload.coupon_id = coupon.id;
+          payload.amount = Number((amountNum - discount).toFixed(2));
+          payload.meta = { full_amount: amountNum, discount_amount: discount, coupon_code: code };
+        }
+      } else if (kind === "renewal_trust") {
+        const p = PERIODS.find((x) => x.value === trustPeriod) || PERIODS[0];
+        payload.kind = "renewal_trust";
+        payload.message = text.trim() || buildTrustMessage(p.label, trustScreens, trustDate);
+        payload.meta = {
+          period: p.value,
+          plan_label: p.label,
+          months: p.months,
+          screens: trustScreens,
+          plan_table_id: trustInfo?.plan_table_id || null,
+          renewal_date: trustDate || isoDateToday(),
+        };
       } else {
         if (!text.trim()) {
           addToast("error", "Descreva a pendência", "Digite do que se trata.");
@@ -367,15 +543,27 @@ const ClientAlertBell = forwardRef<
     }
   }
 
+  // ✅ 02/10/2026: baixa manual REGISTRA o pagamento (antes só fechava o
+  // sino e o valor nunca entrava no saldo) — settle_client_alert faz tudo
+  // numa transação: renovação paga / linha no Log / uso do cupom / fecha.
   async function handleSettle(alertId: string) {
     try {
-      const { error } = await supabaseBrowser
-        .from("client_alerts")
-        .update({ status: "CLOSED", closed_at: new Date().toISOString() })
-        .eq("id", alertId);
+      const { data, error } = await supabaseBrowser.rpc("settle_client_alert", {
+        p_tenant_id: tenantId,
+        p_alert_id: alertId,
+      });
       if (error) throw error;
       setAlerts((prev) => prev.filter((a) => a.id !== alertId));
-      addToast("success", "Marcado como pago", "A pendência foi quitada.");
+      const k = (data as any)?.kind;
+      addToast(
+        "success",
+        "Marcado como pago",
+        k === "renewal_trust"
+          ? "Renovação registrada como paga hoje e lançada no Log do Portal."
+          : k === "app_activation"
+            ? "Pagamento do aplicativo lançado no Log do Portal."
+            : "A pendência foi quitada.",
+      );
       onChanged?.();
     } catch (e: any) {
       addToast("error", "Erro ao quitar", e.message);
@@ -450,6 +638,11 @@ const ClientAlertBell = forwardRef<
                               </span>
                             )}
                           </div>
+                        )}
+                        {alert.kind === "renewal_trust" && (
+                          <span className="inline-flex items-center mb-1 px-1.5 py-0.5 rounded bg-sky-500/10 border border-sky-500/20 text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                            🤝 Em confiança
+                          </span>
                         )}
                         <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
                           {alert.message || ""}
@@ -583,25 +776,29 @@ const ClientAlertBell = forwardRef<
                   <span className="text-xl">📱</span>
                   <div>
                     <div className="text-sm font-semibold text-foreground/90">
-                      Pendência de aplicativo
+                      Ativação de aplicativo
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Ativou um app e o cliente ainda não pagou por ele.
+                      Ativou ou renovou um app em confiança — o cliente ainda vai pagar.
                     </div>
                   </div>
                 </button>
 
                 <button
-                  onClick={() => setKind("generic_charge")}
+                  onClick={() => {
+                    setKind("renewal_trust");
+                    setTrustDate(isoDateToday());
+                    void loadTrustInfo();
+                  }}
                   className="w-full text-left p-4 rounded-xl border border-border hover:border-purple-500/50 hover:bg-purple-500/5 transition-colors flex items-center gap-3"
                 >
-                  <span className="text-xl">💰</span>
+                  <span className="text-xl">🤝</span>
                   <div>
                     <div className="text-sm font-semibold text-foreground/90">
-                      Pendência qualquer
+                      Renovação em confiança
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Outro valor em aberto (ex: pagou a menos numa renovação).
+                      Renovou a mensalidade antes de receber — o cliente paga depois.
                     </div>
                   </div>
                 </button>
@@ -706,6 +903,68 @@ const ClientAlertBell = forwardRef<
                   />
                 </div>
 
+                {lockedCouponLabel ? (
+                  <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/40 px-3 py-2">
+                    🏷️ Cupom aplicado: <strong className="text-foreground">{lockedCouponLabel}</strong>
+                  </p>
+                ) : !editingAlertId && (
+                  <div className="rounded-xl border border-border p-3 space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={useCoupon}
+                        onChange={(e) => {
+                          setUseCoupon(e.target.checked);
+                          if (e.target.checked && !couponCode) {
+                            const app = clientApps.find((a) => a.id === clientAppId);
+                            setCouponCode(randomCouponCode(app?.appName || "APP"));
+                          }
+                        }}
+                        className="w-4 h-4 accent-purple-600"
+                      />
+                      Dar cupom de desconto
+                    </label>
+                    {useCoupon && (() => {
+                      const base = Number(amount.replace(",", ".")) || 0;
+                      const v = Number(couponValue.replace(",", ".")) || 0;
+                      const disc = Math.min(base, couponType === "percent" ? (base * v) / 100 : v);
+                      return (
+                        <>
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              value={couponCode}
+                              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                              className="col-span-3 sm:col-span-1 h-9 px-2 bg-transparent border border-border rounded-lg text-sm font-mono text-foreground outline-none focus:border-purple-500"
+                              title="Código do cupom"
+                            />
+                            <select
+                              value={couponType}
+                              onChange={(e) => setCouponType(e.target.value as "percent" | "fixed")}
+                              className="h-9 px-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500"
+                            >
+                              <option value="percent">%</option>
+                              <option value="fixed">{currency}</option>
+                            </select>
+                            <input
+                              value={couponValue}
+                              onChange={(e) => setCouponValue(e.target.value)}
+                              placeholder={couponType === "percent" ? "Ex: 50" : "Ex: 10,00"}
+                              inputMode="decimal"
+                              className="h-9 px-2 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500"
+                            />
+                          </div>
+                          {disc > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Desconto {formatMoney(disc, currency)} → pendência de{" "}
+                              <strong className="text-foreground">{formatMoney(base - disc, currency)}</strong>
+                            </p>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Observação
@@ -721,6 +980,106 @@ const ClientAlertBell = forwardRef<
                 </div>
               </div>
             )}
+
+            {kind === "renewal_trust" && (() => {
+              const periodsAvail = PERIODS.filter(
+                (p) => trustPrices.length === 0 || trustPrices.some((x) => x.period === p.value),
+              );
+              const screensAvail = [...new Set(trustPrices.map((x) => x.screens))].sort((a, b) => a - b);
+              const updateAuto = (period: string, screens: number, date: string) => {
+                setAmount(suggestTrustAmount(trustInfo, trustPrices, period, screens));
+                const label = PERIODS.find((p) => p.value === period)?.label || "Mensal";
+                setText(buildTrustMessage(label, screens, date));
+              };
+              return (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground rounded-lg border border-border bg-muted/40 px-3 py-2">
+                    Só registra a pendência — não renova nada e não entra no saldo. Quando o cliente
+                    pagar (portal ou baixa aqui no sino), o pagamento é lançado.
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        Período
+                      </label>
+                      <select
+                        value={trustPeriod}
+                        onChange={(e) => {
+                          setTrustPeriod(e.target.value);
+                          updateAuto(e.target.value, trustScreens, trustDate);
+                        }}
+                        className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500"
+                      >
+                        {periodsAvail.map((p) => (
+                          <option key={p.value} value={p.value}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        Telas
+                      </label>
+                      <select
+                        value={trustScreens}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          setTrustScreens(n);
+                          updateAuto(trustPeriod, n, trustDate);
+                        }}
+                        className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500"
+                      >
+                        {(screensAvail.length ? screensAvail : [trustScreens]).map((n) => (
+                          <option key={n} value={n}>
+                            {n} tela{n === 1 ? "" : "s"}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        Valor ({currency})
+                      </label>
+                      <input
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0,00"
+                        inputMode="decimal"
+                        className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                        Renovado em
+                      </label>
+                      <input
+                        type="date"
+                        value={trustDate}
+                        onChange={(e) => {
+                          setTrustDate(e.target.value);
+                          const label = PERIODS.find((p) => p.value === trustPeriod)?.label || "Mensal";
+                          setText(buildTrustMessage(label, trustScreens, e.target.value));
+                        }}
+                        className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
+                      Observação
+                    </label>
+                    <textarea
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      className="w-full bg-transparent border border-border rounded-xl p-3 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[60px] text-sm resize-none"
+                    />
+                  </div>
+                </div>
+              );
+            })()}
 
             {kind === "generic_charge" && (
               <div className="space-y-3">

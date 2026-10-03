@@ -956,6 +956,8 @@ export default function RenewClient() {
       appName: string | null;
       convertedAmount: number;
       activationDate: string | null;
+      kind?: string | null;
+      meta?: Record<string, any> | null;
     }[];
   } | null>(null);
   const [showPendingChargesModal, setShowPendingChargesModal] = useState(false);
@@ -2786,8 +2788,10 @@ export default function RenewClient() {
                     className="flex justify-between items-center gap-3 p-3 rounded-xl bg-muted/50 border border-border"
                   >
                     <div className="text-sm text-foreground/90 whitespace-nowrap overflow-hidden text-ellipsis">
-                      {it.appName
-                        ? `Ativação: ${it.appName}${dateLabel ? ` dia ${dateLabel}` : ""}`
+                      {it.kind === "renewal_trust"
+                        ? `Renovação antecipada em confiança — ${it.meta?.plan_label || "Mensal"} · ${it.meta?.screens || 1} tela${Number(it.meta?.screens || 1) === 1 ? "" : "s"}${it.meta?.renewal_date ? ` · renovado em ${new Date(`${it.meta.renewal_date}T12:00:00`).toLocaleDateString("pt-BR")}` : ""}`
+                        : it.appName
+                        ? `Ativação de aplicativo: ${it.appName}${dateLabel ? ` · dia ${dateLabel}` : ""}`
                         : it.message || "Pendência"}
                     </div>
                     <div className="text-sm font-bold text-foreground shrink-0">

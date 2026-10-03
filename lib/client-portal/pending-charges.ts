@@ -9,6 +9,9 @@ export type PendingChargeItem = {
   convertedAmount: number;
   appName: string | null;
   activationDate: string | null;
+  // ✅ 02/10/2026: tipo do sino (docs/alertas-confianca/PLANO.md)
+  kind: string | null;
+  meta: Record<string, any> | null;
 };
 
 export type PendingChargesResult = {
@@ -32,7 +35,7 @@ export async function getPendingCharges(
 ): Promise<PendingChargesResult> {
   const { data, error } = await supabaseAdmin
     .from("client_alerts")
-    .select("id, message, amount, currency, activation_date, client_apps(apps(name))")
+    .select("id, message, amount, currency, activation_date, kind, meta, client_apps(apps(name))")
     .eq("tenant_id", tenantId)
     .eq("client_id", clientId)
     .eq("status", "OPEN")
@@ -65,6 +68,8 @@ export async function getPendingCharges(
       convertedAmount,
       appName: row.client_apps?.apps?.name ?? null,
       activationDate: row.activation_date ?? null,
+      kind: row.kind ?? null,
+      meta: row.meta ?? null,
     });
   }
 

@@ -105,6 +105,8 @@ export async function POST(req: NextRequest) {
           appName: it.appName,
           convertedAmount: it.convertedAmount,
           activationDate: it.activationDate,
+          kind: it.kind,
+          meta: it.meta,
         })),
       },
       { status: 200, headers: NO_STORE_HEADERS }
