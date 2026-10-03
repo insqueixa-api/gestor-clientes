@@ -41,6 +41,10 @@ declare
   v_disc numeric;
   v_currency text;
   v_renewal_date text;
+  -- cupons dos sinos (03/10/2026): vão pra linha do pagamento de pendência
+  v_coupon_first uuid;
+  v_coupon_codes text[] := '{}';
+  v_coupon_total numeric := 0;
 begin
   select * into p from public.client_portal_payments where id = p_payment_id for update;
   if not found then
@@ -98,6 +102,9 @@ begin
         insert into public.coupon_redemptions (tenant_id, coupon_id, client_id, payment_id, discount_amount, currency)
         values (p.tenant_id, a.coupon_id, c.id, p.id, v_disc, v_currency)
         on conflict (coupon_id, client_id) do nothing;
+        v_coupon_first := coalesce(v_coupon_first, a.coupon_id);
+        v_coupon_codes := v_coupon_codes || coalesce(a.meta->>'coupon_code', (select code from public.coupons where id = a.coupon_id));
+        v_coupon_total := v_coupon_total + v_disc;
       end if;
       update public.coupons set is_active = false where id = a.coupon_id and client_id is not null;
     end if;
@@ -109,7 +116,10 @@ begin
   if v_is_pending then
     update public.client_portal_payments
        set fulfillment_status = 'done', fulfilled_at = now(), fulfilled_automatically = true,
-           fulfillment_error = null, paid_at = coalesce(paid_at, now()), whatsapp_status = coalesce(whatsapp_status, 'na')
+           fulfillment_error = null, paid_at = coalesce(paid_at, now()), whatsapp_status = coalesce(whatsapp_status, 'na'),
+           coupon_id = coalesce(coupon_id, v_coupon_first),
+           coupon_code = coalesce(coupon_code, nullif(array_to_string(v_coupon_codes, ', '), '')),
+           coupon_discount_amount = coalesce(coupon_discount_amount, nullif(v_coupon_total, 0))
      where id = p.id;
   end if;
 
@@ -301,3 +311,23 @@ WITH sp AS (
      LEFT JOIN reseller_daily rd ON rd.tenant_id = tm.tenant_id AND rd.day = d.day
      LEFT JOIN apps_daily ad ON ad.tenant_id = tm.tenant_id AND ad.day = d.day
   ORDER BY d.day;
+
+-- ---------------------------------------------------------------------
+-- 4) (03/10/2026) backfill: pagamentos de pendência já feitos ganham o
+-- cupom do sino na própria linha (coluna Desconto / filtro "Com cupom")
+-- ---------------------------------------------------------------------
+update public.client_portal_payments p
+   set coupon_id = x.coupon_id, coupon_code = x.codes, coupon_discount_amount = x.total
+  from (
+    select p2.id,
+           (array_agg(a.coupon_id order by a.created_at))[1] as coupon_id,
+           string_agg(coalesce(a.meta->>'coupon_code', c.code), ', ' order by a.created_at) as codes,
+           sum((a.meta->>'discount_amount')::numeric) as total
+      from public.client_portal_payments p2
+      join public.client_alerts a on a.id = any(p2.settled_alert_ids)
+      left join public.coupons c on c.id = a.coupon_id
+     where p2.payment_type = 'pending_charge' and p2.coupon_id is null
+       and a.coupon_id is not null and coalesce((a.meta->>'discount_amount')::numeric, 0) > 0
+     group by p2.id
+  ) x
+ where p.id = x.id;

@@ -694,7 +694,7 @@ function AuditoriaPageContent() {
 
         const alertsMap: Record<
           string,
-          { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean; planLabel?: string | null; screens?: number | null }
+          { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean; planLabel?: string | null; screens?: number | null; couponCode?: string | null; couponDiscount?: number }
         > = {};
         (alertsRes.data || []).forEach((a: any) => {
           const appName = a.client_apps?.apps?.name || null;
@@ -726,6 +726,9 @@ function AuditoriaPageContent() {
             receivedNow: !!a.meta?.received_now,
             planLabel: a.meta?.plan_label || null,
             screens: a.meta?.screens != null ? Number(a.meta.screens) : null,
+            // ✅ 03/10/2026: cupom dado no sino (o desconto já está no valor)
+            couponCode: a.meta?.coupon_code || null,
+            couponDiscount: Number(a.meta?.discount_amount || 0),
           };
         });
 
@@ -751,7 +754,7 @@ function AuditoriaPageContent() {
             : cInfo.display_name;
           const pendencies = ((r.settled_alert_ids as string[] | null) || [])
             .map((aid) => alertsMap[aid])
-            .filter((p): p is { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean; planLabel?: string | null; screens?: number | null } => !!p)
+            .filter((p): p is { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean; planLabel?: string | null; screens?: number | null; couponCode?: string | null; couponDiscount?: number } => !!p)
             // na própria linha do app o nome já está na coluna Plano/Aplicativo
             // e o valor em cima: basta "Ativado em DD/MM"
             .map((p) =>
@@ -787,6 +790,13 @@ function AuditoriaPageContent() {
                       subtitle: pendencies.length === 1 ? "1 item" : `${pendencies.length} itens`,
                       icon_url: null,
                     };
+          const alertCouponList = pendencies.filter((p) => p.couponCode && (p.couponDiscount || 0) > 0);
+          const alertCoupons = {
+            code: alertCouponList.map((p) => p.couponCode).join(", ") || null,
+            amount: alertCouponList.length
+              ? Number(alertCouponList.reduce((s, p) => s + (p.couponDiscount || 0), 0).toFixed(2))
+              : null,
+          };
           const appAlert = ((r.settled_alert_ids as string[] | null) || [])
             .map((aid) => alertsMap[aid])
             .find((p) => p?.appTrust);
@@ -821,11 +831,13 @@ function AuditoriaPageContent() {
             parent_mp_payment_id: r.parent_payment_id
               ? parentRefMap[r.parent_payment_id] ?? null
               : null,
-            coupon_code: r.coupon_code || null,
+            // ✅ 03/10/2026: sem cupom no pagamento, mostra o(s) cupom(ns) dos
+            // sinos quitados (pendência paga no portal / junto da mensalidade)
+            coupon_code: r.coupon_code || alertCoupons.code,
             coupon_discount_amount:
               r.coupon_discount_amount != null
                 ? Number(r.coupon_discount_amount)
-                : null,
+                : alertCoupons.amount,
             pendencies,
             is_trust: pendencies.some((p) => p.trust),
             is_pending_charge: r.payment_type === "pending_charge",
