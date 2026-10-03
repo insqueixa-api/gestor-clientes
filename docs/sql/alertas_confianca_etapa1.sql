@@ -85,7 +85,8 @@ begin
       raise exception 'CLIENT_NOT_FOUND';
     end if;
     v_currency := upper(coalesce(a.currency, c.price_currency::text, 'BRL'));
-    v_gateway := case v_currency when 'EUR' then 'transfer_manual_eur' when 'USD' then 'transfer_manual_usd' else 'pix_manual' end;
+    -- forma (PIX x Revolut) segue a moeda DO CLIENTE (pedido do Márcio)
+    v_gateway := case upper(coalesce(c.price_currency::text, 'BRL')) when 'EUR' then 'transfer_manual_eur' when 'USD' then 'transfer_manual_usd' else 'pix_manual' end;
     v_discount := nullif(coalesce((v_meta->>'discount_amount')::numeric, 0), 0);
     v_coupon_code := case when a.coupon_id is not null then (select code from public.coupons where id = a.coupon_id) end;
 

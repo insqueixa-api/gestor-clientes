@@ -64,7 +64,9 @@ type LogRow = {
   // não é "só assinatura" (ver breakdownLines mais abaixo).
   coupon_code: string | null;
   coupon_discount_amount: number | null;
-  pendencies: { label: string; amount: number }[];
+  pendencies: { label: string; amount: number; trust?: boolean }[];
+  // ✅ 02/10/2026: linha que quitou um sino "Renovação em confiança"
+  is_trust?: boolean;
   // ✅ Pagamento avulso de licença de app (25/07/2026) — nunca mexe na
   // assinatura, precisa ficar bem distinto na tela pra você nunca confundir.
   payment_type: "subscription" | "app_renewal";
@@ -655,7 +657,7 @@ function AuditoriaPageContent() {
           allAlertIds.length > 0
             ? supabaseBrowser
                 .from("client_alerts")
-                .select("id, message, amount, client_apps(apps(name))")
+                .select("id, message, amount, kind, meta, client_apps(apps(name))")
                 .in("id", allAlertIds)
             : Promise.resolve({ data: null as any[] | null }),
           // 3.6 Catálogo de apps — só o ícone, casado por nome via
@@ -683,12 +685,19 @@ function AuditoriaPageContent() {
             a.icon_url ?? null;
         });
 
-        const alertsMap: Record<string, { label: string; amount: number }> = {};
+        const alertsMap: Record<string, { label: string; amount: number; trust?: boolean }> = {};
         (alertsRes.data || []).forEach((a: any) => {
           const appName = a.client_apps?.apps?.name || null;
+          // ✅ 02/10/2026: em confiança mostra só a data da renovação —
+          // período e telas já têm coluna própria
+          const trust = a.kind === "renewal_trust";
+          const rd = a.meta?.renewal_date
+            ? new Date(`${a.meta.renewal_date}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+            : null;
           alertsMap[a.id] = {
-            label: appName || pendencyLabelFromMessage(a.message),
+            label: trust ? (rd ? `Renovado em ${rd}` : "Em confiança") : appName || pendencyLabelFromMessage(a.message),
             amount: Number(a.amount || 0),
+            trust,
           };
         });
 
@@ -714,7 +723,7 @@ function AuditoriaPageContent() {
             : cInfo.display_name;
           const pendencies = ((r.settled_alert_ids as string[] | null) || [])
             .map((aid) => alertsMap[aid])
-            .filter((p): p is { label: string; amount: number } => !!p);
+            .filter((p): p is { label: string; amount: number; trust?: boolean } => !!p);
 
                     return {
             id: r.id,
@@ -752,6 +761,7 @@ function AuditoriaPageContent() {
                 ? Number(r.coupon_discount_amount)
                 : null,
             pendencies,
+            is_trust: pendencies.some((p) => p.trust),
             payment_type:
               r.payment_type === "app_renewal" ? "app_renewal" : "subscription",
             app_name_snapshot: r.app_name_snapshot || null,
@@ -2167,7 +2177,7 @@ function AuditoriaPageContent() {
                                       "manual_cancelled") &&
                                   !r.fulfillment_error && (
                                     <span className="text-[10px] text-muted-foreground font-medium">
-                                      Renovação de Assinatura
+                                      {r.is_trust ? "Renovação em confiança" : "Renovação de Assinatura"}
                                     </span>
                                   )}
                               </div>
@@ -2246,8 +2256,14 @@ function AuditoriaPageContent() {
                                       className="text-[10px] text-amber-500 leading-tight max-w-[220px] truncate mx-auto"
                                       title={p.label}
                                     >
-                                      {p.label} (
-                                      {fmtMoney(p.amount, r.price_currency)})
+                                      {/* em confiança: o valor já está em cima, basta a data */}
+                                      {p.trust ? (
+                                        p.label
+                                      ) : (
+                                        <>
+                                          {p.label} ({fmtMoney(p.amount, r.price_currency)})
+                                        </>
+                                      )}
                                     </div>
                                   ))}
                                 </div>

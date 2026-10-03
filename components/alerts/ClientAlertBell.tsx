@@ -10,6 +10,11 @@ import { Bell, Pencil, Trash2, ThumbsUp, ThumbsDown, X } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import {
+  appActivationMessage as buildAppChargeMessage,
+  createAppActivationAlert,
+  randomCouponCode,
+} from "@/lib/alerts/app-activation-alert";
+import {
   Modal as SharedModal,
   ModalHeader,
   ModalBody,
@@ -42,10 +47,6 @@ type TrustClientInfo = {
   price_currency: string;
 };
 
-function randomCouponCode(appName: string) {
-  const base = appName.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 6) || "APP";
-  return `${base}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-}
 
 type ClientAppOption = {
   id: string;
@@ -59,16 +60,6 @@ function formatMoney(amount: number, currency: string) {
     style: "currency",
     currency: currency || "BRL",
   }).format(amount);
-}
-
-function buildAppChargeMessage(appName: string, activationDateISO: string) {
-  if (!appName) return "";
-  const datePart = activationDateISO
-    ? new Date(`${activationDateISO}T12:00:00`).toLocaleDateString("pt-BR")
-    : "";
-  return datePart
-    ? `Ativação de aplicativo: "${appName}" - dia ${datePart}`
-    : `Ativação de aplicativo: "${appName}"`;
 }
 
 function buildTrustMessage(periodLabel: string, screens: number, renewalDateISO: string) {
@@ -423,42 +414,30 @@ const ClientAlertBell = forwardRef<
           buildAppChargeMessage(app?.appName ?? "", activationDate);
         if (activationDate) payload.activation_date = activationDate;
 
-        // ✅ cupom pessoal do app (opcional): cria o cupom e o desconto já
-        // entra no valor do sino; o uso é registrado na quitação
-        // (settle_client_alert / portal). Só na criação.
-        if (useCoupon && !editingAlertId) {
+        // ✅ criação: lib/alerts/app-activation-alert.ts (sino + cupom
+        // pessoal opcional, desconto já no valor). Edição: update normal.
+        if (!editingAlertId) {
           const value = Number(couponValue.replace(",", "."));
-          const code = couponCode.trim().toUpperCase();
-          if (!code || !Number.isFinite(value) || value <= 0 || (couponType === "percent" && value > 100)) {
-            addToast("error", "Cupom inválido", "Confira o código e o valor do desconto.");
+          const res = await createAppActivationAlert({
+            tenantId,
+            clientId,
+            clientName,
+            clientAppId,
+            appName: app?.appName || "Aplicativo",
+            amount: amountNum,
+            currency: currency || "BRL",
+            activationDate,
+            message: text,
+            coupon: useCoupon ? { code: couponCode, type: couponType, value } : null,
+          });
+          if (res.ok === false) {
+            addToast("error", "Não deu pra salvar", res.error);
             return;
           }
-          const discount = Number(
-            Math.min(amountNum, couponType === "percent" ? (amountNum * value) / 100 : value).toFixed(2),
-          );
-          const { data: coupon, error: couponErr } = await supabaseBrowser
-            .from("coupons")
-            .insert({
-              tenant_id: tenantId,
-              code,
-              description: `${app?.appName || "Aplicativo"} — ${clientName}`,
-              discount_type: couponType,
-              discount_value: value,
-              currency: couponType === "fixed" ? currency : null,
-              is_active: true,
-              client_id: clientId,
-              target_client_app_ids: [clientAppId],
-              max_total_redemptions: 1,
-            })
-            .select("id")
-            .single();
-          if (couponErr || !coupon) {
-            addToast("error", "Não deu pra criar o cupom", couponErr?.message || "Código já usado? Tente outro.");
-            return;
-          }
-          payload.coupon_id = coupon.id;
-          payload.amount = Number((amountNum - discount).toFixed(2));
-          payload.meta = { full_amount: amountNum, discount_amount: discount, coupon_code: code };
+          addToast("success", "Alerta criado", "Salvo com sucesso.");
+          resetForm();
+          onChanged?.();
+          return;
         }
       } else if (kind === "renewal_trust") {
         const p = PERIODS.find((x) => x.value === trustPeriod) || PERIODS[0];

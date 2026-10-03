@@ -24,6 +24,7 @@ import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
+import AppTrustPrompt, { type AppTrustPromptData } from "@/components/alerts/AppTrustPrompt";
 import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
 import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { deviceLabel, withoutLegacyDevices } from "@/lib/apps/device-types";
@@ -829,6 +830,19 @@ export default function NovoCliente({
     useState<keyof typeof PLAN_LABELS>("MONTHLY");
   const [screens, setScreens] = useState(1);
   const [currency, setCurrency] = useState<Currency>("BRL");
+  // ✅ 02/10/2026 (docs/alertas-confianca/PLANO.md): depois de ativar/renovar
+  // app pago pelo admin, pergunta se registra em confiança / já recebeu
+  const [appTrustPrompt, setAppTrustPrompt] = useState<AppTrustPromptData | null>(null);
+  function askAppTrust(app: { client_app_id?: string; app_id: string; name: string }) {
+    if (!app.client_app_id) return;
+    const cat = catalog.find((c) => c.id === app.app_id);
+    if (cat && cat.cost_type && cat.cost_type !== "paid") return; // grátis/parceria: nada a cobrar
+    setAppTrustPrompt({
+      clientAppId: app.client_app_id,
+      appName: app.name,
+      amount: cat?.license_price != null ? Number(cat.license_price) : null,
+    });
+  }
   const [planPrice, setPlanPrice] = useState("0,00");
   const [priceTouched, setPriceTouched] = useState(false);
 
@@ -2755,6 +2769,7 @@ export default function NovoCliente({
           "Marcado como pago",
           `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
         );
+        askAppTrust(currentApp);
       } else {
         addToast("error", "Não foi possível marcar como pago", apiJson?.error || "Falha desconhecida.");
       }
@@ -2821,6 +2836,7 @@ export default function NovoCliente({
           "Duplecast renovado",
           `Validade: ${String(apiJson.expireDate).split("-").reverse().join("/")}`,
         );
+        askAppTrust(currentApp);
       } else {
         addToast("error", "Não foi possível renovar", apiJson?.error || "Falha desconhecida.");
       }
@@ -2940,6 +2956,7 @@ export default function NovoCliente({
           apiJson.message || "Aguardando confirmação automática...",
         );
         startAppativaAutoPoll(instanceId);
+        askAppTrust(currentApp);
       } else {
         addToast("error", "Não foi possível ativar", apiJson?.error || "Falha desconhecida.");
       }
@@ -7115,6 +7132,15 @@ export default function NovoCliente({
       </Modal>
       {/* === MODAL DE CONFIRMAÇÃO (Padronizado) === */}
       {ConfirmUI} {/* ✅ Renderiza a caixa bonita sobre o modal */}
+      <AppTrustPrompt
+        data={appTrustPrompt}
+        onClose={() => setAppTrustPrompt(null)}
+        tenantId={tenantId}
+        clientId={clientToEdit?.id || ""}
+        clientName={name || clientToEdit?.client_name || "Cliente"}
+        currency={currency}
+        addToast={(type, title, message) => addToast(type, title, message)}
+      />
       {confirmModal && (
         <Modal onClose={() => setConfirmModal(null)} maxWidth="max-w-sm">
           <div className="p-6 flex flex-col gap-5">

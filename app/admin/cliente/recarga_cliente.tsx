@@ -369,6 +369,10 @@ export default function RecargaCliente({
   const [totalBrl, setTotalBrl] = useState(0);
   const [obs, setObs] = useState("");
   const [registerPayment, setRegisterPayment] = useState(true);
+  // ✅ 02/10/2026 (docs/alertas-confianca/PLANO.md): renovar em confiança —
+  // renova no servidor + mensagem, mas NÃO registra pagamento (nem Log do
+  // Portal nem saldo): cria o sino "Renovação em confiança" (renew_client_trust).
+  const [trustMode, setTrustMode] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("PIX");
   const [payDate, setPayDate] = useState(getLocalISOString());
 
@@ -1106,7 +1110,9 @@ export default function RecargaCliente({
       });
       details.push(`Valor: ${currency} ${formattedVal}`);
 
-      if (settlePendingCharges && pendingChargesForClient.length > 0) {
+      if (trustMode) {
+        details.push("🤝 Em confiança: não registra pagamento — vira sino pra cobrar depois");
+      } else if (settlePendingCharges && pendingChargesForClient.length > 0) {
         const pendingTotal = pendingChargesForClient.reduce(
           (sum, p) => sum + p.convertedAmount,
           0,
@@ -1617,7 +1623,7 @@ export default function RecargaCliente({
       // ✅ DECISÃO DA DATA E ID EXTERNO
       // Se for apenas conversão (sem registrar log financeiro), o update_client TEM de gravar a data nova.
       // Se registrar financeiro, o update_client não mexe na data (quem mexe é o renew_client_and_log).
-      const dateForUpdate = registerPayment
+      const dateForUpdate = registerPayment || trustMode
         ? clientData?.vencimento
         : apiVencimento;
 
@@ -1676,10 +1682,28 @@ export default function RecargaCliente({
 
       if (updateError) throw new Error(`Erro Update: ${updateError.message}`);
 
+      // --- PASSO 3 (em confiança): renova sem registrar pagamento ---
+      if (trustMode && !paymentLogId) {
+        setLoadingText("Registrando renovação em confiança...");
+        const { error: trustErr } = await supabaseBrowser.rpc("renew_client_trust", {
+          p_tenant_id: tid,
+          p_client_id: clientId,
+          p_months: monthsToRenew,
+          p_new_vencimento: renewAutomatic ? apiVencimento : saoPauloDateTimeToIso(dueDate, dueTime),
+          p_is_automatic: renewAutomatic,
+          p_amount: rawPlanPrice,
+          p_currency: currency,
+          p_plan_label: PLAN_LABELS[selectedPlanPeriod],
+          p_plan_table_id: selectedTableId || null,
+          p_notes: obs || null,
+        });
+        if (trustErr) throw new Error(`Erro na renovação em confiança: ${trustErr.message}`);
+      }
+
       // --- PASSO 3: RENOVAR (REGISTRAR PAGAMENTO) ---
       // ⚠️ SÓ chama renew_client_and_log se MANUAL (não automática)
       // ✅ E SÓ CRIA NOVO SE NÃO FOR UMA CONFIRMAÇÃO DE AUDITORIA MANUAL (paymentLogId presente)
-      if (registerPayment && !renewAutomatic && !paymentLogId) {
+      if (registerPayment && !trustMode && !renewAutomatic && !paymentLogId) {
         setLoadingText("Registrando pagamento...");
 
         // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
@@ -1766,7 +1790,7 @@ export default function RecargaCliente({
       }
 
       // ✅ Se automático, registra LOG + client_renewals
-      if (registerPayment && renewAutomatic) {
+      if (registerPayment && !trustMode && renewAutomatic) {
         setLoadingText("Registrando renovação...");
 
         // ✅ MENSAGENS SEPARADAS: Uma limpa para o cliente, outra detalhada para o servidor
@@ -1960,7 +1984,14 @@ export default function RecargaCliente({
       }
 
       // ✅ Toast final baseado no tipo de operação
-      if (renewAutomatic) {
+      if (trustMode) {
+        queueToast(
+          "success",
+          "Renovado em confiança",
+          "Vencimento atualizado. A cobrança ficou no sino (🤝) — entra no saldo quando o cliente pagar.",
+          toastKey,
+        );
+      } else if (renewAutomatic) {
         const isConversion = Boolean(allowConvertWithoutPayment);
         const title = isConversion
           ? `Cliente convertido e renovado no ${serverName}`
@@ -1980,7 +2011,7 @@ export default function RecargaCliente({
       }
 
       // ✅ Quita as pendências financeiras junto, se marcado
-      if (settlePendingCharges && pendingChargesForClient.length) {
+      if (!trustMode && settlePendingCharges && pendingChargesForClient.length) {
         try {
           await supabaseBrowser
             .from("client_alerts")
@@ -2306,7 +2337,7 @@ export default function RecargaCliente({
                 </div>
               )}
 
-              {registerPayment && (
+              {registerPayment && !trustMode && (
                 <div className="bg-transparent p-3 rounded-lg border border-border animate-in slide-in-from-top-2">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -2373,12 +2404,40 @@ export default function RecargaCliente({
                 </div>
               </div>
 
+              {/* ✅ Em confiança: renova agora, cliente paga depois (vira sino) */}
+              {!paymentLogId && (
+                <div
+                  onClick={() => setTrustMode(!trustMode)}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                    trustMode ? "bg-sky-500/10 border-sky-500/30" : "bg-muted/50 border-border"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🤝</span>
+                      <div>
+                        <span className={`text-xs font-medium block ${trustMode ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground"}`}>
+                          Renovar em confiança
+                        </span>
+                        <span className="text-[9px] text-muted-foreground">
+                          {trustMode
+                            ? "Não registra pagamento agora — cria o sino pra cobrar depois"
+                            : "Cliente ainda vai pagar"}
+                        </span>
+                      </div>
+                    </div>
+                    <Switch checked={trustMode} onChange={setTrustMode} label="" />
+                  </div>
+                </div>
+              )}
+
               <div
                 className={`grid grid-cols-1 ${sendWhats ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-3 items-end`}
               ></div>
 
-              {/* Pendências financeiras em aberto — oferece quitar junto */}
-              {pendingChargesForClient.length > 0 && (
+              {/* Pendências financeiras em aberto — oferece quitar junto
+                  (não em confiança: nada está sendo pago agora) */}
+              {pendingChargesForClient.length > 0 && !trustMode && (
                 <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-amber-500">
