@@ -12,6 +12,7 @@
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import CopyFieldButton from "@/components/apps/CopyFieldButton";
 import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
+import { focusNextWhenMacComplete } from "@/lib/dom-focus";
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -68,11 +69,12 @@ export default function AppInstanceFields({
           (label && (values as any)?.[label] != null ? String((values as any)[label]) : "") ||
           "";
 
-        const handleChange = (raw: string) => {
+        const handleChange = (raw: string, el?: HTMLElement | null) => {
           const next = isMacField ? normalizeMacInput(raw) : raw;
           const key = String(fieldKey || label || "").trim();
           if (!key) return;
           onFieldChange(key, next);
+          if (isMacField) focusNextWhenMacComplete(el ?? null, fieldValue, next);
         };
 
         return (
@@ -90,7 +92,7 @@ export default function AppInstanceFields({
                 <BaseInput
                   type="text"
                   value={fieldValue}
-                  onChange={(e) => handleChange(e.target.value)}
+                  onChange={(e) => handleChange(e.target.value, e.currentTarget)}
                   placeholder={label ? `Digite ${label}...` : "Digite..."}
                   autoCapitalize={isMacField ? "characters" : "none"}
                   spellCheck={false}

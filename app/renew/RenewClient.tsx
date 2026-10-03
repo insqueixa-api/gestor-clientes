@@ -24,6 +24,7 @@ import AppPickerModal from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
 import { PORTAL_ADD_APP_HIDDEN, PORTAL_APPS_DISABLED } from "@/lib/apps/portal-apps-flag";
 import { normalizeMacInput } from "@/lib/apps/field-types";
+import { focusNextWhenMacComplete } from "@/lib/dom-focus";
 import { formatDateBR } from "@/lib/date-br";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
@@ -5375,6 +5376,8 @@ export default function RenewClient() {
                                   f.type === "mac"
                                     ? normalizeMacInput(raw)
                                     : raw;
+                                if (f.type === "mac")
+                                  focusNextWhenMacComplete(e.currentTarget, editingValues[f.id] ?? "", next);
                                 setEditingValues((prev) => ({
                                   ...prev,
                                   [f.id]: next,

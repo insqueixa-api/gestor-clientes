@@ -56,6 +56,8 @@ export const INORAIN_FAMILY: Record<string, { brand: string; site: string; endpo
   // Dream TV (03/10/2026): config.js do site aponta pra api.dreamtv.life;
   // AtivaApp módulo "iptv-dreamtv-life" (mesmo padrão do Lazer Play).
   DREAMTV: { brand: "Dream TV", site: "https://dreamtv.life", endpoint: "/api/integrations/apps/dreamtv" },
+  // Brasil IPTV (03/10/2026): config.js do site aponta pra api.brasiliptv.me.
+  BRASILIPTV: { brand: "Brasil IPTV", site: "https://brasiliptv.me", endpoint: "/api/integrations/apps/brasiliptv" },
 };
 
 export const INORAIN_HANDLERS = new Set(Object.keys(INORAIN_FAMILY));

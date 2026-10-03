@@ -528,15 +528,6 @@ export default function AppPickerModal({
 
         {showTiles ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {!isPortal && (
-              <button
-                onClick={() => setDeviceType(ALL_DEVICES)}
-                className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted hover:border-emerald-500/40 transition-colors"
-              >
-                <span className="text-3xl leading-10">🌐</span>
-                <span className="text-xs font-bold text-foreground text-center">Todos</span>
-              </button>
-            )}
             {deviceList.map((dt) => {
               const icon = deviceIcons[dt];
               const fallback = (DEFAULT_DEVICE_ICONS as Record<string, string>)[dt] ?? "📟";
@@ -611,6 +602,16 @@ export default function AppPickerModal({
                 </div>
               );
             })}
+            {/* "Todos" (só admin) por último — pedido do Márcio */}
+            {!isPortal && (
+              <button
+                onClick={() => setDeviceType(ALL_DEVICES)}
+                className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted hover:border-emerald-500/40 transition-colors"
+              >
+                <span className="text-3xl leading-10">🌐</span>
+                <span className="text-xs font-bold text-foreground text-center">Todos</span>
+              </button>
+            )}
           </div>
         ) : detailsApp ? (
           <div className="flex flex-col gap-4">
