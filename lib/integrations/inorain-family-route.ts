@@ -20,8 +20,8 @@
 //     do teste grátis, free_trial_expired, com isTrial:true — aparelho novo já
 //     vem com 7 dias de teste com data). Não usa o expired_date da playlist
 //     (esse é a validade do m3u/assinatura IPTV).
-//   • Apagar só pelo nome EXATO (todas as repetidas). Nunca "nome parecido"
-//     nem "a única playlist do aparelho".
+//   • Apagar: nome exato → o mais parecido → todas do aparelho (pelo MAC) —
+//     regra do Márcio, lib/integrations/playlist-match.ts.
 //   • 429/HTML do Cloudflare deles (~7 chamadas em rajada) = espera e tenta de novo.
 //   • Link do Painel (app_integrations.api_url) = site principal; a API mora em api.*.
 import { NextResponse } from "next/server";
@@ -31,6 +31,7 @@ import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 import { extractDateOnly } from "@/lib/apps/panel";
 
 import { INORAIN_FAMILY } from "@/lib/integrations/inorain-family";
+import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
@@ -134,8 +135,8 @@ async function createPlaylistByMac(brand: string, base: string, mac: string, { n
 
 async function deletePlaylistByName(brand: string, base: string, authToken: string, searchName: string, pin: string) {
   const { playlists } = await getDevice(brand, base, authToken);
-  const target = searchName.toLowerCase().trim();
-  const matches = playlists.filter((p) => String(p.name || "").toLowerCase().trim() === target);
+  // exato → mais parecido → todas do aparelho (lib/integrations/playlist-match.ts)
+  const { matches } = pickPlaylistsToDelete(playlists, searchName, (p: any) => String(p.name || ""));
   if (!matches.length) {
     throw Object.assign(
       new Error(`Nenhuma playlist com o nome '${searchName}' nesse aparelho (${playlists.length} playlist(s) no total).`),

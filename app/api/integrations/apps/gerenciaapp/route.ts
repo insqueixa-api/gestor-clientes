@@ -44,6 +44,7 @@
 import { NextResponse } from "next/server";
 import { addYearsToIsoDate, isoDateInSaoPaulo } from "@/lib/date-br";
 import { fetch as undiciFetch } from "undici";
+import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
@@ -601,7 +602,12 @@ export async function POST(req: Request) {
     }
 
     const { user, playlists } = await getEditData(BASE_URL, session, existing[0].id);
-    const match = findPlaylistByName(playlists, searchName);
+    // ✅ 03/10/2026 (regra do Márcio): exato → o mais parecido. SEM o "apaga
+    // tudo pelo MAC" das outras integrações: aqui o MAC é um cadastro que guarda
+    // a validade da licença (inclusive GPC Roku pago) — apagar tudo levaria junto.
+    const picked = pickPlaylistsToDelete(playlists, searchName, (p: any) => String(p.server_name || ""));
+    const match = picked.mode === "exact" || picked.mode === "closest" ? picked.matches.reduce((x: any, y: any) => (Number(y.id) > Number(x.id) ? y : x)) // repetidas: a mais recente
+        : null;
     if (!match) {
       return NextResponse.json(
         { ok: false, error: `Nenhuma playlist encontrada com o nome "${searchName}" nesse MAC (${playlists.length} no total).` },

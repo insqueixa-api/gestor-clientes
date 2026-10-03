@@ -29,6 +29,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
 import { extractDateOnly } from "@/lib/apps/panel";
 
 export const runtime = "nodejs";
@@ -140,44 +141,41 @@ async function deletePlaylistByName(siteRoot: string, cookie: string, searchName
     throw Object.assign(new Error("Nenhuma playlist encontrada neste dispositivo."), { notFound: true });
   }
 
-  const targetLower = searchName.toLowerCase().trim();
-  const match =
-    playlists.find((p) => p.name.toLowerCase().trim() === targetLower) ||
-    playlists.find((p) => p.name.toLowerCase().includes(targetLower) || targetLower.includes(p.name.toLowerCase())) ||
-    (playlists.length === 1 ? playlists[0] : null);
-
-  if (!match) {
-    throw Object.assign(
-      new Error(`Nenhuma playlist encontrada com o nome '${searchName}' nesse dispositivo (${playlists.length} playlist(s) no total).`),
-      { notFound: true },
-    );
+  // ✅ 03/10/2026 (regra do Márcio): nome exato → o mais parecido → todas
+  // do aparelho (pelo MAC). lib/integrations/playlist-match.ts
+  const { matches } = pickPlaylistsToDelete(playlists, searchName, (p: any) => String(p.name || ""));
+  if (!matches.length) {
+    throw Object.assign(new Error("Nenhuma playlist encontrada neste dispositivo."), { notFound: true });
   }
 
-  if (match.isProtected) {
-    if (!pin) throw new Error("Esta playlist está protegida por PIN e nenhum PIN está configurado no app.");
-    const checkRes = await fetch(`${siteRoot}/checkPlaylistPinCode/${match.id}/${encodeURIComponent(pin)}`, {
-      headers: { Accept: "application/json", "User-Agent": UA, Cookie: cookie, ...originHeaders(siteRoot) },
-    });
-    const checkJson = await checkRes.json().catch(() => null);
-    if (checkJson?.status === "error") {
-      throw new Error(checkJson?.msg || "PIN incorreto para essa playlist no CAP Player.");
+  for (const match of matches) {
+
+    if (match.isProtected) {
+      if (!pin) throw new Error("Esta playlist está protegida por PIN e nenhum PIN está configurado no app.");
+      const checkRes = await fetch(`${siteRoot}/checkPlaylistPinCode/${match.id}/${encodeURIComponent(pin)}`, {
+        headers: { Accept: "application/json", "User-Agent": UA, Cookie: cookie, ...originHeaders(siteRoot) },
+      });
+      const checkJson = await checkRes.json().catch(() => null);
+      if (checkJson?.status === "error") {
+        throw new Error(checkJson?.msg || "PIN incorreto para essa playlist no CAP Player.");
+      }
     }
-  }
 
-  const delRes = await fetch(`${siteRoot}/deletePlayListUrl`, {
-    method: "DELETE",
-    headers: {
-      Cookie: cookie,
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-      "User-Agent": UA,
-      ...originHeaders(siteRoot),
-    },
-    body: new URLSearchParams({ playlist_url_id: match.id }).toString(),
-  });
-  const delJson = await delRes.json().catch(() => null);
-  if (delRes.status !== 200 || delJson?.status !== "success") {
-    throw new Error(delJson?.msg || delJson?.message || "Falha ao remover playlist no CAP Player.");
+    const delRes = await fetch(`${siteRoot}/deletePlayListUrl`, {
+      method: "DELETE",
+      headers: {
+        Cookie: cookie,
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": UA,
+        ...originHeaders(siteRoot),
+      },
+      body: new URLSearchParams({ playlist_url_id: match.id }).toString(),
+    });
+    const delJson = await delRes.json().catch(() => null);
+    if (delRes.status !== 200 || delJson?.status !== "success") {
+      throw new Error(delJson?.msg || delJson?.message || "Falha ao remover playlist no CAP Player.");
+    }
   }
 }
 

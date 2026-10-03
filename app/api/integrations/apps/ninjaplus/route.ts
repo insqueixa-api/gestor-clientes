@@ -17,6 +17,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,12 +131,20 @@ export async function POST(req: Request) {
         // Mesma regra de segurança do QUICKPLAYER: filtra por nome antes de
         // apagar — não apaga tudo que estiver no MAC.
         const rawWanted = (playlist_name || "").toString().trim();
-        const playlists = rawWanted
-          ? allPlaylists.filter((pl) => String(pl?.name || "").trim() === rawWanted)
-          : allPlaylists;
+        // ✅ 03/10/2026 (auditoria do "apagar"): sem nome NUNCA apaga — antes,
+        // nome vazio apagava TODAS as playlists do aparelho; e "não achei"
+        // voltava ok:true, a tela dizia "Removido!" sem ter apagado nada.
+        if (!rawWanted) {
+          return NextResponse.json({ ok: false, error: "Nome da playlist não informado — nada foi apagado." }, { status: 400 });
+        }
+        // exato → mais parecido → todas do aparelho (lib/integrations/playlist-match.ts)
+        const playlists = pickPlaylistsToDelete(allPlaylists, rawWanted, (pl: any) => String(pl?.name || "")).matches;
 
         if (playlists.length === 0) {
-          return NextResponse.json({ ok: true, message: "Nenhuma playlist configurada neste dispositivo." });
+          return NextResponse.json(
+            { ok: false, error: "Nenhuma playlist nesse aparelho — nada foi apagado." },
+            { status: 404 },
+          );
         }
 
         for (const pl of playlists) {

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 import { extractDateOnly } from "@/lib/apps/panel";
+import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -193,31 +194,29 @@ export async function POST(req: Request) {
     // 2. DELETE /playlistw {mac_address, playlist_id}
     // ===========================================================
     if (action === "delete") {
-      const searchName = String(playlist_name || "").trim().toLowerCase();
 
       const listRes = await apiCall("GET", "/playlistw", mac, token);
       const playlists: any[] = Array.isArray(listRes.json) ? listRes.json : [];
 
-      // ✅ Só cai pro fallback "é a única da lista" quando não há ambiguidade —
-      // nunca apaga "a primeira" de uma lista com múltiplas playlists sem
-      // bater o nome, pra não remover a playlist errada de um device.
-      const byName = searchName ? playlists.find((p2) => String(p2.name || "").toLowerCase() === searchName) : null;
-      const target = byName || (playlists.length === 1 ? playlists[0] : null);
+      // ✅ 03/10/2026 (regra do Márcio): nome exato → o mais parecido → todas
+      // do aparelho (pelo MAC). lib/integrations/playlist-match.ts
+      const { matches } = pickPlaylistsToDelete(playlists, String(playlist_name || ""), (p2: any) => String(p2.name || ""));
 
-      if (!target) {
+      if (!matches.length) {
         return NextResponse.json(
-          { ok: false, error: `Nenhuma playlist encontrada com o nome '${playlist_name}' nesse dispositivo (${playlists.length} playlist(s) no total).` },
+          { ok: false, error: "Nenhuma playlist nesse dispositivo — nada foi apagado." },
           { status: 404 },
         );
       }
 
-      const delRes = await apiCall("DELETE", "/playlistw", mac, token, {
-        mac_address: mac.toLowerCase(),
-        playlist_id: target.id,
-      });
-
-      if (!delRes.json?.status) {
-        return NextResponse.json({ ok: false, error: delRes.json?.message || "Falha ao remover playlist." }, { status: 500 });
+      for (const target of matches) {
+        const delRes = await apiCall("DELETE", "/playlistw", mac, token, {
+          mac_address: mac.toLowerCase(),
+          playlist_id: target.id,
+        });
+        if (!delRes.json?.status) {
+          return NextResponse.json({ ok: false, error: delRes.json?.message || "Falha ao remover playlist." }, { status: 500 });
+        }
       }
 
       return NextResponse.json({ ok: true, message: "Playlist removida com sucesso." });

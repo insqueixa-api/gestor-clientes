@@ -34,6 +34,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { Resvg } from "@resvg/resvg-js";
 import { callGemini } from "@/lib/whatsapp/gemini-client";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
+import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
 import { extractDateOnly } from "@/lib/apps/panel";
 import { cleanupResvgTmpCache } from "@/lib/apps/resvg-tmp-cleanup";
 
@@ -219,41 +220,34 @@ async function deletePlaylistByName(
     throw Object.assign(new Error("Nenhuma playlist encontrada neste dispositivo."), { notFound: true });
   }
 
-  const targetLower = searchName.toLowerCase().trim();
-  const match =
-    playlists.find((p) => String(p.playlist_name || "").toLowerCase().trim() === targetLower) ||
-    playlists.find(
-      (p) =>
-        String(p.playlist_name || "").toLowerCase().includes(targetLower) ||
-        targetLower.includes(String(p.playlist_name || "").toLowerCase()),
-    ) ||
-    (playlists.length === 1 ? playlists[0] : null);
-
-  if (!match) {
-    throw Object.assign(
-      new Error(`Nenhuma playlist encontrada com o nome '${searchName}' nesse dispositivo (${playlists.length} playlist(s) no total).`),
-      { notFound: true },
-    );
+  // ✅ 03/10/2026 (regra do Márcio): nome exato → o mais parecido → todas
+  // do aparelho (pelo MAC). lib/integrations/playlist-match.ts
+  const { matches } = pickPlaylistsToDelete(playlists, searchName, (p: any) => String(p.playlist_name || ""));
+  if (!matches.length) {
+    throw Object.assign(new Error("Nenhuma playlist encontrada neste dispositivo."), { notFound: true });
   }
 
-  if (match.is_protected && !pin) {
-    throw new Error("Esta playlist está protegida por PIN e nenhum PIN está configurado no app.");
-  }
+  for (const match of matches) {
 
-  const delRes = await fetch(`${siteRoot}/frontend/device/deletePlayListUrl/${match._id}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "User-Agent": UA,
-      ...originHeaders(siteRoot),
-    },
-    body: JSON.stringify(match.is_protected ? { device_id: deviceId, pin } : { device_id: deviceId }),
-  });
-  const delJson = await delRes.json().catch(() => null);
-  if (delRes.status !== 200) {
-    throw new Error(delJson?.message || delJson?.status || "Falha ao remover playlist no MessiTV.");
+    if (match.is_protected && !pin) {
+      throw new Error("Esta playlist está protegida por PIN e nenhum PIN está configurado no app.");
+    }
+
+    const delRes = await fetch(`${siteRoot}/frontend/device/deletePlayListUrl/${match._id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        "User-Agent": UA,
+        ...originHeaders(siteRoot),
+      },
+      body: JSON.stringify(match.is_protected ? { device_id: deviceId, pin } : { device_id: deviceId }),
+    });
+    const delJson = await delRes.json().catch(() => null);
+    if (delRes.status !== 200) {
+      throw new Error(delJson?.message || delJson?.status || "Falha ao remover playlist no MessiTV.");
+    }
   }
 }
 

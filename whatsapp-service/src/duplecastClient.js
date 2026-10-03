@@ -375,55 +375,94 @@ async function playlistExists(siteRoot, jar, userAgent, id) {
 // Duplecast ainda responde 302 (redireciona pra device_main/), só que SEM
 // apagar nada. Nunca confia no status HTTP: sempre reconsulta a lista depois
 // pra confirmar que a playlist sumiu de verdade.
+// ✅ 03/10/2026 (regra do Márcio — mesma de lib/integrations/playlist-match.ts
+// no app principal): nome exato (todas as cópias) → o mais parecido → todas
+// as playlists do aparelho (pelo MAC). Nome vazio → nada.
+function pickPlaylistsToDelete(rows, wanted) {
+  const norm = (v) => String(v || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const userPart = (v) => norm(String(v || "").split("_")[0]);
+  const lcs = (a, b) => {
+    let best = 0;
+    const dp = new Array(b.length + 1).fill(0);
+    for (let i = 1; i <= a.length; i++) {
+      let prev = 0;
+      for (let j = 1; j <= b.length; j++) {
+        const tmp = dp[j];
+        dp[j] = a[i - 1] === b[j - 1] ? prev + 1 : 0;
+        if (dp[j] > best) best = dp[j];
+        prev = tmp;
+      }
+    }
+    return best;
+  };
+  const target = norm(wanted);
+  if (!target || !rows.length) return [];
+  const exact = rows.filter((r) => norm(r.name) === target);
+  if (exact.length) return exact;
+  const tUser = userPart(wanted);
+  let best = null;
+  for (const r of rows) {
+    const n = norm(r.name);
+    if (!n) continue;
+    const related = n.includes(target) || target.includes(n) || (tUser.length >= 3 && userPart(r.name) === tUser);
+    if (!related) continue;
+    const score = lcs(n, target) / Math.max(n.length, target.length);
+    if (!best || score > best.score) best = { r, score };
+  }
+  // a mais parecida + as cópias dela com o mesmo nome
+  if (best) return rows.filter((r) => norm(r.name) === norm(best.r.name));
+  return [...rows];
+}
+
 async function deletePlaylistByName(siteRoot, jar, userAgent, searchName, pin) {
   const mainHtml = await fetchDeviceMain(siteRoot, jar, userAgent);
-  let token = extractCsrfToken(mainHtml);
-  if (!token) throw new Error("CSRF token não encontrado na página do dispositivo.");
-
   const rows = parsePlaylistRows(mainHtml);
-  const targetLower = searchName.toLowerCase();
-  const target =
-    rows.find((r) => r.name.toLowerCase() === targetLower) ||
-    rows.find((r) => r.name.toLowerCase().includes(targetLower) || targetLower.includes(r.name.toLowerCase())) ||
-    (rows.length === 1 ? rows[0] : null);
+  const targets = pickPlaylistsToDelete(rows, searchName);
 
-  if (!target) {
-    const err = new Error(`Nenhuma playlist encontrada com o nome '${searchName}' nesse dispositivo (${rows.length} playlist(s) no total).`);
+  if (!targets.length) {
+    const err = new Error(`Nenhuma playlist nesse dispositivo — nada foi apagado.`);
     err.notFound = true;
     throw err;
   }
 
-  const delUrl = `${siteRoot}/plugin/duplecast/device_main/delete/${target.id}/`;
-  const attempt = async (withPin) => {
-    const params = new URLSearchParams();
-    params.set("_csrf_token", token);
-    params.set("0", "");
-    if (withPin) params.set("pin", withPin);
-    params.set("submit", "Yes");
-    await fetch(delUrl, {
-      method: "POST",
-      headers: baseHeaders(jar, userAgent, `${siteRoot}/plugin/duplecast/device_main/`, true, siteRoot),
-      body: params.toString(),
-      redirect: "manual",
-    });
-  };
+  for (const target of targets) {
+    // token CSRF novo a cada exclusão (a página muda depois de cada uma)
+    const html = await fetchDeviceMain(siteRoot, jar, userAgent);
+    const token = extractCsrfToken(html);
+    if (!token) throw new Error("CSRF token não encontrado na página do dispositivo.");
 
-  await attempt(target.protected && pin ? pin : "");
-  let stillThere = await playlistExists(siteRoot, jar, userAgent, target.id);
+    const delUrl = `${siteRoot}/plugin/duplecast/device_main/delete/${target.id}/`;
+    const attempt = async (withPin) => {
+      const params = new URLSearchParams();
+      params.set("_csrf_token", token);
+      params.set("0", "");
+      if (withPin) params.set("pin", withPin);
+      params.set("submit", "Yes");
+      await fetch(delUrl, {
+        method: "POST",
+        headers: baseHeaders(jar, userAgent, `${siteRoot}/plugin/duplecast/device_main/`, true, siteRoot),
+        body: params.toString(),
+        redirect: "manual",
+      });
+    };
 
-  // Retry sem PIN — mesma exceção rara já vista antes (playlist marcada
-  // protegida com PIN diferente do cadastrado).
-  if (stillThere && target.protected && pin) {
-    await attempt("");
-    stillThere = await playlistExists(siteRoot, jar, userAgent, target.id);
-  }
+    await attempt(target.protected && pin ? pin : "");
+    let stillThere = await playlistExists(siteRoot, jar, userAgent, target.id);
 
-  if (stillThere) {
-    throw new Error(
-      target.protected
-        ? "Não foi possível apagar — playlist protegida por PIN incorreto."
-        : "Não foi possível apagar a playlist.",
-    );
+    // Retry sem PIN — mesma exceção rara já vista antes (playlist marcada
+    // protegida com PIN diferente do cadastrado).
+    if (stillThere && target.protected && pin) {
+      await attempt("");
+      stillThere = await playlistExists(siteRoot, jar, userAgent, target.id);
+    }
+
+    if (stillThere) {
+      throw new Error(
+        target.protected
+          ? `Não foi possível apagar "${target.name}" — playlist protegida por PIN incorreto.`
+          : `Não foi possível apagar a playlist "${target.name}".`,
+      );
+    }
   }
 }
 
