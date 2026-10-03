@@ -69,6 +69,9 @@ type LogRow = {
   is_trust?: boolean;
   // ✅ 02/10/2026: "Pagar só a pendência" no portal (payment_type=pending_charge)
   is_pending_charge?: boolean;
+  // ✅ coluna Plano/Aplicativo da linha de pendência: mostra o que foi pago
+  // de fato (app → ícone + nome; renovação em confiança → plano/telas do sino)
+  pending_display?: { kind: "app" | "plan"; title: string; subtitle: string; icon_url: string | null } | null;
   // ✅ linha de app que quitou um sino "Ativação de aplicativo"
   app_alert_label?: string | null;
   // ✅ Pagamento avulso de licença de app (25/07/2026) — nunca mexe na
@@ -636,7 +639,7 @@ function AuditoriaPageContent() {
         // licença avulsa nesta página (evita query desnecessária no caso
         // comum de só ter renovações de assinatura).
         const needsAppIcons = (paymentsData || []).some(
-          (p: any) => p.payment_type === "app_renewal",
+          (p: any) => p.payment_type === "app_renewal" || p.payment_type === "pending_charge",
         );
 
         const [clientsRes, serversRes, alertsRes, appsRes] = await Promise.all([
@@ -691,7 +694,7 @@ function AuditoriaPageContent() {
 
         const alertsMap: Record<
           string,
-          { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean }
+          { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean; planLabel?: string | null; screens?: number | null }
         > = {};
         (alertsRes.data || []).forEach((a: any) => {
           const appName = a.client_apps?.apps?.name || null;
@@ -719,6 +722,8 @@ function AuditoriaPageContent() {
             appTrust,
             appName: resolvedAppName,
             receivedNow: !!a.meta?.received_now,
+            planLabel: a.meta?.plan_label || null,
+            screens: a.meta?.screens != null ? Number(a.meta.screens) : null,
           };
         });
 
@@ -744,7 +749,7 @@ function AuditoriaPageContent() {
             : cInfo.display_name;
           const pendencies = ((r.settled_alert_ids as string[] | null) || [])
             .map((aid) => alertsMap[aid])
-            .filter((p): p is { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean } => !!p)
+            .filter((p): p is { label: string; amount: number; trust?: boolean; appTrust?: boolean; appName?: string | null; receivedNow?: boolean; planLabel?: string | null; screens?: number | null } => !!p)
             // na própria linha do app o nome já está na coluna Plano/Aplicativo
             // e o valor em cima: basta "Ativado em DD/MM"
             .map((p) =>
@@ -752,6 +757,40 @@ function AuditoriaPageContent() {
                 ? { ...p, label: p.label.replace(/^.* · ativado/, "Ativado"), trust: true }
                 : p,
             );
+          // ✅ 02/10/2026: pagamento só da pendência com 1 item — o app/plano
+          // vai na coluna Plano/Aplicativo e o valor já está em cima: fica só
+          // a data (sem valor repetido). Com vários itens mantém nome + valor.
+          const singlePending = r.payment_type === "pending_charge" && pendencies.length === 1 ? pendencies[0] : null;
+          if (singlePending) {
+            pendencies[0] = {
+              ...singlePending,
+              label: singlePending.appTrust ? singlePending.label.replace(/^.* · ativado/, "Ativado") : singlePending.label,
+              trust: true,
+            };
+          }
+          const pendingDisplay: LogRow["pending_display"] =
+            r.payment_type !== "pending_charge"
+              ? null
+              : singlePending && (singlePending.appTrust || singlePending.appName)
+                ? {
+                    kind: "app",
+                    title: "Aplicativo",
+                    subtitle: singlePending.appName || "Aplicativo",
+                    icon_url: appsIconMap[String(singlePending.appName || "").trim().toLowerCase()] ?? null,
+                  }
+                : singlePending && singlePending.planLabel != null
+                  ? {
+                      kind: "plan",
+                      title: singlePending.planLabel,
+                      subtitle: `${singlePending.screens || cInfo.screens || 1} ${(singlePending.screens || cInfo.screens || 1) === 1 ? "tela" : "telas"}`,
+                      icon_url: null,
+                    }
+                  : {
+                      kind: "plan",
+                      title: pendencies.length === 1 ? "Pendência" : "Pendências",
+                      subtitle: pendencies.length === 1 ? "1 item" : `${pendencies.length} itens`,
+                      icon_url: null,
+                    };
           const appAlert = ((r.settled_alert_ids as string[] | null) || [])
             .map((aid) => alertsMap[aid])
             .find((p) => p?.appTrust);
@@ -794,6 +833,7 @@ function AuditoriaPageContent() {
             pendencies,
             is_trust: pendencies.some((p) => p.trust),
             is_pending_charge: r.payment_type === "pending_charge",
+            pending_display: pendingDisplay,
             app_alert_label:
               r.payment_type === "app_renewal" && appAlert
                 ? appAlert.receivedNow
@@ -2127,10 +2167,14 @@ function AuditoriaPageContent() {
                             <td className="px-4 py-3 text-left">
                               <div className="flex items-center gap-3">
                                 {(() => {
+                                  const asApp =
+                                    r.payment_type === "app_renewal" || r.pending_display?.kind === "app";
                                   const iconUrl =
                                     r.payment_type === "app_renewal"
                                       ? r.app_icon_url
-                                      : r.server_logo_url;
+                                      : r.pending_display?.kind === "app"
+                                        ? r.pending_display.icon_url
+                                        : r.server_logo_url;
                                   return iconUrl ? (
   <img
     src={iconUrl}
@@ -2139,14 +2183,23 @@ function AuditoriaPageContent() {
   />
 ) : (
   <div className="w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center text-lg font-medium text-muted-foreground shrink-0">
-                                      {r.payment_type === "app_renewal"
+                                      {asApp
                                         ? "📱"
                                         : String(r.server_name || "?").charAt(0)}
                                     </div>
                                   );
                                 })()}
                                 
-                                {r.payment_type === "app_renewal" ? (
+                                {r.pending_display ? (
+                                  <div className="flex flex-col gap-0.5 items-start">
+                                    <span className="text-xs font-medium text-foreground/80">
+                                      {r.pending_display.title}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                                      {r.pending_display.subtitle}
+                                    </span>
+                                  </div>
+                                ) : r.payment_type === "app_renewal" ? (
                                   <div className="flex flex-col gap-0.5 items-start">
                                     <span className="text-xs font-medium text-foreground/80">
                                       Aplicativo
