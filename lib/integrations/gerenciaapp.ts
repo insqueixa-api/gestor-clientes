@@ -19,6 +19,8 @@
 // sem nenhum erro/aviso). Daqui pra frente, nome sem mapeamento TRAVA a
 // configuração (erro claro pro admin) em vez de adivinhar um valor — errado
 // é preferível travar a arriscar configurar o app errado de novo.
+import { addYearsToIsoDate, isoDateInSaoPaulo } from "@/lib/date-br";
+
 function getRankingAppId(appName?: string): number {
     const name = String(appName || "").trim().toUpperCase();
     if (!name) {
@@ -48,9 +50,8 @@ export const GerenciaAppIntegration = {
         // Data de 1 ano pra frente — placeholder no create; o vencimento real
         // vem depois via action:"check" (o painel não devolve vencimento de
         // verdade na resposta do create em si).
-        const today = new Date();
-        today.setFullYear(today.getFullYear() + 1);
-        const expireDate1Year = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        // ✅ 03/10/2026: a partir de hoje em São Paulo (não do fuso local)
+        const expireDate1Year = addYearsToIsoDate(isoDateInSaoPaulo(), 1);
 
         return {
             action: "create",

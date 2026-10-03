@@ -103,3 +103,14 @@ export function formatTimeBR(v: string | number | Date | null | undefined, fallb
   const d = toDateOrNull(v);
   return d ? spTimeFmt.format(d) : fallback;
 }
+
+/**
+ * Soma N anos numa data pura "AAAA-MM-DD" — só números (UTC), nunca o fuso
+ * do servidor/navegador. 29/02 + 1 ano = 01/03 (mesmo comportamento do
+ * setFullYear que era usado antes).
+ */
+export function addYearsToIsoDate(iso: string, years: number): string {
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const t = new Date(Date.UTC(y + years, m - 1, d));
+  return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+}

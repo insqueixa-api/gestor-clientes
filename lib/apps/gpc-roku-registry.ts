@@ -9,6 +9,7 @@
 // (Márcio marca manualmente quando o cliente paga por fora do Portal) —
 // nunca duplicar a query/chamada nesses 3 lugares.
 import { SupabaseClient } from "@supabase/supabase-js";
+import { addYearsToIsoDate, isoDateInSaoPaulo } from "@/lib/date-br";
 import { findFieldByType, internalAppUrl } from "@/lib/apps/panel";
 
 export type GpcRokuActivation = {
@@ -114,15 +115,13 @@ export async function renewGpcRokuOneYear(
     .maybeSingle();
 
   const current = await getGpcRokuActivation(supabaseAdmin, params.tenantId, params.macValue);
-  const todayStr = formatDateOnly(new Date());
+  // ✅ 03/10/2026: hoje em São Paulo (servidor = UTC, depois das 21h era amanhã)
+  const todayStr = isoDateInSaoPaulo();
   const baseStr =
     current?.status === "paid" && current.valid_until && current.valid_until.slice(0, 10) > todayStr
       ? current.valid_until.slice(0, 10)
       : todayStr;
-  const [by, bm, bd] = baseStr.split("-").map(Number);
-  const targetExpire = new Date(by, bm - 1, bd);
-  targetExpire.setFullYear(targetExpire.getFullYear() + 1);
-  const targetExpireDate = formatDateOnly(targetExpire);
+  const targetExpireDate = addYearsToIsoDate(baseStr, 1);
 
   let apiJson: any;
   try {

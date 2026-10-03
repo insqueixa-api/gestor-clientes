@@ -15,6 +15,7 @@
 // já trata "não estava na foto" = Ajuste) e o Executado (sempre ao vivo)
 // continua contando ela do mesmo jeito de sempre.
 import { NextRequest, NextResponse } from "next/server";
+import { toBRDateStr } from "@/lib/date-br";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isCronRequest } from "@/lib/internal-auth";
@@ -126,7 +127,9 @@ async function snapshotTenant(tenantId: string, anoMes: string, force: boolean) 
       tipo: "RECEITA",
       valor: brl,
       categoria_id: null,
-      data_vencimento: String(c.vencimento).split("T")[0],
+      // ✅ 03/10/2026: dia do vencimento em São Paulo (split("T") pegava o
+      // dia em UTC — vencimento depois das 21h caía no dia/mês seguinte)
+      data_vencimento: toBRDateStr(String(c.vencimento)),
     });
   }
 

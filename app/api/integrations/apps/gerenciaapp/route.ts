@@ -42,6 +42,7 @@
 // /users (store) clássico (X-Inertia-Version + array `playlists` no
 // payload).
 import { NextResponse } from "next/server";
+import { addYearsToIsoDate, isoDateInSaoPaulo } from "@/lib/date-br";
 import { fetch as undiciFetch } from "undici";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
@@ -476,12 +477,12 @@ export async function POST(req: Request) {
         // perde tempo já "pago"); a partir de hoje se já venceu. Mesmo
         // padrão usado no fulfillment de renovação paga
         // (lib/client-portal/fulfillment.ts).
-        const currentExpire = user.expire_account ? new Date(`${user.expire_account}T00:00:00`) : null;
-        const now = new Date();
-        const base = currentExpire && currentExpire.getTime() > now.getTime() ? currentExpire : now;
-        const next = new Date(base);
-        next.setFullYear(next.getFullYear() + 1);
-        newExpireDate = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+        // ✅ 03/10/2026: "hoje" = São Paulo (o servidor roda em UTC — depois
+        // das 21h já era amanhã); datas comparadas como texto AAAA-MM-DD.
+        const todaySP = isoDateInSaoPaulo();
+        const currentExpire = user.expire_account ? String(user.expire_account).slice(0, 10) : null;
+        const base = currentExpire && currentExpire > todaySP ? currentExpire : todaySP;
+        newExpireDate = addYearsToIsoDate(base, 1);
       }
 
       await syncPlaylists(BASE_URL, session, existing[0].id, { ...user, expire_account: newExpireDate }, playlists);
