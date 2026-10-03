@@ -166,6 +166,9 @@ export default function GpcRokuActivationsModal({
   const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const [rows, setRows] = useState<ActivationRow[]>([]);
+  // ✅ 02/10/2026: busca por nome, usuário, servidor ou MAC (MAC sem
+  // depender de ":"/maiúsculas)
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -303,6 +306,17 @@ export default function GpcRokuActivationsModal({
     }
   }
 
+  const norm = (v: unknown) => String(v ?? "").toLowerCase();
+  const macKey = (v: unknown) => String(v ?? "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const q = search.trim().toLowerCase();
+  const visibleRows = !q
+    ? rows
+    : rows.filter((row) => {
+        const serverMeta = Array.isArray(row.clients?.servers) ? row.clients?.servers[0] : row.clients?.servers;
+        const text = [row.clients?.display_name, row.clients?.server_username, serverMeta?.name].map(norm).join(" ");
+        return text.includes(q) || (macKey(q) !== "" && macKey(row.mac).includes(macKey(q)));
+      });
+
   return (
     <Modal onClose={onClose} maxWidth="max-w-3xl">
       <ModalHeader onClose={onClose}>
@@ -386,6 +400,14 @@ export default function GpcRokuActivationsModal({
           </div>
         )}
 
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nome, usuário, servidor ou MAC..."
+          className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+        />
+
         <div className="border border-border rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -409,6 +431,13 @@ export default function GpcRokuActivationsModal({
                     </td>
                   </tr>
                 )}
+                {!loading && rows.length > 0 && visibleRows.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
+                      Nenhum MAC encontrado para "{search.trim()}".
+                    </td>
+                  </tr>
+                )}
                 {!loading && rows.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
@@ -417,7 +446,7 @@ export default function GpcRokuActivationsModal({
                   </tr>
                 )}
                 {!loading &&
-                  rows.map((row) => {
+                  visibleRows.map((row) => {
                     const serverMeta = Array.isArray(row.clients?.servers) ? row.clients?.servers[0] : row.clients?.servers;
                     const isExpired = new Date(`${row.valid_until}T23:59:59`).getTime() < Date.now();
                     return (

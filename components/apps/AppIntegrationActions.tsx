@@ -105,7 +105,7 @@ export type AppIntegrationActionsProps = {
   onCheck: () => void | Promise<void>;
   onRemove?: () => void | Promise<void>;
   /** GPC Roku (achado 26/08/2026, pedido do Márcio — ver docs/sql/
-   * gpc_roku_activations.sql): botão extra "Marcar pago (10 anos)" pra
+   * gpc_roku_activations.sql): botão extra "Marcar pago" (1 ano desde 02/10/2026; antes 10 anos) pra
    * quando o cliente paga por fora do Portal. Só aparece quando informado —
    * nenhum outro app da família GerenciaApp passa isso. */
   onMarkGpcRokuPaid?: () => void | Promise<void>;
@@ -360,7 +360,7 @@ export default function AppIntegrationActions({
             onClick={() => onMarkGpcRokuPaid!()}
             disabled={loading}
             className="h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 disabled:opacity-60 transition-colors flex items-center justify-center gap-1 text-[11px] font-medium"
-            title="Cliente pagou por fora do Portal — marca como pago, validade de 10 anos"
+            title="Cliente pagou por fora do Portal — marca como pago, soma 1 ano de validade"
           >
             {loading ? <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" /> : <IconMoney />}
             <span className="hidden sm:inline">Marcar pago</span>
