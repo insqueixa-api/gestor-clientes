@@ -1,6 +1,7 @@
 "use client";
 // app/admin/settings/api-server/page.tsx
-import { Loader2, Pencil, RefreshCcw, Trash2, CreditCard } from "lucide-react";
+import { Loader2, Pencil, RefreshCcw, Trash2, CreditCard, X } from "lucide-react";
+import { formatDateBR } from "@/lib/date-br";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode, MouseEvent } from "react";
@@ -169,6 +170,12 @@ export default function ApiServerPage() {
   const appShown = appListSemParceiros.filter((r) => matchesSearch(r.label, r.app_name, r.api_url));
   const gerenciaAppShown = !!gerenciaAppRow && matchesSearch(gerenciaAppRow.label, gerenciaAppRow.app_name, "gerenciaapp");
   const proxyShown = matchesSearch("ProxyBR", "proxy");
+  // ✅ 03/10/2026 (pedido do Márcio): Parceiros em 2 por linha, nessa ordem —
+  // DupleCast, GerenciaApp / ProxyBR, AtivaApp (demais depois).
+  const partnerOrder = (provider: string) => {
+    const p = String(provider || "").toUpperCase();
+    return p === "DUPLECAST" ? "order-1" : p === "APPATIVA" ? "order-4" : "order-5";
+  };
   const [editingPartner, setEditingPartner] =
     useState<PartnerIntegration | null>(null);
   const [isModalPartnerOpen, setIsModalPartnerOpen] = useState(false);
@@ -935,12 +942,25 @@ export default function ApiServerPage() {
         </div>
 
         <div className="flex items-center gap-2 justify-end shrink-0">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar integração..."
-            className="h-9 md:h-10 w-36 sm:w-56 px-3 bg-card border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-          />
+          <div className="relative w-40 sm:w-64">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar integração..."
+              className="w-full h-9 md:h-10 px-3 pr-8 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-rose-500"
+                title="Limpar busca"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
           <div className="relative">
             <button
               onClick={() => setShowTypeChooser((v) => !v)}
@@ -1008,7 +1028,7 @@ export default function ApiServerPage() {
             </div>
           )}
           {!loading && integrations.length > 0 && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
               {integrations.filter((r) => matchesSearch(r.integration_name, r.provider)).map((row) => (
                 <div
                   key={row.id}
@@ -1181,7 +1201,7 @@ export default function ApiServerPage() {
                         </span>
                         <span className="font-medium text-foreground/90">
                           {row.credits_last_sync_at
-                            ? new Date(row.credits_last_sync_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+                            ? formatDateBR(row.credits_last_sync_at)
                             : "--"}
                         </span>
                       </div>
@@ -1224,7 +1244,7 @@ export default function ApiServerPage() {
               {partnerShown.map((row) => (
                 <div
                   key={row.id}
-                  className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30"
+                  className={`rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30 ${partnerOrder(row.provider)}`}
                 >
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
@@ -1378,7 +1398,7 @@ export default function ApiServerPage() {
                               ⏱ Último sync
                             </span>
                             <span className="font-medium text-foreground/90">
-                              {new Date(row.credits_last_sync_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                              {formatDateBR(row.credits_last_sync_at)}
                             </span>
                           </div>
                         )}
@@ -1447,7 +1467,7 @@ export default function ApiServerPage() {
                   igual Appativa/Duplecast, ao contrário dos outros apps
                   (que só configuram dispositivo do cliente). */}
               {gerenciaAppRow && gerenciaAppShown && (
-                <div className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30">
+                <div className="order-2 rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30">
                   <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                     <div className="flex items-center gap-2 min-w-0 pr-3">
                       <div
@@ -1622,7 +1642,7 @@ export default function ApiServerPage() {
                 const vencido = diasRestantes !== null && diasRestantes < 0;
                 const pertoDeVencer = diasRestantes !== null && diasRestantes >= 0 && diasRestantes <= 5;
                 return (
-                  <div className="rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30">
+                  <div className="order-3 rounded-none sm:rounded-xl overflow-hidden shadow-sm border flex flex-col transition-all bg-card border-border hover:border-emerald-500/30">
                     <div className="px-4 sm:px-5 py-3 flex justify-between items-center border-b border-border bg-transparent">
                       <div className="flex items-center gap-2 min-w-0 pr-3">
                         <div className="relative w-7 h-7 rounded-lg border border-border shrink-0 flex items-center justify-center overflow-hidden">
@@ -1783,7 +1803,7 @@ export default function ApiServerPage() {
             </div>
           )}
           {!loading && appListSemParceiros.length > 0 && (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-5">
               {appShown.map((row) => (
                 <div
                   key={row.id}
