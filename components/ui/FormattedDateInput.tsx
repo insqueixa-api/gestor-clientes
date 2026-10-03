@@ -6,11 +6,27 @@
 // value/onChange (value em ISO "AAAA-MM-DD" ou "AAAA-MM-DDTHH:MM", onChange
 // recebendo um evento com target.value), então é um substituto direto.
 
+//
+// ✅ 03/10/2026: digitação "sobrescreve no lugar" (components/ui/overwriteMask.ts)
+// — selecionar só o dia/mês/ano e digitar troca só aquele pedaço, sem deslizar
+// os outros dígitos (antes 02/10/2026 virava 10/20/2608). Setas ↑/↓ mudam o
+// pedaço onde está o cursor. "Hoje" do calendário = São Paulo, nunca o
+// fuso/idioma do navegador.
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  DATE_TEMPLATE,
+  DATETIME_TEMPLATE,
+  isoToText,
+  textToIso,
+  todaySP,
+} from "./overwriteMask";
+import { useOverwriteInput } from "./useOverwriteInput";
 
-type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
+const sp = todaySP;
+
+type InputProps = React.InputHTMLAttributes<HTMLInputElement> & { ref?: React.Ref<HTMLInputElement> };
 
 function BaseInput({ className = "", ...props }: InputProps) {
   return (
@@ -75,12 +91,12 @@ function ModalMonthPicker({
             <div className="grid grid-cols-3 gap-1.5">
               {MESES_NOME.map((mes, idx) => {
                 const isSelected = idx === mesSelecionado && ano === currentDate.getFullYear();
-                const isCurrentMonth = idx === new Date().getMonth() && ano === new Date().getFullYear();
+                const isCurrentMonth = idx === sp().m - 1 && ano === sp().y;
                 return (
                   <button
                     key={mes}
                     onClick={() => {
-                      const hoje = new Date().getDate();
+                      const hoje = sp().d;
                       const ultimoDia = new Date(ano, idx + 1, 0).getDate();
                       onSelect(new Date(ano, idx, Math.min(hoje, ultimoDia)));
                     }}
@@ -160,7 +176,7 @@ function ModalDayPicker({
               {dias.map((dia, idx) => {
                 if (!dia) return <div key={`empty-${idx}`} />;
                 const isSelected = dia === currentDate.getDate() && mes === currentDate.getMonth() && ano === currentDate.getFullYear();
-                const isToday = dia === new Date().getDate() && mes === new Date().getMonth() && ano === new Date().getFullYear();
+                const isToday = dia === sp().d && mes === sp().m - 1 && ano === sp().y;
                 return (
                   <button
                     key={idx}
@@ -211,110 +227,31 @@ export default function FormattedDateInput({
   max,
   ...props
 }: FormattedDateInputProps) {
-  const [displayValue, setDisplayValue] = useState("");
+  const template = type === "datetime-local" ? DATETIME_TEMPLATE : DATE_TEMPLATE;
+  const [displayValue, setDisplayValue] = useState(() => isoToText(template, value));
   const [showCalendar, setShowCalendar] = useState(false);
-  const maxDate = max ? new Date(`${max}T23:59:59`) : null;
 
+  // valor de fora (carregou do banco, calendário, reset) → texto
   useEffect(() => {
-    if (!value) {
-      setDisplayValue("");
+    setDisplayValue((cur) => (textToIso(template, cur) === (value || null) ? cur : isoToText(template, value)));
+  }, [value, template]);
+
+  const withinMax = (iso: string) => !max || iso.slice(0, 10) <= max;
+
+  // texto mudou → avisa o pai só com data completa e válida (ou vazio)
+  const setText = (text: string) => {
+    setDisplayValue(text);
+    if (!text) {
+      if (value) onChange({ target: { value: "" } });
       return;
     }
-    try {
-      if (type === "date") {
-        const [y, m, d] = value.split("-");
-        if (y && m && d) setDisplayValue(`${d}/${m}/${y}`);
-      } else {
-        const [datePart, timePart] = value.split("T");
-        if (datePart && timePart) {
-          const [y, m, d] = datePart.split("-");
-          if (y && m && d) setDisplayValue(`${d}/${m}/${y} ${timePart}`);
-        }
-      }
-    } catch {}
-  }, [value, type]);
-
-  const withinMax = (d: Date) => !maxDate || d.getTime() <= maxDate.getTime();
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let raw = e.target.value.replace(/\D/g, "");
-    let formatted = "";
-
-    if (type === "date") {
-      raw = raw.slice(0, 8);
-      if (raw.length > 4) {
-        formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
-      } else if (raw.length > 2) {
-        formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
-      } else {
-        formatted = raw;
-      }
-
-      setDisplayValue(formatted);
-
-      if (raw.length === 8) {
-        const d = raw.slice(0, 2);
-        const m = raw.slice(2, 4);
-        const y = raw.slice(4);
-        if (
-          Number(d) > 0 && Number(d) <= 31 &&
-          Number(m) > 0 && Number(m) <= 12 &&
-          withinMax(new Date(Number(y), Number(m) - 1, Number(d)))
-        ) {
-          onChange({ target: { value: `${y}-${m}-${d}` } });
-        }
-      } else if (raw.length === 0) {
-        onChange({ target: { value: "" } });
-      }
-    } else {
-      raw = raw.slice(0, 12);
-      if (raw.length > 10) {
-        formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4, 8)} ${raw.slice(8, 10)}:${raw.slice(10)}`;
-      } else if (raw.length > 8) {
-        formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4, 8)} ${raw.slice(8)}`;
-      } else if (raw.length > 4) {
-        formatted = `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
-      } else if (raw.length > 2) {
-        formatted = `${raw.slice(0, 2)}/${raw.slice(2)}`;
-      } else {
-        formatted = raw;
-      }
-
-      setDisplayValue(formatted);
-
-      if (raw.length === 12) {
-        const d = raw.slice(0, 2);
-        const m = raw.slice(2, 4);
-        const y = raw.slice(4, 8);
-        const hh = raw.slice(8, 10);
-        const mm = raw.slice(10, 12);
-        if (Number(d) <= 31 && Number(m) <= 12 && Number(hh) <= 23 && Number(mm) <= 59) {
-          onChange({ target: { value: `${y}-${m}-${d}T${hh}:${mm}` } });
-        }
-      } else if (raw.length === 0) {
-        onChange({ target: { value: "" } });
-      }
-    }
+    const iso = textToIso(template, text);
+    if (iso && withinMax(iso) && iso !== value) onChange({ target: { value: iso } });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!value) return;
-    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-      e.preventDefault();
-      if (type === "date") {
-        const [y, m, d] = value.split("-");
-        const newY = parseInt(y, 10) + (e.key === "ArrowUp" ? 1 : -1);
-        if (withinMax(new Date(newY, Number(m) - 1, Number(d)))) {
-          onChange({ target: { value: `${newY}-${m}-${d}` } });
-        }
-      } else {
-        const [datePart, timePart] = value.split("T");
-        const [y, m, d] = datePart.split("-");
-        const newY = parseInt(y, 10) + (e.key === "ArrowUp" ? 1 : -1);
-        onChange({ target: { value: `${newY}-${m}-${d}T${timePart}` } });
-      }
-    }
-  };
+  const input = useOverwriteInput({ template, text: displayValue, setText, allowStep: true });
+  const complete = displayValue.length === template.length;
+  const invalid = complete && (!textToIso(template, displayValue) || !withinMax(textToIso(template, displayValue) || ""));
 
   const getCurrentDateForPicker = () => {
     if (!value) return new Date();
@@ -328,15 +265,15 @@ export default function FormattedDateInput({
   };
 
   const handleDateSelect = (date: Date) => {
-    if (!withinMax(date)) return;
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, "0");
     const d = String(date.getDate()).padStart(2, "0");
 
+    if (!withinMax(`${y}-${m}-${d}`)) return;
     if (type === "date") {
       onChange({ target: { value: `${y}-${m}-${d}` } });
     } else {
-      const timePart = value && value.includes("T") ? value.split("T")[1] : "00:00";
+      const timePart = value && value.includes("T") ? value.split("T")[1].slice(0, 5) : "00:00";
       onChange({ target: { value: `${y}-${m}-${d}T${timePart}` } });
     }
     setShowCalendar(false);
@@ -345,15 +282,19 @@ export default function FormattedDateInput({
   return (
     <div className="relative w-full flex items-center">
       <BaseInput
-        type="text"
-        value={displayValue}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        placeholder={type === "date" ? "DD/MM/AAAA" : "DD/MM/AAAA HH:MM"}
-        className={`${className} pr-10`}
-        maxLength={type === "date" ? 10 : 16}
-        title="Dica: Pressione Seta para Cima para adicionar +1 Ano rapidamente"
         {...props}
+        ref={input.ref}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        value={displayValue}
+        onChange={input.onChange}
+        onKeyDown={input.onKeyDown}
+        onPaste={input.onPaste}
+        placeholder={type === "date" ? "DD/MM/AAAA" : "DD/MM/AAAA HH:MM"}
+        className={`${className} pr-10 ${invalid ? "!border-rose-500" : ""}`}
+        maxLength={template.length}
+        title={invalid ? "Data inválida" : "Selecione o dia, o mês ou o ano e digite só aquele pedaço · Setas ↑/↓ mudam o pedaço do cursor"}
       />
 
       <button

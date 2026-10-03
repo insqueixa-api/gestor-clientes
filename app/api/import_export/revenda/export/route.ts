@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveAdminTenant } from "@/lib/api/auth-server";
 import * as XLSX from "xlsx";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 
 export const dynamic = "force-dynamic";
 
@@ -131,8 +132,7 @@ const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
     XLSX.utils.book_append_sheet(workbook, worksheet, "Revendedores");
 
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
-    const now = new Date();
-    const filename = `Exportacao_Revendedores_${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}.xlsx`;
+    const filename = `Exportacao_Revendedores_${isoDateInSaoPaulo()}.xlsx`;
 
     return new NextResponse(buffer, {
       status: 200, headers: { "Content-Disposition": `attachment; filename="${filename}"`, "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Cache-Control": "no-store" },

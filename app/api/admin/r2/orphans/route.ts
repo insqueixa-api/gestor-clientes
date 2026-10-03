@@ -23,6 +23,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { isCronRequest } from "@/lib/internal-auth";
 import { R2_DELETABLE_FOLDERS } from "@/lib/r2-folders";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -92,7 +93,7 @@ async function scan() {
     orfaos.push({
       key: o.Key,
       kb: Math.round(o.Size / 1024),
-      data: o.LastModified ? o.LastModified.toISOString().slice(0, 10) : null,
+      data: o.LastModified ? isoDateInSaoPaulo(o.LastModified) : null,
     });
   }
 

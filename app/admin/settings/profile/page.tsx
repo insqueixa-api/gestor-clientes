@@ -19,6 +19,7 @@ import ToastNotifications, {
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 import {
   MUSCLE_GROUP_LABELS,
   getExerciseById,
@@ -178,7 +179,14 @@ type WorkoutPlan = {
 };
 
 function todayIso() {
-  return new Date().toISOString().split("T")[0];
+  return isoDateInSaoPaulo();
+}
+
+// Soma dias a uma data "AAAA-MM-DD" sem depender do fuso do navegador.
+function shiftIsoDate(iso: string, days: number) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
 function WorkoutStyleSection({
@@ -310,7 +318,7 @@ export default function ProfileSettingsPage() {
   const [showAllHealthRecords, setShowAllHealthRecords] = useState(false); // NOVO: Controla a lista
   const [showSettingsDropdown, setShowSettingsDropdown] = useState(false); // NOVO: Controla a engrenagem
   const [newHealthEntry, setNewHealthEntry] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: isoDateInSaoPaulo(),
     weight: "",
   });
 
@@ -697,11 +705,11 @@ async function handleSave() {
   const workoutStreak = useMemo(() => {
     const set = new Set(workoutCheckins);
     let streak = 0;
-    const d = new Date();
-    if (!set.has(todayIso())) d.setDate(d.getDate() - 1);
-    while (set.has(d.toISOString().split("T")[0])) {
+    let cur = todayIso();
+    if (!set.has(cur)) cur = shiftIsoDate(cur, -1);
+    while (set.has(cur)) {
       streak++;
-      d.setDate(d.getDate() - 1);
+      cur = shiftIsoDate(cur, -1);
     }
     return streak;
   }, [workoutCheckins]);
@@ -714,11 +722,9 @@ async function handleSave() {
   const last28Days = useMemo(() => {
     const set = new Set(workoutCheckins);
     const days: { iso: string; checked: boolean }[] = [];
-    const base = new Date();
+    const base = todayIso();
     for (let i = 27; i >= 0; i--) {
-      const dt = new Date(base);
-      dt.setDate(base.getDate() - i);
-      const iso = dt.toISOString().split("T")[0];
+      const iso = shiftIsoDate(base, -i);
       days.push({ iso, checked: set.has(iso) });
     }
     return days;
@@ -756,7 +762,7 @@ async function handleSave() {
     }
 
     setHealthHistory(updatedHistory);
-    setNewHealthEntry({ date: new Date().toISOString().split("T")[0], weight: "" });
+    setNewHealthEntry({ date: isoDateInSaoPaulo(), weight: "" });
     setShowHealthForm(false);
 
     setSaving(true);
@@ -1582,7 +1588,7 @@ async function handleSave() {
                     setShowHealthForm(false);
                     setEditingHealthId(null);
                     setNewHealthEntry({
-                      date: new Date().toISOString().split("T")[0],
+                      date: isoDateInSaoPaulo(),
                       weight: "",
                     });
                   } else {
@@ -1608,7 +1614,7 @@ async function handleSave() {
                     <Label>Data da Medição</Label>
                     <FormattedDateInput
                       type="date"
-                      max={new Date().toISOString().slice(0, 10)}
+                      max={isoDateInSaoPaulo()}
                       value={newHealthEntry.date}
                       onChange={(e) =>
                         setNewHealthEntry({
@@ -1641,7 +1647,7 @@ async function handleSave() {
                       setShowHealthForm(false);
                       setEditingHealthId(null);
                       setNewHealthEntry({
-                        date: new Date().toISOString().split("T")[0],
+                        date: isoDateInSaoPaulo(),
                         weight: "",
                       });
                     }}

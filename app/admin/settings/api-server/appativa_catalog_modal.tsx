@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, RefreshCcw, Download, Search } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { formatDateTimeBR, isoDateInSaoPaulo } from "@/lib/date-br";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 type AppativaCatalogItem = {
@@ -95,7 +96,7 @@ export default function AppativaCatalogModal({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `appativa-catalogo-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `appativa-catalogo-${isoDateInSaoPaulo()}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -113,7 +114,7 @@ export default function AppativaCatalogModal({
             ? "Carregando..."
             : `${items.length} aplicativo(s) no catálogo do parceiro`}
           {!loading && lastSyncAt && (
-            <> · sincronizado em {new Date(lastSyncAt).toLocaleString("pt-BR")}</>
+            <> · sincronizado em {formatDateTimeBR(lastSyncAt)}</>
           )}
           {!loading && !lastSyncAt && <> · nunca sincronizado</>}
         </p>

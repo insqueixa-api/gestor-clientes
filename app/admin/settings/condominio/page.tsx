@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { formatDateBR, formatDateTimeBR } from "@/lib/date-br";
 import { richTextToPlain } from "@/lib/rich-text/sanitize";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -696,20 +697,20 @@ export default function CondominioPage() {
                               acima), independente de ela entrar em alguma
                               Edição (que tem seu próprio published_at). */}
                           <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground pt-1 border-t border-border/50">
-                            <span title={new Date(item.created_at).toLocaleString("pt-BR")}>
-                              Criado: {new Date(item.created_at).toLocaleDateString("pt-BR")}
+                            <span title={formatDateTimeBR(item.created_at)}>
+                              Criado: {formatDateBR(item.created_at)}
                             </span>
                             {item.updated_at && item.updated_at !== item.created_at && (
-                              <span title={new Date(item.updated_at).toLocaleString("pt-BR")}>
-                                · Atualizado: {new Date(item.updated_at).toLocaleDateString("pt-BR")}
+                              <span title={formatDateTimeBR(item.updated_at)}>
+                                · Atualizado: {formatDateBR(item.updated_at)}
                               </span>
                             )}
                             {item.published_at && (
                               <span
                                 className="text-sky-500 font-medium"
-                                title={new Date(item.published_at).toLocaleString("pt-BR")}
+                                title={formatDateTimeBR(item.published_at)}
                               >
-                                · Publicado: {new Date(item.published_at).toLocaleDateString("pt-BR")}
+                                · Publicado: {formatDateBR(item.published_at)}
                               </span>
                             )}
                           </div>

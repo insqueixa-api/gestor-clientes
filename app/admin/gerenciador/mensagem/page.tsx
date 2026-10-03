@@ -8,6 +8,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
+import { formatDateBR } from "@/lib/date-br";
 import {
   type MessageTemplate,
   MESSAGE_CATEGORIES,
@@ -436,9 +437,7 @@ export default function MessagesPage() {
                             </div>
                             <div className="mt-0.5 text-[10px] text-muted-foreground ml-4">
                               Atualizado:{" "}
-                              {new Date(msg.updated_at).toLocaleDateString(
-                                "pt-BR",
-                              )}
+                              {formatDateBR(msg.updated_at)}
                             </div>
                           </div>
                           <div className="flex items-center justify-end gap-1 shrink-0">

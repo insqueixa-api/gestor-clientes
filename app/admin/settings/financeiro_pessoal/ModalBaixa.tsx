@@ -5,10 +5,10 @@
 // o admin abre.
 import { useState, useEffect, useMemo } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { formatDateShortBR, isoDateInSaoPaulo, toBRDateStr } from "@/lib/date-br";
 import {
   Modal,
-  IconCalendar,
-  ModalDayPicker,
   distribuirCentavos,
   type Transacao,
 } from "./shared";
@@ -21,17 +21,9 @@ type ParcelaPendente = {
   data_vencimento: string;
 };
 
+// "DD/MM" — data sem hora pelos números, timestamp no dia de São Paulo.
 function formatDataCurta(input: string): string {
-  let d = new Date(input);
-  if (input.length === 10 && input.includes("-")) {
-    d = new Date(`${input}T12:00:00-03:00`);
-  }
-  if (isNaN(d.getTime())) return input;
-  return d.toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "America/Sao_Paulo",
-  });
+  return formatDateShortBR(input, input);
 }
 
 export default function ModalBaixa({
@@ -78,67 +70,18 @@ export default function ModalBaixa({
   const [escopo, setEscopo] = useState<"UNICA" | "TODAS">("UNICA");
 
   // Data de pagamento
-  const isoToRaw = (iso: string) =>
-    iso ? iso.split("-").reverse().join("") : "";
-  const rawToDisplay = (raw: string) => {
-    if (raw.length >= 5)
-      return raw.slice(0, 2) + "/" + raw.slice(2, 4) + "/" + raw.slice(4);
-    if (raw.length >= 3) return raw.slice(0, 2) + "/" + raw.slice(2);
-    return raw;
-  };
-  // ✅ A posição do cursor não pode ser copiada 1:1 do texto sem máscara pro
-  // texto com "/" — a barra desloca tudo que vem depois dela. Sem isso, o
-  // cursor ficava preso antes do último dígito digitado (em vez de depois),
-  // e o próximo caractere digitado entrava fora de ordem (ex: tentar digitar
-  // "12" resultava em "21").
-  const posAposNDigitos = (display: string, n: number) => {
-    if (n <= 0) return 0;
-    let contados = 0;
-    for (let i = 0; i < display.length; i++) {
-      if (/\d/.test(display[i])) {
-        contados++;
-        if (contados === n) return i + 1;
-      }
-    }
-    return display.length;
-  };
 
   const initDateIso = (() => {
     if (!isBaixando && transacao.data_pagamento) {
-      const dt = new Date(transacao.data_pagamento);
-      const d = String(dt.getDate()).padStart(2, "0");
-      const m = String(dt.getMonth() + 1).padStart(2, "0");
-      return `${dt.getFullYear()}-${m}-${d}`;
+      // dia do pagamento em São Paulo (não no fuso do navegador)
+      return toBRDateStr(transacao.data_pagamento);
     }
-    const t = new Date();
-    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+    return isoDateInSaoPaulo();
   })();
 
   const [dataPagamento, setDataPagamento] = useState(initDateIso);
-  const [rawDigits, setRawDigits] = useState(isoToRaw(initDateIso));
-  const [showPicker, setShowPicker] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
-  const handleDigitsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target;
-    const cursorPos = input.selectionStart ?? input.value.length;
-    const digitsAntesDoCursor = input.value
-      .slice(0, cursorPos)
-      .replace(/\D/g, "").length;
-
-    const raw = input.value.replace(/\D/g, "").slice(0, 8);
-    setRawDigits(raw);
-    if (raw.length === 8) {
-      const d = raw.slice(0, 2),
-        m = raw.slice(2, 4),
-        y = raw.slice(4);
-      setDataPagamento(`${y}-${m}-${d}`);
-    }
-    const novaPos = posAposNDigitos(rawToDisplay(raw), digitsAntesDoCursor);
-    requestAnimationFrame(() => {
-      if (input) input.setSelectionRange(novaPos, novaPos);
-    });
-  };
 
   async function handleSave() {
     setSalvando(true);
@@ -146,7 +89,7 @@ export default function ModalBaixa({
       const novoStatus = isBaixando ? "PAGO" : "PENDENTE";
       const novoValor = rawCents / 100;
       const novaDataPagamento = isBaixando
-        ? new Date(`${dataPagamento}T12:00:00`).toISOString()
+        ? new Date(`${dataPagamento}T12:00:00-03:00`).toISOString()
         : null;
 
       // Atualiza a transação atual sempre
@@ -271,10 +214,6 @@ export default function ModalBaixa({
     transacao.conta_id || (contasDB[0]?.id ?? ""),
   );
   const [dataAntecipar, setDataAntecipar] = useState(initDateIso);
-  const [rawDigitsAntecipar, setRawDigitsAntecipar] = useState(
-    isoToRaw(initDateIso),
-  );
-  const [showPickerAntecipar, setShowPickerAntecipar] = useState(false);
   const [salvandoAntecipar, setSalvandoAntecipar] = useState(false);
 
   useEffect(() => {
@@ -332,28 +271,6 @@ export default function ModalBaixa({
     [rawCentsAntecipar, selecionadas.length],
   );
 
-  const handleDigitsChangeAntecipar = (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const input = e.target;
-    const cursorPos = input.selectionStart ?? input.value.length;
-    const digitsAntesDoCursor = input.value
-      .slice(0, cursorPos)
-      .replace(/\D/g, "").length;
-
-    const raw = input.value.replace(/\D/g, "").slice(0, 8);
-    setRawDigitsAntecipar(raw);
-    if (raw.length === 8) {
-      const d = raw.slice(0, 2),
-        m = raw.slice(2, 4),
-        y = raw.slice(4);
-      setDataAntecipar(`${y}-${m}-${d}`);
-    }
-    const novaPos = posAposNDigitos(rawToDisplay(raw), digitsAntesDoCursor);
-    requestAnimationFrame(() => {
-      if (input) input.setSelectionRange(novaPos, novaPos);
-    });
-  };
 
   function abrirAntecipar() {
     setValorAntecTocado(false);
@@ -365,7 +282,7 @@ export default function ModalBaixa({
     setSalvandoAntecipar(true);
     try {
       const novaDataPagamento = new Date(
-        `${dataAntecipar}T12:00:00`,
+        `${dataAntecipar}T12:00:00-03:00`,
       ).toISOString();
 
       const results = await Promise.all(
@@ -649,43 +566,15 @@ export default function ModalBaixa({
                 <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Data de Pagamento
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={rawToDisplay(rawDigitsAntecipar)}
-                    onChange={handleDigitsChangeAntecipar}
-                    onFocus={(e) => e.target.select()}
-                    placeholder="DD/MM/AAAA"
-                    maxLength={10}
-                    className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPickerAntecipar(true)}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
-                  >
-                    <IconCalendar />
-                  </button>
-                </div>
-                {showPickerAntecipar && (
-                  <ModalDayPicker
-                    currentDate={
-                      dataAntecipar
-                        ? new Date(`${dataAntecipar}T12:00:00`)
-                        : new Date()
-                    }
-                    onSelect={(date) => {
-                      const d = String(date.getDate()).padStart(2, "0");
-                      const m = String(date.getMonth() + 1).padStart(2, "0");
-                      const y = date.getFullYear();
-                      setDataAntecipar(`${y}-${m}-${d}`);
-                      setRawDigitsAntecipar(`${d}${m}${y}`);
-                      setShowPickerAntecipar(false);
-                    }}
-                    onClose={() => setShowPickerAntecipar(false)}
-                  />
-                )}
+                {/* vazio não apaga a data (mantém a última completa, como antes) */}
+                <FormattedDateInput
+                  type="date"
+                  value={dataAntecipar}
+                  onChange={(e) => {
+                    if (e.target.value) setDataAntecipar(e.target.value);
+                  }}
+                  onFocus={(e: React.FocusEvent<HTMLInputElement>) => e.target.select()}
+                />
               </div>
 
               <div>
@@ -816,43 +705,15 @@ export default function ModalBaixa({
               <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                 Data de Pagamento
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={rawToDisplay(rawDigits)}
-                  onChange={handleDigitsChange}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="DD/MM/AAAA"
-                  maxLength={10}
-                  className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPicker(true)}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
-                >
-                  <IconCalendar />
-                </button>
-              </div>
-              {showPicker && (
-                <ModalDayPicker
-                  currentDate={
-                    dataPagamento
-                      ? new Date(`${dataPagamento}T12:00:00`)
-                      : new Date()
-                  }
-                  onSelect={(date) => {
-                    const d = String(date.getDate()).padStart(2, "0");
-                    const m = String(date.getMonth() + 1).padStart(2, "0");
-                    const y = date.getFullYear();
-                    setDataPagamento(`${y}-${m}-${d}`);
-                    setRawDigits(`${d}${m}${y}`);
-                    setShowPicker(false);
-                  }}
-                  onClose={() => setShowPicker(false)}
-                />
-              )}
+              {/* vazio não apaga a data (mantém a última completa, como antes) */}
+              <FormattedDateInput
+                type="date"
+                value={dataPagamento}
+                onChange={(e) => {
+                  if (e.target.value) setDataPagamento(e.target.value);
+                }}
+                onFocus={(e: React.FocusEvent<HTMLInputElement>) => e.target.select()}
+              />
             </div>
           )}
 

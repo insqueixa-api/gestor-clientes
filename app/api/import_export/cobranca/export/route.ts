@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveAdminTenant } from "@/lib/api/auth-server";
 import * as XLSX from "xlsx";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export async function GET(req: Request) {
   XLSX.utils.book_append_sheet(workbook, worksheet, "Automações");
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-  const filename = `automacoes_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const filename = `automacoes_${isoDateInSaoPaulo()}.xlsx`;
 
   return new NextResponse(buffer, {
     status: 200,

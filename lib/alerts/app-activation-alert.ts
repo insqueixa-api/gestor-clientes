@@ -7,6 +7,7 @@
 // depois de ativar/renovar app pelo admin (AppTrustPrompt).
 // docs/alertas-confianca/PLANO.md
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { formatDateBR } from "@/lib/date-br";
 
 export type AppCouponInput = {
   code: string;
@@ -16,7 +17,7 @@ export type AppCouponInput = {
 
 export function appActivationMessage(appName: string, dateISO: string) {
   if (!appName) return "";
-  const datePart = dateISO ? new Date(`${dateISO}T12:00:00`).toLocaleDateString("pt-BR") : "";
+  const datePart = dateISO ? formatDateBR(dateISO, "") : "";
   return datePart ? `Ativação de aplicativo: "${appName}" - dia ${datePart}` : `Ativação de aplicativo: "${appName}"`;
 }
 

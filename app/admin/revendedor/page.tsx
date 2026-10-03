@@ -27,6 +27,7 @@ import {
   ModalBody,
 } from "@/components/ui/Modal";
 import { Dropdown } from "@/components/ui/Dropdown";
+import { formatDateTimeBR } from "@/lib/date-br";
 
 // --- HOOKS CUSTOMIZADOS ---
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ ADICIONADO: Importação obrigatória
@@ -1829,7 +1830,7 @@ export default function RevendaPage() {
                         <div className="text-xs font-extrabold text-muted-foreground flex items-center gap-2">
                           <IconClock />
                           <span>
-                            {new Date(s.send_at).toLocaleString("pt-BR")}
+                            {formatDateTimeBR(s.send_at)}
                           </span>
                           {s.status ? (
                             <span className="text-[10px] opacity-60 ml-1">

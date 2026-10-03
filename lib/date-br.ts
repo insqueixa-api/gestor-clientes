@@ -25,3 +25,81 @@ export function toBRDateStr(iso: string): string {
 export function isoDateInSaoPaulo(d: Date = new Date()): string {
   return brDateFormatter.format(d);
 }
+
+// ------------------------------------------------------------------
+// ✅ 03/10/2026, pedido do Márcio: exibição SEMPRE em pt-BR e no horário de
+// São Paulo — nunca no idioma/fuso do navegador (navegador em inglês trocava
+// dia e mês: 08/09 virava 09/08). Use estes helpers em vez de
+// toLocaleDateString()/toLocaleString() soltos.
+// ------------------------------------------------------------------
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+const spDateFmt = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+const spDateShortFmt = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+});
+const spDateTimeFmt = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+const spTimeFmt = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+function toDateOrNull(v: string | number | Date | null | undefined): Date | null {
+  if (v == null || v === "") return null;
+  const d = v instanceof Date ? v : new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * "DD/MM/AAAA". Data sem hora ("2026-10-02", coluna date) é formatada pelos
+ * números, SEM passar por fuso (new Date("2026-10-02") é meia-noite UTC = dia
+ * anterior em SP). Timestamp → dia em São Paulo. Inválido/vazio → fallback.
+ */
+export function formatDateBR(v: string | number | Date | null | undefined, fallback = "—"): string {
+  if (typeof v === "string") {
+    const m = v.match(DATE_ONLY_RE);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  const d = toDateOrNull(v);
+  return d ? spDateFmt.format(d) : fallback;
+}
+
+/** "DD/MM" (mesmas regras de formatDateBR). */
+export function formatDateShortBR(v: string | number | Date | null | undefined, fallback = "—"): string {
+  if (typeof v === "string") {
+    const m = v.match(DATE_ONLY_RE);
+    if (m) return `${m[3]}/${m[2]}`;
+  }
+  const d = toDateOrNull(v);
+  return d ? spDateShortFmt.format(d) : fallback;
+}
+
+/** "DD/MM/AAAA HH:MM" em São Paulo (24h). Data sem hora → só a data. */
+export function formatDateTimeBR(v: string | number | Date | null | undefined, fallback = "—"): string {
+  if (typeof v === "string" && DATE_ONLY_RE.test(v)) return formatDateBR(v, fallback);
+  const d = toDateOrNull(v);
+  return d ? spDateTimeFmt.format(d).replace(",", "") : fallback;
+}
+
+/** "HH:MM" em São Paulo (24h). */
+export function formatTimeBR(v: string | number | Date | null | undefined, fallback = "—"): string {
+  const d = toDateOrNull(v);
+  return d ? spTimeFmt.format(d) : fallback;
+}

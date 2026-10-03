@@ -1,6 +1,6 @@
 // components/charts/evolucao-chart.tsx
 import { EvolucaoFinanceiraClient } from "./evolucao-client";
-import { toBRDateStr } from "@/lib/date-br";
+import { isoDateInSaoPaulo, toBRDateStr } from "@/lib/date-br";
 
 export type MonthData = {
   label: string;
@@ -54,12 +54,13 @@ export default function EvolucaoFinanceira({
   const snapData = snapshot;
 
   // 1. Gerar os últimos 12 meses
-  const today = new Date();
+  // Mês atual no fuso de São Paulo (não do navegador/servidor).
+  const [todayYearSP, todayMonthSP] = isoDateInSaoPaulo().split("-").map(Number);
   const months: { label: string; key: string; start: string; end: string }[] =
     [];
 
   for (let i = 11; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const d = new Date(todayYearSP, todayMonthSP - 1 - i, 1);
     const y = d.getFullYear();
     const m = d.getMonth() + 1;
     const lastDay = new Date(y, m, 0).getDate();

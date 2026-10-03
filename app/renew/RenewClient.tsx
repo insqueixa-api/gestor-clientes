@@ -24,6 +24,7 @@ import AppPickerModal from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
 import { PORTAL_ADD_APP_HIDDEN, PORTAL_APPS_DISABLED } from "@/lib/apps/portal-apps-flag";
 import { normalizeMacInput } from "@/lib/apps/field-types";
+import { formatDateBR, formatDateTimeBR } from "@/lib/date-br";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
 // consulta espera mais (a pessoa ainda precisa abrir o banco e pagar),
@@ -354,7 +355,7 @@ type PendencyItem = {
 // aberto" e no aviso "Pendência identificada" (antes do Renovar).
 function pendencyDescription(it: PendencyItem): { title: string; detail: string } {
   const fmtDate = (d?: string | null) =>
-    d ? new Date(`${String(d).slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "";
+    d ? formatDateBR(String(d), "") : "";
   if (it.kind === "renewal_trust") {
     const screens = Number(it.meta?.screens || 1);
     const renewed = fmtDate(it.meta?.renewal_date);
@@ -4572,11 +4573,7 @@ export default function RenewClient() {
                                     Novo vencimento
                                   </p>
                                   <p className="text-sm font-bold text-emerald-600">
-                                    {String(renewPaymentNewDate)
-                                      .split("T")[0]
-                                      .split("-")
-                                      .reverse()
-                                      .join("/")}
+                                    {formatDateBR(renewPaymentNewDate)}
                                   </p>
                                 </div>
                               </>
@@ -5356,7 +5353,7 @@ export default function RenewClient() {
                                   ? "bg-amber-500/10 text-amber-600"
                                   : "bg-sky-500/10 text-sky-600"
                               }`}
-                              title={app.m3u_list_at ? `Configurado em ${new Date(app.m3u_list_at).toLocaleString("pt-BR")}` : undefined}
+                              title={app.m3u_list_at ? `Configurado em ${formatDateTimeBR(app.m3u_list_at)}` : undefined}
                             >
                               Lista {app.m3u_list === "secundaria" ? "Secundária" : "Principal"}
                             </span>

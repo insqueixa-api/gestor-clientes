@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveAdminTenant } from "@/lib/api/auth-server";
 import * as XLSX from "xlsx";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 
 // Labels fixos — espelha FIELD_LABELS do front
 const FIELD_LABELS: Record<string, string> = {
@@ -70,11 +71,7 @@ export async function GET(req: Request) {
   }
   const tenant_id = resolved.tenant_id;
 
-  const now = new Date();
-  const y = now.getFullYear();
-  const mo = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const filename = `aplicativos_${y}-${mo}-${d}.xlsx`;
+  const filename = `aplicativos_${isoDateInSaoPaulo()}.xlsx`;
 
   const allHeaders = [...FIXED_HEADERS, ...FIELD_TYPE_ORDER.map((t) => FIELD_LABELS[t])];
 

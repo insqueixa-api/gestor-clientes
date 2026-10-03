@@ -101,12 +101,6 @@ const PLAN_MONTHS: Record<string, number> = {
 };
 
 // Helpers
-function getLocalISOString() {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  return now.toISOString().slice(0, 16);
-}
-
 function fmtMoney(currency: string, n: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -374,7 +368,11 @@ export default function RecargaCliente({
   // Portal nem saldo): cria o sino "Renovação em confiança" (renew_client_trust).
   const [trustMode, setTrustMode] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("PIX");
-  const [payDate, setPayDate] = useState(getLocalISOString());
+  const [payDate, setPayDate] = useState(() => {
+    // "Agora" em São Paulo, não no fuso do navegador.
+    const p = nowInSaoPauloParts();
+    return `${p.dateISO}T${p.timeHHmm}`;
+  });
 
   // ✅ MENSAGENS E WHATSAPP (Estados que faltavam)
   const [sendWhats, setSendWhats] = useState(true);

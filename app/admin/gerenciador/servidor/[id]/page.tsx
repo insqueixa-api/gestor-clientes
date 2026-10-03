@@ -14,6 +14,7 @@ const RecargaServidorModal = dynamic(() => import("../recarga_servidor"), {
 import type { ServerRow } from "../page";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
+import { formatDateTimeBR, isoDateInSaoPaulo } from "@/lib/date-br";
 
 // --- Tipagens ---
 
@@ -58,7 +59,11 @@ export default function ServerDetailsPage() {
   const [clientRenewals, setClientRenewals] = useState<any[]>([]);
 
   // Filtros
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  // Mês inicial = mês de "hoje" em São Paulo (dia 1, evita estouro 31→mês seguinte).
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const [y, m] = isoDateInSaoPaulo().split("-").map(Number);
+    return new Date(y, m - 1, 1);
+  });
 
   // ✅ NOVO: Estados para os Filtros da Tabela
   const [searchTerm, setSearchTerm] = useState("");
@@ -162,19 +167,18 @@ export default function ServerDetailsPage() {
       if (!tenantId) throw new Error("Tenant não encontrado");
       const supabase = supabaseBrowser;
 
-      const startOfMonth = new Date(
+      // Limites do mês no horário de São Paulo (não no fuso do navegador).
+      const monthStartSP = (y: number, m0: number) => {
+        const yy = y + Math.floor(m0 / 12);
+        const mm = ((m0 % 12) + 12) % 12;
+        return new Date(`${yy}-${String(mm + 1).padStart(2, "0")}-01T00:00:00-03:00`);
+      };
+      const startOfMonth = monthStartSP(
         selectedDate.getFullYear(),
         selectedDate.getMonth(),
-        1,
       ).toISOString();
       const endOfMonth = new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth() + 1,
-        0,
-        23,
-        59,
-        59,
-        999,
+        monthStartSP(selectedDate.getFullYear(), selectedDate.getMonth() + 1).getTime() - 1,
       ).toISOString();
 
       // ✅ Nenhuma dessas 6 depende do resultado das outras (só de serverId/
@@ -527,13 +531,7 @@ export default function ServerDetailsPage() {
       currency: "BRL",
     }).format(val);
   const fmtInt = (val: number) => new Intl.NumberFormat("pt-BR").format(val);
-  const fmtDate = (d: string) =>
-    new Date(d).toLocaleDateString("pt-BR") +
-    " " +
-    new Date(d).toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const fmtDate = (d: string) => formatDateTimeBR(d, "");
 
   if (loading && !server)
     return (

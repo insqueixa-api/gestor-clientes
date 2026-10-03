@@ -25,6 +25,7 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { Dropdown } from "@/components/ui/Dropdown";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { formatDateBR, isoDateInSaoPaulo } from "@/lib/date-br";
 
 type PickedClient = { id: string; display_name: string; username: string | null };
 
@@ -44,8 +45,11 @@ type ActivationRow = {
   } | null;
 };
 
-function formatDateOnly(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// "Hoje" em São Paulo (não no fuso do navegador) + 1 ano, como YYYY-MM-DD.
+// Date.UTC normaliza 29/02 → 01/03 (mesmo comportamento do setFullYear antigo).
+function oneYearFromTodaySP(): string {
+  const [y, m, d] = isoDateInSaoPaulo().split("-").map(Number);
+  return new Date(Date.UTC(y + 1, m - 1, d)).toISOString().slice(0, 10);
 }
 
 function normalizeMac(mac: string): string {
@@ -211,9 +215,7 @@ export default function GpcRokuActivationsModal({
 
   function openAddForm() {
     resetForm();
-    const target = new Date();
-    target.setFullYear(target.getFullYear() + 1);
-    setValidUntilInput(formatDateOnly(target));
+    setValidUntilInput(oneYearFromTodaySP());
     setShowAddForm(true);
   }
 
@@ -448,7 +450,8 @@ export default function GpcRokuActivationsModal({
                 {!loading &&
                   visibleRows.map((row) => {
                     const serverMeta = Array.isArray(row.clients?.servers) ? row.clients?.servers[0] : row.clients?.servers;
-                    const isExpired = new Date(`${row.valid_until}T23:59:59`).getTime() < Date.now();
+                    // Venceu quando "hoje" em SP já passou do valid_until (date), sem depender do fuso do navegador.
+                    const isExpired = String(row.valid_until).slice(0, 10) < isoDateInSaoPaulo();
                     return (
                       <tr key={row.id} className="hover:bg-muted/30">
                         <td className="px-3 py-2 font-medium text-foreground/90">
@@ -473,7 +476,7 @@ export default function GpcRokuActivationsModal({
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">{row.activated_by || "—"}</td>
                         <td className="px-3 py-2 text-muted-foreground">
-                          {new Date(row.activated_at).toLocaleDateString("pt-BR")}
+                          {formatDateBR(row.activated_at)}
                         </td>
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-1 justify-end">

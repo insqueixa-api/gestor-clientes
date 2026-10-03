@@ -316,11 +316,14 @@ export default async function AdminDashboardPage({
   let expensesPrevMonthVal = 0;
 
   const today = todayInSaoPaulo();
+  // Mês da compra em São Paulo (o servidor roda em UTC: getMonth() puro
+  // jogava compra das 21h-24h do último dia no mês seguinte).
+  const todayMonthKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}`;
   for (const row of purchasesRows) {
     const d = new Date(row.created_at);
     if (
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear()
+      !Number.isNaN(d.getTime()) &&
+      toBRDateStr(row.created_at).slice(0, 7) === todayMonthKey
     ) {
       expensesMonthVal += toNumber(row.total_amount_brl);
     } else {

@@ -44,6 +44,7 @@ import GpcRokuActivationsModal from "./gpc_roku_activations_modal";
 import DeviceBadges from "@/components/apps/DeviceBadges";
 import TierStars from "@/components/apps/TierStars";
 import FloatingPanel from "@/components/ui/FloatingPanel";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 import {
   type AppativaCatalogItem,
   type AppativaMeta,
@@ -1562,7 +1563,7 @@ export default function AppManagerPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `meu-catalogo-apps-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `meu-catalogo-apps-${isoDateInSaoPaulo()}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();

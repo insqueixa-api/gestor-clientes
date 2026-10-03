@@ -19,6 +19,8 @@ import {
   ModalHeader,
   ModalBody,
 } from "@/components/ui/Modal";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { formatDateBR, isoDateInSaoPaulo } from "@/lib/date-br";
 
 export type ClientAlertBellHandle = {
   openList: () => void;
@@ -63,19 +65,12 @@ function formatMoney(amount: number, currency: string) {
 }
 
 function buildTrustMessage(periodLabel: string, screens: number, renewalDateISO: string) {
-  const datePart = renewalDateISO
-    ? new Date(`${renewalDateISO}T12:00:00`).toLocaleDateString("pt-BR")
-    : "";
+  const datePart = renewalDateISO ? formatDateBR(renewalDateISO, "") : "";
   return `Renovação em confiança: ${periodLabel} · ${screens} tela${screens === 1 ? "" : "s"}${datePart ? ` · dia ${datePart}` : ""}`;
 }
 
 function isoDateToday() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  return isoDateInSaoPaulo();
 }
 
 function Modal({
@@ -629,9 +624,7 @@ const ClientAlertBell = forwardRef<
                         {alert.activation_date && (
                           <p className="text-[11px] text-muted-foreground mt-1">
                             Ativado em{" "}
-                            {new Date(
-                              `${alert.activation_date}T12:00:00`,
-                            ).toLocaleDateString("pt-BR")}
+                            {formatDateBR(alert.activation_date)}
                           </p>
                         )}
                       </div>
@@ -868,7 +861,7 @@ const ClientAlertBell = forwardRef<
                   <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                     Data de ativação (opcional)
                   </label>
-                  <input
+                  <FormattedDateInput
                     type="date"
                     value={activationDate}
                     onChange={(e) => {
@@ -878,7 +871,7 @@ const ClientAlertBell = forwardRef<
                       if (app)
                         setText(buildAppChargeMessage(app.appName, date));
                     }}
-                    className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500 transition-colors"
+                    className="focus:border-purple-500"
                   />
                 </div>
 
@@ -1034,7 +1027,7 @@ const ClientAlertBell = forwardRef<
                       <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                         Renovado em
                       </label>
-                      <input
+                      <FormattedDateInput
                         type="date"
                         value={trustDate}
                         onChange={(e) => {
@@ -1042,7 +1035,7 @@ const ClientAlertBell = forwardRef<
                           const label = PERIODS.find((p) => p.value === trustPeriod)?.label || "Mensal";
                           setText(buildTrustMessage(label, trustScreens, e.target.value));
                         }}
-                        className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-purple-500"
+                        className="focus:border-purple-500"
                       />
                     </div>
                   </div>

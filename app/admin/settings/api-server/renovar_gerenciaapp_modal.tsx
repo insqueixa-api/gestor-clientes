@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
@@ -31,7 +32,7 @@ export default function RenovarGerenciaAppModal({ onClose, onSuccess, onError }:
   const [saving, setSaving] = useState(false);
   const [parcela, setParcela] = useState<ParcelaPendente | null>(null);
   const [dataPagamento, setDataPagamento] = useState(
-    new Date().toISOString().slice(0, 10),
+    isoDateInSaoPaulo(),
   );
 
   useEffect(() => {

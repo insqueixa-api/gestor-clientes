@@ -41,7 +41,7 @@ const RecargaCliente = dynamic(() => import("../cliente/recarga_cliente"), {
 
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Hook adicionado
-import { isoDateInSaoPaulo } from "@/lib/date-br";
+import { formatDateBR, formatDateTimeBR, isoDateInSaoPaulo } from "@/lib/date-br";
 import ClientAlertBell from "@/components/alerts/ClientAlertBell";
 import { Dropdown } from "@/components/ui/Dropdown";
 import {
@@ -2309,7 +2309,7 @@ export default function TrialsPage() {
                       <div className="text-xs font-extrabold text-muted-foreground flex items-center gap-2">
                         <IconClock />
                         <span>
-                          {new Date(s.send_at).toLocaleString("pt-BR")}
+                          {formatDateTimeBR(s.send_at)}
                         </span>
                       </div>
 
@@ -3315,7 +3315,7 @@ function PapaTestesModal({
                           }`}
                           title={
                             r.is_trial && r.converted && r.converted_at
-                              ? `Convertido em ${new Date(r.converted_at).toLocaleDateString("pt-BR")}`
+                              ? `Convertido em ${formatDateBR(r.converted_at)}`
                               : undefined
                           }
                         >
@@ -3326,7 +3326,7 @@ function PapaTestesModal({
                             : "Cliente"}
                         </span>
                         <span className="text-xs text-muted-foreground shrink-0">
-                          {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                          {formatDateBR(r.created_at)}
                         </span>
                         {r.server_name && (
                           <span className="text-xs text-muted-foreground truncate">

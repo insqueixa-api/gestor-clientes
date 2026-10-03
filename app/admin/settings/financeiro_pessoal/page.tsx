@@ -38,7 +38,10 @@ import {
   ModalDayPicker,
   Modal,
   distribuirCentavos,
+  hojeSP,
 } from "./shared";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { formatDateBR, isoDateInSaoPaulo, toBRDateStr } from "@/lib/date-br";
 
 // ✅ Carregamento sob demanda (14/08/2026) — cada um só baixa quando o
 // admin realmente abre: Baixa é ação esporádica acionada direto da página;
@@ -93,9 +96,7 @@ function ActionBtn({
 
 // ✅ NOVO: data de hoje em São Paulo, no mesmo formato usado pelo cron (YYYY-MM-DD)
 function getTodaySP(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  }).format(new Date());
+  return isoDateInSaoPaulo();
 }
 
 function FinanceiroPageContent() {
@@ -106,7 +107,7 @@ function FinanceiroPageContent() {
 
   const { confirm, ConfirmUI } = useConfirm();
 
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(() => hojeSP());
 
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [contasDB, setContasDB] = useState<any[]>([]);
@@ -188,7 +189,7 @@ function FinanceiroPageContent() {
     setCurrentDate(
       new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1),
     );
-  const handleToday = () => setCurrentDate(new Date());
+  const handleToday = () => setCurrentDate(hojeSP());
 
   // ✅ Achado 26/08/2026 (pedido do Márcio, página às vezes demorando pra
   // carregar): antes essa função buscava resF/resPurchases sozinha e o
@@ -231,7 +232,7 @@ function FinanceiroPageContent() {
       const mesStart = `${y}-${String(m + 1).padStart(2, "0")}-01`;
 
       // Data de pagamento = último dia do mês sincronizado (nunca "hoje")
-      const dataPagamentoMes = new Date(`${dataVenc}T12:00:00`).toISOString();
+      const dataPagamentoMes = new Date(`${dataVenc}T12:00:00-03:00`).toISOString();
 
       let falhasSync = 0;
 
@@ -368,9 +369,7 @@ function FinanceiroPageContent() {
       const y = dateObj.getFullYear();
       const m = String(dateObj.getMonth() + 1).padStart(2, "0");
       const startOfMonth = `${y}-${m}-01`;
-      const endOfMonth = new Date(y, dateObj.getMonth() + 1, 0)
-        .toISOString()
-        .split("T")[0];
+      const endOfMonth = `${y}-${m}-${String(new Date(y, dateObj.getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
 
       // ✅ Achado 26/08/2026 (pedido do Márcio, página às vezes demorando
       // pra carregar): antes eram 4 ondas sequenciais (contas/categorias →
@@ -435,7 +434,7 @@ function FinanceiroPageContent() {
       // ✅ Calcula valorIptv aqui (não mais dentro de
       // sincronizarRendimentos) — resF/resPurchases já vieram na mesma
       // onda de contas/categorias/saldo, lá em cima.
-      const hoje = new Date();
+      const hoje = hojeSP();
       const isMesAtual =
         dateObj.getMonth() === hoje.getMonth() &&
         dateObj.getFullYear() === hoje.getFullYear();
@@ -760,9 +759,7 @@ function FinanceiroPageContent() {
   const refYear = currentDate.getFullYear();
   const refMonth = String(currentDate.getMonth() + 1).padStart(2, "0");
   const viewStartOfMonth = `${refYear}-${refMonth}-01`;
-  const viewEndOfMonth = new Date(refYear, currentDate.getMonth() + 1, 0)
-    .toISOString()
-    .split("T")[0];
+  const viewEndOfMonth = `${refYear}-${refMonth}-${String(new Date(refYear, currentDate.getMonth() + 1, 0).getDate()).padStart(2, "0")}`;
 
   // 2. Função auxiliar para checar se a data pertence ao mês da tela
   const isDateInViewMonth = (dateString: string | null | undefined) => {
@@ -2065,8 +2062,8 @@ function ModalTransacao({
 
   const getDefaultDate = () => {
     if (transacaoEdit?.data_vencimento) return transacaoEdit.data_vencimento;
-    const ref = pageDate ?? new Date();
-    const hoje = new Date();
+    const ref = pageDate ?? hojeSP();
+    const hoje = hojeSP();
     // Usa o dia de hoje, mas mês/ano da página — cravado no último dia
     // válido do mês (ex: hoje=31 numa página de abril vira 30, não "estoura"
     // silenciosamente pra 01/05).
@@ -2077,58 +2074,7 @@ function ModalTransacao({
     return `${y}-${String(m + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
   };
 
-  const isoToRaw = (iso: string) =>
-    iso ? iso.split("-").reverse().join("") : "";
-  const rawToDisplay = (raw: string) => {
-    if (raw.length >= 5)
-      return raw.slice(0, 2) + "/" + raw.slice(2, 4) + "/" + raw.slice(4);
-    if (raw.length >= 3) return raw.slice(0, 2) + "/" + raw.slice(2);
-    return raw;
-  };
-  // ✅ A posição do cursor não pode ser copiada 1:1 do texto sem máscara pro
-  // texto com "/" — a barra desloca tudo que vem depois dela. Sem isso, o
-  // cursor ficava preso antes do último dígito digitado (em vez de depois),
-  // e o próximo caractere digitado entrava fora de ordem (ex: tentar digitar
-  // "12" resultava em "21").
-  const posAposNDigitos = (display: string, n: number) => {
-    if (n <= 0) return 0;
-    let contados = 0;
-    for (let i = 0; i < display.length; i++) {
-      if (/\d/.test(display[i])) {
-        contados++;
-        if (contados === n) return i + 1;
-      }
-    }
-    return display.length;
-  };
-
-  const [rawDigits, setRawDigits] = useState(isoToRaw(getDefaultDate()));
   const [vencimento, setVencimento] = useState(getDefaultDate());
-  const vencimentoDisplay = rawToDisplay(rawDigits); // ← derivado, não é state
-
-  const handleVencimentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target;
-    const cursorPos = input.selectionStart ?? input.value.length;
-    const digitsAntesDoCursor = input.value
-      .slice(0, cursorPos)
-      .replace(/\D/g, "").length;
-
-    const raw = input.value.replace(/\D/g, "").slice(0, 8);
-    setRawDigits(raw);
-    if (raw.length === 8) {
-      const d = raw.slice(0, 2),
-        m = raw.slice(2, 4),
-        y = raw.slice(4);
-      setVencimento(`${y}-${m}-${d}`);
-    }
-
-    // Restaura o cursor depois do mesmo dígito que ele estava antes,
-    // recalculado no texto já com a máscara aplicada.
-    const novaPos = posAposNDigitos(rawToDisplay(raw), digitsAntesDoCursor);
-    requestAnimationFrame(() => {
-      if (input) input.setSelectionRange(novaPos, novaPos);
-    });
-  };
   const [status, setStatus] = useState<"PENDENTE" | "PAGO">(
     transacaoEdit?.status || (isEmprestimo ? "PAGO" : "PENDENTE"),
   );
@@ -2259,58 +2205,18 @@ function ModalTransacao({
   };
   // ────────────────────────────────────────────────────────────────────────
 
-  const [showVencimentoPicker, setShowVencimentoPicker] = useState(false);
-
   // ── Data de Pagamento editável ──────────────────────────────────────────
   const initDataPagamento = (() => {
+    // dia do pagamento / hoje em São Paulo (toISOString é UTC — depois das
+    // 21h virava amanhã)
     if (transacaoEdit?.data_pagamento) {
-      const dt = new Date(transacaoEdit.data_pagamento);
-      const d = String(
-        dt.toLocaleString("en-US", {
-          timeZone: "America/Sao_Paulo",
-          day: "2-digit",
-        }),
-      ).padStart(2, "0");
-      const m = String(
-        dt.toLocaleString("en-US", {
-          timeZone: "America/Sao_Paulo",
-          month: "2-digit",
-        }),
-      ).padStart(2, "0");
-      const y = dt.toLocaleString("en-US", {
-        timeZone: "America/Sao_Paulo",
-        year: "numeric",
-      });
-      return `${y}-${m}-${d}`;
+      return toBRDateStr(transacaoEdit.data_pagamento);
     }
-    return new Date().toISOString().split("T")[0];
+    return isoDateInSaoPaulo();
   })();
   const [dataPagamento, setDataPagamento] = useState(initDataPagamento);
-  const [rawDigitsPagamento, setRawDigitsPagamento] = useState(
-    isoToRaw(initDataPagamento),
-  );
   const [showPagamentoPicker, setShowPagamentoPicker] = useState(false);
-  const pagamentoDisplay = rawToDisplay(rawDigitsPagamento);
-  const handlePagamentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.target;
-    const cursorPos = input.selectionStart ?? input.value.length;
-    const digitsAntesDoCursor = input.value
-      .slice(0, cursorPos)
-      .replace(/\D/g, "").length;
-
-    const raw = input.value.replace(/\D/g, "").slice(0, 8);
-    setRawDigitsPagamento(raw);
-    if (raw.length === 8) {
-      const d = raw.slice(0, 2),
-        m = raw.slice(2, 4),
-        y = raw.slice(4);
-      setDataPagamento(`${y}-${m}-${d}`);
-    }
-    const novaPos = posAposNDigitos(rawToDisplay(raw), digitsAntesDoCursor);
-    requestAnimationFrame(() => {
-      if (input) input.setSelectionRange(novaPos, novaPos);
-    });
-  };
+  const pagamentoDisplay = formatDateBR(dataPagamento, "");
   // ────────────────────────────────────────────────────────────────────────
 
   const [showNovaConta, setShowNovaConta] = useState(false);
@@ -2408,7 +2314,7 @@ function ModalTransacao({
               observacoes: obs,
               data_pagamento:
                 status === "PAGO"
-                  ? new Date(`${dataPagamento}T12:00:00`).toISOString()
+                  ? new Date(`${dataPagamento}T12:00:00-03:00`).toISOString()
                   : null,
               emprestimo_id: emprestimoSelecionado || null,
             })
@@ -2443,7 +2349,7 @@ function ModalTransacao({
               frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
               data_pagamento:
                 status === "PAGO"
-                  ? new Date(`${dataPagamento}T12:00:00`).toISOString()
+                  ? new Date(`${dataPagamento}T12:00:00-03:00`).toISOString()
                   : null,
               emprestimo_id: emprestimoSelecionado || null,
             })
@@ -2541,7 +2447,7 @@ function ModalTransacao({
             );
             existentesYM.add(vencimento.substring(0, 7));
 
-            const hoje = new Date();
+            const hoje = hojeSP();
             const diffAnos = hoje.getFullYear() - baseDate.getFullYear();
             const diffMeses =
               diffAnos * 12 + (hoje.getMonth() - baseDate.getMonth());
@@ -2891,42 +2797,15 @@ function ModalTransacao({
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Data de Vencimento
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={vencimentoDisplay}
-                  onChange={handleVencimentoChange}
-                  onFocus={(e) => e.target.select()}
-                  placeholder="DD/MM/AAAA"
-                  maxLength={10}
-                  className="w-full h-10 px-3 pr-10 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowVencimentoPicker(true)}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md transition-colors"
-                  title="Abrir calendário"
-                >
-                  <IconCalendar />
-                </button>
-              </div>
-              {showVencimentoPicker && (
-                <ModalDayPicker
-                  currentDate={
-                    vencimento ? new Date(`${vencimento}T12:00:00`) : new Date()
-                  }
-                  onSelect={(date) => {
-                    const d = String(date.getDate()).padStart(2, "0");
-                    const m = String(date.getMonth() + 1).padStart(2, "0");
-                    const y = date.getFullYear();
-                    setVencimento(`${y}-${m}-${d}`);
-                    setRawDigits(`${d}${m}${y}`);
-                    setShowVencimentoPicker(false);
-                  }}
-                  onClose={() => setShowVencimentoPicker(false)}
-                />
-              )}
+              {/* vazio não apaga a data (mantém a última completa, como antes) */}
+              <FormattedDateInput
+                type="date"
+                value={vencimento}
+                onChange={(e) => {
+                  if (e.target.value) setVencimento(e.target.value);
+                }}
+                onFocus={(e: React.FocusEvent<HTMLInputElement>) => e.target.select()}
+              />
             </div>
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
@@ -3083,14 +2962,13 @@ function ModalTransacao({
                       currentDate={
                         dataPagamento
                           ? new Date(`${dataPagamento}T12:00:00`)
-                          : new Date()
+                          : hojeSP()
                       }
                       onSelect={(date) => {
                         const d = String(date.getDate()).padStart(2, "0");
                         const m = String(date.getMonth() + 1).padStart(2, "0");
                         const y = date.getFullYear();
                         setDataPagamento(`${y}-${m}-${d}`);
-                        setRawDigitsPagamento(`${d}${m}${y}`);
                         setShowPagamentoPicker(false);
                       }}
                       onClose={() => setShowPagamentoPicker(false)}

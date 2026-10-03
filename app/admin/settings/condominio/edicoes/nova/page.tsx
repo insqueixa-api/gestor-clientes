@@ -34,6 +34,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useTenantId } from "@/lib/tenant-context";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -158,8 +160,9 @@ function calcPeriodoChave(tipo: "semanal" | "mensal", dataISO: string): string {
   return `semanal:${y}-${m}-${dd}`;
 }
 
+// "Hoje" em São Paulo (toISOString é UTC — depois das 21h virava amanhã).
 function hojeISO() {
-  return new Date().toISOString().split("T")[0];
+  return isoDateInSaoPaulo();
 }
 
 // ✅ Card idêntico ao da lista de Ações (page.tsx: foto, checkbox+título,
@@ -1032,11 +1035,11 @@ export default function NovaEdicaoPage() {
                 <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
                   Data de referência
                 </label>
-                <input
+                <FormattedDateInput
                   type="date"
                   value={dataReferencia}
                   onChange={(e) => setDataReferencia(e.target.value)}
-                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
+                  className="text-foreground/90"
                 />
               </div>
             </div>

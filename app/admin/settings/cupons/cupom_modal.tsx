@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { Dropdown } from "@/components/ui/Dropdown";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
@@ -94,7 +95,11 @@ function fmtMoney(value: number) {
 
 function toDateInputValue(iso: string | null): string {
   if (!iso) return "";
-  return iso.slice(0, 10);
+  // Timestamp → dia em São Paulo (ends_at 23:59 SP é 02:59Z do dia seguinte;
+  // slice(0, 10) puro mostrava a validade 1 dia depois).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : isoDateInSaoPaulo(d);
 }
 
 export default function CupomModal({

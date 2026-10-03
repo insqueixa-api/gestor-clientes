@@ -1154,9 +1154,7 @@ export default function ApiServerPage() {
                         </span>
                         <span className="font-medium text-foreground/90">
                           {row.credits_last_sync_at
-                            ? new Date(row.credits_last_sync_at).toLocaleString(
-                                "pt-BR",
-                              )
+                            ? new Date(row.credits_last_sync_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
                             : "--"}
                         </span>
                       </div>
@@ -1353,9 +1351,7 @@ export default function ApiServerPage() {
                               ⏱ Último sync
                             </span>
                             <span className="font-medium text-foreground/90">
-                              {new Date(row.credits_last_sync_at).toLocaleString(
-                                "pt-BR",
-                              )}
+                              {new Date(row.credits_last_sync_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                             </span>
                           </div>
                         )}

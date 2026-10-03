@@ -7,11 +7,15 @@ import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { AplicativosLogHandle } from "./AplicativosLog";
 import { useTenantId } from "@/lib/tenant-context";
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { EyeToggle } from "@/components/ui/eye-toggle";
 import Pagination from "@/components/ui/Pagination";
+
+// Ano atual no fuso de SP (não do navegador).
+const currentYearSP = () => Number(isoDateInSaoPaulo().slice(0, 4));
 
 // ✅ Carregamento sob demanda (14/08/2026) — cada um só baixa quando a
 // respectiva aba/modal abre: AplicativosLog só quando activeLogView vira
@@ -338,7 +342,7 @@ function AuditoriaPageContent() {
   // pagamentos aprovados (fiscal/conferência bancária) — seletor de ano
   // (setas) + mês opcional (grade 3x4, clique de novo desmarca).
   const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportYear, setExportYear] = useState(new Date().getFullYear());
+  const [exportYear, setExportYear] = useState(currentYearSP);
   const [exportMonth, setExportMonth] = useState<number | null>(null);
   const [exporting, setExporting] = useState(false);
   const [rows, setRows] = useState<LogRow[]>([]);
@@ -1749,8 +1753,8 @@ function AuditoriaPageContent() {
                 <span className="text-xl font-medium text-foreground w-20 text-center">{exportYear}</span>
                 <button
                   type="button"
-                  onClick={() => setExportYear((y) => Math.min(new Date().getFullYear(), y + 1))}
-                  disabled={exportYear >= new Date().getFullYear()}
+                  onClick={() => setExportYear((y) => Math.min(currentYearSP(), y + 1))}
+                  disabled={exportYear >= currentYearSP()}
                   className="w-9 h-9 flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="w-4 h-4" />

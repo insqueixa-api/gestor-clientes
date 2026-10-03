@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveAdminTenant } from "@/lib/api/auth-server";
 import * as XLSX from "xlsx";
+import { formatDateBR, isoDateInSaoPaulo } from "@/lib/date-br";
 
 export const dynamic = "force-dynamic";
 
@@ -23,15 +24,9 @@ const exportHeaders = [
 ];
 
 function formatDiaBR(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
+  // data_vencimento é coluna `date` ("AAAA-MM-DD"): formatDateBR formata pelos
+  // números (new Date() + fuso SP jogava pro dia anterior).
+  return formatDateBR(iso, "");
 }
 
 async function resolveTenantIdForUser(supabase: any, userId: string, tenantFromQuery: string | null) {
@@ -184,11 +179,7 @@ export async function GET(req: Request) {
   XLSX.utils.book_append_sheet(workbook, worksheet, "Financeiro");
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  const filename = `financeiro_export_${y}-${m}-${d}.xlsx`;
+  const filename = `financeiro_export_${isoDateInSaoPaulo()}.xlsx`;
 
   return new NextResponse(buffer, {
     status: 200,

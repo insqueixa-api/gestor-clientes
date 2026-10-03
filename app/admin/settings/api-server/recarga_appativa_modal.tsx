@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { formatTimeBR, isoDateInSaoPaulo } from "@/lib/date-br";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import {
   Modal,
@@ -92,7 +93,7 @@ export default function RecargaAppativaModal({
     lastRechargeMeta?.paymentMethod ?? "PIX",
   );
   const [purchasedAt, setPurchasedAt] = useState(
-    new Date().toISOString().slice(0, 16),
+    `${isoDateInSaoPaulo()}T${formatTimeBR(new Date())}`,
   );
   const [notes, setNotes] = useState("");
 

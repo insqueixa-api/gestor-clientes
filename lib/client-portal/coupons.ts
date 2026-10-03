@@ -48,6 +48,7 @@
 
 import { diffDays } from "@/lib/whatsapp/template-vars";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
+import { formatDateBR } from "@/lib/date-br";
 
 const PERIOD_LABELS: Record<string, string> = {
   MONTHLY: "Mensal",
@@ -768,13 +769,13 @@ export async function getPendencyPhraseForClient(
         const appLabel = item.appName || messageMatch?.[1] || null;
         const amountLabel = fmt.format(item.convertedAmount);
         const dateLabel = item.activationDate
-          ? new Date(`${item.activationDate}T12:00:00`).toLocaleDateString("pt-BR")
+          ? formatDateBR(item.activationDate, "") || null
           : null;
 
         if (item.kind === "renewal_trust") {
           const m = item.meta || {};
           const renewed = m.renewal_date
-            ? new Date(`${m.renewal_date}T12:00:00`).toLocaleDateString("pt-BR")
+            ? formatDateBR(m.renewal_date, "") || null
             : null;
           return `Identificamos que ${renewed ? `no dia ${renewed} ` : ""}sua assinatura foi renovada antecipadamente em confiança (${m.plan_label || "Mensal"}), e o valor de ${amountLabel} ainda está em aberto.`;
         }

@@ -17,7 +17,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
-import { isoDateInSaoPaulo } from "@/lib/date-br";
+import { formatTimeBR, isoDateInSaoPaulo } from "@/lib/date-br";
 import { loadWhatsAppSessionOptions } from "@/lib/admin/whatsapp-modal-data";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { type ClientLight, TYPES, BILLING_TZ, Label, Input } from "./shared";
@@ -475,7 +475,7 @@ function GlobalQueueMonitor({
             </button>
             {lastUpdate && (
               <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                Atualizado {lastUpdate.toLocaleTimeString("pt-BR")}
+                Atualizado {formatTimeBR(lastUpdate)}
               </span>
             )}
           </div>

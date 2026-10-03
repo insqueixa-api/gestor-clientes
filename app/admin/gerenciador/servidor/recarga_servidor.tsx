@@ -6,6 +6,7 @@ import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { ServerRow } from "./page"; // Importamos o tipo do servidor
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { formatTimeBR, isoDateInSaoPaulo } from "@/lib/date-br";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 
 // --- COMPONENTES VISUAIS (Mesmo padrão do novo_servidor) ---
@@ -76,9 +77,11 @@ export default function RecargaServidorModal({
   const [currency, setCurrency] = useState(defaultCurrency);
   const [fxRate, setFxRate] = useState("1"); // Câmbio para BRL
   const [paymentMethod, setPaymentMethod] = useState("PIX");
-  const [purchasedAt, setPurchasedAt] = useState(
-    new Date().toISOString().slice(0, 16),
-  ); // datetime-local
+  // "Agora" em São Paulo (antes era UTC cru: 3h adiantado).
+  const [purchasedAt, setPurchasedAt] = useState(() => {
+    const now = new Date();
+    return `${isoDateInSaoPaulo(now)}T${formatTimeBR(now)}`;
+  }); // datetime-local
   const [notes, setNotes] = useState("");
 
   // Cálculos em Tempo Real

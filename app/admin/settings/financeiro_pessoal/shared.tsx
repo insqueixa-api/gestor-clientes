@@ -11,6 +11,17 @@ import {
   ModalHeader,
   ModalBody,
 } from "@/components/ui/Modal";
+import { todaySP } from "@/components/ui/overwriteMask";
+
+/**
+ * "Hoje" em São Paulo como Date local (meio-dia) — pros calendários e pro
+ * mês inicial da tela. Nunca a data/fuso do navegador (depois das 21h em SP
+ * o UTC já é amanhã; navegador em outro fuso também erraria o dia).
+ */
+export function hojeSP(): Date {
+  const { y, m, d } = todaySP();
+  return new Date(y, m - 1, d, 12, 0, 0);
+}
 
 // --- TIPOS ---
 export type Transacao = {
@@ -196,7 +207,7 @@ export function ModalDatePicker({
 
   const anos = Array.from(
     { length: 10 },
-    (_, i) => new Date().getFullYear() - 7 + i,
+    (_, i) => hojeSP().getFullYear() - 7 + i,
   );
 
   return (
@@ -241,14 +252,14 @@ export function ModalDatePicker({
               {MESES.map((mes, idx) => {
                 const isSelected =
                   idx === mesSelecionado && ano === currentDate.getFullYear();
+                const hj = hojeSP();
                 const isCurrentMonth =
-                  idx === new Date().getMonth() &&
-                  ano === new Date().getFullYear();
+                  idx === hj.getMonth() && ano === hj.getFullYear();
                 return (
                   <button
                     key={mes}
                     onClick={() => {
-                      const hoje = new Date().getDate();
+                      const hoje = hojeSP().getDate();
                       const ultimoDiaDoMes = new Date(
                         ano,
                         idx + 1,
@@ -361,10 +372,11 @@ export function ModalDayPicker({
                   dia === currentDate.getDate() &&
                   mes === currentDate.getMonth() &&
                   ano === currentDate.getFullYear();
+                const hj = hojeSP();
                 const isToday =
-                  dia === new Date().getDate() &&
-                  mes === new Date().getMonth() &&
-                  ano === new Date().getFullYear();
+                  dia === hj.getDate() &&
+                  mes === hj.getMonth() &&
+                  ano === hj.getFullYear();
                 return (
                   <button
                     key={idx}

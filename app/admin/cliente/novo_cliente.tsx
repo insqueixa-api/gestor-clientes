@@ -4,6 +4,7 @@ import { Loader2, X, MessageCircle } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
+import { formatDateBR, formatDateTimeBR, isoDateInSaoPaulo } from "@/lib/date-br";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Trazendo a caixa de confirmação bonita
@@ -2328,9 +2329,9 @@ export default function NovoCliente({
       if (fieldKey) {
         if (handler.actionPrefix === "GERENCIAAPP") {
           // ✅ FAMÍLIA GERENCIAAPP: Fixar validade para 1 ano para frente
-          const now = new Date();
-          now.setFullYear(now.getFullYear() + 1);
-          const oneYearAhead = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+          // "Hoje" no fuso de SP (não do navegador) + 1 ano; Date.UTC normaliza 29/02 → 01/03.
+          const [ty, tm, td] = isoDateInSaoPaulo().split("-").map(Number);
+          const oneYearAhead = new Date(Date.UTC(ty + 1, tm - 1, td)).toISOString().slice(0, 10);
           updateAppFieldValue(
             currentApp!.instanceId,
             String(fieldKey),
@@ -5183,9 +5184,7 @@ export default function NovoCliente({
                             type="button"
                             onClick={async () => {
                               const lines = papaTesteInfo.records.map((r) => {
-                                const dt = new Date(
-                                  r.created_at,
-                                ).toLocaleDateString("pt-BR");
+                                const dt = formatDateBR(r.created_at);
                                 const tipo = r.is_trial ? "Teste" : "Cliente";
                                 const val = r.plan_price
                                   ? `${r.plan_currency || "BRL"} ${Number(r.plan_price).toFixed(2).replace(".", ",")}`
@@ -6686,7 +6685,7 @@ export default function NovoCliente({
                             )}
                             {app.m3uList && (
                               <span
-                                title={app.m3uListAt ? `Configurado em ${new Date(app.m3uListAt).toLocaleString("pt-BR")}` : "Lista configurada"}
+                                title={app.m3uListAt ? `Configurado em ${formatDateTimeBR(app.m3uListAt)}` : "Lista configurada"}
                                 className={`inline-flex items-center px-1.5 py-0.5 rounded border ml-1 ${
                                   app.m3uList === "secundaria"
                                     ? "bg-amber-500/10 border-amber-500/20 text-amber-500"

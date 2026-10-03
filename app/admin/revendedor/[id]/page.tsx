@@ -22,6 +22,7 @@ const QuickRechargeModal = dynamic(() => import("../recarga_revenda"), {
 
 // Componentes Visuais
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import { formatDateBR } from "@/lib/date-br";
 
 /* =========================
    HELPERS DE TELEFONE (Mesma lógica do Cliente)
@@ -73,7 +74,7 @@ function fmtDate(d?: string | null) {
   if (!d) return "—";
   const dt = new Date(d);
   if (Number.isNaN(dt.getTime())) return "—";
-  return dt.toLocaleDateString("pt-BR");
+  return formatDateBR(dt);
 }
 
 /* =========================

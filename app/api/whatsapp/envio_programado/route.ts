@@ -20,6 +20,7 @@ import {
 import { notify } from "@/lib/notifications/notify";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";
+import { formatDateTimeBR } from "@/lib/date-br";
 import { getCouponPhraseForClient, getPendencyPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
 import {
   normalizeSecondaryContactDelay,
@@ -494,7 +495,7 @@ export async function POST(req: Request) {
           if (!isNaN(until.getTime()) && until > new Date()) {
             await sb
               .from("client_message_jobs")
-              .update({ status: "FAILED", error_message: `Conta em pausa até ${wa.dont_message_until}` })
+              .update({ status: "FAILED", error_message: `Conta em pausa até ${formatDateTimeBR(wa.dont_message_until, String(wa.dont_message_until))}` })
               .eq("id", job.id);
             continue;
           }

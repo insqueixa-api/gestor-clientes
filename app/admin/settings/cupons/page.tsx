@@ -7,6 +7,7 @@ import type { ReactNode, MouseEvent } from "react";
 import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { formatDateBR, formatDateTimeBR } from "@/lib/date-br";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
@@ -292,7 +293,7 @@ export default function CuponsPage() {
 
   function formatDate(d: string | null) {
     if (!d) return null;
-    return new Date(d).toLocaleDateString("pt-BR");
+    return formatDateBR(d);
   }
 
   function validityLabel(row: CouponRow) {
@@ -933,7 +934,7 @@ function ImpactListModal({
                       <span className="flex items-center gap-1.5 shrink-0">
                         <span className="inline-flex items-center text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
                           ✅ Usado{" "}
-                          {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                          {formatDateBR(r.created_at)}
                         </span>
                         <button
                           type="button"
@@ -1130,7 +1131,7 @@ function UsageLogModal({
                   </span>
                   <span className="flex items-center gap-1.5 shrink-0">
                     <span className="text-muted-foreground whitespace-nowrap">
-                      {new Date(r.created_at).toLocaleString("pt-BR")} ·{" "}
+                      {formatDateTimeBR(r.created_at)} ·{" "}
                       {fmtMoney(Number(r.discount_amount))}
                     </span>
                     <button
@@ -1340,7 +1341,7 @@ function CouponHistoryModal({ onClose }: { onClose: () => void }) {
                 {filtered.map((r) => (
                   <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                     <td className="p-2 text-muted-foreground text-xs whitespace-nowrap">
-                      {new Date(r.created_at).toLocaleString("pt-BR")}
+                      {formatDateTimeBR(r.created_at)}
                     </td>
                     <td className="p-2">
                       <div className="flex flex-col">

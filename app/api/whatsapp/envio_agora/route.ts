@@ -16,13 +16,12 @@ import {
   renderTemplate,
   pickRandomDns,
   toolConsultarPrecosTexto,
-  safeDate,
-  toBRDate,
 } from "@/lib/whatsapp/template-vars";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
+import { formatDateBR } from "@/lib/date-br";
 
 function safeServerLog(...args: any[]) {
   console.error(...args);
@@ -342,8 +341,9 @@ export async function POST(req: Request) {
   // `new Date()` entenda) e é formatado aqui pra DD/MM/AAAA.
   const appNome = String((body as any).app_nome || "").trim();
   const appVencimentoRaw = String((body as any).app_vencimento || "").trim();
-  const appVencimentoDate = appVencimentoRaw ? safeDate(appVencimentoRaw) : null;
-  const appVencimentoFormatted = appVencimentoDate ? toBRDate(appVencimentoDate) : "";
+  // "AAAA-MM-DD" puro é formatado pelos números (new Date() + fuso SP
+  // jogava pro dia anterior); timestamp completo → dia em São Paulo.
+  const appVencimentoFormatted = appVencimentoRaw ? formatDateBR(appVencimentoRaw, "") : "";
 
   let dnsServidor = "";
   let tabelaPrecos = "";
