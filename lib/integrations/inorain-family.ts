@@ -29,6 +29,13 @@ export const INORAIN_FAMILY: Record<string, { brand: string; site: string; endpo
   STREAMMEDIA: { brand: "Stream Media Player", site: "https://streammediaplayer.com", endpoint: "/api/integrations/apps/streammedia" },
   STREAMXTREAM: { brand: "Stream Xtream", site: "https://streamxtream.com", endpoint: "/api/integrations/apps/streamxtream" },
   SMARTIPTVPLAYER: { brand: "Smart IPTV Player", site: "https://smart-iptv-player.com", endpoint: "/api/integrations/apps/smartiptvplayer" },
+  // ✅ 03/10/2026: Lazer Play e FocoX Play (mesmo painel na AtivaApp, módulo
+  // "iptv-lazer-play-io"). O SITE fica atrás do desafio do Cloudflare, mas a
+  // API (api.lazerplay.io) responde direto — confirmado da VM e local.
+  LAZERPLAY: { brand: "Lazer Play / FocoX Play", site: "https://lazerplay.io", endpoint: "/api/integrations/apps/lazerplay" },
+  // Fun Play: mesma família, mas cadastro de aparelhos SEPARADO do Lazer Play
+  // (api.funplays.app — o mesmo MAC tem outro id lá). AtivaApp: módulo "funplays".
+  FUNPLAY: { brand: "Fun Play", site: "https://funplays.app", endpoint: "/api/integrations/apps/funplay" },
 };
 
 export const INORAIN_HANDLERS = new Set(Object.keys(INORAIN_FAMILY));
