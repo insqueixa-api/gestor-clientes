@@ -71,7 +71,6 @@ export default function AppIntegracaoModal({
 
   // ✅ Controle conjunto para Apps que exigem PIN
   const isDuplecast = appName === "DUPLECAST";
-  const isIboSol = appName === "IBOSOL";
   const isIboPro = appName === "IBOPRO";
   const isQuickPlayer = appName === "QUICKPLAYER";
   const isMessiTv = appName === "MESSITV";
@@ -96,7 +95,7 @@ export default function AppIntegracaoModal({
     isNinjaPlus || // ✅ 29/08/2026: NINJAPLUS (quickplayer.life) precisa de PIN
     isCapPlayer; // ✅ 06/09/2026: CAP Player também protege playlist por PIN
   // no create/delete, ao contrário do NINJAPLAYER antigo — DUPLEXTV/
-  // CLOUDDY/IBOSOL continuam de fora, não usam PIN.
+  // CLOUDDY continua de fora, não usa PIN.
   const noCredentials =
     isIboPro ||
     isQuickPlayer ||
@@ -291,13 +290,6 @@ export default function AppIntegracaoModal({
                   GerenciaApp (IBO Revenda, etc)
                 </option>
                 <option value="DUPLECAST">DupleCast</option>
-                {/* ✅ IBOSOL voltou (02/08/2026, pedido do Márcio) — dessa vez
-                    com escopo bem menor que antes: só pra checar o vencimento
-                    real do Duplex TV (que não tem status próprio, ver
-                    app/api/integrations/apps/duplextv/route.ts), via extensão
-                    do Chrome (lib/apps/ibosol-extension.ts) — não cria/apaga
-                    nada, não é mais a família de apps de antes. */}
-                <option value="IBOSOL">IBO Sol (só checagem Duplex TV)</option>
                 <option value="IBOPRO">IBO Pro Player</option>
                 <option value="QUICKPLAYER">
                   Quick Player / Quick Player Pro
@@ -328,9 +320,7 @@ export default function AppIntegracaoModal({
                 placeholder={
                   appName === "DUPLECAST"
                     ? 'Ex: "DupleCast"'
-                    : appName === "IBOSOL"
-                      ? 'Ex: "IBO Sol"'
-                      : appName === "IBOPRO"
+                    : appName === "IBOPRO"
                         ? 'Ex: "IBO Pro Player"'
                         : isQuickPlayer
                           ? 'Ex: "Quick Player"'
@@ -428,9 +418,7 @@ export default function AppIntegracaoModal({
                 placeholder={
                   isDuplecast
                     ? "Ex: https://duplecast.com/client"
-                    : isIboSol
-                      ? "Ex: https://ibosol.com"
-                      : isIboPro
+                    : isIboPro
                         ? "Ex: https://iboproapp.com"
                         : isQuickPlayer
                           ? "Ex: https://api.quickplayer.app"

@@ -77,6 +77,11 @@ function renderRichText(text: string) {
   return out;
 }
 
+// ✅ 03/10/2026 (pedido do Márcio, só admin): quadro "Todos" na escolha de
+// aparelho — mostra o catálogo inteiro.
+const ALL_DEVICES = "__all__";
+const deviceName = (dt: string) => (dt === ALL_DEVICES ? "Todos os aparelhos" : deviceLabel(dt));
+
 // Linha em carrossel (rolagem lateral; setas no computador)
 function Carousel({ children }: { children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -104,6 +109,14 @@ function Carousel({ children }: { children: React.ReactNode }) {
       </button>
     </div>
   );
+}
+
+// ✅ 03/10/2026 (pedido do Márcio): com filtro rápido (ex: 5 estrelas) os
+// apps aparecem todos, em grade (5 por linha no computador), rolando pra
+// baixo — sem carrossel.
+function AppRow({ grid, children }: { grid: boolean; children: React.ReactNode }) {
+  if (grid) return <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">{children}</div>;
+  return <Carousel>{children}</Carousel>;
 }
 
 // Ícone padrão de cada aparelho enquanto não há logo própria
@@ -251,7 +264,10 @@ export default function AppPickerModal({
     return catalog.filter((app) => {
       // ✅ 02/10/2026 (pedido do Márcio): com busca digitada, procura em
       // TODOS os aplicativos, independente do aparelho escolhido.
-      if (q || quickFilter) return true;
+      // ✅ 03/10/2026: o filtro rápido (estrelas etc.) NÃO — respeita o
+      // aparelho escolhido (Samsung + 5 estrelas = só os de Samsung).
+      if (q) return true;
+      if (deviceType === ALL_DEVICES) return true;
       if (!deviceType && !hasPresetDeviceTypes) return true;
       // ✅ Trava de parceria (só app do servidor certo do cliente) — entra
       // em vigor só depois que um aparelho é escolhido.
@@ -358,7 +374,9 @@ export default function AppPickerModal({
       <button
         type="button"
         disabled={busy}
-        onClick={() => onSelectApp(app.id, q || quickFilter ? null : deviceType)}
+        // ✅ 03/10/2026: "Todos" (admin) ou busca por texto → sem aparelho (igual aos
+        // apps antigos); aparelho escolhido (com ou sem filtro de estrelas) → vai junto.
+        onClick={() => onSelectApp(app.id, q || deviceType === ALL_DEVICES ? null : deviceType)}
         className={`${size} inline-flex items-center justify-center gap-1.5 rounded-lg text-white text-xs font-bold transition-colors disabled:opacity-60 ${
           isPortal ? "bg-sky-600 hover:bg-sky-500" : "bg-emerald-600 hover:bg-emerald-500"
         }`}
@@ -410,7 +428,7 @@ export default function AppPickerModal({
   );
 
   return (
-    <Modal onClose={onClose} maxWidth="max-w-4xl" zIndex="z-[100000]">
+    <Modal onClose={onClose} maxWidth="max-w-5xl" zIndex="z-[100000]">
       <div className="p-6 flex flex-col gap-4 overflow-y-auto min-h-0 custom-scrollbar">
         <input
           ref={fileInputRef}
@@ -424,7 +442,7 @@ export default function AppPickerModal({
           }}
         />
         <div className="flex items-start gap-3">
-          {(detailsAppId || (deviceType && !q && !quickFilter)) && (
+          {(detailsAppId || (deviceType && !q)) && (
             <button
               onClick={() => (detailsAppId ? setDetailsAppId(null) : setDeviceType(null))}
               className="w-8 h-8 flex items-center justify-center bg-muted hover:bg-muted/70 rounded-lg text-foreground transition-colors shrink-0"
@@ -435,7 +453,13 @@ export default function AppPickerModal({
           )}
           <div className="min-w-0 flex-1">
             <h3 className="text-lg font-semibold text-foreground truncate">
-              {detailsApp ? "Detalhes" : q ? "Buscar aplicativo" : quickFilter ? quickFilterLabel.replace(/^★+ /, "") : deviceType ? deviceLabel(deviceType) : title}
+              {detailsApp
+                ? "Detalhes"
+                : q
+                  ? "Buscar aplicativo"
+                  : [deviceType ? deviceName(deviceType) : null, quickFilter ? quickFilterLabel.replace(/^★+ /, "") : null]
+                      .filter(Boolean)
+                      .join(" · ") || title}
             </h3>
             <p className="text-xs text-foreground/70">
               {detailsApp ? (
@@ -446,7 +470,7 @@ export default function AppPickerModal({
                     <Zap className="w-2.5 h-2.5 fill-current" />
                   </span>
                   Aplicativos com raio têm configuração automática
-                  {q || quickFilter ? " · todos os aparelhos" : ""}
+                  {q || (quickFilter && !deviceType) ? " · todos os aparelhos" : ""}
                 </span>
               ) : (
                 subtitle
@@ -504,6 +528,15 @@ export default function AppPickerModal({
 
         {showTiles ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {!isPortal && (
+              <button
+                onClick={() => setDeviceType(ALL_DEVICES)}
+                className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-border bg-muted/30 hover:bg-muted hover:border-emerald-500/40 transition-colors"
+              >
+                <span className="text-3xl leading-10">🌐</span>
+                <span className="text-xs font-bold text-foreground text-center">Todos</span>
+              </button>
+            )}
             {deviceList.map((dt) => {
               const icon = deviceIcons[dt];
               const fallback = (DEFAULT_DEVICE_ICONS as Record<string, string>)[dt] ?? "📟";
@@ -636,13 +669,15 @@ export default function AppPickerModal({
                     )}
                     <span className="text-[11px] text-muted-foreground">{sec.apps.length}</span>
                   </div>
-                  <Carousel>
+                  <AppRow grid={!!quickFilter}>
                     {sec.apps.map((app) => {
                       const price = priceOf(app);
                       return (
                         <div
                           key={app.id}
-                          className="relative snap-start shrink-0 w-40 sm:w-44 flex flex-col items-center text-center gap-2 p-3 rounded-xl border border-border bg-muted/30"
+                          className={`relative flex flex-col items-center text-center gap-2 p-3 rounded-xl border border-border bg-muted/30 ${
+                            quickFilter ? "w-full" : "snap-start shrink-0 w-40 sm:w-44"
+                          }`}
                         >
                           {app.has_integration && (
                             <span
@@ -684,7 +719,7 @@ export default function AppPickerModal({
                         </div>
                       );
                     })}
-                  </Carousel>
+                  </AppRow>
                 </section>
               ))
             )}

@@ -263,8 +263,8 @@ export async function POST(req: NextRequest) {
       const handler = integrationType ? getIntegrationHandler(integrationType) : null;
       // ✅ "has_integration" decide se o botão "Reconfigurar" aparece — precisa
       // refletir automação REAL (handler.useApi), não só a presença de
-      // integration_type. IBOSOL, por ex., tem handler cadastrado mas
-      // useApi:false (bloqueio Cloudflare, ver ibosol.ts) — sem essa checagem
+      // integration_type. ClouDDy, por ex., não tem handler de API (só
+      // extensão, bloqueio Cloudflare) — sem essa checagem
       // o botão aparecia e sempre falhava ao clicar.
       const canCheckValidity =
         !isPartnership && !!handler && (handler as any).useApi && CHECK_VALIDITY_HANDLERS.has((handler as any).actionPrefix);

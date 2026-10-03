@@ -3,7 +3,7 @@
 //
 // Aba "Aplicativos" da Auditoria — log de pedidos do Bloco 3 do portal
 // (/renew-beta) pra apps SEM integração automática (integration_type null,
-// ou handler com useApi:false como o IboSol hoje bloqueado por Cloudflare):
+// ou handler com useApi:false como o ClouDDy, bloqueado por Cloudflare):
 //   - action "setup": cliente pediu ajuda pra CONFIGURAR o app.
 //   - action "removal": cliente pediu pra EXCLUIR o app (não tem como
 //     desconfigurar sozinho no painel do parceiro).

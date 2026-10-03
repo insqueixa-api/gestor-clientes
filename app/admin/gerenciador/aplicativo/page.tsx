@@ -122,10 +122,8 @@ const APP_TIERS: { value: number; icon: string; label: string }[] = [5, 4, 3, 2,
 }));
 
 // Integrações de configuração automática (apps.integration_type).
-// IBOSOL saiu da lista em 27/07/2026 (pedido do Márcio) — consolidava vários
-// apps da família via activation.iboplayer.com, que não funciona mais. Apps
-// que já estavam com IBOSOL continuam salvos assim até serem migrados
-// individualmente — o dropdown mostra o valor mesmo fora da lista.
+// Desde 03/10/2026 a lista do seletor vem das integrações cadastradas
+// (app_integrations); esta é só a reserva de nome. IBO Sol removido de vez.
 const INTEGRATION_OPTIONS: { value: string; label: string }[] = [
   { value: "GERENCIAAPP", label: "GerenciaApp (IBO Revenda, etc)" },
   { value: "DUPLECAST", label: "DupleCast" },

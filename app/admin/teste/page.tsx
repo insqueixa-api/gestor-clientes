@@ -1541,9 +1541,7 @@ export default function TrialsPage() {
                       ? "GerenciaApp"
                       : app.integration_type === "DUPLECAST"
                         ? "DupleCast"
-                        : app.integration_type === "IBOSOL"
-                          ? "IBO Sol"
-                          : app.integration_type === "IBOPRO"
+                        : app.integration_type === "IBOPRO"
                             ? "IBO Pro"
                             : app.integration_type;
                   const label = temIntegracao
@@ -1665,9 +1663,7 @@ export default function TrialsPage() {
                       ? "GerenciaApp"
                       : app.integration_type === "DUPLECAST"
                         ? "DupleCast"
-                        : app.integration_type === "IBOSOL"
-                          ? "IBO Sol"
-                          : app.integration_type === "IBOPRO"
+                        : app.integration_type === "IBOPRO"
                             ? "IBO Pro"
                             : app.integration_type;
                   const label = temIntegracao

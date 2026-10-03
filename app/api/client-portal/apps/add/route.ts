@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ✅ Removido em 26/07/2026 (pedido do Márcio): apps com integração
-    // useApi:false (ex: IBOSOL, bloqueio Cloudflare) podem ser adicionados
+    // useApi:false (ex: ClouDDy, bloqueio Cloudflare) podem ser adicionados
     // normalmente — has_integration (list/route.ts) já reflete useApi e faz
     // o card cair pra "Solicitar configuração" em vez de prometer automação
     // que falharia. Bloquear aqui só escondia apps pagos válidos do cliente.

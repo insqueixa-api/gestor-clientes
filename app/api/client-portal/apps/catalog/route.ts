@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     if (appsErr) return jsonError("Erro interno", 500);
 
     // ✅ Voltado atrás em 26/07/2026 (pedido do Márcio, achado em teste real):
-    // apps com integração useApi:false (ex: IBOSOL, bloqueio Cloudflare)
+    // apps com integração useApi:false (ex: ClouDDy, bloqueio Cloudflare)
     // eram excluídos DAQUI inteiros ("IBO Player" sumia do catálogo, mesmo
     // sendo um app pago normal) — mas isso é desnecessário, porque
     // has_integration (list/route.ts) já reflete useApi corretamente e faz o

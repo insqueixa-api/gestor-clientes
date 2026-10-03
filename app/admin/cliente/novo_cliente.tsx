@@ -19,7 +19,6 @@ import {
   extractDateOnly,
 } from "@/lib/apps/panel";
 import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
-import { dispatchIbosolAction } from "@/lib/apps/ibosol-extension";
 import { runAppativaAutoPoll } from "@/lib/apps/appativa-client-poll";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
@@ -1402,14 +1401,11 @@ export default function NovoCliente({
           // saber que o app existe/já foi usado por algum cliente).
           supabaseBrowser.from("apps").select("*"),
           // ✅ Busca as integrações configuradas dos Apps (onde mora a URL do painel deles)
-          // ✅ login_email/login_password incluídos (02/08/2026) — só o
-          // IBOSOL usa isso no browser (extensão precisa logar de verdade
-          // numa aba real, ver lib/apps/ibosol-extension.ts); os outros
-          // apps continuam com login/senha 100% server-side, nunca lidos
-          // daqui.
+          // ✅ 03/10/2026: login/senha das integrações saíram daqui (só o
+          // IBO Sol, removido, lia isso no navegador) — ficam só no servidor.
           supabaseBrowser
             .from("app_integrations")
-            .select("app_name, api_url, pin, login_email, login_password")
+            .select("app_name, api_url, pin")
             .eq("tenant_id", tid)
             .eq("is_active", true),
           // 3. Tabelas de Preço
@@ -2421,33 +2417,13 @@ export default function NovoCliente({
               "App configurado. O aparelho está em modo de avaliação: o parceiro não informa vencimento até ativar a licença.",
             );
           } else if (handler.actionPrefix === "DUPLEXTV") {
-            // ✅ DUPLEXTV não tem vencimento automático na rota própria (ver
-            // duplextv/route.ts) — em vez de só avisar "confira
-            // manualmente", já dispara a checagem real via IBOSOL na
-            // sequência (pedido do Márcio, 02/08/2026, ver
-            // checkDuplexTvViaIbosol acima).
+            // Duplex TV não informa vencimento (o parceiro não tem status pra
+            // MAC já ativado). A checagem via IBO Sol saiu em 03/10/2026.
             addToast(
               "success",
               "Integrado!",
-              "Playlist configurada! Verificando vencimento real via IBOSOL...",
+              "Playlist configurada! O Duplex TV não informa vencimento — confira no painel do parceiro.",
             );
-            setLoadingStep("Verificando vencimento via IBOSOL...");
-            const ibosolResult = await checkDuplexTvViaIbosol(currentApp);
-            setLoadingStep("");
-            if (ibosolResult.ok && ibosolResult.expireDate) {
-              addToast(
-                "success",
-                "Vencimento verificado",
-                `Duplex TV: ${String(ibosolResult.expireDate).split("-").reverse().join("/")}`,
-              );
-            } else {
-              addToast(
-                "warning",
-                "Vencimento não confirmado",
-                ibosolResult.error ||
-                  "Não foi possível checar via IBOSOL — confira manualmente no painel do parceiro.",
-              );
-            }
           } else {
             // ✅ Pra qualquer OUTRO handler (achado 27/07/2026): sem isso o
             // toast dizia só "Configurado com sucesso." tanto quando a
@@ -2605,37 +2581,16 @@ export default function NovoCliente({
       (f: any) => String(f?.type || "").toLowerCase() === "date",
     );
 
-    // ✅ DUPLEXTV (02/08/2026): a rota própria (duplextv/route.ts) nunca tem
-    // vencimento real pra devolver — passar por /api/admin/apps/check-validity
-    // só ecoaria o valor antigo do banco como se fosse "verificado agora"
-    // (fallback proposital da orquestração, ver lib/apps/orchestration.ts).
-    // Pra esse app específico, o vencimento real só existe via IBOSOL —
-    // desvia pra lá direto, sem passar pelo fluxo genérico abaixo.
+    // ✅ DUPLEXTV: a rota própria (duplextv/route.ts) nunca tem vencimento
+    // real pra devolver — passar por /api/admin/apps/check-validity só
+    // ecoaria o valor antigo do banco como se fosse "verificado agora". A
+    // checagem via IBO Sol (extensão) saiu em 03/10/2026: mantém a data salva.
     if (handler.actionPrefix === "DUPLEXTV") {
-      setLoading(true);
-      setLoadingStep("Verificando vencimento via IBOSOL...");
-      const ibosolResult = await checkDuplexTvViaIbosol(currentApp);
-      setLoading(false);
-      setLoadingStep("");
-      if (ibosolResult.ok && ibosolResult.expireDate) {
-        addToast(
-          "success",
-          "Vencimento verificado",
-          `${appName}: ${String(ibosolResult.expireDate).split("-").reverse().join("/")}`,
-        );
-      } else if (ibosolResult.ok) {
-        addToast(
-          "warning",
-          "Sem vencimento",
-          "IBOSOL não encontrou vencimento pra esse MAC.",
-        );
-      } else {
-        addToast(
-          "error",
-          "Não foi possível verificar",
-          ibosolResult.error || "Falha desconhecida.",
-        );
-      }
+      addToast(
+        "warning",
+        "Sem vencimento automático",
+        `O ${appName} não informa vencimento — a data salva foi mantida. Confira no painel do parceiro.`,
+      );
       return;
     }
 
@@ -2691,8 +2646,7 @@ export default function NovoCliente({
             `${appName} ainda está no trial grátis (15 dias) — o parceiro só informa vencimento depois de ativar a licença paga.`,
           );
         } else if (apiJson?.ok) {
-          // DUPLEXTV nunca chega aqui — desvia pro checkDuplexTvViaIbosol
-          // logo no início desta função (return antecipado).
+          // DUPLEXTV nunca chega aqui (return antecipado no início).
           addToast(
             "warning",
             "Sem vencimento",
@@ -3123,47 +3077,6 @@ export default function NovoCliente({
         .update({ field_values: { ...dbVals, [String(fieldKey)]: expireDate } })
         .eq("id", currentApp.client_app_id);
     }
-  }
-
-  // ✅ IBOSOL (02/08/2026) — único jeito de saber o vencimento REAL do
-  // Duplex TV (a rota duplextv/route.ts não tem endpoint de status pra MAC
-  // já ativado, ver comentário lá). Credencial é UMA só, compartilhada pelo
-  // tenant (não por cliente, ao contrário do ClouDDy) — vem de
-  // app_integrations. Reaproveita persistClouddyExpireDate (função
-  // genérica, apesar do nome) pra gravar o campo de data.
-  async function checkDuplexTvViaIbosol(
-    currentApp: any,
-  ): Promise<{ ok: boolean; expireDate?: string | null; error?: string }> {
-    const ibosolInteg = appIntegrations.find(
-      (a) => String(a.app_name || "").toUpperCase() === "IBOSOL",
-    );
-    const email = ibosolInteg?.login_email || "";
-    const password = ibosolInteg?.login_password || "";
-    if (!email || !password) {
-      return {
-        ok: false,
-        error:
-          "Credenciais do IBOSOL não configuradas (Configurações → Integrações).",
-      };
-    }
-    const macValue = getMacFromApp(currentApp);
-    if (!macValue) {
-      return {
-        ok: false,
-        error: "Preencha o ID/MAC do Duplex TV antes de checar.",
-      };
-    }
-
-    const result = await dispatchIbosolAction("IBOSOL_CHECK_DUPLEXTV", {
-      email,
-      password,
-      macValue,
-    });
-    if (!result.ok)
-      return { ok: false, error: result.error || "Falha desconhecida." };
-    if (result.expireDate)
-      await persistClouddyExpireDate(currentApp, result.expireDate);
-    return { ok: true, expireDate: result.expireDate ?? null };
   }
 
   // ✅ ClouDDy — abre, loga, pega o vencimento atual (pro toast), configura
@@ -6519,15 +6432,7 @@ export default function NovoCliente({
                       .trim()
                       .toUpperCase();
                     const hasInteg = Boolean(integrationType);
-                    // ✅ Família IBOSOL (activation.iboplayer.com) nunca teve remoção
-                    // automática — só "IBO Player" ganhou o fluxo de delete via
-                    // iboplayer.com/device/login. Os demais (BOB Player, Duplex TV
-                    // Player, etc.) precisam remover manualmente no painel.
-                    const canAutoDelete =
-                      integrationType !== "IBOSOL" ||
-                      String(catApp?.name || "")
-                        .trim()
-                        .toLowerCase() === "ibo player";
+                    const canAutoDelete = true;
                     // ✅ "Verificar vencimento" — divide o botão "Painel" em
                     // dois ícones quando o handler suporta check (server-side,
                     // ex: DUPLECAST/IBOPRO/GERENCIAAPP).

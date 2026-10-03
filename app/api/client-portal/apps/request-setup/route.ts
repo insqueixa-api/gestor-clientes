@@ -1,7 +1,7 @@
 // app/api/client-portal/apps/request-setup/route.ts
 // Bloco 3 do portal — "Solicitar configuração" para apps SEM integração
 // automática (integration_type null, ou handler com useApi:false como o
-// IboSol hoje bloqueado por Cloudflare). Cria um pedido em
+// ClouDDy, bloqueado por Cloudflare). Cria um pedido em
 // client_app_requests + notifica o admin (sino); ele resolve manualmente
 // (extensão/painel do parceiro) e marca "Concluído" na Auditoria — aba
 // "Aplicativos".

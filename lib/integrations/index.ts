@@ -35,7 +35,7 @@ const INTEGRATION_REGISTRY: Record<string, IntegrationHandler> = {
     // ✅ 03/10/2026: família inoRain (IPTV Duplex, Player.io, OTT Player,
     // IPTV 4K, Plus, Pro, Star...) — uma rota compartilhada pra todas.
     ...Object.fromEntries(Object.keys(INORAIN_FAMILY).map((h) => [h, makeInorainIntegration(h)])),
-    // ✅ CLOUDDY não entra aqui de propósito — igual o IBOSOL, é 100% via
+    // ✅ CLOUDDY não entra aqui de propósito — é 100% via
     // extensão (Cloudflare Turnstile real bloqueia qualquer chamada
     // server-to-server). Ver "COMEÇO INTEGRAÇÃO: CLOUDDY" em
     // unigestor-extensao/background.js e os handlers handleClouddy* em

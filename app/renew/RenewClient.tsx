@@ -24,7 +24,7 @@ import AppPickerModal from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
 import { PORTAL_ADD_APP_HIDDEN, PORTAL_APPS_DISABLED } from "@/lib/apps/portal-apps-flag";
 import { normalizeMacInput } from "@/lib/apps/field-types";
-import { formatDateBR, formatDateTimeBR } from "@/lib/date-br";
+import { formatDateBR } from "@/lib/date-br";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
 // consulta espera mais (a pessoa ainda precisa abrir o banco e pagar),
@@ -5346,18 +5346,9 @@ export default function RenewClient() {
                               Licença paga • renovação em andamento
                             </span>
                           )}
-                          {app.has_integration && app.m3u_list && (
-                            <span
-                              className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-bold ${
-                                app.m3u_list === "secundaria"
-                                  ? "bg-amber-500/10 text-amber-600"
-                                  : "bg-sky-500/10 text-sky-600"
-                              }`}
-                              title={app.m3u_list_at ? `Configurado em ${formatDateTimeBR(app.m3u_list_at)}` : undefined}
-                            >
-                              Lista {app.m3u_list === "secundaria" ? "Secundária" : "Principal"}
-                            </span>
-                          )}
+                          {/* ✅ 03/10/2026, pedido do Márcio: selo "Lista
+                              Principal/Secundária" saiu do portal — pro cliente
+                              final não importa (continua no admin). */}
                         </div>
                       </div>
                       {/* direita: estrelas em cima; Renovar logo abaixo, na

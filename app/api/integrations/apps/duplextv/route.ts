@@ -24,7 +24,7 @@
 // data nenhuma. Por isso o "check" quase sempre vai devolver expireDate:null
 // — o admin decidiu de propósito manter o vencimento já cadastrado no banco
 // nesse caso (não apaga/zera nada) e mostra um aviso pra conferir manualmente
-// no painel do IBOSOL (mensagem só no lado do admin — novo_cliente.tsx —,
+// no painel do parceiro (mensagem só no lado do admin — novo_cliente.tsx —,
 // não nessa rota, pra não vazar esse detalhe interno pro portal do cliente).
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -174,7 +174,7 @@ export async function POST(req: Request) {
 
       // Mesma tentativa best-effort do "check" — quase sempre vem null (ver
       // nota no topo do arquivo), mas o caller usa esse `message` pra
-      // decidir se mostra o aviso de conferir no painel do IBOSOL.
+      // decidir se mostra o aviso de conferir no painel do parceiro.
       const { expireDate } = await checkMac(siteRoot, macValue);
       return NextResponse.json({
         ok: true,
