@@ -36,6 +36,19 @@ export const INORAIN_FAMILY: Record<string, { brand: string; site: string; endpo
   // Fun Play: mesma família, mas cadastro de aparelhos SEPARADO do Lazer Play
   // (api.funplays.app — o mesmo MAC tem outro id lá). AtivaApp: módulo "funplays".
   FUNPLAY: { brand: "Fun Play", site: "https://funplays.app", endpoint: "/api/integrations/apps/funplay" },
+  // HD Player e Core Player: mesma família, cada um com cadastro próprio
+  // (AtivaApp: módulos "hdplayer" e "coreplayer"). 03/10/2026.
+  HDPLAYER: { brand: "HD Player", site: "https://hdplayer.live", endpoint: "/api/integrations/apps/hdplayer" },
+  COREPLAYER: { brand: "Core Player", site: "https://coreplayer.io", endpoint: "/api/integrations/apps/coreplayer" },
+  // 03/10/2026: achados varrendo o catálogo (apps sem integração, todos na
+  // AtivaApp com "módulo" = domínio) — api.<site> responde no formato da família.
+  DUPLEXMAX: { brand: "Duplex Max", site: "https://duplexmax.app", endpoint: "/api/integrations/apps/duplexmax" },
+  EPICPLAY: { brand: "Epic Play", site: "https://epic-play.app", endpoint: "/api/integrations/apps/epicplay" },
+  LUMINAPLAYER: { brand: "Lumina Player", site: "https://luminaplayer.com", endpoint: "/api/integrations/apps/luminaplayer" },
+  POWERPLAY: { brand: "Power Play", site: "https://power-play.app", endpoint: "/api/integrations/apps/powerplay" },
+  STZPLAYER: { brand: "STZ Player", site: "https://stzplayer.com", endpoint: "/api/integrations/apps/stzplayer" },
+  SUPERPLAY: { brand: "Super Play", site: "https://super-play.io", endpoint: "/api/integrations/apps/superplay" },
+  VIZZIONPLAY: { brand: "Vizzion Play", site: "https://vizzionplay.com", endpoint: "/api/integrations/apps/vizzionplay" },
 };
 
 export const INORAIN_HANDLERS = new Set(Object.keys(INORAIN_FAMILY));
