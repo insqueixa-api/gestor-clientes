@@ -1,6 +1,6 @@
 // app/api/client-portal/apps/list/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { resolveDownloadHint } from "@/lib/apps/download-info";
+import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib/apps/field-types";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
@@ -103,6 +103,12 @@ export async function POST(req: NextRequest) {
     // ✅ Paralelizado (pedido do Márcio, 26/07/2026, lentidão sentida ao
     // carregar os apps) — as duas queries são independentes entre si (só
     // precisam de client_id), eram 2 round-trips sequenciais.
+    // ✅ 04/10/2026: logos de download da conta (Computador/Downloader/iPhone)
+    const dlLogosPromise = supabaseAdmin
+      .from("app_download_logos")
+      .select("pc_logo_url, downloader_logo_url, ios_logo_url")
+      .eq("tenant_id", ctx.tenant_id)
+      .maybeSingle();
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
@@ -241,6 +247,7 @@ export async function POST(req: NextRequest) {
     // apps.portal_variable_fields é uma lista explícita, escolhida pelo
     // admin (Gerenciador > Aplicativo), independente do que o texto livre
     // menciona ou não.
+    const { data: dlLogos } = await dlLogosPromise;
     const apps = await Promise.all((rows || []).map(async (row: any) => {
       const vals = row.field_values || {};
       const config = Array.isArray(row.apps?.fields_config) ? row.apps.fields_config : [];
@@ -330,7 +337,7 @@ export async function POST(req: NextRequest) {
         is_partnership: isPartnership,
         fields: extractEditableFields(vals, config),
         // ✅ 04/10/2026: download do aparelho deste app (Computador/Downloader/App Store)
-        download: row.apps ? resolveDownloadHint(row.apps, row.device_type) : null,
+        download: row.apps ? withDownloadLogo(resolveDownloadHint(row.apps, row.device_type), dlLogos) : null,
         portal_setup_instructions: row.apps?.portal_setup_instructions
           ? renderTemplate(row.apps.portal_setup_instructions, {
               ...(instructionVars || {}),

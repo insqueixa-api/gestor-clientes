@@ -12,10 +12,26 @@ export type DownloadInfo = {
   ios_url?: string | null;
 };
 
-export type DownloadHint =
+// logo = a que o Márcio sobe na tela de Aplicativos (tabela app_download_logos)
+export type DownloadHint = (
   | { kind: "pc"; url: string }
   | { kind: "downloader"; code: string }
-  | { kind: "ios"; url: string };
+  | { kind: "ios"; url: string }
+) & { logo?: string | null };
+
+export type DownloadLogos = {
+  pc_logo_url?: string | null;
+  downloader_logo_url?: string | null;
+  ios_logo_url?: string | null;
+};
+
+/** Junta a logo da conta (app_download_logos) ao download já resolvido. */
+export function withDownloadLogo(hint: DownloadHint | null, logos: DownloadLogos | null | undefined): DownloadHint | null {
+  if (!hint) return null;
+  const logo =
+    hint.kind === "pc" ? logos?.pc_logo_url : hint.kind === "ios" ? logos?.ios_logo_url : logos?.downloader_logo_url;
+  return { ...hint, logo: logo || null };
+}
 
 const DOWNLOADER_DEVICES = new Set(["ANDROID_PHONE", "ANDROID_TV", "FIRE_TV"]);
 

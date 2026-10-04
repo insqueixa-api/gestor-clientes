@@ -44,6 +44,7 @@ import GpcRokuActivationsModal from "./gpc_roku_activations_modal";
 import DeviceBadges from "@/components/apps/DeviceBadges";
 import TierStars from "@/components/apps/TierStars";
 import FloatingPanel from "@/components/ui/FloatingPanel";
+import DownloadKindIcon, { DOWNLOAD_KIND_LABEL, type DownloadKind } from "@/components/apps/DownloadKindIcon";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
 import {
   type AppativaCatalogItem,
@@ -516,6 +517,54 @@ export default function AppManagerPage() {
       addToast("error", "Erro no upload", e?.message ?? "Falha.");
     } finally {
       setUploadingIcon(false);
+    }
+  }
+
+  // ✅ 04/10/2026: logos de download da conta (valem pra todos os apps e o
+  // portal reaproveita) — tabela app_download_logos, sobe igual a logo do app.
+  const [dlLogos, setDlLogos] = useState<{ pc: string | null; downloader: string | null; ios: string | null }>({
+    pc: null,
+    downloader: null,
+    ios: null,
+  });
+  const [uploadingDlLogo, setUploadingDlLogo] = useState<DownloadKind | null>(null);
+  const dlLogoInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  useEffect(() => {
+    if (!tenantId) return;
+    supabaseBrowser
+      .from("app_download_logos")
+      .select("pc_logo_url, downloader_logo_url, ios_logo_url")
+      .eq("tenant_id", tenantId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setDlLogos({ pc: data.pc_logo_url, downloader: data.downloader_logo_url, ios: data.ios_logo_url });
+      });
+  }, [tenantId]);
+  async function handleDlLogoUpload(kind: DownloadKind, file: File) {
+    if (!file.type.startsWith("image/")) {
+      addToast("error", "Arquivo inválido", "Selecione uma imagem.");
+      return;
+    }
+    if (!tenantId) return;
+    try {
+      setUploadingDlLogo(kind);
+      const publicUrl = await uploadToR2(file, file.name, file.type, "apps");
+      const col = kind === "pc" ? "pc_logo_url" : kind === "ios" ? "ios_logo_url" : "downloader_logo_url";
+      const { error } = await supabaseBrowser
+        .from("app_download_logos")
+        .upsert({ tenant_id: tenantId, [col]: publicUrl, updated_at: new Date().toISOString() }, { onConflict: "tenant_id" });
+      if (error) {
+        releaseR2Files([publicUrl]);
+        throw error;
+      }
+      const old = dlLogos[kind];
+      setDlLogos((l) => ({ ...l, [kind]: publicUrl }));
+      if (old && old !== publicUrl) releaseR2Files([old]);
+      addToast("success", "Logo atualizada", `Logo de ${DOWNLOAD_KIND_LABEL[kind]} vale pra todos os apps.`);
+    } catch (e: any) {
+      addToast("error", "Erro no upload", e?.message ?? "Falha.");
+    } finally {
+      setUploadingDlLogo(null);
     }
   }
 
@@ -2120,40 +2169,67 @@ export default function AppManagerPage() {
                 </div>
               </div>
 
-              {/* ✅ 04/10/2026: download por aparelho — o portal mostra só o do
-                  aparelho escolhido pelo cliente. Vazio = usa o da AtivaApp. */}
-              <div>
-                <Label>Download</Label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* ✅ 04/10/2026: download por aparelho — só aparece o campo do
+                  aparelho HABILITADO no app (Computador / Android / iPhone),
+                  com o mesmo ícone do portal. Vazio = usa o da AtivaApp. */}
+              {(() => {
+                const devs = formDeviceTypes.length ? formDeviceTypes : formAutoDevices;
+                const rows: { kind: DownloadKind; value: string; set: (v: string) => void; ph: string }[] = [];
+                if (devs.includes("COMPUTADOR"))
+                  rows.push({ kind: "pc", value: formDlPc, set: setFormDlPc, ph: (formAppativaItem as any)?.links?.microsoft || "Link de download" });
+                if (devs.some((d) => d === "ANDROID_PHONE" || d === "ANDROID_TV" || d === "FIRE_TV"))
+                  rows.push({ kind: "downloader", value: formDlCode, set: setFormDlCode, ph: (formAppativaItem as any)?.downloader_code || "Código" });
+                if (devs.includes("IOS"))
+                  rows.push({ kind: "ios", value: formDlIos, set: setFormDlIos, ph: (formAppativaItem as any)?.links?.apple || "Link da App Store" });
+                if (!rows.length) return null;
+                return (
                   <div>
-                    <p className="text-[11px] text-muted-foreground mb-1">💻 Computador — link</p>
-                    <Input
-                      placeholder={(formAppativaItem as any)?.links?.microsoft || "https://..."}
-                      value={formDlPc}
-                      onChange={(e) => setFormDlPc(e.target.value)}
-                    />
+                    <Label>Download</Label>
+                    <div className={`grid grid-cols-1 gap-3 ${rows.length === 3 ? "md:grid-cols-3" : rows.length === 2 ? "md:grid-cols-2" : ""}`}>
+                      {rows.map((r) => (
+                        <div key={r.kind} className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            title={`Logo de ${DOWNLOAD_KIND_LABEL[r.kind]} (vale pra todos os apps) — clique ou cole (Ctrl+V) uma imagem`}
+                            onClick={() => dlLogoInputs.current[r.kind]?.click()}
+                            onPaste={(e) => {
+                              const f = Array.from(e.clipboardData.files).find((x) => x.type.startsWith("image/"));
+                              if (f) handleDlLogoUpload(r.kind, f);
+                            }}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const f = e.dataTransfer.files?.[0];
+                              if (f) handleDlLogoUpload(r.kind, f);
+                            }}
+                            className="shrink-0 rounded-lg border border-dashed border-border p-0.5 hover:border-emerald-500/50 transition-colors"
+                          >
+                            {uploadingDlLogo === r.kind ? (
+                              <span className="w-7 h-7 flex items-center justify-center text-[9px] text-muted-foreground animate-pulse">...</span>
+                            ) : (
+                              <DownloadKindIcon kind={r.kind} size={28} src={dlLogos[r.kind]} />
+                            )}
+                          </button>
+                          <input
+                            ref={(el) => {
+                              dlLogoInputs.current[r.kind] = el;
+                            }}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleDlLogoUpload(r.kind, f);
+                              e.target.value = "";
+                            }}
+                          />
+                          <Input placeholder={r.ph} value={r.value} onChange={(e) => r.set(e.target.value)} />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[11px] text-muted-foreground mb-1">🤖 Android / TV Box / Fire TV — código Downloader</p>
-                    <Input
-                      placeholder={(formAppativaItem as any)?.downloader_code || "Ex: 123456"}
-                      value={formDlCode}
-                      onChange={(e) => setFormDlCode(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-muted-foreground mb-1">🍎 iPhone — link da App Store</p>
-                    <Input
-                      placeholder={(formAppativaItem as any)?.links?.apple || "https://apps.apple.com/..."}
-                      value={formDlIos}
-                      onChange={(e) => setFormDlIos(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  Aparece no portal só pra quem escolheu aquele aparelho. Em branco = usa o da AtivaApp (texto cinza), se houver.
-                </p>
-              </div>
+                );
+              })()}
 
               {/* LOGO DO APP */}
               <div>
