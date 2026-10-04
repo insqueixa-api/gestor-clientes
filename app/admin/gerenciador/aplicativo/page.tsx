@@ -140,6 +140,7 @@ const INTEGRATION_OPTIONS: { value: string; label: string }[] = [
   { value: "CAPPLAYER", label: "CAP Player" },
   { value: "IBOSMARTERS", label: "IBO Smarters Player" },
   { value: "CORTEX", label: "Cortex Player" },
+  { value: "UTMPLAY", label: "UTM Play" },
   { value: "OTTPLAYER", label: "IPTV OTT Player" },
 ];
 

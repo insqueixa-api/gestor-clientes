@@ -85,6 +85,8 @@ export default function AppIntegracaoModal({
   const isIboSmarters = appName === "IBOSMARTERS";
   // ✅ 03/10/2026: Cortex Player — DEVICE (6 números) + MAC por cliente, sem PIN
   const isCortex = appName === "CORTEX";
+  // ✅ 04/10/2026: UTM Play — MAC + Device Key por cliente, sem PIN
+  const isUtmPlay = appName === "UTMPLAY";
   const needsPin =
     isDuplecast ||
     isIboPro ||
@@ -109,6 +111,7 @@ export default function AppIntegracaoModal({
     isNinjaPlus || // ✅ NINJAPLUS: login é por mac+device_key POR CLIENTE
     isIboSmarters || // ✅ IBO Smarters: idem
     isCortex || // ✅ Cortex: idem (DEVICE + MAC)
+    isUtmPlay || // ✅ UTM Play: idem
     isCapPlayer; // ✅ CAP Player: idem, login é por mac+device_key POR CLIENTE
   // (client_apps.field_values), não um login/senha compartilhado pelo
   // tenant — mesma razão do CLOUDDY logo acima.
@@ -249,6 +252,7 @@ export default function AppIntegracaoModal({
                 <option value="CAPPLAYER">CAP Player</option>
                 <option value="IBOSMARTERS">IBO Smarters Player</option>
                 <option value="CORTEX">Cortex Player</option>
+                <option value="UTMPLAY">UTM Play</option>
                 {Object.entries(INORAIN_FAMILY).map(([value, f]) => (
                   <option key={value} value={value}>
                     {f.brand}
@@ -292,6 +296,8 @@ export default function AppIntegracaoModal({
                                               ? 'Ex: "IBO Smarters Player"'
                                               : isCortex
                                                 ? 'Ex: "Cortex Player"'
+                                                : isUtmPlay
+                                                  ? 'Ex: "UTM Play"'
                                             : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
@@ -394,6 +400,8 @@ export default function AppIntegracaoModal({
                                               ? "Ex: https://ibosmartersplayer.com"
                                               : isCortex
                                                 ? "Ex: https://cortexplayer.site"
+                                                : isUtmPlay
+                                                  ? "Ex: https://utmplay.wtf"
                                             : "Ex: https://gerenciaapp.top"
                 }
                 type="url"
