@@ -5798,18 +5798,21 @@ export default function RenewClient() {
                     }}
                   >
                     <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 sm:p-7 flex flex-col gap-3 max-h-[85vh] overflow-y-auto">
-                      <p className="text-sm font-bold text-foreground shrink-0">
-                        Detalhes — {instrApp?.name}
-                      </p>
+                      {/* ✅ 04/10/2026: selo de configuração automática no topo, à direita */}
+                      <div className="flex items-center justify-between gap-3 shrink-0">
+                        <p className="text-sm font-bold text-foreground min-w-0 truncate">
+                          Detalhes — {instrApp?.name}
+                        </p>
+                        {instrApp?.has_integration && (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 shrink-0">
+                            ⚡ Configuração automática
+                          </span>
+                        )}
+                      </div>
                       {/* ✅ 02/10/2026: o aviso de configuração automática
                           saiu do card e veio pra cá (botão Detalhes) */}
                       {/* curto de propósito: o passo a passo de cada app
                           (apps.portal_setup_instructions) já explica o resto */}
-                      {instrApp?.has_integration && (
-                        <p className="text-xs font-semibold text-amber-600">
-                          ⚡ Configuração automática
-                        </p>
-                      )}
                       <DownloadHintCard hint={instrApp?.download} />
                       {instrApp && !instrApp.has_integration && !instrApp.portal_setup_instructions && (
                         <p className="text-xs text-muted-foreground">
