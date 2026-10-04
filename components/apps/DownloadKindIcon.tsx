@@ -18,10 +18,14 @@ export default function DownloadKindIcon({
   kind,
   size = 20,
   src,
+  natural = false,
 }: {
   kind: DownloadKind;
   size?: number;
   src?: string | null;
+  // natural = logo na proporção original (altura = size, largura automática,
+  // sem cortar) — usado no portal; sem isso é o quadradinho do admin.
+  natural?: boolean;
 }) {
   const [failed, setFailed] = useState<string | null>(null);
   const box = { width: size, height: size };
@@ -30,8 +34,8 @@ export default function DownloadKindIcon({
       <img
         src={src}
         alt={DOWNLOAD_KIND_LABEL[kind]}
-        style={box}
-        className="rounded-md object-cover shrink-0"
+        style={natural ? { height: size, width: "auto", maxWidth: size * 5 } : box}
+        className={natural ? "object-contain shrink-0" : "rounded-md object-cover shrink-0"}
         onError={() => setFailed(src)}
       />
     );
