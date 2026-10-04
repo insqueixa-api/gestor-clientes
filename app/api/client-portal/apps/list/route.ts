@@ -1,5 +1,6 @@
 // app/api/client-portal/apps/list/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { resolveDownloadHint } from "@/lib/apps/download-info";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib/apps/field-types";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
-        .select("id, app_id, field_values, m3u_list, m3u_list_at, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id, tier, appativa_meta)")
+        .select("id, app_id, device_type, field_values, m3u_list, m3u_list_at, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id, tier, appativa_meta, download_info)")
         .eq("client_id", client_id),
       // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
       // configuração"/"Exclusão solicitada" quando já existe um pedido
@@ -328,6 +329,8 @@ export async function POST(req: NextRequest) {
           is_trial: !isPartnership && vals["_trial_hint"] === "1",
         is_partnership: isPartnership,
         fields: extractEditableFields(vals, config),
+        // ✅ 04/10/2026: download do aparelho deste app (Computador/Downloader/App Store)
+        download: row.apps ? resolveDownloadHint(row.apps, row.device_type) : null,
         portal_setup_instructions: row.apps?.portal_setup_instructions
           ? renderTemplate(row.apps.portal_setup_instructions, {
               ...(instructionVars || {}),

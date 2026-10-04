@@ -14,6 +14,8 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 import ConfigureResultModal, { ConfigureResultData } from "@/app/renew/ConfigureResultModal";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
+import DownloadHintCard from "@/components/apps/DownloadHintCard";
+import type { DownloadHint } from "@/lib/apps/download-info";
 
 type AppField = { id: string; type: string; label: string; value: string };
 type AppDetail = {
@@ -31,6 +33,8 @@ type AppDetail = {
   is_trial: boolean;
   fields: AppField[];
   portal_setup_instructions: string | null;
+  // ✅ 04/10/2026: download do aparelho deste app
+  download?: DownloadHint | null;
   license_price: number | null;
   license_period: "annual" | "lifetime" | null;
   admin_whatsapp: string | null;
@@ -538,6 +542,8 @@ export default function AppDetailClient() {
                 </>
               )}
             </div>
+
+            <DownloadHintCard hint={app.download} />
 
             {app.portal_setup_instructions && (
               <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-2">

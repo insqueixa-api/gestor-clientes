@@ -11,7 +11,8 @@
 //   4. DELETE /deletePlayListUrl (form) {playlist_url_id} → {status:"success"}
 //
 // Regras (iguais às outras integrações):
-//   • Vencimento = "Expiration" da licença. 9999-12-31 = vitalícia (sem data).
+//   • Vencimento = "Expiration" da licença. Vitalícia vem como 9999-12-31 e é
+//     gravada assim mesmo (pedido do Márcio, 04/10/2026: mostrar no campo).
 //     Status de teste grátis → isTrial:true.
 //   • Apagar: nome exato → o mais parecido → todas do aparelho (pelo MAC) —
 //     lib/integrations/playlist-match.ts.
@@ -95,11 +96,11 @@ async function readDevice(s: Session): Promise<Device> {
   const exp = extractDateOnly((text.match(/Expiration:\s*([0-9]{4}-[0-9]{2}-[0-9]{2})/) || [])[1] || null);
   const lifetime = !!exp && Number(exp.slice(0, 4)) >= 9000;
   const isTrial = status.includes("trial");
-  return { lists, expireDate: lifetime ? null : exp, isTrial, lifetime };
+  return { lists, expireDate: exp, isTrial, lifetime };
 }
 
 function checkMessage(d: Device) {
-  if (d.lifetime) return "Licença vitalícia (sem vencimento).";
+  if (d.lifetime) return "Licença vitalícia (31/12/9999).";
   if (d.isTrial) return d.expireDate ? "Ainda no teste grátis — vencimento do teste atualizado." : "Em teste grátis.";
   return d.expireDate ? "Vencimento atualizado." : "Não encontrei o vencimento da licença nesse aparelho.";
 }

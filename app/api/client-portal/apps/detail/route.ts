@@ -4,6 +4,7 @@
 // admin (apps.portal_setup_instructions) que a lista não carrega (evita
 // mandar um texto grande em toda carga do Bloco 3).
 import { NextRequest, NextResponse } from "next/server";
+import { resolveDownloadHint } from "@/lib/apps/download-info";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { CHECK_VALIDITY_HANDLERS } from "@/lib/apps/panel";
@@ -72,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     const { data: row, error: rowErr } = await supabaseAdmin
       .from("client_apps")
-      .select("id, app_id, field_values, apps(name, icon_url, fields_config, integration_type, info_url, portal_setup_instructions, cost_type, license_price, license_period)")
+      .select("id, app_id, device_type, field_values, apps(name, icon_url, fields_config, integration_type, info_url, portal_setup_instructions, cost_type, license_price, license_period, appativa_meta, download_info)")
       // (cost_type já vinha selecionado aqui — reaproveitado abaixo pra
       // decidir se mostra vencimento, não só pro preço da licença)
       .eq("id", client_app_id)
@@ -161,6 +162,8 @@ export async function POST(req: NextRequest) {
           is_trial: !isPartnership && vals["_trial_hint"] === "1",
           fields: extractEditableFields(vals, config),
           portal_setup_instructions: (row as any).apps?.portal_setup_instructions || null,
+          // ✅ 04/10/2026: download do aparelho deste app
+          download: (row as any).apps ? resolveDownloadHint((row as any).apps, (row as any).device_type) : null,
           license_price:
             (row as any).apps?.cost_type === "paid" && Number((row as any).apps?.license_price) > 0
               ? Number((row as any).apps.license_price)

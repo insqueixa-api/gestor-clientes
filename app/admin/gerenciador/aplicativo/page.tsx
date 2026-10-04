@@ -76,6 +76,8 @@ type AppData = {
   name: string;
   info_url: string | null;
   icon_url?: string | null;
+  // ✅ 04/10/2026: download por aparelho (lib/apps/download-info.ts)
+  download_info?: { pc_url?: string | null; downloader_code?: string | null; ios_url?: string | null } | null;
   is_active: boolean;
   fields_config: AppField[];
   integration_type?: string | null;
@@ -345,6 +347,10 @@ export default function AppManagerPage() {
   const [activeTab, setActiveTab] = useState<"geral" | "dispositivo" | "campos">("geral");
   const [formName, setFormName] = useState("");
   const [formUrl, setFormUrl] = useState("");
+  // ✅ 04/10/2026: download por aparelho (Computador / Downloader / App Store)
+  const [formDlPc, setFormDlPc] = useState("");
+  const [formDlCode, setFormDlCode] = useState("");
+  const [formDlIos, setFormDlIos] = useState("");
   const [formFields, setFormFields] = useState<AppField[]>([]);
   const [formIntegration, setFormIntegration] = useState<string>("");
   // ✅ Sugestão de instruções por IA (pedido do Márcio, 06/09/2026) — mesmo
@@ -965,6 +971,9 @@ export default function AppManagerPage() {
     setFormTechnology("IPTV");
     setFormPortalInstructions("");
     setFormAccessCode("");
+    setFormDlPc("");
+    setFormDlCode("");
+    setFormDlIos("");
     setFormVariableBadges([]);
     setFormIsActive(true);
     setFormDiscontinuedReplacement("");
@@ -1015,6 +1024,9 @@ export default function AppManagerPage() {
     setFormTechnology((app.technology as Technology) || "IPTV");
     setFormPortalInstructions(app.portal_setup_instructions || "");
     setFormAccessCode(app.access_code || "");
+    setFormDlPc(app.download_info?.pc_url || "");
+    setFormDlCode(app.download_info?.downloader_code || "");
+    setFormDlIos(app.download_info?.ios_url || "");
     const selectedBadges = Array.isArray(app.portal_variable_fields)
       ? app.portal_variable_fields
       : [];
@@ -1188,6 +1200,11 @@ export default function AppManagerPage() {
         technology: formTechnology,
         portal_setup_instructions: formPortalInstructions.trim() || null,
         access_code: formAccessCode.trim() || null,
+        download_info: {
+          pc_url: formDlPc.trim() || null,
+          downloader_code: formDlCode.trim() || null,
+          ios_url: formDlIos.trim() || null,
+        },
         portal_variable_fields: variableBadgesToSave,
         is_active: formIsActive,
         discontinued_replacement_name:
@@ -1222,6 +1239,11 @@ export default function AppManagerPage() {
           technology: formTechnology,
           portal_setup_instructions: formPortalInstructions.trim() || null,
           access_code: formAccessCode.trim() || null,
+          download_info: {
+            pc_url: formDlPc.trim() || null,
+            downloader_code: formDlCode.trim() || null,
+            ios_url: formDlIos.trim() || null,
+          },
           portal_variable_fields: variableBadgesToSave,
           is_active: formIsActive,
           discontinued_replacement_name:
@@ -2096,6 +2118,41 @@ export default function AppManagerPage() {
                     </p>
                   )}
                 </div>
+              </div>
+
+              {/* ✅ 04/10/2026: download por aparelho — o portal mostra só o do
+                  aparelho escolhido pelo cliente. Vazio = usa o da AtivaApp. */}
+              <div>
+                <Label>Download</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-1">💻 Computador — link</p>
+                    <Input
+                      placeholder={(formAppativaItem as any)?.links?.microsoft || "https://..."}
+                      value={formDlPc}
+                      onChange={(e) => setFormDlPc(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-1">🤖 Android / TV Box / Fire TV — código Downloader</p>
+                    <Input
+                      placeholder={(formAppativaItem as any)?.downloader_code || "Ex: 123456"}
+                      value={formDlCode}
+                      onChange={(e) => setFormDlCode(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-muted-foreground mb-1">🍎 iPhone — link da App Store</p>
+                    <Input
+                      placeholder={(formAppativaItem as any)?.links?.apple || "https://apps.apple.com/..."}
+                      value={formDlIos}
+                      onChange={(e) => setFormDlIos(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Aparece no portal só pra quem escolheu aquele aparelho. Em branco = usa o da AtivaApp (texto cinza), se houver.
+                </p>
               </div>
 
               {/* LOGO DO APP */}

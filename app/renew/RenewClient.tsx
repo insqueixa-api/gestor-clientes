@@ -26,6 +26,8 @@ import { PORTAL_ADD_APP_HIDDEN, PORTAL_APPS_DISABLED } from "@/lib/apps/portal-a
 import { normalizeMacInput } from "@/lib/apps/field-types";
 import { focusNextWhenMacComplete } from "@/lib/dom-focus";
 import { formatDateBR } from "@/lib/date-br";
+import DownloadHintCard from "@/components/apps/DownloadHintCard";
+import type { DownloadHint } from "@/lib/apps/download-info";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
 // consulta espera mais (a pessoa ainda precisa abrir o banco e pagar),
@@ -461,6 +463,8 @@ export default function RenewClient() {
     is_trial: boolean;
     fields: InstalledAppField[];
     portal_setup_instructions: string | null;
+    // ✅ 04/10/2026: download do aparelho deste app (Computador/Downloader/App Store)
+    download?: DownloadHint | null;
     variable_fields: { id: string; label: string; value: string }[];
     license_price: number | null;
     // ✅ license_price já convertido pra moeda da conta (arredondado pra
@@ -5806,6 +5810,7 @@ export default function RenewClient() {
                           ⚡ Configuração automática
                         </p>
                       )}
+                      <DownloadHintCard hint={instrApp?.download} />
                       {instrApp && !instrApp.has_integration && !instrApp.portal_setup_instructions && (
                         <p className="text-xs text-muted-foreground">
                           Preencha os dados do aplicativo em <strong className="text-foreground font-semibold">Editar</strong>.
