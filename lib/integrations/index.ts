@@ -10,6 +10,7 @@ import { IboPlayerIntegration } from "./iboplayer";
 import { DuplexTvIntegration } from "./duplextv";
 import { NinjaPlusIntegration } from "./ninjaplus";
 import { CapPlayerIntegration } from "./capplayer";
+import { IboSmartersIntegration } from "./ibosmarters";
 import { INORAIN_FAMILY, makeInorainIntegration } from "./inorain-family";
 
 const INTEGRATION_REGISTRY: Record<string, IntegrationHandler> = {
@@ -32,6 +33,7 @@ const INTEGRATION_REGISTRY: Record<string, IntegrationHandler> = {
     "DUPLEXTV":         DuplexTvIntegration,
     "NINJAPLUS":        NinjaPlusIntegration,
     "CAPPLAYER":        CapPlayerIntegration,
+    "IBOSMARTERS":      IboSmartersIntegration,
     // ✅ 03/10/2026: família inoRain (IPTV Duplex, Player.io, OTT Player,
     // IPTV 4K, Plus, Pro, Star...) — uma rota compartilhada pra todas.
     ...Object.fromEntries(Object.keys(INORAIN_FAMILY).map((h) => [h, makeInorainIntegration(h)])),

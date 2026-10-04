@@ -84,6 +84,8 @@ export default function AppIntegracaoModal({
   const isClouddy = appName === "CLOUDDY";
   const isNinjaPlus = appName === "NINJAPLUS";
   const isCapPlayer = appName === "CAPPLAYER";
+  // ✅ 03/10/2026: IBO Smarters Player — login mac+device_key por cliente, sem PIN
+  const isIboSmarters = appName === "IBOSMARTERS";
   const needsPin =
     isDuplecast ||
     isIboPro ||
@@ -106,6 +108,7 @@ export default function AppIntegracaoModal({
     isDuplexTv ||
     isClouddy ||
     isNinjaPlus || // ✅ NINJAPLUS: login é por mac+device_key POR CLIENTE
+    isIboSmarters || // ✅ IBO Smarters: idem
     isCapPlayer; // ✅ CAP Player: idem, login é por mac+device_key POR CLIENTE
   // (client_apps.field_values), não um login/senha compartilhado pelo
   // tenant — mesma razão do CLOUDDY logo acima.
@@ -301,6 +304,7 @@ export default function AppIntegracaoModal({
                 <option value="CLOUDDY">ClouDDy</option>
                 <option value="NINJAPLUS">Ninja Plus</option>
                 <option value="CAPPLAYER">CAP Player</option>
+                <option value="IBOSMARTERS">IBO Smarters Player</option>
                 {Object.entries(INORAIN_FAMILY).map(([value, f]) => (
                   <option key={value} value={value}>
                     {f.brand}
@@ -340,6 +344,8 @@ export default function AppIntegracaoModal({
                                           ? 'Ex: "Ninja Plus"'
                                           : isCapPlayer
                                             ? 'Ex: "CAP Player"'
+                                            : isIboSmarters
+                                              ? 'Ex: "IBO Smarters Player"'
                                             : 'Ex: "Nome do aplicativo"'
                 }
                 className="w-full h-11 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground outline-none focus:border-emerald-500/50 focus:bg-card transition-colors"
@@ -438,6 +444,8 @@ export default function AppIntegracaoModal({
                                           ? "Ex: https://quickplayer.life"
                                           : isCapPlayer
                                             ? "Ex: https://capplayer.com"
+                                            : isIboSmarters
+                                              ? "Ex: https://ibosmartersplayer.com"
                                             : "Ex: https://gerenciaapp.top"
                 }
                 type="url"

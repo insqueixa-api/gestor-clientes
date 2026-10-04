@@ -138,6 +138,7 @@ const INTEGRATION_OPTIONS: { value: string; label: string }[] = [
   { value: "CLOUDDY", label: "ClouDDy" },
   { value: "NINJAPLUS", label: "Ninja Plus" },
   { value: "CAPPLAYER", label: "CAP Player" },
+  { value: "IBOSMARTERS", label: "IBO Smarters Player" },
   { value: "OTTPLAYER", label: "IPTV OTT Player" },
 ];
 

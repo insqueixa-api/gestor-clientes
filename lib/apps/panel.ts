@@ -40,7 +40,7 @@ export const PIN_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "MESSITV", "BOBPLAYE
 // create/delete dessa API (não em is_protected/pin/confirm_pin separados),
 // buscado server-side em app_integrations — não entra em PIN_HANDLERS
 // (mesmo padrão do QUICKPLAYER).
-export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER", "CAPPLAYER", ...INORAIN_HANDLERS]);
+export const CHECK_VALIDITY_HANDLERS = new Set(["DUPLECAST", "IBOPRO", "GERENCIAAPP", "MESSITV", "BOBPLAYER", "IBOPLAYER", "DUPLEXTV", "NINJAPLUS", "QUICKPLAYER", "CAPPLAYER", "IBOSMARTERS", ...INORAIN_HANDLERS]);
 
 // Alias de CHECK_VALIDITY_HANDLERS pro botão "Verificar vencimento" do
 // ADMIN (novo_cliente.tsx) — eram dois Sets com o mesmo conteúdo mantidos
