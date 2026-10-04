@@ -20,6 +20,7 @@ import {
 import { notify } from "@/lib/notifications/notify";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";
+import { recordSentMessage } from "@/lib/whatsapp/receipts";
 import { formatDateTimeBR } from "@/lib/date-br";
 import { getCouponPhraseForClient, getPendencyPhraseForClient, fetchActiveCoupons, type CouponRow } from "@/lib/client-portal/coupons";
 import {
@@ -718,6 +719,14 @@ export async function POST(req: Request) {
             let okParsed: any = null;
             try { okParsed = okRaw ? JSON.parse(okRaw) : null; } catch {}
             await reportSessionHealthFromSend(String(job.tenant_id), targetSession, okParsed?.sessionHealth);
+            // ✅ 04/10/2026: liga o id da mensagem ao job pro recibo ✓✓.
+            await recordSentMessage(sb, {
+              waMessageId: okParsed?.messageId,
+              tenantId: String(job.tenant_id),
+              jobId: job.id,
+              phone: contact.number || null,
+              isSecondary: !!contact.is_secondary,
+            });
             // ✅ 09/09/2026: ver comentário grande acima — registra o
             // sucesso do secundário também (o do primário já é o próprio
             // sent_at/status do job via writeSentCheckpoint abaixo).

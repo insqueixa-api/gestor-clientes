@@ -144,7 +144,58 @@ type QueueRow = {
   // recebeu de fato (login) e em qual servidor, não vem na view.
   server_username?: string | null;
   server_name?: string | null;
+  // ✅ 04/10/2026: recibo ✓✓ da WhatsApp (whatsapp_message_receipts) —
+  // undefined = mensagem sem recibo registrado (enviada antes do recurso).
+  receipt?: MessageReceipt;
 };
+
+type MessageReceipt = {
+  delivered_at: string | null;
+  read_at: string | null;
+  retry_requests: number;
+  error_reason: string | null;
+};
+
+// Sem ✓✓ depois desse tempo = provavelmente não chegou (celular desligado,
+// "Aguardando mensagem" que não se resolveu, etc.).
+const RECEIPT_STALE_MS = 2 * 60 * 60 * 1000;
+
+function ReceiptBadge({ receipt, sentAtUtc }: { receipt?: MessageReceipt; sentAtUtc: string }) {
+  if (!receipt) {
+    return <span className="text-[10px] text-muted-foreground/60" title="Sem recibo registrado (envio anterior a 04/10/2026)">—</span>;
+  }
+  if (receipt.error_reason) {
+    return (
+      <span className="text-[11px] font-medium text-rose-500" title={`O aparelho do cliente não conseguiu exibir: ${receipt.error_reason}`}>
+        ✕ Não exibida
+      </span>
+    );
+  }
+  if (receipt.read_at) {
+    return (
+      <span className="text-[11px] font-medium text-sky-500" title={`Lida às ${formatTimeBR(receipt.read_at)}`}>
+        ✓✓ Lida {formatTimeBR(receipt.read_at)}
+      </span>
+    );
+  }
+  if (receipt.delivered_at) {
+    return (
+      <span className="text-[11px] font-medium text-muted-foreground" title={`Entregue no celular às ${formatTimeBR(receipt.delivered_at)}`}>
+        ✓✓ Entregue {formatTimeBR(receipt.delivered_at)}
+      </span>
+    );
+  }
+  const stale = Date.now() - new Date(sentAtUtc).getTime() > RECEIPT_STALE_MS;
+  const retries = receipt.retry_requests || 0;
+  const title =
+    (stale ? "Mais de 2h sem chegar no celular do cliente. " : "Chegou no servidor do WhatsApp, ainda não no celular. ") +
+    (retries > 0 ? `O celular pediu reenvio ${retries}x (sinal de "Aguardando mensagem").` : "");
+  return (
+    <span className={`text-[11px] font-medium ${stale || retries > 0 ? "text-amber-500" : "text-muted-foreground"}`} title={title}>
+      {stale ? "⚠ " : ""}✓ Não entregue{retries > 0 ? ` · ${retries} reenvio${retries > 1 ? "s" : ""}` : ""}
+    </span>
+  );
+}
 
 const QUEUE_ROW_SELECT =
   "id,status,when_sp,when_ts_utc,origem,client_id,client_name,whatsapp_username,automation_id,template_name,message_preview,message_full,whatsapp_session,error_message";
@@ -234,6 +285,28 @@ function GlobalQueueMonitor({
       }
     } catch {
       // enriquecimento é só um extra visual — falhar aqui não pode derrubar a fila
+    }
+
+    // ✅ 04/10/2026: recibo ✓✓ de cada envio do histórico. Mesmo esquema do
+    // enriquecimento acima — falhar não derruba nada, só some a coluna.
+    try {
+      const sentIds = historyRows.filter((r) => r.status === "SENT").map((r) => r.id);
+      if (sentIds.length > 0) {
+        const { data: receipts } = await supabaseBrowser
+          .from("whatsapp_message_receipts")
+          .select("job_id, is_secondary, delivered_at, read_at, retry_requests, error_reason")
+          .in("job_id", sentIds);
+        const byJob: Record<string, MessageReceipt> = {};
+        for (const r of (receipts as any[]) || []) {
+          // Job com 2 mensagens (raro — envio manual a principal+secundário):
+          // mostra a do principal.
+          if (byJob[r.job_id] && r.is_secondary) continue;
+          byJob[r.job_id] = r;
+        }
+        for (const row of historyRows) row.receipt = byJob[row.id];
+      }
+    } catch {
+      // idem
     }
 
     setQueueData(pendingRows);
@@ -599,6 +672,7 @@ function GlobalQueueMonitor({
                         <th className="p-2">Servidor</th>
                         <th className="p-2">Mensagem</th>
                         <th className="p-2">Status</th>
+                        <th className="p-2">Entrega</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -644,6 +718,9 @@ function GlobalQueueMonitor({
                                   {log.error_message}
                                 </div>
                               )}
+                            </td>
+                            <td className="p-2 whitespace-nowrap">
+                              {log.status === "SENT" && <ReceiptBadge receipt={log.receipt} sentAtUtc={log.when_ts_utc} />}
                             </td>
                           </tr>
                         );

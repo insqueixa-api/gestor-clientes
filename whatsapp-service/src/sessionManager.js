@@ -78,6 +78,86 @@ async function reportSessionAlert(kind, sessionKey, detail, extra = {}) {
   }
 }
 
+// ✅ 04/10/2026, pedido do Márcio: guardar o recibo de cada mensagem (✓✓
+// entregue / ✓✓ azul lido) pra aparecer no Histórico da Automação de
+// Cobrança. A WhatsApp já mandava esses recibos (messages.update) — só o
+// de ERRO era ouvido. Junta num lote por 3s (só arma quando chega recibo,
+// nada de timer rodando à toa) e manda pro app em /api/whatsapp/receipts,
+// que grava em whatsapp_message_receipts. Lote que falhar volta pra fila
+// e vai junto no próximo.
+const pendingReceipts = new Map(); // id → { delivered, read, retries, error }
+let receiptFlushTimer = null;
+const RECEIPT_FLUSH_DELAY_MS = 3000;
+const RECEIPT_QUEUE_MAX = 5000;
+// Reenvio forçado (forceResendAfterGiveUp) manda com id NOVO — o recibo
+// desse id novo conta pra mensagem original (é a que está ligada ao job).
+const resendAlias = new Map(); // novoId → idOriginal
+// Só mensagens que ESTE serviço mandou (/send) — messages.update também
+// traz recibo do que o Márcio manda pelo próprio celular, e isso não vai
+// pro banco. Memória só (zera no restart; recibo que chegar depois de um
+// restart se perde — aceitável), 7 dias.
+const trackedMessageIds = new Map(); // id → ts
+const TRACKED_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function trackSentMessageId(id) {
+  if (!id) return;
+  const now = Date.now();
+  if (trackedMessageIds.size > 5000) {
+    for (const [k, ts] of trackedMessageIds) if (now - ts > TRACKED_MAX_AGE_MS) trackedMessageIds.delete(k);
+  }
+  trackedMessageIds.set(id, now);
+}
+
+function queueReceipt(messageId, patch) {
+  if (!messageId) return;
+  const id = resendAlias.get(messageId) || messageId;
+  if (!trackedMessageIds.has(id)) return;
+  if (!pendingReceipts.has(id) && pendingReceipts.size >= RECEIPT_QUEUE_MAX) return;
+  const cur = pendingReceipts.get(id) || { delivered: null, read: null, retries: 0, error: null };
+  if (patch.delivered && !cur.delivered) cur.delivered = patch.delivered;
+  if (patch.read && !cur.read) cur.read = patch.read;
+  if (patch.retries) cur.retries += patch.retries;
+  if (patch.error && !cur.error) cur.error = patch.error;
+  pendingReceipts.set(id, cur);
+  if (!receiptFlushTimer) receiptFlushTimer = setTimeout(flushReceipts, RECEIPT_FLUSH_DELAY_MS);
+}
+
+async function flushReceipts() {
+  receiptFlushTimer = null;
+  const appUrl = String(process.env.UNIGESTOR_APP_URL || "").trim();
+  const token = String(process.env.API_TOKEN || "").trim();
+  if (!appUrl || !token || pendingReceipts.size === 0) {
+    pendingReceipts.clear();
+    return;
+  }
+  const batch = [...pendingReceipts.entries()].slice(0, 500);
+  for (const [id] of batch) pendingReceipts.delete(id);
+  try {
+    const res = await fetch(`${appUrl.replace(/\/+$/, "")}/api/whatsapp/receipts`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ items: batch.map(([id, r]) => ({ id, ...r })) }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  } catch (e) {
+    console.log(`[WA] Falha ao mandar ${batch.length} recibo(s) pro app: ${e.message} — tenta de novo no próximo lote`);
+    for (const [id, r] of batch) {
+      const cur = pendingReceipts.get(id);
+      if (!cur) pendingReceipts.set(id, r);
+      else {
+        cur.delivered ||= r.delivered;
+        cur.read ||= r.read;
+        cur.retries += r.retries;
+        cur.error ||= r.error;
+      }
+    }
+  }
+  if (pendingReceipts.size > 0 && !receiptFlushTimer) {
+    receiptFlushTimer = setTimeout(flushReceipts, RECEIPT_FLUSH_DELAY_MS * 10);
+  }
+}
+
 // Adiciona no topo do arquivo, após os imports:
 const processedCalls = new Map();
 
@@ -552,6 +632,8 @@ async function forceResendAfterGiveUp(sessionKey, remoteJid, messageId) {
     const newId = generateMessageIDV2(sess.socket.user?.id);
     await sess.socket.relayMessage(remoteJid, cached.content, { messageId: newId });
     rememberSentMessage(newId, cached.content);
+    resendAlias.set(newId, resendAlias.get(messageId) || messageId);
+    if (resendAlias.size > 2000) resendAlias.delete(resendAlias.keys().next().value);
     console.log(`[WA][${sessionKey.slice(0, 8)}] 🔁 Baileys desistiu de ${messageId} — reenvio forçado (novo id ${newId}) pra ${remoteJid} com sessão nova`);
   } catch (e) {
     console.error(`[WA][${sessionKey.slice(0, 8)}] Falha no reenvio forçado pra ${remoteJid}: ${e?.message}`);
@@ -574,6 +656,9 @@ const baileysLogStream = new Writable({
       }
       if (line?.msg === "recv retry request" && line.sessionKey) {
         decryptRetryCounts.set(line.sessionKey, (decryptRetryCounts.get(line.sessionKey) || 0) + 1);
+        // ✅ 04/10/2026: pedido de reenvio = sinal de "Aguardando mensagem"
+        // no aparelho do cliente — conta por mensagem pro Histórico.
+        queueReceipt(line.attrs?.id, { retries: 1 });
 
         const remoteJid = line.key?.remoteJid;
         if (remoteJid) {
@@ -951,10 +1036,20 @@ sock.ev.on("messages.upsert", ({ messages, type }) => {
 // alerta no sino é um passo separado, mexe no app Next.js também.
 sock.ev.on("messages.update", (updates) => {
   for (const { key, update } of updates) {
+    // ✅ 04/10/2026: recibo ✓✓ (entregue) / azul (lido) das NOSSAS mensagens
+    // pra contato individual (grupo/Status ficam de fora) — vai pro
+    // Histórico via queueReceipt.
+    const isDirect = key?.fromMe && /@(s\.whatsapp\.net|lid)$/.test(String(key.remoteJid || ""));
+    if (isDirect && typeof update?.status === "number") {
+      const nowIso = new Date().toISOString();
+      if (update.status === WAMessageStatus.DELIVERY_ACK) queueReceipt(key.id, { delivered: nowIso });
+      else if (update.status >= WAMessageStatus.READ) queueReceipt(key.id, { delivered: nowIso, read: nowIso });
+    }
     if (update?.status !== WAMessageStatus.ERROR) continue;
     const reason = Array.isArray(update.messageStubParameters)
       ? update.messageStubParameters.join(", ")
       : "motivo não informado";
+    if (isDirect) queueReceipt(key.id, { error: reason });
     console.log(`[WA][${sessionKey.slice(0, 8)}] Mensagem p/ ${key.remoteJid} (id ${key.id}) NÃO exibida no aparelho do destinatário — ${reason}`);
   }
 });
@@ -1595,6 +1690,7 @@ async function sendMessageInternal(sessionKey, phone, message, imageUrl = null, 
   // Guarda ANTES de apagar a sessão logo abaixo: se um pedido de reenvio
   // chegar, precisa ter o conteúdo real pra devolver.
   rememberSentMessage(messageId, result?.message);
+  trackSentMessageId(messageId);
 
   // ✅ 12/09/2026, decisão explícita do Márcio (4ª rodada — volta a apagar a
   // cada envio, revertendo a 3ª rodada de 06/09/2026): mesmo com sessão só

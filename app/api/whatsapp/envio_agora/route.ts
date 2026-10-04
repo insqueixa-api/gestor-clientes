@@ -20,6 +20,7 @@ import {
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";
+import { recordSentMessage } from "@/lib/whatsapp/receipts";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { formatDateBR } from "@/lib/date-br";
 
@@ -369,6 +370,7 @@ export async function POST(req: Request) {
   }
 
   const results = [];
+  const sentMessageIds: { id: string; phone: string; isSecondary: boolean }[] = [];
 
   // ✅ Intervalo entre contato primário e secundário — SEMPRE 3-10s fixo
   // aqui, independente da faixa configurada em billing_campaign_settings
@@ -503,6 +505,11 @@ export async function POST(req: Request) {
           wa_id: parsed?.id ?? parsed?.messageId ?? parsed?.msg_id ?? null,
         });
         results.push({ phone: contact.number, ok: true, status: 200 });
+        // ✅ 04/10/2026: guarda o id pra ligar ao job (gravado só depois do
+        // loop, mais abaixo) e o recibo ✓✓ aparecer no Histórico.
+        if (parsed?.messageId) {
+          sentMessageIds.push({ id: String(parsed.messageId), phone: contact.number, isSecondary: !!contact.is_secondary });
+        }
         await reportWhatsAppReconnected(tenantId, targetSession);
         // ✅ 05/09/2026: "durante o envio checa e grava" — sem timer separado,
         // aproveita o resultado que já veio embutido na resposta do /send.
@@ -540,7 +547,16 @@ export async function POST(req: Request) {
       insertPayload.client_id = recipientId;
     }
 
-    await sb.from("client_message_jobs").insert(insertPayload);
+    const { data: insertedJob } = await sb.from("client_message_jobs").insert(insertPayload).select("id").single();
+    for (const m of sentMessageIds) {
+      await recordSentMessage(sb, {
+        waMessageId: m.id,
+        tenantId,
+        jobId: insertedJob?.id ?? null,
+        phone: m.phone,
+        isSecondary: m.isSecondary,
+      });
+    }
   } catch (err) {
     safeServerLog("[WA][send_now] falha ao gravar log em client_message_jobs", err);
     console.error("[data_loss_risk:client_message_jobs_insert]", { message: (err as any)?.message, kind: "data_loss_risk", where: "client_message_jobs_insert" });
