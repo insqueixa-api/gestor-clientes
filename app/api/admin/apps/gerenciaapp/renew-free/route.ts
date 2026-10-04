@@ -16,6 +16,7 @@
 // rota do Portal já tem.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
+import { notifyClientAppRenewal } from "@/lib/apps/admin-renewal-notify";
 import { loadClientApp } from "@/lib/apps/orchestration";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { extractFieldByType, findFieldByType, internalAppUrl, logAppActivity } from "@/lib/apps/panel";
@@ -110,5 +111,9 @@ export async function POST(req: NextRequest) {
     detail: { expireDate, renew: true, source: "admin" },
   }).catch(() => {});
 
+  // ✅ 03/10/2026: "Enviar mensagem" marcado na confirmação (igual o Portal)
+  if (body?.notify_client === true && expireDate) {
+    await notifyClientAppRenewal(supabase, { clientAppId, expireDate });
+  }
   return NextResponse.json({ ok: true, expireDate, message: apiJson.message || "Licença renovada com sucesso." });
 }

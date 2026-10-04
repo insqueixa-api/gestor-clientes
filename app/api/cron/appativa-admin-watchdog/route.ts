@@ -39,9 +39,8 @@
 // checando, e o custo de checar algo raro é desprezível.
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isCronRequest } from "@/lib/internal-auth";
-import { checkAppativaHistoricoOnce } from "@/lib/apps/appativa-client-activation";
+import { checkAppativaHistoricoOnce, finishAdminAppativaActivation } from "@/lib/apps/appativa-client-activation";
 import { getAppativaApiKey } from "@/lib/integrations/appativa";
-import { findFieldByType } from "@/lib/apps/panel";
 
 export const dynamic = "force-dynamic";
 // ✅ 12/09/2026: 60s → 120s, Fluid Compute mantido de vez — sem mais teto de
@@ -99,22 +98,18 @@ async function handle(req: Request) {
       const check = await checkAppativaHistoricoOnce(apiKey, historicoId, fieldsConfigForRow);
       if (check.outcome === "pending") continue;
 
-      const { _appativa_pending_id, ...restFieldValues } = row.field_values || {};
-
-      if (check.outcome === "done") {
-        const dateField = findFieldByType(fieldsConfigForRow, "date");
-        const updated = dateField
-          ? { ...restFieldValues, [String(dateField.id || dateField.label)]: check.expireDate }
-          : restFieldValues;
-        await supabaseAdmin.from("client_apps").update({ field_values: updated }).eq("id", row.id);
-        resolved++;
-      } else {
-        // outcome === "error" — recusa de verdade (rejeição), não
-        // "vencimento não bateu" (esse já vira "pending" dentro de
-        // checkAppativaHistoricoOnce, não chega aqui).
-        await supabaseAdmin.from("client_apps").update({ field_values: restFieldValues }).eq("id", row.id);
-        failed++;
-      }
+      // ✅ 03/10/2026: conclusão única (grava + WhatsApp se o admin marcou
+      // "Enviar mensagem"). "error" = recusa de verdade — "vencimento não
+      // bateu" já vira "pending" dentro de checkAppativaHistoricoOnce.
+      await finishAdminAppativaActivation(supabaseAdmin, {
+        clientAppId: row.id,
+        historicoId,
+        outcome: check.outcome,
+        expireDate: check.outcome === "done" ? check.expireDate : null,
+        fieldsConfig: fieldsConfigForRow,
+      });
+      if (check.outcome === "done") resolved++;
+      else failed++;
     } catch {
       // best-effort — próxima rodada do cron tenta de novo
     }

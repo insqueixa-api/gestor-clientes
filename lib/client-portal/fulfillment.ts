@@ -1045,12 +1045,16 @@ const APPATIVA_MIN_DAYS_FORWARD = 300;
 // ✅ {app_nome}/{app_vencimento} (achado 26/08/2026, pedido do Márcio): a
 // mensagem agora informa direto qual app foi renovado e o vencimento novo
 // — não precisa mais mandar o cliente entrar no portal pra conferir.
-async function sendAppRenewalWhatsapp(
+//
+// ✅ 03/10/2026: exportada pra ativação manual do admin (lib/apps/appativa-
+// client-activation.ts) — lá não existe client_portal_payments, então
+// paymentId é opcional (sem ele só não atualiza a coluna whatsapp_status).
+export async function sendAppRenewalWhatsapp(
   supabaseAdmin: any,
   params: {
     tenantId: string;
     clientId: string;
-    paymentId: string;
+    paymentId?: string | null;
     origin: string;
     whatsappSession: string;
     appName: string;
@@ -1124,7 +1128,7 @@ async function sendAppRenewalWhatsapp(
     });
     if (queueErr) {
       prodLog("appativa_resolve.whatsapp_queue_failed", { message: queueErr.message });
-      await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", params.paymentId);
+      if (params.paymentId) await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", params.paymentId);
       return;
     }
 
@@ -1138,10 +1142,10 @@ async function sendAppRenewalWhatsapp(
     // dentro, fica registrado como `FAILED` em `client_message_jobs`, só
     // não reflete mais nesta coluna específica (perda de precisão aceita
     // conscientemente pelo Márcio em troca de a função não esperar).
-    await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", params.paymentId);
+    if (params.paymentId) await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "sent" }).eq("id", params.paymentId);
   } catch (e: any) {
     prodLog("appativa_resolve.whatsapp_send_error", { message: e?.message });
-    await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", params.paymentId);
+    if (params.paymentId) await supabaseAdmin.from("client_portal_payments").update({ whatsapp_status: "error" }).eq("id", params.paymentId);
   }
 }
 

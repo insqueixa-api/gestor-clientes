@@ -517,6 +517,30 @@ function Switch({
   );
 }
 
+// ✅ 03/10/2026, pedido do Márcio: "Enviar mensagem" dentro da própria
+// ativação/renovação de licença (igual o Portal) — o ConfirmDialog só aceita
+// JSX estático em `details`, então o estado do switch vive aqui e é
+// repassado por callback pra quem abriu a confirmação.
+function NotifyClientToggle({
+  initial,
+  onChange,
+}: {
+  initial: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const [checked, setChecked] = useState(initial);
+  return (
+    <Switch
+      checked={checked}
+      onChange={(v) => {
+        setChecked(v);
+        onChange(v);
+      }}
+      label="Enviar mensagem ao cliente quando confirmar (nome do app + vencimento)"
+    />
+  );
+}
+
 function PhoneRow({
   label,
   countryLabel,
@@ -872,14 +896,6 @@ export default function NovoCliente({
   const [sendTrialWhats, setSendTrialWhats] = useState(
     defaultSendWhatsapp ?? true,
   );
-
-  // ✅ Aba Aplicativos: mensagem genérica opcional ao salvar (pedido do
-  // Márcio, 04/08/2026) — desligado por padrão, o admin liga na hora que
-  // quiser mandar (ex: depois de concluir uma renovação de licença por
-  // fora). Reaproveita o mesmo par selectedTemplateId/messageContent que
-  // sendTrialWhats/sendPaymentMsg já usam — só um contexto a mais que pode
-  // disparar o envio no fim do handleSave.
-  const [sendAppsRenewalMsg, setSendAppsRenewalMsg] = useState(false);
 
   // ✅ NOVO: Controle de horas de teste e M3U
   const [testHours, setTestHours] = useState<2 | 4 | 6>(2);
@@ -2693,8 +2709,12 @@ export default function NovoCliente({
       return;
     }
 
+    let notifyClient = whatsappOptIn;
     const ok = await confirm({
       title: "Ativar licença do GPC Roku?",
+      details: whatsappOptIn
+        ? [<NotifyClientToggle key="notify" initial={notifyClient} onChange={(v) => (notifyClient = v)} />]
+        : [],
       subtitle: "Soma 1 ano de licença no GerenciaApp. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
       tone: "emerald",
       confirmText: "Sim, marcar como pago",
@@ -2707,6 +2727,7 @@ export default function NovoCliente({
     try {
       const apiJson = await callAdminAppApi("/api/admin/apps/gpc-roku/mark-paid", {
         client_app_id: currentApp.client_app_id,
+        notify_client: notifyClient,
       });
       setLoading(false);
       setLoadingStep("");
@@ -2760,8 +2781,12 @@ export default function NovoCliente({
       return;
     }
 
+    let notifyClient = whatsappOptIn;
     const ok = await confirm({
       title: "Ativar/renovar licença do DupleCast?",
+      details: whatsappOptIn
+        ? [<NotifyClientToggle key="notify" initial={notifyClient} onChange={(v) => (notifyClient = v)} />]
+        : [],
       subtitle: "Consome 1 código real da conta de revenda pra esse aparelho. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
       tone: "sky",
       confirmText: "Sim, renovar",
@@ -2774,6 +2799,7 @@ export default function NovoCliente({
     try {
       const apiJson = await callAdminAppApi("/api/admin/apps/duplecast/activate", {
         client_app_id: currentApp.client_app_id,
+        notify_client: notifyClient,
       });
       setLoading(false);
       setLoadingStep("");
@@ -2822,8 +2848,12 @@ export default function NovoCliente({
       return;
     }
 
+    let notifyClient = whatsappOptIn;
     const ok = await confirm({
       title: "Renovar gratuitamente?",
+      details: whatsappOptIn
+        ? [<NotifyClientToggle key="notify" initial={notifyClient} onChange={(v) => (notifyClient = v)} />]
+        : [],
       subtitle: "Estende o vencimento em +1 ano no painel do parceiro, sem cobrar nada do cliente.",
       tone: "emerald",
       confirmText: "Sim, renovar",
@@ -2836,6 +2866,7 @@ export default function NovoCliente({
     try {
       const apiJson = await callAdminAppApi("/api/admin/apps/gerenciaapp/renew-free", {
         client_app_id: currentApp.client_app_id,
+        notify_client: notifyClient,
       });
       setLoading(false);
       setLoadingStep("");
@@ -2885,9 +2916,15 @@ export default function NovoCliente({
       return;
     }
 
+    // ✅ 03/10/2026: "Enviar mensagem" faz parte da ativação (igual o
+    // Portal) — ligado por padrão quando o cliente aceita WhatsApp.
+    let notifyClient = whatsappOptIn;
     const ok = await confirm({
       title: "Ativar/renovar licença pela AtivaApp?",
       subtitle: "Solicita a licença desse app na AtivaApp, usando o MAC/Device Key salvos. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
+      details: whatsappOptIn
+        ? [<NotifyClientToggle key="notify" initial={notifyClient} onChange={(v) => (notifyClient = v)} />]
+        : [],
       tone: "sky",
       confirmText: "Sim, ativar",
       cancelText: "Cancelar",
@@ -2899,6 +2936,7 @@ export default function NovoCliente({
     try {
       const apiJson = await callAdminAppApi("/api/admin/apps/appativa/activate", {
         client_app_id: currentApp.client_app_id,
+        notify_client: notifyClient,
       });
       setLoading(false);
       setLoadingStep("");
@@ -4687,61 +4725,6 @@ export default function NovoCliente({
               });
             }
           }
-        }
-      }
-
-      // ✅ Aba Aplicativos: mensagem genérica (pedido do Márcio, 04/08/2026)
-      // — roda depois de tudo (edição ou criação já convergiram aqui),
-      // mesmo padrão de sendTrialWhats/sendPaymentMsg (valida a resposta da
-      // API antes de considerar enviado, mesmo /api/whatsapp/envio_agora
-      // que já grava o log em client_message_jobs sozinho).
-      if (
-        sendAppsRenewalMsg &&
-        whatsappOptIn &&
-        messageContent &&
-        messageContent.trim() &&
-        clientId
-      ) {
-        try {
-          const { data: session } = await supabaseBrowser.auth.getSession();
-          const token = session.session?.access_token;
-
-          let appsMsgImageUrl = null;
-          if (selectedTemplateId) {
-            const tpl = templates.find((t) => t.id === selectedTemplateId);
-            if (tpl && tpl.image_url) appsMsgImageUrl = tpl.image_url;
-          }
-
-          const res = await fetch("/api/whatsapp/envio_agora", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              tenant_id: tid,
-              client_id: clientId,
-              message: messageContent,
-              message_template_id: selectedTemplateId || null,
-              image_url: appsMsgImageUrl,
-              whatsapp_session: selectedSession,
-            }),
-          });
-
-          if (!res.ok) throw new Error("API retornou erro");
-
-          queueListToast("client", {
-            type: "success",
-            title: "Mensagem enviada",
-            message: "Mensagem de aplicativo entregue no WhatsApp.",
-          });
-        } catch {
-          queueListToast("client", {
-            type: "error",
-            title: "Erro no envio",
-            message:
-              "Cliente salvo, mas o WhatsApp da mensagem de aplicativo falhou.",
-          });
         }
       }
 
@@ -6938,93 +6921,6 @@ export default function NovoCliente({
                   }
                 />
 
-                {/* ✅ Mensagem genérica opcional (pedido do Márcio, 04/08/2026)
-                    — liga o toggle e escolhe o modelo (ex: "Renovação de
-                    Aplicativo"), envia junto ao salvar. Tudo numa linha só. */}
-                <div className="flex items-center gap-2 pt-1">
-                  <div
-                    onClick={() => {
-                      const next = !sendAppsRenewalMsg;
-                      setSendAppsRenewalMsg(next);
-                      // ✅ Sobrescreve de propósito, mesmo se já tinha algo
-                      // selecionado — o carregamento inicial desta tela
-                      // sempre pré-seleciona "Pagamento" pro toggle de
-                      // Dados/Cliente; ao ligar ESTE toggle o admin quer o
-                      // modelo de renovação de app, não o de pagamento
-                      // (achado real, 04/08/2026).
-                      if (next) {
-                        const defaultTpl = templates.find((t) =>
-                          t.name
-                            .toLowerCase()
-                            .includes("aplicativo renovado"),
-                        );
-                        if (defaultTpl) {
-                          setSelectedTemplateId(defaultTpl.id);
-                          setMessageContent(defaultTpl.content);
-                        }
-                      }
-                    }}
-                    className="h-10 px-3 rounded-lg border border-border bg-muted/40 cursor-pointer hover:bg-muted transition-colors flex items-center gap-2 shrink-0"
-                  >
-                    <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                      Enviar mensagem
-                    </span>
-                    <Switch
-                      checked={sendAppsRenewalMsg}
-                      onChange={(next) => {
-                        setSendAppsRenewalMsg(next);
-                        if (next) {
-                          const defaultTpl = templates.find((t) =>
-                            t.name
-                              .toLowerCase()
-                              .includes("aplicativo renovado"),
-                          );
-                          if (defaultTpl) {
-                            setSelectedTemplateId(defaultTpl.id);
-                            setMessageContent(defaultTpl.content);
-                          }
-                        }
-                      }}
-                      label=""
-                    />
-                  </div>
-
-                  {sendAppsRenewalMsg && (
-                    <div className="flex-1 min-w-0 animate-in fade-in zoom-in duration-200">
-                      <Select
-                        value={selectedTemplateId}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          setSelectedTemplateId(id);
-                          const tpl = templates.find((t) => t.id === id);
-                          setMessageContent(tpl?.content || "");
-                        }}
-                        className="h-10 w-full"
-                      >
-                        <option value="">-- Personalizado --</option>
-                        {Object.entries(
-                          templates.reduce(
-                            (acc, t) => {
-                              const cat = t.category || "Geral";
-                              if (!acc[cat]) acc[cat] = [];
-                              acc[cat].push(t);
-                              return acc;
-                            },
-                            {} as Record<string, typeof templates>,
-                          ),
-                        ).map(([catName, tmpls]) => (
-                          <optgroup key={catName} label={`— ${catName} —`}>
-                            {tmpls.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </Select>
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </ModalBody>

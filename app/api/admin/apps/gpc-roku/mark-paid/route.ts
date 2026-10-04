@@ -8,6 +8,7 @@
 // não existe pagamento nenhum pra marcar como concluído, é 100% manual.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant, getBearerToken } from "@/lib/api/auth";
+import { notifyClientAppRenewal } from "@/lib/apps/admin-renewal-notify";
 import { loadClientApp } from "@/lib/apps/orchestration";
 import { extractFieldByType } from "@/lib/apps/panel";
 import { renewGpcRokuOneYear } from "@/lib/apps/gpc-roku-registry";
@@ -60,5 +61,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 502 });
   }
 
+  // ✅ 03/10/2026: "Enviar mensagem" marcado na confirmação (igual o Portal)
+  if (body?.notify_client === true && result.expireDate) {
+    await notifyClientAppRenewal(supabase, { clientAppId: row.id, expireDate: result.expireDate });
+  }
   return NextResponse.json({ ok: true, expireDate: result.expireDate });
 }

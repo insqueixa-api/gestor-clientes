@@ -10,9 +10,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { loadClientApp } from "@/lib/apps/orchestration";
-import { findFieldByType } from "@/lib/apps/panel";
 import { getAppativaApiKey } from "@/lib/integrations/appativa";
-import { checkAppativaHistoricoOnce } from "@/lib/apps/appativa-client-activation";
+import { checkAppativaHistoricoOnce, finishAdminAppativaActivation } from "@/lib/apps/appativa-client-activation";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -53,18 +52,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, pending: true });
   }
 
-  const { _appativa_pending_id, ...restFieldValues } = row.field_values || {};
+  // ✅ 03/10/2026: conclusão única (grava + manda o WhatsApp se o admin
+  // marcou "Enviar mensagem") — mesma função do after() e do vigia.
+  await finishAdminAppativaActivation(supabase, {
+    clientAppId,
+    historicoId,
+    outcome: check.outcome,
+    expireDate: check.outcome === "done" ? check.expireDate : null,
+    fieldsConfig: row.fieldsConfig,
+  });
 
   if (check.outcome === "done") {
-    const dateField = findFieldByType(row.fieldsConfig, "date");
-    const updated = dateField
-      ? { ...restFieldValues, [String(dateField.id || dateField.label)]: check.expireDate }
-      : restFieldValues;
-    await supabase.from("client_apps").update({ field_values: updated }).eq("id", clientAppId);
     return NextResponse.json({ ok: true, pending: false, expireDate: check.expireDate });
   }
-
-  // outcome === "error"
-  await supabase.from("client_apps").update({ field_values: restFieldValues }).eq("id", clientAppId);
   return NextResponse.json({ ok: true, pending: false, error: check.error });
 }

@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
     keyApp,
     fieldsConfig: row.fieldsConfig,
     fieldValues: row.field_values,
+    // ✅ 03/10/2026: "Enviar mensagem" marcado na confirmação da ativação
+    notifyClient: body?.notify_client === true,
   });
 
   if ("error" in result) {

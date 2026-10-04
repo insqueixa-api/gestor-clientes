@@ -19,6 +19,7 @@
 import { after } from "next/server";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { findFieldByType } from "@/lib/apps/panel";
+import { notifyClientAppRenewal } from "@/lib/apps/admin-renewal-notify";
 import {
   solicitarAtivacao,
   consultarAtivacao,
@@ -106,6 +107,57 @@ export async function checkAppativaHistoricoOnce(
   return { outcome: "done", expireDate: dateOnly };
 }
 
+// ✅ 03/10/2026, pedido do Márcio ("ativou, envia a mensagem se estiver
+// marcado" — igual o Portal): conclusão ÚNICA da ativação manual do admin,
+// usada pelos 3 caminhos que resolvem (after() abaixo, "Ver status"/auto-poll
+// da tela, e o vigia app/api/cron/appativa-admin-watchdog). Lê a linha FRESCA
+// e só grava se o marcador ainda for o mesmo historicoId (update condicional)
+// — quem "ganhar" a corrida é o único que manda o WhatsApp, nunca 2x.
+// Mensagem = mesmo template "Aplicativo Renovado" do Portal, com o nome do
+// app e o vencimento novo.
+export async function finishAdminAppativaActivation(
+  supabaseAdmin: SupabaseClient,
+  params: {
+    clientAppId: string;
+    historicoId: string;
+    outcome: "done" | "error";
+    expireDate?: string | null;
+    fieldsConfig: any[];
+  },
+): Promise<{ claimed: boolean }> {
+  const { data: row } = await supabaseAdmin
+    .from("client_apps")
+    .select("id, field_values")
+    .eq("id", params.clientAppId)
+    .maybeSingle();
+  const current: Record<string, string> = (row?.field_values as any) || {};
+  if (!row || current["_appativa_pending_id"] !== params.historicoId) return { claimed: false };
+
+  const wantsNotify = current["_appativa_notify"] === "1";
+  const { _appativa_pending_id, _appativa_notify, ...rest } = current;
+  void _appativa_pending_id;
+  void _appativa_notify;
+
+  let next: Record<string, string> = rest;
+  if (params.outcome === "done" && params.expireDate) {
+    const dateField = findFieldByType(params.fieldsConfig, "date");
+    if (dateField) next = { ...rest, [String(dateField.id || dateField.label)]: params.expireDate };
+  }
+
+  const { data: claimed } = await supabaseAdmin
+    .from("client_apps")
+    .update({ field_values: next })
+    .eq("id", params.clientAppId)
+    .eq("field_values->>_appativa_pending_id", params.historicoId)
+    .select("id");
+  if (!claimed?.length) return { claimed: false };
+
+  if (params.outcome === "done" && wantsNotify) {
+    await notifyClientAppRenewal(supabaseAdmin, { clientAppId: params.clientAppId, expireDate: params.expireDate || null });
+  }
+  return { claimed: true };
+}
+
 export async function triggerAppativaActivationForClient(
   supabaseAdmin: SupabaseClient,
   params: {
@@ -116,6 +168,10 @@ export async function triggerAppativaActivationForClient(
     keyApp?: string | null;
     fieldsConfig: any[];
     fieldValues: Record<string, string>;
+    // ✅ 03/10/2026: admin marcou "Enviar mensagem" na ativação — vira
+    // _appativa_notify:"1" e quem concluir (finishAdminAppativaActivation)
+    // manda o "Aplicativo Renovado" com o nome/vencimento deste app.
+    notifyClient?: boolean;
   },
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const apiKey = await getAppativaApiKey(supabaseAdmin, params.tenantId);
@@ -145,7 +201,13 @@ export async function triggerAppativaActivationForClient(
   // que o admin recarregue a página logo em seguida. Chave prefixada com
   // "_" segue o mesmo padrão já usado por "_trial_hint" (lib/apps/
   // orchestration.ts) — nunca aparece no formulário, só como estado interno.
-  const fieldValuesWithPending = { ...params.fieldValues, _appativa_pending_id: historicoId };
+  const { _appativa_notify: _oldNotify, ...baseFieldValues } = params.fieldValues || {};
+  void _oldNotify;
+  const fieldValuesWithPending: Record<string, string> = {
+    ...baseFieldValues,
+    _appativa_pending_id: historicoId,
+    ...(params.notifyClient ? { _appativa_notify: "1" } : {}),
+  };
   try {
     await supabaseAdmin
       .from("client_apps")
@@ -166,15 +228,13 @@ export async function triggerAppativaActivationForClient(
       for (let i = 0; i < ADMIN_ACTIVATION_APPATIVA_POLL_ATTEMPTS; i++) {
         const check = await checkAppativaHistoricoOnce(apiKey, historicoId, params.fieldsConfig);
         if (check.outcome === "done") {
-          const { _appativa_pending_id, ...restFieldValues } = fieldValuesWithPending;
-          const dateField = findFieldByType(params.fieldsConfig, "date");
-          const updated = dateField
-            ? { ...restFieldValues, [String(dateField.id || dateField.label)]: check.expireDate }
-            : restFieldValues;
-          await supabaseAdmin
-            .from("client_apps")
-            .update({ field_values: updated })
-            .eq("id", params.clientAppId);
+          await finishAdminAppativaActivation(supabaseAdmin, {
+            clientAppId: params.clientAppId,
+            historicoId,
+            outcome: "done",
+            expireDate: check.expireDate,
+            fieldsConfig: params.fieldsConfig,
+          });
           return;
         }
         if (check.outcome === "error") {
@@ -182,12 +242,13 @@ export async function triggerAppativaActivationForClient(
           // acionou, na tela do cliente; ele confere o resultado voltando
           // nessa mesma tela). Um console.error aqui seria redundante com
           // o que solicitar-ativacao/consultar-ativacao já registram.
-          const { _appativa_pending_id, ...restFieldValues } = fieldValuesWithPending;
           try {
-            await supabaseAdmin
-              .from("client_apps")
-              .update({ field_values: restFieldValues })
-              .eq("id", params.clientAppId);
+            await finishAdminAppativaActivation(supabaseAdmin, {
+              clientAppId: params.clientAppId,
+              historicoId,
+              outcome: "error",
+              fieldsConfig: params.fieldsConfig,
+            });
           } catch {
             // best-effort — a checagem de erro em si já é o que importa
           }
