@@ -8,9 +8,11 @@
 //   2. GET  /devices/{MAC}/info      → {activated, payed, expiresAt,
 //                                    freeTrialExpiresAt, isExpired, ...}
 //   3. GET  /playlist/by-device?mac= → {playlists:[{id, name, url, ...}]}
-//   4. POST /playlist/upload-with-url {mac, playlistName, playlistUrl}
-//      — o servidor deles BAIXA a m3u na hora (lista fora do ar = 400
-//      PARSE_ERROR "Failed to fetch playlist"); várias listas convivem.
+//   4. POST /playlist/register-direct {mac, playlistName, playlistUrl}
+//      — "modo direto": só grava a URL no aparelho (a TV baixa). Reserva:
+//      /playlist/upload-with-url (mesmo body), que faz o servidor DELES baixar
+//      a m3u inteira — falha com lista que bloqueia servidor estrangeiro
+//      (400 PARSE_ERROR "Failed to fetch playlist"). Várias listas convivem.
 //   5. DELETE /playlist/{id}         → apaga só aquela lista.
 //
 // Regras (iguais às outras integrações):
@@ -172,16 +174,25 @@ export async function POST(req: Request) {
     if (action === "create") {
       if (!m3uUrl) return NextResponse.json({ ok: false, error: "m3uUrl é obrigatório para create." }, { status: 400 });
       const token = await login(ctx, macValue, deviceKey);
-      const { status, json } = await call(ctx, "/playlist/upload-with-url", {
+      const payload = JSON.stringify({ mac: macValue, playlistName: finalServerName || "Playlist", playlistUrl: m3uUrl });
+      // "Modo direto" (o mesmo que o site usa pra link get.php): só grava a URL
+      // no aparelho, quem baixa é a TV. O upload-with-url fica de reserva — ele
+      // faz o servidor deles baixar a lista inteira, e lista de provedor que
+      // bloqueia servidor estrangeiro falha (Elite, 03/10/2026).
+      let { status, json } = await call(ctx, "/playlist/register-direct", {
         method: "POST",
         headers: headers(ctx, token),
-        body: JSON.stringify({ mac: macValue, playlistName: finalServerName || "Playlist", playlistUrl: m3uUrl }),
+        body: payload,
       });
       if (status !== 200 || !json?.success) {
-        const msg = json?.code === "PARSE_ERROR"
-          ? `O ${brand} não conseguiu baixar a lista (m3u fora do ar ou bloqueada pro servidor deles).`
-          : json?.error || `Falha ao criar a playlist no ${brand} (status ${status}).`;
-        throw new Error(msg);
+        ({ status, json } = await call(ctx, "/playlist/upload-with-url", {
+          method: "POST",
+          headers: headers(ctx, token),
+          body: payload,
+        }));
+      }
+      if (status !== 200 || !json?.success) {
+        throw new Error(json?.error || json?.message || `Falha ao criar a playlist no ${brand} (status ${status}).`);
       }
 
       let info: DeviceInfo = { expireDate: null, isTrial: false };
