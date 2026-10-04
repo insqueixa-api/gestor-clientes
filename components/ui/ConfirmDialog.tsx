@@ -55,6 +55,9 @@ export type ConfirmDialogProps = {
   icon?: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
+  // ✅ 03/10/2026: largura opcional (ex: confirmação com opção marcável) —
+  // sem passar, continua max-w-sm como sempre.
+  maxWidth?: string;
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -69,6 +72,7 @@ export default function ConfirmDialog({
   icon,
   confirmText = "Confirmar",
   cancelText = "Voltar",
+  maxWidth = "max-w-sm",
   loading = false,
   onConfirm,
   onCancel,
@@ -87,7 +91,7 @@ export default function ConfirmDialog({
   const t = toneClasses(tone);
 
   return (
-    <Modal onClose={onCancel} maxWidth="max-w-sm" zIndex="z-[100000]">
+    <Modal onClose={onCancel} maxWidth={maxWidth} zIndex="z-[100000]">
       <div className="p-6 flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <div

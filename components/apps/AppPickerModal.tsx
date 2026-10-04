@@ -259,14 +259,17 @@ export default function AppPickerModal({
 
   const q = search.trim().toLowerCase();
   const hasPresetDeviceTypes = (presetDeviceTypes?.length || 0) > 0;
+  // ✅ 03/10/2026 (pedido do Márcio): aparelho específico escolhido (ex:
+  // Samsung) = a busca procura SÓ dentro dele e o app sai vinculado a ele.
+  // Nenhum aparelho ou "Todos" = busca em todos, app sem aparelho.
+  const specificDevice = !!deviceType && deviceType !== ALL_DEVICES;
 
   const appsForDevice = useMemo(() => {
     return catalog.filter((app) => {
-      // ✅ 02/10/2026 (pedido do Márcio): com busca digitada, procura em
-      // TODOS os aplicativos, independente do aparelho escolhido.
-      // ✅ 03/10/2026: o filtro rápido (estrelas etc.) NÃO — respeita o
-      // aparelho escolhido (Samsung + 5 estrelas = só os de Samsung).
-      if (q) return true;
+      // ✅ 03/10/2026 (pedido do Márcio): busca digitada procura em TODOS só
+      // quando nenhum aparelho específico foi escolhido; com aparelho
+      // escolhido (ex: Samsung), procura só nele — igual o filtro rápido.
+      if (q && !specificDevice) return true;
       if (deviceType === ALL_DEVICES) return true;
       if (!deviceType && !hasPresetDeviceTypes) return true;
       // ✅ Trava de parceria (só app do servidor certo do cliente) — entra
@@ -281,7 +284,7 @@ export default function AppPickerModal({
       // faltando no catálogo; só aparece pela busca.
       return Boolean(deviceType && app.device_types?.includes(deviceType));
     });
-  }, [catalog, deviceType, clientServerId, presetDeviceTypes, hasPresetDeviceTypes, q, quickFilter]);
+  }, [catalog, deviceType, clientServerId, presetDeviceTypes, hasPresetDeviceTypes, q, quickFilter, specificDevice]);
 
   // ✅ 02/10/2026 (pedido do Márcio): vitrine por estrelas (5 → 1, depois
   // sem classificação), cada nível num carrossel. As abas Pagos/Parceiros
@@ -376,7 +379,7 @@ export default function AppPickerModal({
         disabled={busy}
         // ✅ 03/10/2026: "Todos" (admin) ou busca por texto → sem aparelho (igual aos
         // apps antigos); aparelho escolhido (com ou sem filtro de estrelas) → vai junto.
-        onClick={() => onSelectApp(app.id, q || deviceType === ALL_DEVICES ? null : deviceType)}
+        onClick={() => onSelectApp(app.id, specificDevice ? deviceType : null)}
         className={`${size} inline-flex items-center justify-center gap-1.5 rounded-lg text-white text-xs font-bold transition-colors disabled:opacity-60 ${
           isPortal ? "bg-sky-600 hover:bg-sky-500" : "bg-emerald-600 hover:bg-emerald-500"
         }`}
@@ -442,7 +445,7 @@ export default function AppPickerModal({
           }}
         />
         <div className="flex items-start gap-3">
-          {(detailsAppId || (deviceType && !q)) && (
+          {(detailsAppId || (deviceType && (!q || specificDevice))) && (
             <button
               onClick={() => (detailsAppId ? setDetailsAppId(null) : setDeviceType(null))}
               className="w-8 h-8 flex items-center justify-center bg-muted hover:bg-muted/70 rounded-lg text-foreground transition-colors shrink-0"
@@ -456,7 +459,9 @@ export default function AppPickerModal({
               {detailsApp
                 ? "Detalhes"
                 : q
-                  ? "Buscar aplicativo"
+                  ? specificDevice
+                    ? `Buscar em ${deviceName(deviceType!)}`
+                    : "Buscar aplicativo"
                   : [deviceType ? deviceName(deviceType) : null, quickFilter ? quickFilterLabel.replace(/^★+ /, "") : null]
                       .filter(Boolean)
                       .join(" · ") || title}
@@ -470,7 +475,7 @@ export default function AppPickerModal({
                     <Zap className="w-2.5 h-2.5 fill-current" />
                   </span>
                   Aplicativos com raio têm configuração automática
-                  {q || (quickFilter && !deviceType) ? " · todos os aparelhos" : ""}
+                  {(q || quickFilter) && !specificDevice ? " · todos os aparelhos" : ""}
                 </span>
               ) : (
                 subtitle

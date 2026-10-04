@@ -60,6 +60,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           icon={opts.icon}
           confirmText={opts.confirmText}
           cancelText={opts.cancelText}
+          maxWidth={opts.maxWidth}
           onCancel={onCancel}
           onConfirm={onConfirm}
         />

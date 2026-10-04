@@ -495,12 +495,12 @@ function Switch({
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-xs text-foreground/90">{label}</span>
+      <span className="text-xs text-foreground/90 min-w-0">{label}</span>
       <button
         type="button"
         onClick={() => !disabled && onChange(!checked)} // ✅ NOVO
         disabled={disabled} // ✅ NOVO
-        className={`relative w-12 h-7 rounded-full transition-colors border ${
+        className={`relative shrink-0 w-12 h-7 rounded-full transition-colors border ${
           checked
             ? "bg-emerald-600 border-emerald-600"
             : "bg-muted border-border"
@@ -2709,12 +2709,13 @@ export default function NovoCliente({
       return;
     }
 
-    let notifyClient = whatsappOptIn;
+    let notifyClient = false; // ✅ 03/10/2026: nasce desligado, o admin liga se for o caso
     const ok = await confirm({
       title: "Ativar licença do GPC Roku?",
       details: whatsappOptIn
         ? [<NotifyClientToggle key="notify" initial={notifyClient} onChange={(v) => (notifyClient = v)} />]
         : [],
+      maxWidth: "max-w-md",
       subtitle: "Soma 1 ano de licença no GerenciaApp. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
       tone: "emerald",
       confirmText: "Sim, marcar como pago",
@@ -2781,12 +2782,13 @@ export default function NovoCliente({
       return;
     }
 
-    let notifyClient = whatsappOptIn;
+    let notifyClient = false; // ✅ 03/10/2026: nasce desligado, o admin liga se for o caso
     const ok = await confirm({
       title: "Ativar/renovar licença do DupleCast?",
       details: whatsappOptIn
         ? [<NotifyClientToggle key="notify" initial={notifyClient} onChange={(v) => (notifyClient = v)} />]
         : [],
+      maxWidth: "max-w-md",
       subtitle: "Consome 1 código real da conta de revenda pra esse aparelho. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
       tone: "sky",
       confirmText: "Sim, renovar",
@@ -2848,12 +2850,13 @@ export default function NovoCliente({
       return;
     }
 
-    let notifyClient = whatsappOptIn;
+    let notifyClient = false; // ✅ 03/10/2026: nasce desligado, o admin liga se for o caso
     const ok = await confirm({
       title: "Renovar gratuitamente?",
       details: whatsappOptIn
         ? [<NotifyClientToggle key="notify" initial={notifyClient} onChange={(v) => (notifyClient = v)} />]
         : [],
+      maxWidth: "max-w-md",
       subtitle: "Estende o vencimento em +1 ano no painel do parceiro, sem cobrar nada do cliente.",
       tone: "emerald",
       confirmText: "Sim, renovar",
@@ -2917,14 +2920,15 @@ export default function NovoCliente({
     }
 
     // ✅ 03/10/2026: "Enviar mensagem" faz parte da ativação (igual o
-    // Portal) — ligado por padrão quando o cliente aceita WhatsApp.
-    let notifyClient = whatsappOptIn;
+    // Portal) — nasce DESLIGADO (pedido do Márcio), o admin liga se quiser.
+    let notifyClient = false; // ✅ 03/10/2026: nasce desligado, o admin liga se for o caso
     const ok = await confirm({
       title: "Ativar/renovar licença pela AtivaApp?",
       subtitle: "Solicita a licença desse app na AtivaApp, usando o MAC/Device Key salvos. Em seguida você escolhe se já recebeu o pagamento ou se fica em confiança (sino).",
       details: whatsappOptIn
         ? [<NotifyClientToggle key="notify" initial={notifyClient} onChange={(v) => (notifyClient = v)} />]
         : [],
+      maxWidth: "max-w-md",
       tone: "sky",
       confirmText: "Sim, ativar",
       cancelText: "Cancelar",

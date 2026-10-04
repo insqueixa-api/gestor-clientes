@@ -703,7 +703,11 @@ export default function AppManagerPage() {
   // virou legado (os vínculos de clientes continuam valendo, mas o catálogo
   // não oferece mais app por servidor) e fica recolhida no fim.
   const sections = React.useMemo(() => {
+    // ✅ 03/10/2026 (pedido do Márcio): dentro de cada classificação, os com
+    // integração primeiro, depois só AtivaApp, depois manuais — e por nome.
+    const autoRank = (a: AppData) => (a.integration_type ? 0 : a.appativa_app_id ? 1 : 2);
     const byName = (a: AppData, b: AppData) =>
+      autoRank(a) - autoRank(b) ||
       a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" });
     const ativos = filteredApps.filter((a) => a.is_active !== false);
     const correntes = ativos.filter((a) => a.cost_type !== "partnership");
