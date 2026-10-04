@@ -17,7 +17,7 @@ export default function DownloadHintCard({ hint }: { hint: DownloadHint | null |
 
   const logo = (
     <span className="flex items-center gap-2 min-w-0">
-      <DownloadKindIcon kind={hint.kind} size={28} src={hint.logo} natural />
+      <DownloadKindIcon kind={hint.kind} size={34} src={hint.logo} natural />
       {!hint.logo && <span className="text-sm font-semibold text-foreground">{DOWNLOAD_KIND_LABEL[hint.kind]}</span>}
     </span>
   );
