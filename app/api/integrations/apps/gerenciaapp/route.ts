@@ -112,7 +112,25 @@ async function clearAvisos(baseUrl: string, cookieHeader: string, xsrfToken: str
   }
 }
 
+// ✅ 03/10/2026: o painel dá 502 de vez em quando também no login —
+// 5xx/sem XSRF = tenta de novo (até 4x); senha errada (4xx) falha na hora.
 async function performLogin(baseUrl: string, email: string, password: string) {
+  let lastErr: any = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1200 * attempt));
+    try {
+      return await performLoginOnce(baseUrl, email, password);
+    } catch (e: any) {
+      lastErr = e;
+      const msg = String(e?.message || "");
+      const transient = /HTTP 5[0-9][0-9]|XSRF-TOKEN/.test(msg);
+      if (!transient) throw e;
+    }
+  }
+  throw new Error(`${lastErr?.message || "Falha no login do GerenciaApp."} (o painel deles está instável agora — tente de novo em instantes)`);
+}
+
+async function performLoginOnce(baseUrl: string, email: string, password: string) {
   const res1 = await pfetch(`${baseUrl}/login`, { headers: { "User-Agent": UA } });
   const cookies1 = parseSetCookies(res1.headers);
   const xsrf1 = decodeURIComponent(cookies1["XSRF-TOKEN"] || "");
@@ -199,29 +217,62 @@ async function getInertiaVersion(baseUrl: string, session: any): Promise<string 
 // inteira que esse endpoint devolve — só mostra o registro mais recente,
 // nunca todos. Serve só de ponto de entrada pro /edit, que aí sim devolve a
 // família completa.
-async function searchByMac(baseUrl: string, session: any, mac: string): Promise<any[]> {
+//
+// ✅ 03/10/2026 (achado ao vivo, MAC 69:F4:11:53:32:59): o painel deles dá
+// 502/página de erro de vez em quando — antes isso virava "lista vazia" =
+// "MAC não encontrado" (e no create, MAC "novo" → registro DUPLICADO).
+// Agora: erro do painel = tenta de novo (até 4x) e, se não passar, LANÇA
+// "painel instável" — só devolve [] quando o painel respondeu certo e vazio.
+// O painel guarda o MAC em minúsculas; vazio na 1ª forma → tenta a outra.
+const PANEL_ATTEMPTS = 4;
+const panelWait = (attempt: number) => new Promise((r) => setTimeout(r, 1200 * attempt));
+
+async function searchByMacOnce(baseUrl: string, session: any, mac: string): Promise<any[] | null> {
   const url = `${baseUrl}/users?search=${encodeURIComponent(mac)}&search_id=&page=1&ajax_search=1`;
   const res = await pfetch(url, {
     headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest", "X-XSRF-TOKEN": session.xsrfToken, Cookie: session.cookieHeader, "User-Agent": UA },
   });
   updateSession(session, res);
-  if (!res.ok) return [];
+  if (!res.ok) return null;
   try {
     const json = await res.json();
-    return json?.users || [];
+    return Array.isArray(json?.users) ? json.users : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
+async function searchByMac(baseUrl: string, session: any, mac: string): Promise<any[]> {
+  const variants = [...new Set([mac, mac.toLowerCase(), mac.toUpperCase()])];
+  let gotValidAnswer = false;
+  for (const variant of variants) {
+    for (let attempt = 0; attempt < PANEL_ATTEMPTS; attempt++) {
+      if (attempt > 0) await panelWait(attempt);
+      const users = await searchByMacOnce(baseUrl, session, variant);
+      if (users === null) continue; // painel instável — tenta de novo
+      gotValidAnswer = true;
+      if (users.length) return users;
+      break; // resposta válida e vazia — tenta a próxima forma do MAC
+    }
+  }
+  if (!gotValidAnswer) {
+    throw new Error("O painel do GerenciaApp está instável agora (não respondeu à busca do MAC) — tente de novo em instantes.");
+  }
+  return [];
+}
+
 async function getEditData(baseUrl: string, session: any, id: string | number): Promise<{ user: any; playlists: any[] }> {
-  const res = await pfetch(`${baseUrl}/users/${id}/edit`, {
-    headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA },
-  });
-  updateSession(session, res);
-  const html = await res.text();
-  const m = html.match(/data-page="([^"]+)"/);
-  if (!m) throw new Error(`Não consegui ler os dados de edição do GerenciaApp (id ${id}).`);
+  let m: RegExpMatchArray | null = null;
+  for (let attempt = 0; attempt < PANEL_ATTEMPTS && !m; attempt++) {
+    if (attempt > 0) await panelWait(attempt);
+    const res = await pfetch(`${baseUrl}/users/${id}/edit`, {
+      headers: { Accept: "text/html", Cookie: session.cookieHeader, "User-Agent": UA },
+    });
+    updateSession(session, res);
+    const html = await res.text();
+    m = res.ok ? html.match(/data-page="([^"]+)"/) : null; // 502/página de erro = tenta de novo
+  }
+  if (!m) throw new Error(`Não consegui ler os dados de edição do GerenciaApp (id ${id}) — o painel deles está instável, tente de novo em instantes.`);
   const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&");
   const json = JSON.parse(decoded);
   return { user: json?.props?.user || {}, playlists: json?.props?.playlists || [] };
@@ -542,12 +593,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, error: "server_name é obrigatório para create." }, { status: 400 });
       }
 
-      let existing: any[];
-      try {
-        existing = await searchByMac(BASE_URL, session, mac);
-      } catch {
-        existing = [];
-      }
+      // ✅ 03/10/2026: busca que falha NÃO vira "MAC novo" (criava duplicado)
+      // — o erro de painel instável sobe pro admin tentar de novo.
+      const existing: any[] = await searchByMac(BASE_URL, session, mac);
 
       if (existing.length === 0) {
         // MAC novo — nenhuma linha ainda, usa o fluxo clássico de criação.
