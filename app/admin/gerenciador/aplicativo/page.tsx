@@ -529,6 +529,22 @@ export default function AppManagerPage() {
   });
   const [uploadingDlLogo, setUploadingDlLogo] = useState<DownloadKind | null>(null);
   const dlLogoInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  // Ctrl+V: vale pro ícone com o mouse em cima ou com foco (clicar abre a
+  // janela de arquivo e tira o foco — por isso o "mouse em cima" também conta)
+  const dlLogoTarget = useRef<DownloadKind | null>(null);
+  const handleDlLogoUploadRef = useRef<(k: DownloadKind, f: File) => void>(() => {});
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const kind = dlLogoTarget.current;
+      if (!kind) return;
+      const f = Array.from(e.clipboardData?.files || []).find((x) => x.type.startsWith("image/"));
+      if (!f) return;
+      e.preventDefault();
+      handleDlLogoUploadRef.current(kind, f);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, []);
   useEffect(() => {
     if (!tenantId) return;
     supabaseBrowser
@@ -540,6 +556,7 @@ export default function AppManagerPage() {
         if (data) setDlLogos({ pc: data.pc_logo_url, downloader: data.downloader_logo_url, ios: data.ios_logo_url });
       });
   }, [tenantId]);
+  handleDlLogoUploadRef.current = (k, f) => void handleDlLogoUpload(k, f);
   async function handleDlLogoUpload(kind: DownloadKind, file: File) {
     if (!file.type.startsWith("image/")) {
       addToast("error", "Arquivo inválido", "Selecione uma imagem.");
@@ -2188,13 +2205,18 @@ export default function AppManagerPage() {
                     <div className={`grid grid-cols-1 gap-3 ${rows.length === 3 ? "md:grid-cols-3" : rows.length === 2 ? "md:grid-cols-2" : ""}`}>
                       {rows.map((r) => (
                         <div key={r.kind} className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            title={`Logo de ${DOWNLOAD_KIND_LABEL[r.kind]} (vale pra todos os apps) — clique ou cole (Ctrl+V) uma imagem`}
+                          <div
+                            tabIndex={0}
+                            role="button"
+                            title={`Logo de ${DOWNLOAD_KIND_LABEL[r.kind]} (vale pra todos os apps) — clique, arraste ou passe o mouse e cole (Ctrl+V)`}
                             onClick={() => dlLogoInputs.current[r.kind]?.click()}
-                            onPaste={(e) => {
-                              const f = Array.from(e.clipboardData.files).find((x) => x.type.startsWith("image/"));
-                              if (f) handleDlLogoUpload(r.kind, f);
+                            onMouseEnter={() => (dlLogoTarget.current = r.kind)}
+                            onMouseLeave={() => {
+                              if (dlLogoTarget.current === r.kind) dlLogoTarget.current = null;
+                            }}
+                            onFocus={() => (dlLogoTarget.current = r.kind)}
+                            onBlur={() => {
+                              if (dlLogoTarget.current === r.kind) dlLogoTarget.current = null;
                             }}
                             onDragOver={(e) => e.preventDefault()}
                             onDrop={(e) => {
@@ -2202,14 +2224,14 @@ export default function AppManagerPage() {
                               const f = e.dataTransfer.files?.[0];
                               if (f) handleDlLogoUpload(r.kind, f);
                             }}
-                            className="shrink-0 rounded-lg border border-dashed border-border p-0.5 hover:border-emerald-500/50 transition-colors"
+                            className="shrink-0 cursor-pointer rounded-lg border border-dashed border-border p-0.5 hover:border-emerald-500/50 focus:border-emerald-500/60 outline-none transition-colors"
                           >
                             {uploadingDlLogo === r.kind ? (
                               <span className="w-7 h-7 flex items-center justify-center text-[9px] text-muted-foreground animate-pulse">...</span>
                             ) : (
                               <DownloadKindIcon kind={r.kind} size={28} src={dlLogos[r.kind]} />
                             )}
-                          </button>
+                          </div>
                           <input
                             ref={(el) => {
                               dlLogoInputs.current[r.kind] = el;
