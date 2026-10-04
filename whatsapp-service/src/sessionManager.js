@@ -113,7 +113,9 @@ function queueReceipt(messageId, patch) {
   const id = resendAlias.get(messageId) || messageId;
   if (!trackedMessageIds.has(id)) return;
   if (!pendingReceipts.has(id) && pendingReceipts.size >= RECEIPT_QUEUE_MAX) return;
-  const cur = pendingReceipts.get(id) || { delivered: null, read: null, retries: 0, error: null };
+  const cur = pendingReceipts.get(id) || { delivered: null, read: null, retries: 0, error: null, forced: null, gaveUp: null };
+  if (patch.forced && !cur.forced) cur.forced = patch.forced;
+  if (patch.gaveUp && !cur.gaveUp) cur.gaveUp = patch.gaveUp;
   if (patch.delivered && !cur.delivered) cur.delivered = patch.delivered;
   if (patch.read && !cur.read) cur.read = patch.read;
   if (patch.retries) cur.retries += patch.retries;
@@ -150,6 +152,8 @@ async function flushReceipts() {
         cur.read ||= r.read;
         cur.retries += r.retries;
         cur.error ||= r.error;
+        cur.forced ||= r.forced;
+        cur.gaveUp ||= r.gaveUp;
       }
     }
   }
@@ -615,6 +619,9 @@ async function escalateContactSession(sessionKey, remoteJid, level) {
 const forcedResendDone = new Map(); // messageId -> timestamp
 async function forceResendAfterGiveUp(sessionKey, remoteJid, messageId) {
   if (!messageId || forcedResendDone.has(messageId)) return;
+  // ✅ 04/10/2026: registra no Histórico que o Baileys desistiu (passou das
+  // 15 tentativas com o mesmo id) — vale mesmo se o reenvio abaixo não rolar.
+  queueReceipt(messageId, { gaveUp: new Date().toISOString() });
   forcedResendDone.set(messageId, Date.now());
   if (forcedResendDone.size > 2000) {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000;
@@ -633,6 +640,8 @@ async function forceResendAfterGiveUp(sessionKey, remoteJid, messageId) {
     await sess.socket.relayMessage(remoteJid, cached.content, { messageId: newId });
     rememberSentMessage(newId, cached.content);
     resendAlias.set(newId, resendAlias.get(messageId) || messageId);
+    // Balão NOVO pro cliente — o Histórico mostra "reenviada como nova".
+    queueReceipt(messageId, { forced: new Date().toISOString() });
     if (resendAlias.size > 2000) resendAlias.delete(resendAlias.keys().next().value);
     console.log(`[WA][${sessionKey.slice(0, 8)}] 🔁 Baileys desistiu de ${messageId} — reenvio forçado (novo id ${newId}) pra ${remoteJid} com sessão nova`);
   } catch (e) {

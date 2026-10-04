@@ -51,6 +51,8 @@ export async function POST(req: NextRequest) {
       read: isoOrNull(it?.read),
       retries: Math.max(0, Math.min(1000, Number(it?.retries) || 0)),
       error: it?.error ? String(it.error).slice(0, 300) : null,
+      forced: isoOrNull(it?.forced),
+      gaveUp: isoOrNull(it?.gaveUp),
     }))
     .filter((it: any) => it.id);
 

@@ -25,9 +25,21 @@ create table if not exists public.whatsapp_message_receipts (
   retry_requests integer not null default 0,
   error_at timestamptz,
   error_reason text,
+  forced_resend_at timestamptz,
+  gave_up_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- ✅ 04/10/2026 (2ª rodada, Márcio: "cuidado com as 15 tratativas"): o
+-- reenvio nativo (mesmo id, até maxMsgRetryCount=15) é automático e NÃO
+-- deve levar ninguém a reenviar na mão (duplica, igual 01/10). Quando o
+-- Baileys desiste (gave_up_at) a VM manda 1x com id NOVO (forced_resend_at
+-- — vira balão novo pro cliente). Os recibos do id novo contam pra esta
+-- mesma linha (alias na VM), então "entregue depois de forced_resend_at" =
+-- chegou a 2ª via.
+alter table public.whatsapp_message_receipts add column if not exists forced_resend_at timestamptz;
+alter table public.whatsapp_message_receipts add column if not exists gave_up_at timestamptz;
 
 create index if not exists whatsapp_message_receipts_job_idx on public.whatsapp_message_receipts(job_id);
 create index if not exists whatsapp_message_receipts_created_idx on public.whatsapp_message_receipts(created_at);
@@ -64,14 +76,16 @@ begin
     v_delivered := coalesce(nullif(it->>'delivered', '')::timestamptz, v_read);
 
     insert into whatsapp_message_receipts as r
-      (wa_message_id, delivered_at, read_at, retry_requests, error_at, error_reason)
+      (wa_message_id, delivered_at, read_at, retry_requests, error_at, error_reason, forced_resend_at, gave_up_at)
     values (
       it->>'id',
       v_delivered,
       v_read,
       coalesce((it->>'retries')::int, 0),
       case when coalesce(it->>'error', '') <> '' then now() end,
-      nullif(left(it->>'error', 300), '')
+      nullif(left(it->>'error', 300), ''),
+      nullif(it->>'forced', '')::timestamptz,
+      nullif(it->>'gaveUp', '')::timestamptz
     )
     on conflict (wa_message_id) do update set
       delivered_at   = coalesce(r.delivered_at, excluded.delivered_at),
@@ -79,6 +93,8 @@ begin
       retry_requests = r.retry_requests + excluded.retry_requests,
       error_at       = coalesce(r.error_at, excluded.error_at),
       error_reason   = coalesce(r.error_reason, excluded.error_reason),
+      forced_resend_at = coalesce(r.forced_resend_at, excluded.forced_resend_at),
+      gave_up_at     = coalesce(r.gave_up_at, excluded.gave_up_at),
       updated_at     = now();
   end loop;
 

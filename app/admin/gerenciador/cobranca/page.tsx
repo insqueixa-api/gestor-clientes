@@ -154,45 +154,114 @@ type MessageReceipt = {
   read_at: string | null;
   retry_requests: number;
   error_reason: string | null;
+  forced_resend_at: string | null;
+  gave_up_at: string | null;
 };
 
-// Sem ✓✓ depois desse tempo = provavelmente não chegou (celular desligado,
-// "Aguardando mensagem" que não se resolveu, etc.).
-const RECEIPT_STALE_MS = 2 * 60 * 60 * 1000;
+// ✅ 04/10/2026, 2ª rodada (Márcio: "cuidado com as 15 tratativas"): o
+// reenvio NATIVO (mesmo id, até maxMsgRetryCount=15 na VM) é automático e
+// conserta o próprio balão "Aguardando mensagem" — reenviar na mão no meio
+// disso DUPLICA pro cliente (incidente de 01/10). Por isso "pedido de
+// reenvio" aparece como "tentando sozinho", nunca como falha; ⚠ vermelho
+// só quando o automático já se esgotou de verdade.
+const RECEIPT_STALE_MS = 2 * 60 * 60 * 1000; // sem nenhum sinal do celular
+const RECEIPT_RETRYING_GIVE_UP_MS = 24 * 60 * 60 * 1000; // ainda "tentando" depois disso = travou
+const MAX_NATIVE_RETRIES = 15;
+const NO_MANUAL_RESEND = "Não reenvie manualmente — o cliente receberia duplicado.";
 
 function ReceiptBadge({ receipt, sentAtUtc }: { receipt?: MessageReceipt; sentAtUtc: string }) {
   if (!receipt) {
     return <span className="text-[10px] text-muted-foreground/60" title="Sem recibo registrado (envio anterior a 04/10/2026)">—</span>;
   }
+  const base = "text-[11px] font-medium";
   if (receipt.error_reason) {
     return (
-      <span className="text-[11px] font-medium text-rose-500" title={`O aparelho do cliente não conseguiu exibir: ${receipt.error_reason}`}>
+      <span className={`${base} text-rose-500`} title={`O aparelho do cliente não conseguiu exibir: ${receipt.error_reason}`}>
         ✕ Não exibida
       </span>
     );
   }
-  if (receipt.read_at) {
-    return (
-      <span className="text-[11px] font-medium text-sky-500" title={`Lida às ${formatTimeBR(receipt.read_at)}`}>
-        ✓✓ Lida {formatTimeBR(receipt.read_at)}
-      </span>
-    );
-  }
-  if (receipt.delivered_at) {
-    return (
-      <span className="text-[11px] font-medium text-muted-foreground" title={`Entregue no celular às ${formatTimeBR(receipt.delivered_at)}`}>
-        ✓✓ Entregue {formatTimeBR(receipt.delivered_at)}
-      </span>
-    );
-  }
-  const stale = Date.now() - new Date(sentAtUtc).getTime() > RECEIPT_STALE_MS;
+
+  const forcedAt = receipt.forced_resend_at ? new Date(receipt.forced_resend_at).getTime() : null;
   const retries = receipt.retry_requests || 0;
-  const title =
-    (stale ? "Mais de 2h sem chegar no celular do cliente. " : "Chegou no servidor do WhatsApp, ainda não no celular. ") +
-    (retries > 0 ? `O celular pediu reenvio ${retries}x (sinal de "Aguardando mensagem").` : "");
+  const now = Date.now();
+  const forcedNote = receipt.forced_resend_at
+    ? `O WhatsApp desistiu da 1ª mensagem depois de ${MAX_NATIVE_RETRIES} tentativas e o sistema mandou uma nova às ${formatTimeBR(receipt.forced_resend_at)} — o cliente pode ver 2 balões (um "Aguardando mensagem" e o novo).`
+    : "";
+
+  const doneAt = receipt.read_at || receipt.delivered_at;
+  if (doneAt) {
+    const isRead = !!receipt.read_at;
+    const secondCopy = forcedAt !== null && new Date(doneAt).getTime() >= forcedAt;
+    const title = [
+      `${isRead ? "Lida" : "Entregue no celular"} às ${formatTimeBR(doneAt)}.`,
+      forcedNote,
+      !forcedNote && retries > 0 ? `Precisou de ${retries} pedido(s) de reenvio automático até chegar.` : "",
+    ].filter(Boolean).join(" ");
+    return (
+      <span className={`${base} ${isRead ? "text-sky-500" : "text-muted-foreground"}`} title={title}>
+        ✓✓ {isRead ? "Lida" : "Entregue"} {formatTimeBR(doneAt)}
+        {secondCopy ? " (2ª via)" : forcedAt !== null ? " · reenviada como nova" : ""}
+      </span>
+    );
+  }
+
+  // Ainda não chegou no celular.
+  if (forcedAt !== null) {
+    if (now - forcedAt > RECEIPT_STALE_MS) {
+      return (
+        <span className={`${base} text-rose-500`} title={`${forcedNote} Nem a mensagem nova chegou em 2h — aqui vale falar com o cliente por outro meio.`}>
+          ⚠ Não entregue
+        </span>
+      );
+    }
+    return (
+      <span className={`${base} text-amber-500`} title={`${forcedNote} Aguardando a nova chegar. ${NO_MANUAL_RESEND}`}>
+        ↻ Reenviada como nova
+      </span>
+    );
+  }
+  if (receipt.gave_up_at) {
+    return (
+      <span
+        className={`${base} text-rose-500`}
+        title={`O WhatsApp desistiu depois de ${MAX_NATIVE_RETRIES} tentativas às ${formatTimeBR(receipt.gave_up_at)} e não deu pra mandar uma nova automaticamente (conteúdo já fora do cache de 1h da VM). Aqui vale reenviar ou falar com o cliente.`}
+      >
+        ⚠ Não entregue
+      </span>
+    );
+  }
+  const age = now - new Date(sentAtUtc).getTime();
+  if (retries > 0) {
+    if (age > RECEIPT_RETRYING_GIVE_UP_MS) {
+      return (
+        <span className={`${base} text-rose-500`} title={`${retries} pedido(s) de reenvio e mais de 24h sem chegar — as tentativas automáticas pararam. Aqui vale falar com o cliente.`}>
+          ⚠ Não entregue
+        </span>
+      );
+    }
+    return (
+      <span
+        className={`${base} text-amber-500`}
+        title={`O celular do cliente não conseguiu abrir ("Aguardando mensagem") e pediu reenvio ${retries}x — o sistema reenvia sozinho a MESMA mensagem (até ${MAX_NATIVE_RETRIES}x), que conserta o balão no lugar. ${NO_MANUAL_RESEND}`}
+      >
+        ⏳ Tentando sozinho ({Math.min(retries, MAX_NATIVE_RETRIES)} de {MAX_NATIVE_RETRIES})
+      </span>
+    );
+  }
+  if (age > RECEIPT_STALE_MS) {
+    return (
+      <span
+        className={`${base} text-amber-500`}
+        title={`Mais de 2h sem nenhum sinal do celular do cliente (provavelmente desligado ou sem internet). O WhatsApp entrega sozinho quando ele voltar — se reenviar, chegam as duas. Se for urgente, fale por outro meio.`}
+      >
+        ⚠ Sem sinal do celular
+      </span>
+    );
+  }
   return (
-    <span className={`text-[11px] font-medium ${stale || retries > 0 ? "text-amber-500" : "text-muted-foreground"}`} title={title}>
-      {stale ? "⚠ " : ""}✓ Não entregue{retries > 0 ? ` · ${retries} reenvio${retries > 1 ? "s" : ""}` : ""}
+    <span className={`${base} text-muted-foreground`} title="Chegou no servidor do WhatsApp, aguardando o celular do cliente.">
+      ✓ Enviada
     </span>
   );
 }
@@ -294,7 +363,7 @@ function GlobalQueueMonitor({
       if (sentIds.length > 0) {
         const { data: receipts } = await supabaseBrowser
           .from("whatsapp_message_receipts")
-          .select("job_id, is_secondary, delivered_at, read_at, retry_requests, error_reason")
+          .select("job_id, is_secondary, delivered_at, read_at, retry_requests, error_reason, forced_resend_at, gave_up_at")
           .in("job_id", sentIds);
         const byJob: Record<string, MessageReceipt> = {};
         for (const r of (receipts as any[]) || []) {
