@@ -507,6 +507,36 @@ export async function POST(req: Request) {
       if (!body.m3u8_list && !body.m3uUrl) {
         return NextResponse.json({ ok: false, error: "m3u8_list é obrigatório para create." }, { status: 400 });
       }
+
+      // ✅ 03/10/2026 (pedido do Márcio): código do app (ranking_app_id) vem
+      // da tabela gerenciaapp_ranking_apps — editável na tela de Integrações
+      // → GerenciaApp → "Aplicativos", vinculado pelo app do catálogo. O mapa
+      // por nome (lib/integrations/gerenciaapp.ts) é só reserva. Sem código
+      // nenhum = TRAVA (nunca chuta: app errado no painel é pior que erro).
+      if (body.app_id) {
+        const { data: rankingRow } = await supabase
+          .from("gerenciaapp_ranking_apps")
+          .select("name, code")
+          .eq("app_id", body.app_id)
+          .maybeSingle();
+        if (rankingRow) {
+          if (rankingRow.code == null) {
+            return NextResponse.json(
+              { ok: false, error: `"${rankingRow.name}" ainda está PENDENTE no GerenciaApp (sem código) — informe o código em Configurações → Integrações → GerenciaApp → Aplicativos.` },
+              { status: 400 },
+            );
+          }
+          body.ranking_app_id = Number(rankingRow.code);
+        }
+      }
+      if (body.ranking_app_id == null || body.ranking_app_id === "") {
+        return NextResponse.json(
+          { ok: false, error: `O app "${body.app_name || "?"}" não tem código do GerenciaApp — vincule ele em Configurações → Integrações → GerenciaApp → Aplicativos (evita configurar o app errado no painel).` },
+          { status: 400 },
+        );
+      }
+      delete body.app_id;
+      delete body.app_name;
       const serverName = String(body.server_name || "").trim();
       if (!serverName) {
         return NextResponse.json({ ok: false, error: "server_name é obrigatório para create." }, { status: 400 });

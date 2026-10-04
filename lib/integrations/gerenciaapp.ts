@@ -21,11 +21,17 @@
 // é preferível travar a arriscar configurar o app errado de novo.
 import { addYearsToIsoDate, isoDateInSaoPaulo } from "@/lib/date-br";
 
-function getRankingAppId(appName?: string): number {
+// ✅ 03/10/2026 (pedido do Márcio): o código de verdade agora vem da tabela
+// gerenciaapp_ranking_apps (editável em Configurações → Integrações →
+// GerenciaApp → "Aplicativos"), resolvido NA ROTA pelo app_id do catálogo.
+// Este mapa por nome virou só RESERVA (app ainda não vinculado na tabela) e
+// não trava mais aqui — quem trava, se não achar código nenhum, é a rota
+// (mesma regra de segurança do achado de 31/07/2026 acima).
+// GPC LG (placeholder 99, nunca confirmado) saiu: virou PLAYNX "pendente" na
+// tabela — nunca mais posta um código chutado.
+function legacyRankingAppId(appName?: string): number | null {
     const name = String(appName || "").trim().toUpperCase();
-    if (!name) {
-        throw new Error("Não foi possível identificar o app pra configurar no GerenciaApp (nome vazio) — avise o desenvolvedor antes de continuar.");
-    }
+    if (!name) return null;
 
     if (name === "ZONE X" || name === "ZONEX") return 11;
     if (name === "VU REVENDA") return 12;
@@ -33,12 +39,11 @@ function getRankingAppId(appName?: string): number {
     if (name === "UNI REVENDA") return 15;
     if (name === "GPC ROKU") return 17;
     if (name === "GPC ANDROID" || name === "GPC PRO" || name === "GPC PRO ANDROID") return 18;
-    if (name === "GPC LG") return 99; // TODO(Marcio): incluir código do ranking aqui pro GPC LG — 99 é placeholder/chute, nunca confirmado via curl real (diferente do GPC Pro=18 e IBONew=22). Trocar pelo valor certo assim que tiver o curl de criação.
     if (name === "IBO REVENDA") return 10;
     if (name === "IBONEW" || name === "IBO NEW") return 22;
     if (name === "GERENCIA MAX") return 21;
 
-    throw new Error(`App "${appName}" ainda não tem ranking_app_id mapeado no GerenciaApp — avise o desenvolvedor antes de configurar (evita configurar o app errado no parceiro).`);
+    return null;
 }
 
 export const GerenciaAppIntegration = {
@@ -46,7 +51,7 @@ export const GerenciaAppIntegration = {
     useApi: true, // create/check/delete rodam em app/api/integrations/apps/gerenciaapp (server-side, com proxy residencial — ver esse arquivo pra detalhes de como cada ação funciona hoje)
     apiEndpoint: "/api/integrations/apps/gerenciaapp",
 
-    buildCreatePayload: (params: { username: string; password?: string; macValue: string; finalServerName: string; m3uUrl: string; serverName?: string; appName?: string }) => {
+    buildCreatePayload: (params: { username: string; password?: string; macValue: string; finalServerName: string; m3uUrl: string; serverName?: string; appName?: string; appId?: string | null }) => {
         // Data de 1 ano pra frente — placeholder no create; o vencimento real
         // vem depois via action:"check" (o painel não devolve vencimento de
         // verdade na resposta do create em si).
@@ -64,7 +69,11 @@ export const GerenciaAppIntegration = {
             xteam_password: "",
             username_login: params.username,
             password_login: params.password || "",
-            ranking_app_id: getRankingAppId(params.appName),
+            // código final resolvido na rota (tabela gerenciaapp_ranking_apps
+            // pelo app_id); o do nome é só reserva
+            ranking_app_id: legacyRankingAppId(params.appName),
+            app_id: params.appId || null,
+            app_name: params.appName || "",
             dns: "",
             m3u8_list: params.m3uUrl || "",
             url_epg: "",

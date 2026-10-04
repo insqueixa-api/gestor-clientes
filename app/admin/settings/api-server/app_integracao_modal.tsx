@@ -5,7 +5,6 @@ import { Loader2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { useConfirm } from "@/hooks/useConfirm";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { uploadToR2, useR2FileTracker } from "@/lib/r2-upload";
 import { INORAIN_FAMILY, INORAIN_HANDLERS } from "@/lib/integrations/inorain-family";
@@ -65,9 +64,7 @@ export default function AppIntegracaoModal({
   const r2Files = useR2FileTracker();
 
   const [saving, setSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
 
-  const { confirm, ConfirmUI } = useConfirm();
 
   // ✅ Controle conjunto para Apps que exigem PIN
   const isDuplecast = appName === "DUPLECAST";
@@ -165,41 +162,6 @@ export default function AppIntegracaoModal({
     (noCredentials || (loginEmail.trim() && loginPassword.trim())) &&
     (!needsPin || pin.trim());
 
-  async function handleUploadExtension(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const ok = await confirm({
-      title: "Atualizar Extensão?",
-      subtitle: `Deseja fazer o upload de "${file.name}"? Isso atualizará a versão atual para todos.`,
-      confirmText: "Sim, Atualizar",
-      cancelText: "Cancelar",
-    });
-
-    if (!ok) {
-      e.target.value = "";
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      const { error } = await supabaseBrowser.storage
-        .from("extensions")
-        .upload("unigestor-extensao.zip", file, {
-          upsert: true,
-          cacheControl: "3600",
-        });
-
-      if (error) throw error;
-      onSuccessAction();
-    } catch (err: any) {
-      onErrorAction(err.message || "Erro ao fazer upload.");
-    } finally {
-      setIsUploading(false);
-      e.target.value = "";
-    }
-  }
-
   async function handleSave() {
     if (!canSave) return;
     try {
@@ -253,28 +215,6 @@ export default function AppIntegracaoModal({
       </ModalHeader>
 
         <ModalBody className="p-6 space-y-5">
-          {/* Upload Master Simplificado - Agora sempre visível */}
-          <div className="flex items-center justify-between p-4 bg-sky-500/10 border border-sky-500/30 rounded-xl">
-            <div>
-              <h3 className="text-xs font-medium text-sky-500">
-                Atualizar Robô (Extensão)
-              </h3>
-              <p className="text-[10px] text-sky-500/80 mt-0.5">
-                Substitua o arquivo .zip na nuvem.
-              </p>
-            </div>
-            <label className="cursor-pointer bg-sky-600 hover:bg-sky-500 text-white gap-1 px-2 py-1 rounded-lg text-[10px] font-medium tracking-tight transition-colors shadow-sm whitespace-nowrap">
-              {isUploading ? "A enviar..." : "Selecionar .zip"}
-              <input
-                type="file"
-                accept=".zip"
-                className="hidden"
-                onChange={handleUploadExtension}
-                disabled={isUploading}
-              />
-            </label>
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Aplicativo */}
             <div className="sm:col-span-2">
@@ -573,7 +513,6 @@ export default function AppIntegracaoModal({
             {saving ? "Salvando..." : "Salvar Integração"}
           </button>
         </ModalFooter>
-      {ConfirmUI}
     </Modal>
   );
 }

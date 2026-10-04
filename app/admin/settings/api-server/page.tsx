@@ -1,6 +1,6 @@
 "use client";
 // app/admin/settings/api-server/page.tsx
-import { Loader2, Pencil, RefreshCcw, Trash2, CreditCard, X } from "lucide-react";
+import { Loader2, Pencil, RefreshCcw, Trash2, CreditCard, X, LayoutGrid } from "lucide-react";
 import { formatDateBR } from "@/lib/date-br";
 
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +34,11 @@ const RecargaDuplecastModal = dynamic(
 );
 const RenovarGerenciaAppModal = dynamic(
   () => import("./renovar_gerenciaapp_modal"),
+  { ssr: false },
+);
+// ✅ 03/10/2026: códigos de app do GerenciaApp (ranking_app_id) editáveis
+const GerenciaAppAppsModal = dynamic(
+  () => import("./gerenciaapp_apps_modal"),
   { ssr: false },
 );
 
@@ -188,6 +193,7 @@ export default function ApiServerPage() {
   const [recargaDuplecastFor, setRecargaDuplecastFor] =
     useState<PartnerIntegration | null>(null);
   const [renovarGerenciaAppOpen, setRenovarGerenciaAppOpen] = useState(false);
+  const [gerenciaAppAppsOpen, setGerenciaAppAppsOpen] = useState(false);
   const [syncingValidadeGerenciaApp, setSyncingValidadeGerenciaApp] =
     useState(false);
 
@@ -1541,6 +1547,16 @@ export default function ApiServerPage() {
                         <IconMoney />
                       </IconActionBtn>
                       <IconActionBtn
+                        title="Aplicativos (códigos de postagem)"
+                        tone="purple"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setGerenciaAppAppsOpen(true);
+                        }}
+                      >
+                        <LayoutGrid className="w-4 h-4" />
+                      </IconActionBtn>
+                      <IconActionBtn
                         title="Sincronizar validade"
                         tone="blue"
                         onClick={(e) => {
@@ -2034,6 +2050,16 @@ export default function ApiServerPage() {
               "Despesa lançada no Financeiro Pessoal e saldo sincronizado.",
             );
             fetchData();
+          }}
+          onError={(msg) => addToast("error", "Erro", msg)}
+        />
+      )}
+      {gerenciaAppAppsOpen && (
+        <GerenciaAppAppsModal
+          onClose={() => setGerenciaAppAppsOpen(false)}
+          onSaved={() => {
+            setGerenciaAppAppsOpen(false);
+            addToast("success", "Aplicativos do GerenciaApp", "Lista de códigos salva.");
           }}
           onError={(msg) => addToast("error", "Erro", msg)}
         />

@@ -39,6 +39,8 @@ export type LoadedClientApp = {
   client_id: string;
   field_values: Record<string, string>;
   appName: string;
+  // ✅ 03/10/2026: id do app no catálogo (GERENCIAAPP acha o código por ele)
+  appId: string | null;
   integrationType: string;
   fieldsConfig: AppFieldConfig[];
   costType: string | null;
@@ -87,7 +89,7 @@ export async function loadClientApp(
   // app/api/admin/apps/check-validity/route.ts antes desta extração).
   let query = supabaseAdmin
     .from("client_apps")
-    .select("id, client_id, field_values, apps(name, integration_type, fields_config, cost_type, is_active, appativa_app_id)")
+    .select("id, client_id, app_id, field_values, apps(name, integration_type, fields_config, cost_type, is_active, appativa_app_id)")
     .eq("id", params.clientAppId);
   query = params.clientId ? query.eq("client_id", params.clientId) : query.eq("tenant_id", params.tenantId);
 
@@ -116,6 +118,7 @@ export async function loadClientApp(
       ? { ...(row.field_values || {}), ...params.fieldValuesOverride }
       : row.field_values || {},
     appName: apps?.name || "Aplicativo",
+    appId: (row as { app_id?: string | null }).app_id ?? null,
     integrationType: String(apps?.integration_type || "").trim().toUpperCase(),
     fieldsConfig: Array.isArray(apps?.fields_config) ? apps.fields_config : [],
     costType: apps?.cost_type ?? null,
@@ -166,6 +169,7 @@ export async function loadClientAppDraft(
     client_id: params.clientId,
     field_values: params.fieldValues || {},
     appName: app.name || "Aplicativo",
+    appId: app.id ?? null,
     integrationType: String(app.integration_type || "").trim().toUpperCase(),
     fieldsConfig: Array.isArray(app.fields_config) ? app.fields_config : [],
     costType: app.cost_type ?? null,
@@ -303,6 +307,7 @@ export async function configureClientApp(
       m3uUrl,
       appName: row.appName,
       serverId: client.server_id,
+      appId: row.appId,
     });
   } catch (e: any) {
     return { ok: false, stage: "precondition", error: e?.message || "Não foi possível montar a configuração para este app.", status: 400 };

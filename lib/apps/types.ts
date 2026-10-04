@@ -67,6 +67,9 @@ export type IntegrationHandler = {
     m3uUrl: string;
     appName?: string;
     serverId?: string | null;
+    // ✅ 03/10/2026: id do app no catálogo — GERENCIAAPP resolve o código
+    // (ranking_app_id) pela tabela gerenciaapp_ranking_apps a partir dele.
+    appId?: string | null;
   }) => IntegrationPayload;
   buildDeletePayload: (params: {
     username: string;

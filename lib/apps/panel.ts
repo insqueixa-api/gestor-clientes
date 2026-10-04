@@ -67,7 +67,7 @@ export function resolveIntegrationTypeByName(appName: string): string {
   if (appNameStr === "FACILITA" || appNameStr === "FACILITA APP") return "GERENCIAAPP";
   if (appNameStr === "UNI REVENDA") return "GERENCIAAPP";
   if (appNameStr === "GPC ANDROID" || appNameStr === "GPC PRO" || appNameStr === "GPC PRO ANDROID") return "GERENCIAAPP";
-  if (appNameStr === "GPC LG") return "GERENCIAAPP";
+  if (appNameStr === "GPC LG" || appNameStr === "PLAYNX") return "GERENCIAAPP";
   if (appNameStr === "GPC ROKU") return "GERENCIAAPP";
   if (appNameStr === "IBONEW" || appNameStr === "IBO NEW") return "GERENCIAAPP";
   if (appNameStr === "GERENCIA MAX") return "GERENCIAAPP";
