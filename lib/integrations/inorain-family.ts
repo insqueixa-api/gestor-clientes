@@ -58,6 +58,8 @@ export const INORAIN_FAMILY: Record<string, { brand: string; site: string; endpo
   DREAMTV: { brand: "Dream TV", site: "https://dreamtv.life", endpoint: "/api/integrations/apps/dreamtv" },
   // Brasil IPTV (03/10/2026): config.js do site aponta pra api.brasiliptv.me.
   BRASILIPTV: { brand: "Brasil IPTV", site: "https://brasiliptv.me", endpoint: "/api/integrations/apps/brasiliptv" },
+  // Flex Player (03/10/2026): config.js do site aponta pra api.flexplayer.io.
+  FLEXPLAYER: { brand: "Flex Player", site: "https://flexplayer.io", endpoint: "/api/integrations/apps/flexplayer" },
 };
 
 export const INORAIN_HANDLERS = new Set(Object.keys(INORAIN_FAMILY));
