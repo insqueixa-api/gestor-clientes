@@ -3902,123 +3902,8 @@ export default function NovoCliente({
               serverName =
                 servers.find((s) => s.id === serverId)?.name || "Servidor";
 
-              // ====================================================================
-              // 🔴 NOVA INTEGRAÇÃO ELITE (VIA EXTENSÃO)
-              // ====================================================================
-              if (provider === "ELITE") {
-                setLoadingStep("Conectando ao Elite...");
-
-                const { data: sess } = await supabaseBrowser.auth.getSession();
-                const token = sess?.session?.access_token;
-
-                // 1. Busca credenciais via API
-                const credRes = await fetch("/api/integrations/elite/sync", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                  },
-                  body: JSON.stringify({
-                    action: "get_credentials",
-                    integration_id: srv.panel_integration,
-                  }),
-                });
-                const credJson = await credRes.json().catch(() => ({}));
-                if (!credRes.ok || !credJson?.ok)
-                  throw new Error(
-                    credJson?.error || "Falha ao buscar credenciais do Elite.",
-                  );
-
-                // 2. Prepara os dados pro painel
-                let cleanDesired = apiUsername
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "")
-                  .replace(/[^a-zA-Z0-9]/g, "");
-                if (cleanDesired.length < 12) {
-                  const pad = 12 - cleanDesired.length;
-                  const rnd = Math.floor(Math.random() * Math.pow(10, pad))
-                    .toString()
-                    .padStart(pad, "0");
-                  cleanDesired += rnd;
-                }
-                cleanDesired = cleanDesired.slice(0, 32);
-                const safeNotes = notes?.trim() ? notes.trim() : apiUsername;
-
-                setLoadingStep("Criando teste via Extensão...");
-
-                // 3. Dispara a extensão
-                await new Promise((resolve, reject) => {
-                  const evtHandler = (e: any) => {
-                    window.removeEventListener(
-                      "UNIGESTOR_INTEGRATION_RESPONSE",
-                      evtHandler,
-                    );
-                    if (e.detail?.ok) {
-                      const extData = e.detail.data;
-                      apiUsername = extData.username;
-                      apiPassword = extData.password;
-                      apiExternalUserId = String(extData.id);
-                      setExternalUserId(apiExternalUserId);
-
-                      // Ajuste de data
-                      const expRaw = extData.exp_date;
-                      if (expRaw) {
-                        if (
-                          typeof expRaw === "number" ||
-                          /^\d{10}$/.test(String(expRaw))
-                        ) {
-                          apiVencimento = new Date(
-                            Number(expRaw) * 1000,
-                          ).toISOString();
-                        } else {
-                          const m = String(expRaw).match(
-                            /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/,
-                          );
-                          if (m) {
-                            apiVencimento = new Date(
-                              `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`,
-                            ).toISOString();
-                          }
-                        }
-                      }
-
-                      setUsername(apiUsername);
-                      setPassword(apiPassword);
-
-                      queueListToast("trial", {
-                        type: "success",
-                        title: "🎉 Teste Automático!",
-                        message: `Teste Elite criado com sucesso no servidor ${serverName}.`,
-                      });
-                      resolve(true);
-                    } else {
-                      reject(
-                        new Error(
-                          e.detail?.error ||
-                            "A Extensão falhou ao criar o teste.",
-                        ),
-                      );
-                    }
-                  };
-                  window.addEventListener(
-                    "UNIGESTOR_INTEGRATION_RESPONSE",
-                    evtHandler,
-                  );
-                  window.dispatchEvent(
-                    new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                      detail: {
-                        action: "ELITE_CREATE_TRIAL",
-                        baseUrl: credJson.credentials.baseUrl,
-                        username: credJson.credentials.username,
-                        password: credJson.credentials.password,
-                        technology: finalTechnology,
-                        desiredUsername: cleanDesired,
-                        notes: safeNotes,
-                      },
-                    }),
-                  );
-                });
-              } else {
+              {
+                // ✅ 05/10/2026: Elite agora vai pela API oficial (rotas /api/integrations/elite/*), mesmo caminho de NaTV/Fast
                 // ====================================================================
                 // 🔵 INTEGRAÇÕES ANTIGAS (FAST / NATV) - INTACTAS!
                 // ====================================================================
@@ -4030,6 +3915,8 @@ export default function NovoCliente({
                   apiUrl = "/api/integrations/fast/create-trial";
                 else if (provider === "NATV")
                   apiUrl = "/api/integrations/natv/create-trial";
+                else if (provider === "ELITE")
+                  apiUrl = "/api/integrations/elite/create-trial";
 
                 if (!apiUrl) {
                   throw new Error(
@@ -4169,7 +4056,9 @@ export default function NovoCliente({
                     ? "/api/integrations/fast/sync"
                     : provider === "NATV"
                       ? "/api/integrations/natv/sync"
-                      : "";
+                      : provider === "ELITE"
+                        ? "/api/integrations/elite/sync"
+                        : "";
 
                 if (syncUrl) {
                   const syncRes = await fetch(syncUrl, {

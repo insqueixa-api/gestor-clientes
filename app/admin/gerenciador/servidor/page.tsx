@@ -361,78 +361,8 @@ export default function AdminServersPage() {
       const { data: sess } = await supabaseBrowser.auth.getSession();
       const token = sess?.session?.access_token;
 
-      if (provider === "ELITE") {
-        // 1) Busca credenciais do banco
-        const credRes = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            action: "get_credentials",
-            integration_id: server.panel_integration,
-          }),
-        });
-        const credJson = await credRes.json().catch(() => ({}));
-        if (!credRes.ok || !credJson?.ok)
-          throw new Error(
-            credJson?.error || "Falha ao buscar credenciais do Elite.",
-          );
-
-        // 2) Dispara a Extensão
-        await new Promise((resolve, reject) => {
-          const evtHandler = async (e: any) => {
-            window.removeEventListener(
-              "UNIGESTOR_INTEGRATION_RESPONSE",
-              evtHandler,
-            );
-            if (e.detail?.ok) {
-              // 3) Extensão leu com sucesso. Manda pro banco!
-              const saveRes = await fetch(url, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({
-                  action: "save_sync",
-                  integration_id: server.panel_integration,
-                  saldo: e.detail.saldo,
-                  loggedUser: e.detail.loggedUser,
-                }),
-              });
-              const saveJson = await saveRes.json().catch(() => ({}));
-              if (!saveRes.ok || !saveJson?.ok)
-                reject(
-                  new Error(
-                    saveJson?.error || "Falha ao salvar saldo do Elite.",
-                  ),
-                );
-              else resolve(true);
-            } else {
-              reject(
-                new Error(
-                  e.detail?.error ||
-                    "A Extensão falhou ao ler o painel Elite. Verifique a aba de erros da extensão.",
-                ),
-              );
-            }
-          };
-          window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", evtHandler);
-          window.dispatchEvent(
-            new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-              detail: {
-                action: "ELITE_SYNC",
-                baseUrl: credJson.credentials.baseUrl,
-                username: credJson.credentials.username,
-                password: credJson.credentials.password,
-              },
-            }),
-          );
-        });
-      } else {
-        // --- FLUXO ANTIGO (FAST/NATV via FlareSolverr) ---
+      {
+        // ✅ 05/10/2026: Elite agora usa a API oficial direto (sem extensão), igual NaTV/Fast
         const res = await fetch(url, {
           method: "POST",
           headers: {

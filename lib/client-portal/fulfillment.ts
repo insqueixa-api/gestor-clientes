@@ -1761,8 +1761,8 @@ export async function runFulfillment(params: FulfillmentParams) {
 
   const provider = String(integ.provider || "").toUpperCase();
 
-  // Se for ELITE (que não tem API), aciona o fluxo manual com notificação
-  if (provider === "ELITE") return await notifyManual("Servidor Elite requer renovação manual.");
+  // ✅ 05/10/2026: Elite tem API oficial agora — renova automático igual
+  // NaTV/Fast (antes caía sempre em notifyManual).
   const months = toPeriodMonths(payment.period);
   prodLog("fulfillment.provider_resolved", {
     tenant: tenantId.slice(-6),
@@ -1776,7 +1776,7 @@ export async function runFulfillment(params: FulfillmentParams) {
   let renewPath = "";
   if (provider === "FAST") renewPath = "/api/integrations/fast/renew-client";
   else if (provider === "NATV") renewPath = "/api/integrations/natv/renew-client";
-  else if (provider === "ELITE") renewPath = "/api/integrations/elite/renew";
+  else if (provider === "ELITE") renewPath = "/api/integrations/elite/renew-client";
   else throw new Error(`Servidor não suportado: ${provider}`);
 
   const internalSecret = String(process.env.INTERNAL_API_SECRET || "").trim();
@@ -1795,8 +1795,13 @@ export async function runFulfillment(params: FulfillmentParams) {
   };
 
   if (provider === "ELITE") {
-    payload.external_user_id = client.external_user_id || login;
+    payload.external_user_id = client.external_user_id || "";
     payload.technology = client.technology || "IPTV";
+    payload.client_id = client.id;
+    payload.screens = Number((client as any).screens ?? 1);
+    // Idempotência no Elite: o MESMO pagamento nunca renova 2x, mesmo se o
+    // webhook/fulfillment rodar de novo (o Elite devolve o comprovante da 1ª)
+    payload.idempotency_key = `pay${String(payment.id).replace(/-/g, "")}`;
   }
 
   const renewRes = await fetch(`${origin}${renewPath}`, {
@@ -1829,35 +1834,12 @@ if (!renewRes.ok || !renewJson?.ok) {
     exp_date_found: !!expDateISO,
   });
 
-  // Segunda chance Elite
-  let newExternalId = null; // ✅ Preparado para capturar o ID
-  if (!expDateISO && provider === "ELITE") {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const syncRes = await fetch(`${origin}/api/integrations/elite/renew/sync`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        integration_id: integrationId,
-        external_user_id: client.external_user_id,
-        username: login,
-        technology: client.technology,
-        tenant_id: tenantId,
-      }),
-    });
-
-    const syncJson = await syncRes.json().catch(() => null);
-    if (syncRes.ok && syncJson?.ok) {
-      prodLog("fulfillment.elite_sync_ok", {
-        tenant: tenantId.slice(-6),
-        client_id: String(client.id).slice(-6),
-        exp_date_found: !!(syncJson.expires_at_iso || syncJson.exp_date),
-      });
-      expDateISO = syncJson.expires_at_iso || syncJson.exp_date;
-      if (syncJson.password) newPassword = syncJson.password;
-      if (syncJson.external_user_id) newExternalId = syncJson.external_user_id; // ✅ Captura o ID real caçado!
-    }
-  }
+  // Elite: a rota já devolve o ID do painel novo (clientes antigos tinham o
+  // do adminx) e o vencimento; sem vencimento cai no fallback abaixo.
+  let newExternalId: string | null =
+    provider === "ELITE" && renewJson?.data?.external_user_id
+      ? String(renewJson.data.external_user_id)
+      : null;
 
 // 3.5) Fallback de Segurança (Passo 3)
   if (!expDateISO) {

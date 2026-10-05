@@ -53,6 +53,8 @@ type IntegrationRow = {
   owner_username: string | null;
   credits_last_known: number | null;
   credits_last_sync_at: string | null;
+  // validade da chave de API (Elite: 90 dias)
+  api_token_expires_at?: string | null;
 
   is_active: boolean;
   created_at: string;
@@ -522,85 +524,13 @@ export default function ApiServerPage() {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       };
 
-      // ── ELITE: fluxo via extensão ──────────────────────────────────────────
-      if (provider === "ELITE") {
-        addToast(
-          "success",
-          "Sincronizando",
-          "Validando Elite e buscando saldo...",
-        );
-
-        // 1. Busca as credenciais na rota
-        const credRes = await fetch("/api/integrations/elite/sync", {
-          method: "POST",
-          headers: authHeaders,
-          body: JSON.stringify({
-            integration_id: row.id,
-            action: "get_credentials",
-          }),
-        });
-        const credJson = await credRes.json().catch(() => ({}));
-        if (!credRes.ok || !credJson?.ok)
-          throw new Error(credJson?.error || "Falha ao buscar credenciais.");
-
-        const { baseUrl, username, password } = credJson.credentials;
-
-        // 2. Dispara a extensão e aguarda a resposta
-        const extResult = await new Promise<{
-          ok: boolean;
-          saldo?: string;
-          loggedUser?: string;
-          error?: string;
-        }>((resolve) => {
-          const handler = (event: Event) => {
-            window.removeEventListener(
-              "UNIGESTOR_INTEGRATION_RESPONSE",
-              handler,
-            );
-            resolve((event as CustomEvent).detail);
-          };
-          window.addEventListener("UNIGESTOR_INTEGRATION_RESPONSE", handler);
-          window.dispatchEvent(
-            new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-              detail: { action: "ELITE_SYNC", baseUrl, username, password },
-            }),
-          );
-        });
-
-        if (!extResult?.ok)
-          throw new Error(
-            extResult?.error || "A extensão não retornou o saldo.",
-          );
-
-        // 3. Salva o saldo no banco
-        const saveRes = await fetch("/api/integrations/elite/sync", {
-          method: "POST",
-          headers: authHeaders,
-          body: JSON.stringify({
-            integration_id: row.id,
-            action: "save_sync",
-            saldo: extResult.saldo,
-            loggedUser: extResult.loggedUser,
-          }),
-        });
-        const saveJson = await saveRes.json().catch(() => ({}));
-        if (!saveRes.ok || !saveJson?.ok)
-          throw new Error(saveJson?.error || "Falha ao salvar saldo.");
-
-        addToast(
-          "success",
-          "OK",
-          saveJson?.message || "Saldo Elite sincronizado.",
-        );
-        fetchData();
-        return;
-      }
-
-      // ── NATV / FAST: fluxo direto ──────────────────────────────────────────
+      // ✅ 05/10/2026: Elite também é direto agora (API oficial, sem extensão)
       const url =
         provider === "FAST"
           ? "/api/integrations/fast/sync"
-          : "/api/integrations/natv/sync";
+          : provider === "ELITE"
+            ? "/api/integrations/elite/sync"
+            : "/api/integrations/natv/sync";
 
       addToast(
         "success",
@@ -1211,6 +1141,23 @@ export default function ApiServerPage() {
                             : "--"}
                         </span>
                       </div>
+
+                      {row.api_token_expires_at && (() => {
+                        const days = Math.ceil(
+                          (new Date(row.api_token_expires_at).getTime() - Date.now()) / 86400000,
+                        );
+                        const tone =
+                          days <= 0 ? "text-rose-500" : days <= 7 ? "text-amber-500" : "text-foreground/90";
+                        return (
+                          <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">🔑 Chave vence</span>
+                            <span className={`font-medium ${tone}`}>
+                              {formatDateBR(row.api_token_expires_at)}
+                              {days <= 0 ? " (vencida)" : days <= 7 ? ` (${days} dia${days === 1 ? "" : "s"})` : ""}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

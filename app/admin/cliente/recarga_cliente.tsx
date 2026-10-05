@@ -1246,243 +1246,8 @@ export default function RecargaCliente({
             const { data: userSess } = await supabaseBrowser.auth.getSession();
             const token = userSess?.session?.access_token;
 
-            // ====================================================================
-            // 🔴 RENOVAÇÃO ELITE (VIA EXTENSÃO)
-            // ====================================================================
-            if (provider === "ELITE") {
-              setLoadingText("Conectando ao Elite...");
-
-              const credRes = await fetch("/api/integrations/elite/sync", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({
-                  action: "get_credentials",
-                  integration_id: srv.panel_integration,
-                }),
-              });
-              const credJson = await credRes.json().catch(() => ({}));
-              if (!credRes.ok || !credJson?.ok)
-                throw new Error(
-                  credJson?.error || "Falha ao buscar credenciais do Elite.",
-                );
-
-              setLoadingText("Renovando no Elite...");
-
-              await new Promise((resolve, reject) => {
-                // ✅ Timeout de segurança — sem isso, se a extensão não
-                // responder (não instalada, desconectada, aba sem foco), o
-                // modal ficava travado pra sempre em "Renovando no Elite...",
-                // com o botão desabilitado e sem nenhuma forma de destravar
-                // a não ser fechar o modal manualmente.
-                // 95s (não 30s) — conferido direto no código da extensão
-                // (unigestor-extensao/background.js, runEliteFlow): ela tem
-                // seu PRÓPRIO teto interno de 90s (abre aba + login + navega
-                // + roda a API de renovação, com direito a retentativa se
-                // cair desafio do Cloudflare no meio) antes de desistir
-                // sozinha com um erro específico ("Timeout: O painel Elite
-                // não liberou o acesso em 90s"). Um timeout menor aqui
-                // cortaria renovações legítimas que só terminam perto desse
-                // teto — 95s dá aquela margem pra deixar o erro real da
-                // extensão (mais útil) chegar primeiro.
-                const timeoutId = setTimeout(() => {
-                  window.removeEventListener(
-                    "UNIGESTOR_INTEGRATION_RESPONSE",
-                    evtHandler,
-                  );
-                  reject(
-                    new Error(
-                      "A Extensão não respondeu a tempo (95s). Verifique se ela está instalada, conectada e com a aba em foco.",
-                    ),
-                  );
-                }, 95_000);
-
-                const evtHandler = (e: any) => {
-                  clearTimeout(timeoutId);
-                  window.removeEventListener(
-                    "UNIGESTOR_INTEGRATION_RESPONSE",
-                    evtHandler,
-                  );
-                  if (e.detail?.ok) {
-                    const extData = e.detail.data;
-
-                    if (extData.id && !clientData.external_user_id) {
-                      clientData.external_user_id = String(extData.id);
-                    }
-
-                    const expRaw = extData.exp_date;
-                    if (expRaw) {
-                      const expStr = String(expRaw);
-                      if (
-                        typeof expRaw === "number" ||
-                        /^\d{10}$/.test(expStr)
-                      ) {
-                        // Unix timestamp → UTC direto
-                        apiVencimento = new Date(
-                          Number(expRaw) * 1000,
-                        ).toISOString();
-                      } else if (expStr.includes("/")) {
-                        // DD/MM/YYYY HH:mm → força -03:00
-                        const m = expStr.match(
-                          /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/,
-                        );
-                        if (m)
-                          apiVencimento = new Date(
-                            `${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:00-03:00`,
-                          ).toISOString();
-                      } else if (expStr.includes("T")) {
-                        // ISO com ou sem fuso
-                        const hasTZ =
-                          /[Z+\-]\d{2}:\d{2}$/.test(expStr) ||
-                          expStr.endsWith("Z");
-                        if (hasTZ) {
-                          // Já tem fuso declarado — confia
-                          const d = new Date(expStr);
-                          if (!Number.isNaN(d.getTime()))
-                            apiVencimento = d.toISOString();
-                        } else {
-                          // SEM fuso → assume Brasília (-03:00)
-                          const d = new Date(expStr + "-03:00");
-                          if (!Number.isNaN(d.getTime()))
-                            apiVencimento = d.toISOString();
-                        }
-                      } else if (expStr.includes("-") && expStr.length === 10) {
-                        // Apenas data YYYY-MM-DD → assume fim do dia em Brasília
-                        const d = new Date(expStr + "T23:59:00-03:00");
-                        if (!Number.isNaN(d.getTime()))
-                          apiVencimento = d.toISOString();
-                      }
-                    }
-                    resolve(true);
-                  } else {
-                    reject(
-                      new Error(
-                        e.detail?.error ||
-                          "A Extensão falhou ao renovar o cliente.",
-                      ),
-                    );
-                  }
-                };
-                window.addEventListener(
-                  "UNIGESTOR_INTEGRATION_RESPONSE",
-                  evtHandler,
-                );
-                window.dispatchEvent(
-                  new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                    detail: {
-                      action: "ELITE_RENEW",
-                      baseUrl: credJson.credentials.baseUrl,
-                      username: credJson.credentials.username,
-                      password: credJson.credentials.password,
-                      technology: finalTechnology,
-                      months: monthsToRenew,
-                      searchTarget: clientData.username,
-                      externalUserId: clientData.external_user_id || "",
-                    },
-                  }),
-                );
-              });
-
-              // 🌟 SYNC AUTOMÁTICO DO SALDO VIA EXTENSÃO APÓS RENOVAÇÃO
-              setLoadingText("Sincronizando saldo do servidor...");
-              try {
-                await new Promise<void>((resolveSync) => {
-                  const syncHandler = async (e: any) => {
-                    window.removeEventListener(
-                      "UNIGESTOR_INTEGRATION_RESPONSE",
-                      syncHandler,
-                    );
-
-                    if (e.detail?.ok && e.detail?.saldo != null) {
-                      // ✅ Usa a rota correta (save_sync) igual ao fluxo da página de listagem
-                      try {
-                        const saveRes = await fetch(
-                          "/api/integrations/elite/sync",
-                          {
-                            method: "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                              ...(token
-                                ? { Authorization: `Bearer ${token}` }
-                                : {}),
-                            },
-                            body: JSON.stringify({
-                              integration_id: srv.panel_integration,
-                              action: "save_sync",
-                              saldo: e.detail.saldo,
-                              loggedUser: e.detail.loggedUser,
-                            }),
-                          },
-                        );
-                        // ✅ FALTAVA: save_sync só atualiza
-                        // server_integrations.credits_last_known —
-                        // servers.credits_available (o que o card de saldo e
-                        // o alerta de saldo baixo leem) nunca era tocado pela
-                        // renovação automática via Elite. Mesmo passo que
-                        // novo_servidor.tsx/recarga_servidor.tsx já fazem.
-                        if (saveRes.ok) {
-                          const { data: afterSync } = await supabaseBrowser
-                            .from("server_integrations")
-                            .select("credits_last_known")
-                            .eq("id", srv.panel_integration)
-                            .eq("tenant_id", tid)
-                            .single();
-
-                          if (afterSync?.credits_last_known != null) {
-                            await supabaseBrowser.rpc(
-                              "update_server_credits_manual",
-                              {
-                                p_server_id: clientData.server_id,
-                                p_new_credits: Number(
-                                  afterSync.credits_last_known,
-                                ),
-                              },
-                            );
-                          }
-                        }
-                      } catch {}
-                    }
-
-                    resolveSync();
-                  };
-
-                  window.addEventListener(
-                    "UNIGESTOR_INTEGRATION_RESPONSE",
-                    syncHandler,
-                  );
-                  window.dispatchEvent(
-                    new CustomEvent("UNIGESTOR_INTEGRATION_CALL", {
-                      detail: {
-                        action: "ELITE_SYNC",
-                        baseUrl: credJson.credentials.baseUrl,
-                        username: credJson.credentials.username,
-                        password: credJson.credentials.password,
-                      },
-                    }),
-                  );
-
-                  // Timeout de segurança pra não congelar a tela — era 15s,
-                  // curto demais: a extensão (background.js, ação
-                  // ELITE_SYNC) tem seu próprio teto interno de 60s (abre
-                  // aba + login + lê o saldo, 1500ms × 40 tentativas) antes
-                  // de desistir sozinha. 65s dá margem pra deixar a
-                  // extensão terminar sozinha primeiro — de toda forma essa
-                  // etapa é só um "bônus" (sync automático de saldo pós-
-                  // renovação), sem timeout ou com ele, uma falha aqui
-                  // nunca bloqueia a renovação em si (fica só sem atualizar
-                  // o saldo na hora).
-                  setTimeout(() => {
-                    window.removeEventListener(
-                      "UNIGESTOR_INTEGRATION_RESPONSE",
-                      syncHandler,
-                    );
-                    resolveSync();
-                  }, 65_000);
-                });
-              } catch {}
-            } else {
+            {
+              // ✅ 05/10/2026: Elite agora vai pela API oficial (rotas /api/integrations/elite/*), mesmo caminho de NaTV/Fast
               // ====================================================================
               // 🔵 RENOVAÇÃO ANTIGA (FAST / NATV) - MANTIDA INTACTA!
               // ====================================================================
@@ -1491,6 +1256,8 @@ export default function RecargaCliente({
                 apiUrl = "/api/integrations/fast/renew-client";
               else if (provider === "NATV")
                 apiUrl = "/api/integrations/natv/renew-client";
+              else if (provider === "ELITE")
+                apiUrl = "/api/integrations/elite/renew-client";
 
               if (!apiUrl)
                 throw new Error(
@@ -1511,6 +1278,10 @@ export default function RecargaCliente({
                     clientData.external_user_id || clientData.username,
                   technology: finalTechnology,
                   months: monthsToRenew,
+                  // Elite: corrige o ID do painel novo direto no cadastro e
+                  // usa as telas como teto de custo (max_cost)
+                  client_id: clientId,
+                  screens: Number(screens) || undefined,
                 }),
               });
 
@@ -1532,10 +1303,17 @@ export default function RecargaCliente({
                 apiPassword = apiJson.data.password;
               }
 
+              // Elite: ID do painel novo (clientes antigos tinham o do adminx)
+              if (provider === "ELITE" && apiJson.data?.external_user_id && clientData) {
+                clientData.external_user_id = String(apiJson.data.external_user_id);
+              }
+
               let syncUrl = "";
               if (provider === "FAST") syncUrl = "/api/integrations/fast/sync";
               else if (provider === "NATV")
                 syncUrl = "/api/integrations/natv/sync";
+              else if (provider === "ELITE")
+                syncUrl = "/api/integrations/elite/sync";
 
               if (syncUrl) {
                 const syncRes = await fetch(syncUrl, {

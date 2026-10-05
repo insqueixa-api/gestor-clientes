@@ -17,7 +17,9 @@ type NotificationType =
   | "fulfillment_error"
   | "saldo_baixo"
   | "app_setup_pending"
-  | "app_removal_pending";
+  | "app_removal_pending"
+  // ✅ 05/10/2026: chave de API de servidor vencendo (Elite, 90 dias) ou recusada
+  | "chave_api_vencendo";
 
 type NotifyParams = {
   tenantId: string;

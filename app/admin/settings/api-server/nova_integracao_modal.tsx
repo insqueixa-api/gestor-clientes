@@ -5,6 +5,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
+import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { isoDateInSaoPaulo, toBRDateStr } from "@/lib/date-br";
+
+// ✅ 05/10/2026: Elite virou API oficial — endereço fixo, só a chave muda.
+const ELITE_BASE_URL = "https://new.offo.dad";
+// Chave do Elite vale 90 dias a partir de quando é gerada no painel deles.
+const ELITE_KEY_DAYS = 90;
+function plusDaysSP(days: number): string {
+  return isoDateInSaoPaulo(new Date(Date.now() + days * 86400000));
+}
 
 export type IntegrationProvider = "NATV" | "FAST" | "ELITE";
 
@@ -52,6 +62,9 @@ export default function NovaIntegracaoModal({
   const [apiToken, setApiToken] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [apiBaseUrl, setApiBaseUrl] = useState("");
+  // validade da chave (AAAA-MM-DD, dia em SP) — hoje só o Elite usa
+  const [tokenExpires, setTokenExpires] = useState("");
+  const [originalToken, setOriginalToken] = useState("");
 
   const [isActive, setIsActive] = useState<boolean>(
     integration?.is_active ?? true,
@@ -78,7 +91,7 @@ export default function NovaIntegracaoModal({
           .from("server_integrations")
           // ✅ NOVO: Adicionado proxy_url no select
           .select(
-            "api_token, api_secret, api_base_url, provider, integration_name, is_active",
+            "api_token, api_secret, api_base_url, provider, integration_name, is_active, api_token_expires_at",
           )
           .eq("id", integration.id)
           .eq("tenant_id", tid)
@@ -96,6 +109,10 @@ export default function NovaIntegracaoModal({
         setIsActive(Boolean(data?.is_active ?? true));
 
         setApiToken(data?.api_token ?? "");
+        setOriginalToken(data?.api_token ?? "");
+        setTokenExpires(
+          data?.api_token_expires_at ? toBRDateStr(data.api_token_expires_at) : "",
+        );
         setApiSecret(data?.api_secret ?? "");
         setApiBaseUrl(data?.api_base_url ?? "");
       } catch {
@@ -121,11 +138,13 @@ export default function NovaIntegracaoModal({
     // FAST exige secret
     if (provider === "FAST" && !apiSecret.trim()) return false;
 
-    // ELITE exige base_url, senha e Proxy
-    if (provider === "ELITE" && !apiBaseUrl.trim()) return false;
-    if (provider === "ELITE" && !apiSecret.trim()) return false;
+    // ELITE (API oficial): chave + validade (pra avisar antes de vencer)
+    if (provider === "ELITE" && !tokenExpires) return false;
     return true;
-  }, [provider, integrationName, apiToken, apiSecret, apiBaseUrl]);
+  }, [provider, integrationName, apiToken, apiSecret, tokenExpires]);
+
+  // Validade ao meio-dia de SP (evita cair no dia anterior por fuso)
+  const expiresIso = tokenExpires ? `${tokenExpires}T12:00:00-03:00` : null;
 
   async function handleSave() {
     if (!canSave) return;
@@ -142,11 +161,11 @@ export default function NovaIntegracaoModal({
           is_active: isActive,
           api_token: apiToken.trim(),
           api_base_url:
-            provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
-          api_secret:
-            provider === "FAST" || provider === "ELITE"
-              ? apiSecret.trim()
-              : null,
+            provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) || ELITE_BASE_URL : null,
+          // Elite pela API não usa senha do painel (a doc deles pede pra
+          // nunca entregar a senha à integração)
+          api_secret: provider === "FAST" ? apiSecret.trim() : null,
+          api_token_expires_at: provider === "ELITE" ? expiresIso : null,
         };
 
         const { error } = await supabaseBrowser
@@ -164,10 +183,15 @@ export default function NovaIntegracaoModal({
         integration_name: integrationName.trim(),
         is_active: isActive,
         api_token: apiToken.trim(),
-        api_base_url: provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) : null,
-        api_secret:
-          provider === "FAST" || provider === "ELITE" ? apiSecret.trim() : null,
+        api_base_url:
+          provider === "ELITE" ? normalizeApiUrl(apiBaseUrl) || ELITE_BASE_URL : null,
+        api_token_expires_at: provider === "ELITE" ? expiresIso : null,
       };
+      // Elite: não mexe na senha antiga guardada (some sozinha quando a
+      // integração for recriada); FAST/NATV seguem como antes.
+      if (provider !== "ELITE") {
+        patch.api_secret = provider === "FAST" ? apiSecret.trim() : null;
+      }
 
       const { error } = await supabaseBrowser
         .from("server_integrations")
@@ -264,59 +288,59 @@ export default function NovaIntegracaoModal({
           </div>
 
           <div className="space-y-3">
-            {provider === "ELITE" && (
-              <>
-                <div>
-                  <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                    Base URL do painel
-                  </label>
-                  <input
-                    value={apiBaseUrl}
-                    onChange={(e) => setApiBaseUrl(e.target.value)}
-                    placeholder="Ex: https://painel.com"
-                    className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
-                    disabled={loadingEdit}
-                  />
-                  <p className="text-[11px] text-foreground/70 mt-1">
-                    A URL será formatada e salva automaticamente sem a barra
-                    final.
-                  </p>
-                </div>
-              </>
-            )}
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                Token / Chave API
+                {provider === "ELITE" ? "Chave de API (op_live_...)" : "Token / Chave API"}
               </label>
               <input
                 value={apiToken}
-                onChange={(e) => setApiToken(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setApiToken(v);
+                  // chave nova do Elite → validade +90 dias (dá pra ajustar)
+                  if (provider === "ELITE" && v.trim() && v.trim() !== originalToken.trim()) {
+                    setTokenExpires(plusDaysSP(ELITE_KEY_DAYS));
+                  }
+                }}
                 placeholder={
                   provider === "NATV"
                     ? "Bearer token (sem 'Bearer ')"
                     : provider === "FAST"
                       ? "Token do Fast"
-                      : "Usuário do painel (login)"
+                      : "Chave gerada em API Integração no painel do Elite"
                 }
                 className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
                 disabled={loadingEdit}
               />
             </div>
 
-            {(provider === "FAST" || provider === "ELITE") && (
+            {provider === "ELITE" && (
               <div>
                 <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                  {provider === "ELITE" ? "Senha" : "Secret Key"}
+                  Validade da chave
+                </label>
+                <FormattedDateInput
+                  type="date"
+                  value={tokenExpires}
+                  onChange={(e) => setTokenExpires(e.target.value)}
+                />
+                <p className="text-[11px] text-foreground/70 mt-1">
+                  A chave do Elite vale {ELITE_KEY_DAYS} dias (e para de funcionar se a senha do painel
+                  mudar). Você recebe aviso no sino e por e-mail 2 dias antes de vencer.
+                </p>
+              </div>
+            )}
+
+            {provider === "FAST" && (
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
+                  Secret Key
                 </label>
                 <div className="relative">
                   <input
                     value={apiSecret}
                     onChange={(e) => setApiSecret(e.target.value)}
-                    placeholder={
-                      provider === "ELITE"
-                        ? "Senha do painel"
-                        : "Secret Key do Fast"
-                    }
+                    placeholder="Secret Key do Fast"
                     className="w-full h-10 rounded-xl border border-border bg-transparent px-3 pr-10 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
                     disabled={loadingEdit}
                     type={showSecret ? "text" : "password"}
