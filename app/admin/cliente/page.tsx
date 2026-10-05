@@ -57,6 +57,7 @@ import { getIntegrationHandler } from "@/lib/integrations"; // ✅ NOVO: Traz o 
 import Pagination from "@/components/ui/Pagination";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
 import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
+import AppVarPicker, { fillAppVars, messageUsesAppVars, type PickedApp } from "@/components/whatsapp/AppVarPicker";
 import ClientAlertBell, {
   type ClientAlertBellHandle,
 } from "@/components/alerts/ClientAlertBell";
@@ -665,6 +666,9 @@ function ClientePageContent() {
     useState<string>(""); // modal enviar agora
   const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] =
     useState<string>(""); // modal agendar
+  // ✅ 05/10/2026: app escolhido pra {app_nome}/{app_vencimento} (AppVarPicker)
+  const [pickedAppNow, setPickedAppNow] = useState<PickedApp | null>(null);
+  const [pickedAppSchedule, setPickedAppSchedule] = useState<PickedApp | null>(null);
 
   // ✅ Envio Simulado — paliativo urgente (pedido do Márcio, 26/07/2026,
   // enquanto o envio real via WhatsApp está falhando: WhatsApp deslogando a
@@ -1529,6 +1533,10 @@ function ClientePageContent() {
       );
       return;
     }
+    if (messageUsesAppVars(msg) && !pickedAppNow) {
+      addToast("error", "Escolha o aplicativo", "A mensagem usa o nome/validade do aplicativo — selecione qual.");
+      return;
+    }
 
     try {
       setSendingNow(true);
@@ -1559,6 +1567,9 @@ function ClientePageContent() {
           message: msg,
           whatsapp_session: selectedSessionNow, // ✅ AGORA USA A SESSÃO ESCOLHIDA
           message_template_id: selectedTemplateNowId,
+          ...(pickedAppNow
+            ? { app_nome: pickedAppNow.name, app_vencimento: pickedAppNow.expiration || "" }
+            : {}),
         }),
       });
 
@@ -1611,6 +1622,10 @@ function ClientePageContent() {
       addToast("error", "Data obrigatória", "Selecione data e hora do envio.");
       return;
     }
+    if (messageUsesAppVars(msg) && !pickedAppSchedule) {
+      addToast("error", "Escolha o aplicativo", "A mensagem usa o nome/validade do aplicativo — selecione qual.");
+      return;
+    }
 
     try {
       setScheduling(true);
@@ -1643,7 +1658,8 @@ function ClientePageContent() {
         body: JSON.stringify({
           tenant_id: tenantId,
           client_id: showScheduleMsg.clientId,
-          message: msg,
+          // {app_nome}/{app_vencimento} já resolvidos — a fila não sabe o app
+          message: fillAppVars(msg, pickedAppSchedule),
           send_at: sendAtIso,
           whatsapp_session: selectedSessionSchedule, // ✅ AGORA USA A SESSÃO ESCOLHIDA
           message_template_id: selectedTemplateScheduleId,
@@ -2953,6 +2969,14 @@ function ClientePageContent() {
               autoFocus
             />
 
+            <AppVarPicker
+              tenantId={tenantId}
+              clientId={showSendNow.clientId}
+              messageText={messageText}
+              value={pickedAppNow}
+              onChange={setPickedAppNow}
+            />
+
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setShowSendNow({ open: false, clientId: null })}
@@ -3230,6 +3254,14 @@ function ClientePageContent() {
                 }}
                 className="w-full bg-transparent border border-border rounded-xl p-4 text-foreground outline-none focus:border-purple-500 transition-colors min-h-[120px] text-sm resize-none disabled:opacity-70"
                 placeholder="Ex: Olá, seu plano vence amanhã..."
+              />
+
+              <AppVarPicker
+                tenantId={tenantId}
+                clientId={showScheduleMsg.clientId}
+                messageText={scheduleText}
+                value={pickedAppSchedule}
+                onChange={setPickedAppSchedule}
               />
             </div>
 

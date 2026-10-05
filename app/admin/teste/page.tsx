@@ -43,6 +43,7 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Hook adicionado
 import { formatDateBR, formatDateTimeBR, isoDateInSaoPaulo } from "@/lib/date-br";
 import ClientAlertBell from "@/components/alerts/ClientAlertBell";
+import AppVarPicker, { fillAppVars, messageUsesAppVars, type PickedApp } from "@/components/whatsapp/AppVarPicker";
 import { Dropdown } from "@/components/ui/Dropdown";
 import {
   loadTenantMessageTemplates,
@@ -554,6 +555,9 @@ export default function TrialsPage() {
     useState<string>("");
   const [selectedTemplateScheduleId, setSelectedTemplateScheduleId] =
     useState<string>("");
+  // ✅ 05/10/2026: app escolhido pra {app_nome}/{app_vencimento} (AppVarPicker)
+  const [pickedAppNow, setPickedAppNow] = useState<PickedApp | null>(null);
+  const [pickedAppSchedule, setPickedAppSchedule] = useState<PickedApp | null>(null);
 
   // ✅ Envio Simulado — mesmo paliativo da página de Clientes (26/07/2026):
   // sem sessão, só resolve as variáveis e devolve o texto pronto pra copiar.
@@ -627,6 +631,8 @@ export default function TrialsPage() {
         "Mensagem vazia",
         "Digite uma mensagem antes de enviar.",
       );
+    if (messageUsesAppVars(msg) && !pickedAppNow)
+      return addToast("error", "Escolha o aplicativo", "A mensagem usa o nome/validade do aplicativo — selecione qual.");
 
     try {
       setSendingNow(true);
@@ -646,6 +652,9 @@ export default function TrialsPage() {
           message: msg,
           whatsapp_session: selectedSessionNow,
           message_template_id: selectedTemplateNowId,
+          ...(pickedAppNow
+            ? { app_nome: pickedAppNow.name, app_vencimento: pickedAppNow.expiration || "" }
+            : {}),
         }),
       });
 
@@ -720,6 +729,8 @@ export default function TrialsPage() {
       );
     if (!scheduleDate)
       return addToast("error", "Data obrigatória", "Selecione data e hora.");
+    if (messageUsesAppVars(msg) && !pickedAppSchedule)
+      return addToast("error", "Escolha o aplicativo", "A mensagem usa o nome/validade do aplicativo — selecione qual.");
 
     try {
       setScheduling(true);
@@ -743,7 +754,8 @@ export default function TrialsPage() {
         body: JSON.stringify({
           tenant_id: tenantId,
           client_id: showScheduleMsg.trialId,
-          message: msg,
+          // {app_nome}/{app_vencimento} já resolvidos — a fila não sabe o app
+          message: fillAppVars(msg, pickedAppSchedule),
           send_at: sendAtIso,
           whatsapp_session: selectedSessionSchedule,
           message_template_id: selectedTemplateScheduleId,
@@ -2475,6 +2487,14 @@ export default function TrialsPage() {
               placeholder="Digite a mensagem para enviar agora..."
             />
 
+            <AppVarPicker
+              tenantId={tenantId}
+              clientId={showSendNow.trialId}
+              messageText={messageText}
+              value={pickedAppNow}
+              onChange={setPickedAppNow}
+            />
+
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowSendNow({ open: false, trialId: null })}
@@ -2731,6 +2751,14 @@ export default function TrialsPage() {
                 }}
                 className="w-full bg-transparent border border-border rounded-lg p-3 text-foreground outline-none min-h-[120px]"
                 placeholder="Digite a mensagem para agendar..."
+              />
+
+              <AppVarPicker
+                tenantId={tenantId}
+                clientId={showScheduleMsg.trialId}
+                messageText={scheduleText}
+                value={pickedAppSchedule}
+                onChange={setPickedAppSchedule}
               />
             </div>
 
