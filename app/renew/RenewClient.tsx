@@ -1484,9 +1484,11 @@ export default function RenewClient() {
       const data: InstalledApp[] = result.data || [];
       setInstalledApps(data);
       setCanAddApp(!!result.can_add_app);
-      // ✅ 05/10/2026: sem app = guia aberto; com app = fechado (só na 1ª carga
-      // da conta — não fecha/abre de novo enquanto o cliente usa a tela)
-      if (installedAppsLoadedForAccount !== selectedAccountId) setShowAppsGuide(data.length === 0);
+      // ✅ 05/10/2026 (2ª rodada, pedido do Márcio): guia SEMPRE começa
+      // fechado — aberto sozinho pra quem não tem app era informação demais
+      // junto com o "Qual aplicativo você usa?". Fecha de novo só ao trocar
+      // de conta, não enquanto o cliente usa a tela.
+      if (installedAppsLoadedForAccount !== selectedAccountId) setShowAppsGuide(false);
       setInstalledAppsLoadedForAccount(selectedAccountId);
       return data;
     } catch (err: any) {
@@ -5288,9 +5290,10 @@ export default function RenewClient() {
                         setShowAddAppPicker(true);
                         loadAppCatalog();
                       }}
-                      className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm inline-flex items-center gap-1.5 shadow-sm transition-all"
+                      // Mesmo formato do botão "Falar com o suporte" (fim da página)
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-5 py-3 shadow-sm hover:shadow-md transition-all"
                     >
-                      <span>+</span> Adicionar meu aplicativo
+                      <span className="text-base leading-none">+</span> Adicionar meu aplicativo
                     </button>
                   )}
                 </div>
@@ -5711,6 +5714,13 @@ export default function RenewClient() {
                 verde de WhatsApp de verdade. */}
             {supportPhone && (
               <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                {installedApps.length === 0 ? (
+                  // Sem nenhum app: as dicas de atualizar/Reconfigurar não se
+                  // aplicam ainda — só o convite pro suporte.
+                  <p className="flex-1 min-w-0 text-sm text-muted-foreground leading-relaxed">
+                    💬 Não achou seu aplicativo ou ficou com alguma dúvida? Fale com o suporte.
+                  </p>
+                ) : (
                 <div className="flex-1 min-w-0 space-y-2">
                   <p className="text-sm sm:text-base font-bold text-foreground">
                     💡 Mantenha seus aplicativos em dia
@@ -5731,6 +5741,7 @@ export default function RenewClient() {
                     </li>
                   </ul>
                 </div>
+                )}
                 <a
                   href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
                     "Olá! Vim do Portal do Cliente (Meus Aplicativos) e preciso de ajuda. Pode me ajudar?",
