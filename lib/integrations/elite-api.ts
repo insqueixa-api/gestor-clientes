@@ -260,9 +260,15 @@ export function eliteList(data: any): any[] {
 export function eliteExpiry(client: any): string | null {
   const c = eliteUnwrap(client) || {};
   const v =
-    c.expires_at ?? c.expiry ?? c.exp_date ?? c.expiration ?? c.expire_at ?? c.due_date ?? c.client?.expires_at ?? null;
+    c.expires_at ?? c.exp_date ?? c.expires ?? c.expiry ?? c.expiration ?? c.expire_at ?? c.due_date ?? c.client?.expires_at ?? null;
   if (v === null || v === undefined || v === "") return null;
-  if (typeof v === "number") return new Date(v < 1e12 ? v * 1000 : v).toISOString();
+  // Formato real (05/10/2026): IPTV exp_date e P2P expires_at em segundos;
+  // P2P sem 1º acesso vem 0 = "ainda sem vencimento" (não é 1970).
+  if (typeof v === "number" || /^d+$/.test(String(v))) {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return new Date(n < 1e12 ? n * 1000 : n).toISOString();
+  }
   const d = new Date(String(v));
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
