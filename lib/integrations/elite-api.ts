@@ -15,6 +15,7 @@
 // A chave fica em server_integrations.api_token (vence em 90 dias, troca pela
 // tela de Integrações) e a validade em api_token_expires_at.
 import { randomUUID } from "crypto";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
 import { adminSupabase } from "@/lib/api/auth";
 import { notify } from "@/lib/notifications/notify";
 import { sendAdminEmail } from "@/lib/notifications/send-admin-email";
@@ -33,7 +34,28 @@ export type EliteIntegration = {
   tenant_id: string;
   api_token: string | null;
   integration_name?: string | null;
+  // proxy cadastrado na integração (server_integrations.proxy_url) — se
+  // houver, TODA chamada ao Elite sai por ele (IP da Vercel pode ser barrado)
+  proxy_url?: string | null;
 };
+
+const proxyCache = new Map<string, ProxyAgent>();
+function proxyFor(url: string | null | undefined): ProxyAgent | undefined {
+  const u = String(url || "").trim();
+  if (!u) return undefined;
+  let agent = proxyCache.get(u);
+  if (!agent) {
+    agent = new ProxyAgent(u);
+    proxyCache.set(u, agent);
+  }
+  return agent;
+}
+
+/** Texto curto da resposta crua (HTML de bloqueio, etc.) pra mensagem de erro. */
+function rawSnippet(data: any): string {
+  const raw = typeof data?.raw === "string" ? data.raw : "";
+  return raw.replace(/<[^>]*>/g, " ").replace(/s+/g, " ").trim().slice(0, 140);
+}
 
 export class EliteApiError extends Error {
   status: number;
@@ -63,7 +85,7 @@ function pickMessage(data: any, status: number): string {
   if (m) return String(m);
   if (status === 401) return "Chave da API Elite inválida ou vencida.";
   if (status === 403) return "A chave da API Elite não tem permissão para esta ação.";
-  if (status === 404) return "Cliente não encontrado no painel Elite (ou não pertence à sua conta).";
+  if (status === 404) return "Não encontrado no Elite (endereço inexistente, ou cliente fora da sua conta).";
   if (status === 409) return "Conflito no Elite (operação em andamento ou custo acima do limite).";
   if (status === 422) return "O Elite recusou os dados enviados.";
   if (status === 429) return "Limite de chamadas da API Elite atingido. Tente de novo em instantes.";
@@ -124,17 +146,18 @@ export async function eliteRequest<T = any>(
   }
   const payload = method === "POST" ? JSON.stringify(opts.body ?? {}) : undefined;
 
+  const dispatcher = proxyFor(integ.proxy_url);
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     let res: Response;
     try {
-      res = await fetch(url.toString(), {
+      res = (await undiciFetch(url.toString(), {
         method,
         headers,
         body: payload,
-        cache: "no-store",
         signal: AbortSignal.timeout(20000),
-      });
+        ...(dispatcher ? { dispatcher } : {}),
+      })) as unknown as Response;
     } catch (e) {
       // timeout/rede: repete com a mesma chave (a doc manda exatamente isso)
       lastErr = e;
@@ -164,8 +187,15 @@ export async function eliteRequest<T = any>(
     }
 
     if (res.status >= 400) {
-      console.error("[ELITE] erro", { path, status: res.status, requestId, data });
-      throw new EliteApiError(pickMessage(data, res.status), res.status, data, requestId);
+      console.error("[ELITE] erro", { path, status: res.status, requestId, proxy: !!dispatcher, data });
+      // Sem mensagem JSON do Elite = provavelmente nem chegou na API (bloqueio
+      // na borda, página HTML) → mostra HTTP, X-Request-ID e o começo da
+      // resposta pra dar pra saber quem respondeu.
+      const hasJsonMsg = !!(data && !data.raw && (data.message || data.error || data.detail));
+      const extra = hasJsonMsg
+        ? ""
+        : ` [HTTP ${res.status}${requestId ? ` · X-Request-ID ${requestId}` : " · sem X-Request-ID (não veio da API)"}${rawSnippet(data) ? ` · ${rawSnippet(data)}` : ""}]`;
+      throw new EliteApiError(pickMessage(data, res.status) + extra, res.status, data, requestId);
     }
 
     return { status: res.status, data: data as T, requestId, idempotencyKey: idemKey };
@@ -235,7 +265,7 @@ export async function loadEliteIntegration(integrationId: string, tenantId: stri
   const sb = adminSupabase();
   const { data, error } = await sb
     .from("server_integrations")
-    .select("id, tenant_id, provider, api_token, integration_name, is_active")
+    .select("id, tenant_id, provider, api_token, integration_name, is_active, proxy_url")
     .eq("id", integrationId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
