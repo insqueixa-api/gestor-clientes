@@ -28,6 +28,7 @@ import { normalizeMacInput } from "@/lib/apps/field-types";
 import { focusNextWhenMacComplete } from "@/lib/dom-focus";
 import { formatDateBR } from "@/lib/date-br";
 import DownloadHintCard from "@/components/apps/DownloadHintCard";
+import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
 import type { DownloadHint } from "@/lib/apps/download-info";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
@@ -1068,7 +1069,7 @@ export default function RenewClient() {
   const [postAddPrompt, setPostAddPrompt] = useState<{
     clientAppId: string;
     name: string;
-    where: string; // "TV" | "celular" | "computador"
+    where: string; // "na sua TV" | "no seu celular" | "no seu computador" | "no seu Xbox"
     hasIntegration: boolean;
     requiresAdminSetup: boolean;
   } | null>(null);
@@ -2018,10 +2019,12 @@ export default function RenewClient() {
           name: added.name,
           where:
             added.deviceType === "COMPUTADOR"
-              ? "computador"
+              ? "no seu computador"
               : added.deviceType === "ANDROID_PHONE" || added.deviceType === "IOS"
-                ? "celular"
-                : "TV",
+                ? "no seu celular"
+                : added.deviceType === "XBOX"
+                  ? "no seu Xbox"
+                  : "na sua TV",
           hasIntegration: newApp ? newApp.has_integration : added.hasIntegration,
           requiresAdminSetup: !!newApp?.requires_admin_setup,
         });
@@ -5267,14 +5270,6 @@ export default function RenewClient() {
                 </div>
               )}
 
-            {/* ✅ 04/10/2026: dica curta pra quem já tem app */}
-            {!installedAppsLoading && !installedAppsError && installedApps.length > 0 && (
-              <p className="px-3 sm:px-1 text-xs text-muted-foreground">
-                💡 Adicionou agora? Toque em <strong className="text-foreground">Configurar</strong> pra liberar o sinal. Com
-                dificuldade no aplicativo? Toque em <strong className="text-foreground">Reconfigurar</strong>.
-              </p>
-            )}
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             {!installedAppsLoading &&
               !installedAppsError &&
@@ -5705,7 +5700,7 @@ export default function RenewClient() {
                 <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
                   <p className="text-sm font-bold text-foreground">✅ {postAddPrompt.name} salvo!</p>
                   <p className="text-sm text-muted-foreground">
-                    Esse aplicativo já está funcionando no seu {postAddPrompt.where}?
+                    Esse aplicativo já está funcionando {postAddPrompt.where}?
                   </p>
                   <div className="flex flex-col gap-2 pt-1">
                     <button
@@ -5753,7 +5748,9 @@ export default function RenewClient() {
                           ? "do seu computador"
                           : pendingAdd.deviceType === "ANDROID_PHONE" || pendingAdd.deviceType === "IOS"
                             ? "do seu celular"
-                            : "da sua TV"}
+                            : pendingAdd.deviceType === "XBOX"
+                              ? "do seu Xbox"
+                              : "da sua TV"}
                         .
                       </p>
                     </div>
@@ -5777,6 +5774,7 @@ export default function RenewClient() {
                       />
                     </div>
                   ))}
+                  <WhatsAppHelpLink phone={supportPhone} appName={pendingAdd.name} />
                   {pendingAdd.error && (
                     <p className="text-xs font-semibold text-rose-600 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
                       {pendingAdd.error}
@@ -5816,6 +5814,7 @@ export default function RenewClient() {
               onSelectApp={(appId, deviceType) => handleAddApp(appId, deviceType)}
               title="Adicionar aplicativo"
               variant="portal"
+              supportWhatsapp={supportPhone}
               subtitle={
                 isP2PAccount
                   ? "Escolha o aplicativo"
@@ -6030,6 +6029,7 @@ export default function RenewClient() {
                         {instrApp?.portal_setup_instructions &&
                           linkifyText(instrApp.portal_setup_instructions)}
                       </p>
+                      <WhatsAppHelpLink phone={supportPhone} appName={instrApp?.name} />
                       {instrApp && instrApp.variable_fields.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 shrink-0">
                           {instrApp.variable_fields.map((f) => (

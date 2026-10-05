@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search, Zap } from "lucide-react";
 import FloatingPanel from "@/components/ui/FloatingPanel";
 import TierStars from "@/components/apps/TierStars";
@@ -143,6 +144,7 @@ export default function AppPickerModal({
   title = "Adicionar aplicativo",
   subtitle = "Em qual aparelho você vai usar?",
   variant = "admin",
+  supportWhatsapp,
   helperText,
   clientServerId,
   presetDeviceTypes,
@@ -158,6 +160,8 @@ export default function AppPickerModal({
   title?: string;
   subtitle?: string;
   variant?: "admin" | "portal";
+  /** ✅ 05/10/2026: WhatsApp do suporte (portal) — "dúvida? fale comigo" no Detalhes */
+  supportWhatsapp?: string | null;
   helperText?: string;
   /** Servidor do cliente sendo editado (admin) — só usado pra travar apps de
    * parceria a servidor errado DEPOIS que um aparelho é escolhido. A busca
@@ -654,6 +658,7 @@ export default function AppPickerModal({
             ) : (
               <p className="text-sm text-muted-foreground">Sem descrição cadastrada.</p>
             )}
+            {isPortal && <WhatsAppHelpLink phone={supportWhatsapp} appName={detailsApp.name} />}
             {chooseButton(detailsApp, "w-full h-10")}
           </div>
         ) : (

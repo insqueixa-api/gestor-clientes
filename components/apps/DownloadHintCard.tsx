@@ -24,7 +24,13 @@ export default function DownloadHintCard({ hint }: { hint: DownloadHint | null |
 
   if (hint.kind === "downloader") {
     return (
-      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2">
+      <div className="rounded-xl border border-border bg-card px-3 py-2 space-y-1.5">
+      {/* ✅ 05/10/2026: Play Store primeiro; Downloader só se não achar */}
+      <p className="text-[11px] leading-snug text-muted-foreground">
+        Procure o aplicativo na <strong className="text-foreground">loja de aplicativos</strong> (Play Store). Não achou?
+        Instale o app <strong className="text-foreground">Downloader</strong> e digite este código:
+      </p>
+      <div className="flex items-center justify-between gap-3">
         {logo}
         <button
           type="button"
@@ -43,6 +49,7 @@ export default function DownloadHintCard({ hint }: { hint: DownloadHint | null |
           {hint.code}
           {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 text-muted-foreground" />}
         </button>
+      </div>
       </div>
     );
   }

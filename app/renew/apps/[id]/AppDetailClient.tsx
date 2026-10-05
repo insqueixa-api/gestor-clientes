@@ -15,6 +15,7 @@ import { normalizeMacInput } from "@/lib/apps/field-types";
 import ConfigureResultModal, { ConfigureResultData } from "@/app/renew/ConfigureResultModal";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import DownloadHintCard from "@/components/apps/DownloadHintCard";
+import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
 import type { DownloadHint } from "@/lib/apps/download-info";
 
 type AppField = { id: string; type: string; label: string; value: string };
@@ -544,6 +545,8 @@ export default function AppDetailClient() {
             </div>
 
             <DownloadHintCard hint={app.download} />
+
+            <WhatsAppHelpLink phone={app.admin_whatsapp} appName={app.name} />
 
             {app.portal_setup_instructions && (
               <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-2">
