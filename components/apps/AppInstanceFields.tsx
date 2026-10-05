@@ -10,9 +10,10 @@
 // então não dava pra corrigir nada (nem um MAC errado, nem limpar um campo)
 // por ali. Agora os dois editam e persistem do mesmo jeito.
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
+import { ambientePlaceholder } from "@/lib/apps/device-types";
 import CopyFieldButton from "@/components/apps/CopyFieldButton";
 import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
-import { focusNextWhenMacComplete } from "@/lib/dom-focus";
+import { focusNextWhenMacComplete, capitalizeFirst } from "@/lib/dom-focus";
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
@@ -36,11 +37,14 @@ export default function AppInstanceFields({
   values,
   onFieldChange,
   onCopy,
+  deviceType,
 }: {
   fieldsConfig: any[] | null | undefined;
   values: Record<string, any> | null | undefined;
   onFieldChange: (key: string, value: string) => void;
   onCopy: (label: string, value: string) => void;
+  /** aparelho da instância — muda a sugestão do campo Ambiente */
+  deviceType?: string | null;
 }) {
   if (!fieldsConfig || fieldsConfig.length === 0) {
     return (
@@ -70,7 +74,11 @@ export default function AppInstanceFields({
           "";
 
         const handleChange = (raw: string, el?: HTMLElement | null) => {
-          const next = isMacField ? normalizeMacInput(raw) : raw;
+          const next = isMacField
+            ? normalizeMacInput(raw)
+            : String(field?.type || "").toLowerCase() === "obs"
+              ? capitalizeFirst(raw)
+              : raw;
           const key = String(fieldKey || label || "").trim();
           if (!key) return;
           onFieldChange(key, next);
@@ -93,7 +101,13 @@ export default function AppInstanceFields({
                   type="text"
                   value={fieldValue}
                   onChange={(e) => handleChange(e.target.value, e.currentTarget)}
-                  placeholder={label ? `Digite ${label}...` : "Digite..."}
+                  placeholder={
+                    String(field?.type || "").toLowerCase() === "obs"
+                      ? ambientePlaceholder(deviceType)
+                      : label
+                        ? `Digite ${label}...`
+                        : "Digite..."
+                  }
                   autoCapitalize={isMacField ? "characters" : "none"}
                   spellCheck={false}
                   className={fieldValue ? "pr-10" : ""}

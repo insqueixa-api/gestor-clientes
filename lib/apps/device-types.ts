@@ -74,3 +74,15 @@ export function isCustomDevice(key: string): boolean {
 export function withoutLegacyDevices(list: string[] | null | undefined): string[] {
   return (list || []).filter((d) => !LEGACY_DEVICE_KEYS.has(d));
 }
+
+/**
+ * ✅ 05/10/2026 (pedido do Márcio): sugestão do campo "Ambiente" (type "obs")
+ * conforme o aparelho — no celular não existe "sala/quarto", e sim de quem é.
+ */
+export function ambientePlaceholder(deviceType: string | null | undefined): string {
+  const dt = String(deviceType || "").toUpperCase();
+  if (dt === "ANDROID_PHONE" || dt === "IOS") return "Ex: Celular da Maria, Meu celular, Filho...";
+  if (dt === "COMPUTADOR") return "Ex: Notebook, Escritório, PC do quarto...";
+  if (dt) return "Ex: Sala, Quarto, Quarto das crianças...";
+  return "Ex: Sala, Quarto, Celular da Maria...";
+}

@@ -267,6 +267,10 @@ export default function AppPickerModal({
   // Samsung) = a busca procura SÓ dentro dele e o app sai vinculado a ele.
   // Nenhum aparelho ou "Todos" = busca em todos, app sem aparelho.
   const specificDevice = !!deviceType && deviceType !== ALL_DEVICES;
+  // ✅ 05/10/2026, pedido do Márcio: no portal a busca só aparece DEPOIS de
+  // escolher o aparelho — assim todo app adicionado pelo cliente fica com o
+  // aparelho registrado (o admin continua com a busca livre).
+  const showSearch = !isPortal || specificDevice || hasPresetDeviceTypes;
 
   const appsForDevice = useMemo(() => {
     return catalog.filter((app) => {
@@ -451,7 +455,15 @@ export default function AppPickerModal({
         <div className="flex items-start gap-3">
           {(detailsAppId || (deviceType && (!q || specificDevice))) && (
             <button
-              onClick={() => (detailsAppId ? setDetailsAppId(null) : setDeviceType(null))}
+              onClick={() => {
+                if (detailsAppId) return setDetailsAppId(null);
+                setDeviceType(null);
+                // portal: voltou pros aparelhos → a busca some, então zera
+                if (isPortal) {
+                  setSearch("");
+                  setQuickFilter("");
+                }
+              }}
               className="w-8 h-8 flex items-center justify-center bg-muted hover:bg-muted/70 rounded-lg text-foreground transition-colors shrink-0"
               title="Voltar"
             >
@@ -491,7 +503,7 @@ export default function AppPickerModal({
               </p>
             )}
           </div>
-          {searchInput("hidden sm:flex w-64 shrink-0")}
+          {showSearch && searchInput("hidden sm:flex w-64 shrink-0")}
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -501,7 +513,7 @@ export default function AppPickerModal({
           </button>
         </div>
 
-        {searchInput("sm:hidden w-full")}
+        {showSearch && searchInput("sm:hidden w-full")}
 
         {quickFilterOpen && (
           <FloatingPanel

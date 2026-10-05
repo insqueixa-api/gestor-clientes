@@ -163,6 +163,7 @@ export async function POST(req: NextRequest) {
           fields: extractEditableFields(vals, config),
           portal_setup_instructions: (row as any).apps?.portal_setup_instructions || null,
           // ✅ 04/10/2026: download do aparelho deste app
+          device_type: (row as any).device_type || null,
           download: (row as any).apps
             ? withDownloadLogo(
                 resolveDownloadHint((row as any).apps, (row as any).device_type),

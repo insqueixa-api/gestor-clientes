@@ -338,6 +338,7 @@ export async function POST(req: NextRequest) {
         is_partnership: isPartnership,
         fields: extractEditableFields(vals, config),
         // ✅ 04/10/2026: download do aparelho deste app (Computador/Downloader/App Store)
+        device_type: row.device_type || null,
         download: row.apps ? withDownloadLogo(resolveDownloadHint(row.apps, row.device_type), dlLogos) : null,
         portal_setup_instructions: row.apps?.portal_setup_instructions
           ? renderTemplate(row.apps.portal_setup_instructions, {

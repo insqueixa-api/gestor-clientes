@@ -6834,6 +6834,7 @@ export default function NovoCliente({
                             <AppInstanceFields
                               fieldsConfig={app.fields_config}
                               values={app.values}
+                              deviceType={app.deviceType}
                               onFieldChange={(key, value) =>
                                 updateAppFieldValue(app.instanceId, key, value)
                               }

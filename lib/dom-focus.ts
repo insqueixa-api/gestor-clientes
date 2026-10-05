@@ -26,3 +26,11 @@ export function focusNextWhenMacComplete(el: HTMLElement | null, previous: strin
     }
   });
 }
+
+/**
+ * ✅ 05/10/2026 (pedido do Márcio): campo "Ambiente" (type "obs") com a
+ * primeira letra maiúscula enquanto digita — "sala" vira "Sala".
+ */
+export function capitalizeFirst(v: string): string {
+  return v ? v.charAt(0).toLocaleUpperCase("pt-BR") + v.slice(1) : v;
+}

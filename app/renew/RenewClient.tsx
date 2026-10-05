@@ -25,7 +25,8 @@ import AppPickerModal from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
 import { PORTAL_APPS_DISABLED } from "@/lib/apps/portal-apps-flag";
 import { normalizeMacInput } from "@/lib/apps/field-types";
-import { focusNextWhenMacComplete } from "@/lib/dom-focus";
+import { focusNextWhenMacComplete, capitalizeFirst } from "@/lib/dom-focus";
+import { ambientePlaceholder } from "@/lib/apps/device-types";
 import { formatDateBR } from "@/lib/date-br";
 import DownloadHintCard from "@/components/apps/DownloadHintCard";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
@@ -467,6 +468,8 @@ export default function RenewClient() {
     portal_setup_instructions: string | null;
     // ✅ 04/10/2026: download do aparelho deste app (Computador/Downloader/App Store)
     download?: DownloadHint | null;
+    // aparelho do app (sugestão do Ambiente)
+    device_type?: string | null;
     variable_fields: { id: string; label: string; value: string }[];
     license_price: number | null;
     // ✅ license_price já convertido pra moeda da conta (arredondado pra
@@ -5483,7 +5486,9 @@ export default function RenewClient() {
                                 const next =
                                   f.type === "mac"
                                     ? normalizeMacInput(raw)
-                                    : raw;
+                                    : f.type === "obs"
+                                      ? capitalizeFirst(raw)
+                                      : raw;
                                 if (f.type === "mac")
                                   focusNextWhenMacComplete(e.currentTarget, editingValues[f.id] ?? "", next);
                                 setEditingValues((prev) => ({
@@ -5493,11 +5498,11 @@ export default function RenewClient() {
                               }}
                               placeholder={
                                 f.type === "obs"
-                                  ? "Ex: Sala, Quarto, Escritório, Celular..."
+                                  ? ambientePlaceholder(app.device_type)
                                   : undefined
                               }
                               autoCapitalize={
-                                f.type === "mac" ? "characters" : "none"
+                                f.type === "mac" ? "characters" : f.type === "obs" ? "sentences" : "none"
                               }
                               spellCheck={false}
                               className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
@@ -5800,12 +5805,12 @@ export default function RenewClient() {
                         value={pendingAdd.values[f.id] ?? ""}
                         onChange={(e) => {
                           const raw = e.target.value;
-                          const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
+                          const next = f.type === "mac" ? normalizeMacInput(raw) : f.type === "obs" ? capitalizeFirst(raw) : raw;
                           if (f.type === "mac") focusNextWhenMacComplete(e.currentTarget, pendingAdd.values[f.id] ?? "", next);
                           setPendingAdd((p) => (p ? { ...p, error: null, values: { ...p.values, [f.id]: next } } : p));
                         }}
-                        placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório, Celular..." : undefined}
-                        autoCapitalize={f.type === "mac" ? "characters" : "none"}
+                        placeholder={f.type === "obs" ? ambientePlaceholder(pendingAdd.deviceType) : undefined}
+                        autoCapitalize={f.type === "mac" ? "characters" : f.type === "obs" ? "sentences" : "none"}
                         spellCheck={false}
                         className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
                       />
