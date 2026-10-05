@@ -5704,18 +5704,45 @@ export default function RenewClient() {
                   ("Vim do Portal do Cliente") que o bot reconhece pra já avisar o
                   cliente que foi transferido, sem tentar rodar o fluxo normal e
                   mandar ele de volta pro portal que ele acabou de sair. */}
+            {/* ✅ 05/10/2026, pedido do Márcio: a linha pontilhada cinza nem
+                parecia clicável e só falava de "não achou o app". Virou um
+                bloco de orientação (manter cadastro atualizado → Reconfigurar
+                no problema técnico → suporte se persistir/dúvida) com botão
+                verde de WhatsApp de verdade. */}
             {supportPhone && (
-              <a
-                href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
-                  "Olá! Vim do Portal do Cliente e não encontrei o aplicativo que uso, ou tive dúvidas. Pode me ajudar?",
-                )}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border-2 border-dashed border-border text-xs sm:text-sm font-bold text-muted-foreground hover:border-[#25D366] hover:text-[#25D366] transition-colors"
-              >
-                <IconWhatsapp />
-                Não achou o aplicativo ou teve dúvidas? Fale com o suporte
-              </a>
+              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex-1 min-w-0 space-y-2">
+                  <p className="text-sm sm:text-base font-bold text-foreground">
+                    💡 Mantenha seus aplicativos em dia
+                  </p>
+                  <ul className="space-y-1.5 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    <li>
+                      📺 Trocou de TV ou começou a usar outro app? Atualize aqui —
+                      isso agiliza a manutenção e as renovações.
+                    </li>
+                    <li>
+                      🔄 O app travou ou parou de funcionar? Toque em{" "}
+                      <strong className="text-foreground">Reconfigurar</strong> no
+                      card dele.
+                    </li>
+                    <li>
+                      💬 O problema continuou, não achou seu aplicativo ou ficou
+                      com alguma dúvida? Fale com o suporte.
+                    </li>
+                  </ul>
+                </div>
+                <a
+                  href={`https://wa.me/${supportPhone.replace(/\D/g, "")}?text=${encodeURIComponent(
+                    "Olá! Vim do Portal do Cliente (Meus Aplicativos) e preciso de ajuda. Pode me ajudar?",
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] hover:bg-[#1ebe5a] text-white font-bold text-sm px-5 py-3 shadow-sm hover:shadow-md transition-all"
+                >
+                  <IconWhatsapp />
+                  Falar com o suporte
+                </a>
+              </div>
             )}
 
             {showAddMaintenance && (
