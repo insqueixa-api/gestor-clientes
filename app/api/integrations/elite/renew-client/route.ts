@@ -46,19 +46,36 @@ function connectionsOf(client: any): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/** Acha o cliente no Elite: login exato primeiro, depois o ID salvo. */
+/**
+ * Acha o cliente no Elite: login exato primeiro, depois o ID salvo.
+ * ✅ 05/10/2026: o ID salvo só vale se no painel ele for do MESMO usuário —
+ * renovação debita crédito, então ID que aponta pra outro login (cadastro
+ * desatualizado, ID trocado) é recusado em vez de renovar o cliente errado.
+ */
 async function resolveClient(integ: EliteIntegration, tech: EliteTech, username: string, savedId: string) {
   if (username) {
     const found = await eliteFindClientByUsername(integ, tech, username);
     if (found) return found;
   }
   if (savedId && /^\d+$/.test(savedId)) {
+    let d: any = null;
     try {
       const det = await eliteRequest(integ, "GET", `/${tech}/clients/${savedId}`);
-      const d = eliteUnwrap(det.data);
-      if (d && (d.id ?? d.client_id) != null) return d;
+      d = eliteUnwrap(det.data);
     } catch (e) {
       if (!(e instanceof EliteApiError) || e.status !== 404) throw e;
+    }
+    if (d && (d.id ?? d.client_id) != null) {
+      const panelUser = String(d.username || d.login || "").trim();
+      if (username && panelUser && panelUser.toLowerCase() !== username.toLowerCase()) {
+        throw new EliteApiError(
+          `O ID ${savedId} salvo no cadastro pertence a "${panelUser}" no Elite, não a "${username}". Nada foi renovado — confira o usuário do cliente.`,
+          409,
+          null,
+          null,
+        );
+      }
+      return d;
     }
   }
   return null;
