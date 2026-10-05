@@ -121,7 +121,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function alertInvalidKey(integ: EliteIntegration, message: string) {
   const title = "🔑 Chave da API Elite recusada";
-  const text = `A API do Elite recusou a chave da integração "${integ.integration_name || "Elite"}" (${message}). Gere uma chave nova no painel e troque em Configurações → Integrações. Até lá, testes e renovações do Elite não funcionam.`;
+  const text = `A API do Elite recusou a chave da integração (${message}). Gere uma chave nova no painel e troque em Configurações → Integrações. Até lá, testes e renovações do Elite não funcionam.`;
   try {
     await notify({
       tenantId: integ.tenant_id,

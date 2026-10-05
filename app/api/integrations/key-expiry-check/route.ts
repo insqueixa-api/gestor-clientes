@@ -59,7 +59,9 @@ export async function POST(req: Request) {
   for (const r of rows || []) {
     const exp = new Date(r.api_token_expires_at as string);
     const days = Math.ceil((exp.getTime() - Date.now()) / DAY_MS);
-    const name = `${providerLabel(r.provider)}${r.integration_name ? ` (${r.integration_name})` : ""}`;
+    // só o servidor ("Elite") — o nome interno da integração ("Principal")
+    // não ajuda no aviso (pedido do Márcio, 05/10/2026)
+    const name = providerLabel(r.provider);
 
     if (days > WARN_DAYS) {
       // chave trocada/renovada → fecha o aviso antigo, se houver
