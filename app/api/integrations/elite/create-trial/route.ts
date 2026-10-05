@@ -97,7 +97,8 @@ export async function POST(req: Request) {
     }
 
     const { data, requestId } = await eliteRequest(integ, "POST", `/${tech}/trials`, {
-      body: { username, password, adult: false },
+      // conteúdo adulto sempre liberado no teste (pedido do Márcio, 05/10/2026)
+      body: { username, password, adult: true },
       idempotencyKey: eliteIdempotencyKey(`trial-${tech}`),
     });
     const d = eliteUnwrap(data) || {};
