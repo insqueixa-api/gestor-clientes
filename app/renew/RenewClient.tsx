@@ -5080,12 +5080,15 @@ export default function RenewClient() {
                     Pagamentos e Renovação
                   </p>
                   {/* ✅ Formas de pagamento por moeda da conta (mesma regra do
-                      fluxo de pagamento): BRL = só PIX; EUR/USD = cartão,
-                      Apple/Google Pay ou transferência (sem PIX). */}
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-4 sm:text-base sm:mt-2 sm:leading-relaxed">
+                      fluxo de pagamento): BRL = só PIX; EUR/USD = cartão ou
+                      Apple/Google Pay. Transferência bancária também existe
+                      pra EUR/USD, mas fica de fora do texto de propósito
+                      (pedido do Márcio): cai no fluxo manual, não combina
+                      com "acompanha a liberação aqui mesmo". */}
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-3 sm:text-base sm:mt-2 sm:leading-relaxed">
                     {selectedAccount?.price_currency === "BRL"
                       ? "Veja quando seu acesso vence e renove na hora pelo PIX. Você acompanha a liberação aqui mesmo, até o fim."
-                      : "Veja quando seu acesso vence e renove com cartão, Apple Pay, Google Pay ou transferência bancária. Você acompanha a liberação aqui mesmo."}
+                      : "Veja quando seu acesso vence e renove na hora com cartão, Apple Pay ou Google Pay. Você acompanha a liberação aqui mesmo, até o fim."}
                   </p>
                 </div>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold px-4 py-1.5 sm:text-base sm:px-5 sm:py-2 group-hover:bg-emerald-500/25 transition-colors">
