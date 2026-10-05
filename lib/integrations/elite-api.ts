@@ -19,6 +19,7 @@ import { ProxyAgent, fetch as undiciFetch } from "undici";
 import { adminSupabase } from "@/lib/api/auth";
 import { notify } from "@/lib/notifications/notify";
 import { sendAdminEmail } from "@/lib/notifications/send-admin-email";
+import { getGerenciaAppProxyDispatcher } from "@/lib/integrations/gerenciaapp-proxy";
 
 export const ELITE_API_BASE = "https://new.offo.dad/api/v1";
 
@@ -146,7 +147,13 @@ export async function eliteRequest<T = any>(
   }
   const payload = method === "POST" ? JSON.stringify(opts.body ?? {}) : undefined;
 
-  const dispatcher = proxyFor(integ.proxy_url);
+  // ✅ 05/10/2026: sai pelo proxy residencial BR (ProxyBR, o mesmo do
+  // GerenciaApp, editável no card ProxyBR) — sem proxy o Elite barrava o IP
+  // da Vercel (404 antes da API, chave "nunca usada"); o proxy_url antigo da
+  // integração (datacenter EUA) não respondia. proxy_url só como reserva.
+  const proxyBr = await getGerenciaAppProxyDispatcher();
+  const dispatcher = proxyBr ?? proxyFor(integ.proxy_url);
+  const via = proxyBr ? "proxy ProxyBR" : dispatcher ? "proxy da integração" : "sem proxy";
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     let res: Response;
@@ -187,14 +194,14 @@ export async function eliteRequest<T = any>(
     }
 
     if (res.status >= 400) {
-      console.error("[ELITE] erro", { path, status: res.status, requestId, proxy: !!dispatcher, data });
+      console.error("[ELITE] erro", { path, status: res.status, requestId, via, data });
       // Sem mensagem JSON do Elite = provavelmente nem chegou na API (bloqueio
       // na borda, página HTML) → mostra HTTP, X-Request-ID e o começo da
       // resposta pra dar pra saber quem respondeu.
       const hasJsonMsg = !!(data && !data.raw && (data.message || data.error || data.detail));
       const extra = hasJsonMsg
         ? ""
-        : ` [HTTP ${res.status}${requestId ? ` · X-Request-ID ${requestId}` : " · sem X-Request-ID (não veio da API)"}${rawSnippet(data) ? ` · ${rawSnippet(data)}` : ""}]`;
+        : ` [${via} · HTTP ${res.status}${requestId ? ` · X-Request-ID ${requestId}` : " · sem X-Request-ID (não veio da API)"}${rawSnippet(data) ? ` · ${rawSnippet(data)}` : ""}]`;
       throw new EliteApiError(pickMessage(data, res.status) + extra, res.status, data, requestId);
     }
 
@@ -202,7 +209,7 @@ export async function eliteRequest<T = any>(
   }
 
   throw new EliteApiError(
-    `Sem resposta do painel Elite (${(lastErr as any)?.message || "rede"}).`,
+    `Sem resposta do painel Elite (${via}: ${[(lastErr as any)?.message, (lastErr as any)?.cause?.code || (lastErr as any)?.cause?.message].filter(Boolean).join(" · ") || "rede"}).`,
     0,
     null,
     null,
