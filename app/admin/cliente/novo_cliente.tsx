@@ -4443,6 +4443,17 @@ export default function NovoCliente({
             if (papaErr) {
               addToast("error", "Erro no histórico", papaErr.message);
             }
+
+            // ✅ 05/10/2026: cliente PAGO criado do zero pra quem já testou
+            // (ex: testou no Elite, virou cliente no Fast) = os testes dessa
+            // pessoa saem do Papa Testes — mesma regra da conversão.
+            if (!isTrialMode) {
+              const { error: papaDelErr } = await supabaseBrowser.rpc(
+                "papa_testes_remove_for_client",
+                { p_tenant_id: tid2, p_client_id: clientId },
+              );
+              if (papaDelErr) console.warn("Papa Testes: falha ao limpar testes", papaDelErr.message);
+            }
           } catch (e: any) {
             addToast(
               "error",
