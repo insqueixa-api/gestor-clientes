@@ -34,6 +34,8 @@ export type EliteIntegration = {
   id: string;
   tenant_id: string;
   api_token: string | null;
+  // endereço da API editável no modal (vazio = ELITE_API_BASE)
+  api_base_url?: string | null;
   integration_name?: string | null;
   // proxy cadastrado na integração (server_integrations.proxy_url) — se
   // houver, TODA chamada ao Elite sai por ele (IP da Vercel pode ser barrado)
@@ -70,6 +72,27 @@ export class EliteApiError extends Error {
     this.code = (data && (data.code || data.error_code || data.error?.code)) || null;
     this.requestId = requestId;
   }
+}
+
+/**
+ * Endereço salvo na integração (editável no modal). Só domínio, sem caminho
+ * (cadastro antigo "https://new.offo.dad") → completa com /api/v1. Nunca
+ * aceita http: a chave iria em texto aberto.
+ */
+export function eliteBaseUrl(saved: string | null | undefined): string {
+  const raw = String(saved || "").trim().replace(/\/+$/, "");
+  if (!raw) return ELITE_API_BASE;
+  let u: URL;
+  try {
+    u = new URL(/^https?:\/\//i.test(raw) ? raw : "https://" + raw);
+  } catch {
+    throw new EliteApiError("Endereço da API Elite inválido no cadastro da integração.", 0, null, null);
+  }
+  if (u.protocol !== "https:") {
+    throw new EliteApiError("O endereço da API Elite precisa ser https.", 0, null, null);
+  }
+  const path = u.pathname.replace(/\/+$/, "");
+  return u.origin + (path ? path : "/api/v1");
 }
 
 /** Idempotency-Key no formato aceito (16–64, letras/números/hífen/sublinhado). */
@@ -131,7 +154,7 @@ export async function eliteRequest<T = any>(
   const token = String(integ.api_token || "").trim();
   if (!token) throw new EliteApiError("Integração Elite sem chave de API cadastrada.", 0, null, null);
 
-  const url = new URL(ELITE_API_BASE + path);
+  const url = new URL(eliteBaseUrl(integ.api_base_url) + path);
   for (const [k, v] of Object.entries(opts.query || {})) {
     if (v !== null && v !== undefined && v !== "") url.searchParams.set(k, String(v));
   }
@@ -278,7 +301,7 @@ export async function loadEliteIntegration(integrationId: string, tenantId: stri
   const sb = adminSupabase();
   const { data, error } = await sb
     .from("server_integrations")
-    .select("id, tenant_id, provider, api_token, integration_name, is_active, proxy_url")
+    .select("id, tenant_id, provider, api_token, integration_name, is_active, proxy_url, api_base_url")
     .eq("id", integrationId)
     .eq("tenant_id", tenantId)
     .maybeSingle();

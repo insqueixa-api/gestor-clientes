@@ -8,8 +8,9 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Moda
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
 import { isoDateInSaoPaulo, toBRDateStr } from "@/lib/date-br";
 
-// ✅ 05/10/2026: Elite virou API oficial — endereço fixo, só a chave muda.
-const ELITE_BASE_URL = "https://new.offo.dad";
+// ✅ 05/10/2026: Elite virou API oficial — endereço editável (se mudarem
+// de versão, ex: /api/v2), vazio = este padrão.
+const ELITE_BASE_URL = "https://new.offo.dad/api/v1";
 // Chave do Elite vale 90 dias a partir de quando é gerada no painel deles.
 const ELITE_KEY_DAYS = 90;
 function plusDaysSP(days: number): string {
@@ -140,8 +141,10 @@ export default function NovaIntegracaoModal({
 
     // ELITE (API oficial): chave + validade (pra avisar antes de vencer)
     if (provider === "ELITE" && !tokenExpires) return false;
+    // a chave só pode trafegar em https (exigência do Elite)
+    if (provider === "ELITE" && apiBaseUrl.trim() && !/^https:\/\//i.test(normalizeApiUrl(apiBaseUrl))) return false;
     return true;
-  }, [provider, integrationName, apiToken, apiSecret, tokenExpires]);
+  }, [provider, integrationName, apiToken, apiSecret, tokenExpires, apiBaseUrl]);
 
   // Validade ao meio-dia de SP (evita cair no dia anterior por fuso)
   const expiresIso = tokenExpires ? `${tokenExpires}T12:00:00-03:00` : null;
@@ -288,6 +291,24 @@ export default function NovaIntegracaoModal({
           </div>
 
           <div className="space-y-3">
+            <div className={provider === "ELITE" ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : ""}>
+            {provider === "ELITE" && (
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
+                  Endereço da API
+                </label>
+                <input
+                  value={apiBaseUrl}
+                  onChange={(e) => setApiBaseUrl(e.target.value)}
+                  placeholder={ELITE_BASE_URL}
+                  className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  disabled={loadingEdit}
+                />
+                <p className="text-[11px] text-foreground/70 mt-1">
+                  Se o Elite mudar de versão (ex: /api/v2), troque aqui. Precisa ser https.
+                </p>
+              </div>
+            )}
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 {provider === "ELITE" ? "Chave de API (op_live_...)" : "Token / Chave API"}
@@ -312,6 +333,7 @@ export default function NovaIntegracaoModal({
                 className="w-full h-10 rounded-xl border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
                 disabled={loadingEdit}
               />
+            </div>
             </div>
 
             {provider === "ELITE" && (
