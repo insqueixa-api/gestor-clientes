@@ -52,7 +52,9 @@ async function loginByMac(mac: string, key: string): Promise<string> {
 // de verdade (achado 28/08/2026; /api/playlist só tem `expired_date`, que
 // fica sempre null). Best-effort: se falhar, quem chamou decide o que fazer
 // (create não pode falhar por causa disso, só fica sem a data).
-async function fetchDeviceExpiry(token: string): Promise<{ expireDate: string | null; isTrial: boolean } | null> {
+async function fetchDeviceExpiry(
+  token: string,
+): Promise<{ expireDate: string | null; isTrial: boolean; lifetime: boolean } | null> {
   const devRes = await fetch(`${API_BASE}/device`, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
   });
@@ -67,7 +69,12 @@ async function fetchDeviceExpiry(token: string): Promise<{ expireDate: string | 
   // ✅ 03/10/2026: o campo do pago é activation_expired (expired vem null —
   // mesmo achado do NINJAPLUS em 13/09/2026); create/check voltavam sem data.
   const rawDate: string | null = payed ? (dev.activation_expired ?? dev.expired) : dev.free_trial_expired;
-  return { expireDate: rawDate ? String(rawDate).slice(0, 10) : null, isTrial };
+  // ✅ 05/10/2026: ativado (payed) SEM data = vitalício (ex: parceria Elite —
+  // o painel deles mostra "Ativação vitalícia"; a API devolve payed:true e
+  // activation_expired:null). Antes caía em "não encontrei vencimento".
+  // Mesmo padrão do UTM Play: vitalícia = 9999-12-31.
+  if (payed && !rawDate) return { expireDate: "9999-12-31", isTrial: false, lifetime: true };
+  return { expireDate: rawDate ? String(rawDate).slice(0, 10) : null, isTrial, lifetime: false };
 }
 
 export async function POST(req: Request) {
@@ -104,13 +111,15 @@ export async function POST(req: Request) {
             { status: 400 }
           );
         }
-        const { expireDate, isTrial } = expiry;
+        const { expireDate, isTrial, lifetime } = expiry;
 
         return NextResponse.json({
           ok: true,
           expireDate,
           isTrial,
-          message: expireDate
+          message: lifetime
+            ? "Licença vitalícia (ativada sem data de vencimento)."
+            : expireDate
             ? isTrial
               ? "Ainda em teste gratuito — vencimento do trial atualizado."
               : "Vencimento atualizado."
