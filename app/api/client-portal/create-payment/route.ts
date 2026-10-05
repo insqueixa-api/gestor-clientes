@@ -11,6 +11,8 @@ import {
   isCouponAbuseBlocked,
   recordFailedCouponAttempt,
   findEligibleAppCoupon,
+  computeAppCouponDiscount,
+  type CouponRow,
 } from "@/lib/client-portal/coupons";
 import { touchPortalSession } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
@@ -360,9 +362,34 @@ let couponDiscountAmount = 0;
 // se esse app estiver embutido (bundled_app_renewals) neste mesmo
 // pagamento. Antes ficava dentro do Promise.all mais abaixo, depois do
 // cupom já ter sido validado.
-const appRenewalCharges = client_app_ids.length
+let appRenewalCharges = client_app_ids.length
   ? await getAppRenewalCharges(supabaseAdmin, sess.tenant_id, client_id, client_app_ids, currency)
   : { items: [] as Awaited<ReturnType<typeof getAppRenewalCharges>>["items"], total: 0 };
+
+// ✅ 05/10/2026, bug real (Zé Neto: plano Fast R$45 + DupleCast R$30 com
+// cupom ZE de 50% só no app): o desconto do cupom de APP era subtraído do
+// preço do PLANO — total cobrado certo (R$60), mas o plano ficava R$30 e o
+// app R$30 na Auditoria/financeiro (e o financeiro somava plano cheio das
+// renovações + app cheio = R$75). Agora o desconto sai do ITEM do app
+// embutido (que vira a linha filha app_renewal com o valor certo) e o
+// plano segue cheio. Total cobrado continua idêntico.
+let appCouponApplied = false;
+function applyAppCouponToItems(byClientAppId: Record<string, number>, code: string) {
+  const items = appRenewalCharges.items.map((it) => {
+    const d = Number(byClientAppId[String(it.client_app_id)] || 0);
+    if (!(d > 0)) return it;
+    return {
+      ...it,
+      price_amount: Number(Math.max(Number(it.price_amount) - d, 0).toFixed(2)),
+      original_price_amount: Number(it.price_amount),
+      coupon_code: code,
+      coupon_discount_amount: d,
+    };
+  });
+  const total = Number(items.reduce((acc, it) => acc + Number(it.price_amount || 0), 0).toFixed(2));
+  appRenewalCharges = { ...appRenewalCharges, items, total };
+  appCouponApplied = true;
+}
 
 if (coupon_code_raw) {
   // ✅ Mesmo rate limit anti-abuso do validate-coupon (achado em auditoria
@@ -401,7 +428,15 @@ if (coupon_code_raw) {
       couponId = couponResult.coupon.id;
       couponCodeApplied = couponResult.coupon.code;
       couponDiscountAmount = couponResult.discountAmount;
-      computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
+      // cupom pessoal de app (mesma condição de validateCouponForCharge):
+      // desconto vai pro item do app embutido, não pro plano
+      const c = couponResult.coupon as CouponRow;
+      if (c.client_id && c.target_app_names?.length) {
+        const { byClientAppId } = computeAppCouponDiscount(c, appRenewalCharges.items);
+        applyAppCouponToItems(byClientAppId, c.code);
+      } else {
+        computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
+      }
     } else {
       safeServerLog("create-payment: coupon invalid", { code: coupon_code_raw, reason: couponRejectReason(couponResult) });
       // ✅ Só conta pro limite de abuso depois de confirmar que falhou de
@@ -428,7 +463,8 @@ if (coupon_code_raw) {
     couponId = appCoupon.coupon.id;
     couponCodeApplied = appCoupon.coupon.code;
     couponDiscountAmount = appCoupon.discountAmount;
-    computedPrice = Number((computedPrice - couponDiscountAmount).toFixed(2));
+    // desconto no item do app embutido, plano segue cheio (ver acima)
+    applyAppCouponToItems(appCoupon.byClientAppId, appCoupon.coupon.code);
   }
 }
 
@@ -555,7 +591,7 @@ if (coupon_code_raw) {
           settled_alert_ids: settledAlertIds,
           coupon_id: couponId,
           coupon_code: couponCodeApplied,
-          coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
+          coupon_discount_amount: couponDiscountAmount > 0 && !appCouponApplied ? couponDiscountAmount : null,
           // ✅ 17/09/2026: quem de fato logou e pagou (titular ou
           // secundário) — Auditoria usa isso pra mostrar o nome certo.
           payer_whatsapp_username: sess.whatsapp_username,
@@ -704,11 +740,11 @@ if (!mpToken) {
               notification_url: webhookUrl,
               external_reference: internalPaymentId,
               additional_info: {
-                // ✅ computedPrice já vem com o desconto do cupom subtraído
-                // (antes da pendência ser somada) — então "finalComputedPrice -
-                // pendingCharges.total - appRenewalCharges.total" aqui já dá
-                // planPriceOnly - desconto sozinho, sem precisar subtrair o
-                // cupom de novo.
+                // ✅ computedPrice já vem com o desconto do cupom de PLANO
+                // subtraído; cupom de APP já está no preço de cada item do app
+                // (05/10/2026) — então "finalComputedPrice - pendingCharges.total
+                // - appRenewalCharges.total" dá o plano certo, e cada app o
+                // seu valor com desconto.
                 items: pendingCharges.items.length || appRenewalCharges.items.length
                   ? [
                       {
@@ -727,7 +763,8 @@ if (!mpToken) {
                         quantity: 1,
                         unit_price: it.convertedAmount,
                       })),
-                      ...appRenewalCharges.items.map((it) => ({
+                      // app que saiu R$ 0 (cupom 100%) fica fora da lista do MP
+                      ...appRenewalCharges.items.filter((it) => Number(it.price_amount) > 0).map((it) => ({
                         id: it.client_app_id,
                         title: withUsername(`Licença — ${it.app_name}`),
                         description: `Renovação antecipada de licença do aplicativo ${it.app_name}, cliente ${payerLabel}`,
@@ -796,7 +833,7 @@ if (!mpToken) {
       settled_alert_ids: settledAlertIds,
       coupon_id: couponId,
       coupon_code: couponCodeApplied,
-      coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
+      coupon_discount_amount: couponDiscountAmount > 0 && !appCouponApplied ? couponDiscountAmount : null,
       bundled_app_renewals: bundledAppRenewals,
       // ✅ 17/09/2026: quem de fato logou e pagou (titular ou secundário).
       payer_whatsapp_username: sess.whatsapp_username,
@@ -913,7 +950,7 @@ if (insErr || !inserted) {
                   settled_alert_ids: settledAlertIds,
                   coupon_id: couponId,
                   coupon_code: couponCodeApplied,
-                  coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
+                  coupon_discount_amount: couponDiscountAmount > 0 && !appCouponApplied ? couponDiscountAmount : null,
                   bundled_app_renewals: bundledAppRenewals,
                   // ✅ 17/09/2026: quem de fato logou e pagou.
                   payer_whatsapp_username: sess.whatsapp_username,
@@ -1071,7 +1108,7 @@ return NextResponse.json(
                   settled_alert_ids: settledAlertIds,
                   coupon_id: couponId,
                   coupon_code: couponCodeApplied,
-                  coupon_discount_amount: couponDiscountAmount > 0 ? couponDiscountAmount : null,
+                  coupon_discount_amount: couponDiscountAmount > 0 && !appCouponApplied ? couponDiscountAmount : null,
                   bundled_app_renewals: bundledAppRenewals,
                   // ✅ 17/09/2026: quem de fato logou e pagou.
                   payer_whatsapp_username: sess.whatsapp_username,

@@ -269,6 +269,13 @@ export async function materializeBundledAppRenewals(
           client_app_id: clientAppId,
           app_name_snapshot: String(item.app_name || "Aplicativo"),
           parent_payment_id: payment.id,
+          // ✅ 05/10/2026: cupom de app aparece na linha DO APP (Auditoria).
+          // Só código + valor, SEM coupon_id — o resgate é registrado uma
+          // vez no pai; com coupon_id aqui, markAppRenewalPaid tentaria
+          // resgatar de novo (UNIQUE coupon_id+client_id).
+          coupon_code: (item as any).coupon_code || null,
+          coupon_discount_amount:
+            Number((item as any).coupon_discount_amount) > 0 ? Number((item as any).coupon_discount_amount) : null,
         },
         { onConflict: "parent_payment_id,client_app_id" },
       )
@@ -1514,7 +1521,15 @@ export async function runFulfillment(params: FulfillmentParams) {
   // for chamado de novo pro mesmo pagamento depois de um erro mais abaixo
   // (ex: webhook reprocessando apos throw).
   const couponId = (payment as any).coupon_id || null;
-  const couponDiscountAmount = Number((payment as any).coupon_discount_amount || 0);
+  // ✅ 05/10/2026: cupom de APP embutido não grava o desconto no pai (vai
+  // em cada item de bundled_app_renewals, ver create-payment) — o resgate
+  // continua UM só, aqui no pai, somando o desconto dos itens.
+  const bundledCouponDiscount = (
+    Array.isArray((payment as any).bundled_app_renewals) ? (payment as any).bundled_app_renewals : []
+  ).reduce((acc: number, it: any) => acc + (Number(it?.coupon_discount_amount) || 0), 0);
+  const couponDiscountAmount = Number(
+    (Number((payment as any).coupon_discount_amount || 0) || bundledCouponDiscount).toFixed(2),
+  );
   if (couponId && couponDiscountAmount > 0) {
     // ✅ 02/10/2026: filtra pelo cupom também — o cupom de um sino quitado
     // neste mesmo pagamento (acima) também grava payment_id e não pode
