@@ -937,27 +937,12 @@ export default function ServerFormModal({
                 // ✅ CAMPO LIBERADO
                 className={isEditing ? "font-medium text-emerald-500" : ""}
               />
-              {isEditing && (
-                <div className="mt-1 p-2 bg-amber-500/10 border border-amber-500/20 rounded text-[10px] text-amber-500 flex items-start gap-2">
-                  <span className="font-medium shrink-0">⚠️ Atenção:</span>
-                  <span>
-                    Ajuste manual de balanço (não gera registro financeiro).
-                    Para compras, use "Recarregar".
-                  </span>
-                </div>
-              )}
               {!isEditing && (
                 <p className="text-[10px] text-emerald-500/80 italic px-1">
                   * Saldo inicial do servidor (registrado como compra).
                 </p>
               )}
 
-              {integration && integration.trim() && (
-                <div className="mt-1 p-2 bg-sky-500/10 border border-sky-500/30 rounded text-[10px] text-sky-500">
-                  ✅ Integração selecionada: ao salvar, o saldo será
-                  sincronizado e sobrescrito pelo painel.
-                </div>
-              )}
             </div>
           </div>
 
