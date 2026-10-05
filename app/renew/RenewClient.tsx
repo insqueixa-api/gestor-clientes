@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  Star,
 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import ConfigureResultModal, {
@@ -1062,6 +1063,15 @@ export default function RenewClient() {
     error: string | null;
     busy: boolean;
   } | null>(null);
+  // ✅ 05/10/2026, pedido do Márcio: depois de salvar, pergunta se o app já
+  // está funcionando (só cadastro) ou se configura agora.
+  const [postAddPrompt, setPostAddPrompt] = useState<{
+    clientAppId: string;
+    name: string;
+    where: string; // "TV" | "celular" | "computador"
+    hasIntegration: boolean;
+    requiresAdminSetup: boolean;
+  } | null>(null);
   const [appCatalogLoading, setAppCatalogLoading] = useState(false);
 
   const [prices, setPrices] = useState<PlanPrice[]>([]);
@@ -1466,6 +1476,9 @@ export default function RenewClient() {
       const data: InstalledApp[] = result.data || [];
       setInstalledApps(data);
       setCanAddApp(!!result.can_add_app);
+      // ✅ 05/10/2026: sem app = guia aberto; com app = fechado (só na 1ª carga
+      // da conta — não fecha/abre de novo enquanto o cliente usa a tela)
+      if (installedAppsLoadedForAccount !== selectedAccountId) setShowAppsGuide(data.length === 0);
       setInstalledAppsLoadedForAccount(selectedAccountId);
       return data;
     } catch (err: any) {
@@ -1994,16 +2007,27 @@ export default function RenewClient() {
         setPendingAdd((p) => (p ? { ...p, busy: false, error: result?.error || "Não foi possível adicionar." } : p));
         return;
       }
-      const hasIntegration = pendingAdd.hasIntegration;
+      const added = pendingAdd;
       setPendingAdd(null);
-      await refreshInstalledApps();
-      addToast(
-        "success",
-        "Aplicativo adicionado!",
-        hasIntegration
-          ? "Dados conferidos. Agora toque em Configurar no card pra liberar o sinal."
-          : "Agora toque em Configurar no card pra pedir a liberação do sinal.",
-      );
+      const refreshed = await refreshInstalledApps();
+      const newId = result.data?.id as string | undefined;
+      const newApp = newId ? refreshed.find((a) => a.id === newId) : null;
+      if (newId) {
+        setPostAddPrompt({
+          clientAppId: newId,
+          name: added.name,
+          where:
+            added.deviceType === "COMPUTADOR"
+              ? "computador"
+              : added.deviceType === "ANDROID_PHONE" || added.deviceType === "IOS"
+                ? "celular"
+                : "TV",
+          hasIntegration: newApp ? newApp.has_integration : added.hasIntegration,
+          requiresAdminSetup: !!newApp?.requires_admin_setup,
+        });
+      } else {
+        addToast("success", "Aplicativo adicionado!", "Toque em Configurar no card pra liberar o sinal.");
+      }
     } catch {
       setPendingAdd((p) => (p ? { ...p, busy: false, error: "Falha de conexão. Tente de novo." } : p));
     }
@@ -5169,32 +5193,35 @@ export default function RenewClient() {
                     </li>
                   ) : (
                     <>
-                      {/* ✅ 04/10/2026, pedido do Márcio: curto e direto (texto longo não é lido) */}
+                      {/* ✅ 05/10/2026, pedido do Márcio: no fluxo real do portal, curto */}
                       <li>
-                        <strong className="text-foreground">Primeiro veja na sua TV</strong> quais destes aplicativos ela tem
-                        — não adianta adicionar aqui um app que não existe nela.
+                        Toque em{" "}
+                        <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                          + Adicionar aplicativo
+                        </span>{" "}
+                        e escolha o seu aparelho. Veja quais desses aplicativos existem na{" "}
+                        <strong className="text-foreground">loja de aplicativos</strong> da sua TV (Samsung, LG, Roku, Android) ou do seu celular.
                       </li>
                       <li>
                         <strong className="text-foreground">Recomendados:</strong> os com{" "}
                         <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">
                           ⚡ Configuração automática
                         </span>{" "}
-                        e mais estrelas ★. Mas todos funcionam.
+                        e, quanto mais{" "}
+                        <Star className="inline w-3.5 h-3.5 fill-amber-400 text-amber-400 -mt-0.5" strokeWidth={1.5} />, melhor. Mas todos funcionam normalmente.
                       </li>
                       <li>
                         <strong className="text-foreground">Todos têm teste grátis</strong> de alguns dias: instale e teste.
                         Gostou? Ative. Não gostou? Remova e teste outro.
                       </li>
                       <li>
-                        Instalou na TV? Toque em{" "}
-                        <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                          + Adicionar aplicativo
-                        </span>
-                        , preencha os dados e depois toque em <strong className="text-foreground">Configurar</strong> pra liberar o sinal.
+                        Instalou? Toque em <strong className="text-foreground">Escolher</strong> no aplicativo aqui no portal, preencha
+                        os dados que aparecem na tela da TV, celular ou computador e toque em <strong className="text-foreground">Salvar</strong>.
                       </li>
                       <li>
-                        Algum problema no aplicativo? Toque em <strong className="text-foreground">Reconfigurar</strong>.
-                        Perto de vencer, aparece o botão <strong className="text-foreground">Renovar</strong> no card.
+                        Depois toque em <strong className="text-foreground">Configurar</strong> no card pra liberar o sinal. Algum problema?{" "}
+                        <strong className="text-foreground">Reconfigurar</strong>. Perto de vencer, aparece o botão{" "}
+                        <strong className="text-foreground">Renovar</strong>.
                       </li>
                     </>
                   )}
@@ -5668,6 +5695,44 @@ export default function RenewClient() {
               </a>
             )}
 
+            {postAddPrompt && (
+              <div
+                className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                onMouseDown={(e) => {
+                  if (e.target === e.currentTarget) setPostAddPrompt(null);
+                }}
+              >
+                <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
+                  <p className="text-sm font-bold text-foreground">✅ {postAddPrompt.name} salvo!</p>
+                  <p className="text-sm text-muted-foreground">
+                    Esse aplicativo já está funcionando no seu {postAddPrompt.where}?
+                  </p>
+                  <div className="flex flex-col gap-2 pt-1">
+                    <button
+                      onClick={() => {
+                        setPostAddPrompt(null);
+                        addToast("success", "Cadastro atualizado!", "Obrigado! Se tiver algum problema, toque em Configurar no card.");
+                      }}
+                      className="h-10 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-muted"
+                    >
+                      Sim, só atualizar o cadastro
+                    </button>
+                    <button
+                      onClick={() => {
+                        const target = postAddPrompt;
+                        setPostAddPrompt(null);
+                        if (target.hasIntegration) performConfigureApp(target.clientAppId, "principal");
+                        else if (target.requiresAdminSetup) handleRequestSetup(target.clientAppId);
+                        else addToast("success", "Pronto!", "Configure no aplicativo com os dados mostrados no card.");
+                      }}
+                      className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                    >
+                      Não, configurar agora
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {pendingAdd && (
               <div
                 className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -5682,7 +5747,15 @@ export default function RenewClient() {
                     ) : null}
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-foreground truncate">{pendingAdd.name}</p>
-                      <p className="text-xs text-muted-foreground">Preencha com os dados que aparecem no aplicativo.</p>
+                      <p className="text-xs text-muted-foreground">
+                        Preencha com os dados que aparecem na tela{" "}
+                        {pendingAdd.deviceType === "COMPUTADOR"
+                          ? "do seu computador"
+                          : pendingAdd.deviceType === "ANDROID_PHONE" || pendingAdd.deviceType === "IOS"
+                            ? "do seu celular"
+                            : "da sua TV"}
+                        .
+                      </p>
                     </div>
                   </div>
                   {pendingAdd.fields.map((f) => (
