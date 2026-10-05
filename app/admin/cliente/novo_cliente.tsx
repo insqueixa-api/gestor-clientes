@@ -31,6 +31,7 @@ import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { deviceLabel, withoutLegacyDevices } from "@/lib/apps/device-types";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import { rotatePrincipalM3u, rotateSecondaryM3u } from "@/lib/apps/m3u-lists";
+import { resolveDownloadHint, withDownloadLogo, type DownloadLogos } from "@/lib/apps/download-info";
 import AppInstanceFields from "@/components/apps/AppInstanceFields";
 import WhatsAppTextarea from "@/components/whatsapp/WhatsAppTextarea";
 
@@ -1045,6 +1046,24 @@ export default function NovoCliente({
 
   // --- ESTADOS ---
   const [catalog, setCatalog] = useState<AppCatalog[]>([]);
+  // ✅ 05/10/2026: logos do card de download do "Detalhes" da vitrine (mesmo
+  // card do portal — sem isso o admin mostrava o texto sem o link)
+  const [downloadLogos, setDownloadLogos] = useState<DownloadLogos | null>(null);
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    supabaseBrowser
+      .from("app_download_logos")
+      .select("pc_logo_url, downloader_logo_url, ios_logo_url")
+      .eq("tenant_id", tenantId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (alive) setDownloadLogos((data as DownloadLogos) || null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
   const [selectedApps, setSelectedApps] = useState<SelectedAppInstance[]>([]);
   const [appIntegrations, setAppIntegrations] = useState<any[]>([]); // ✅ NOVO: Guarda as URLs dos Apps
   const [showAppSelector, setShowAppSelector] = useState(false);
@@ -6828,6 +6847,13 @@ export default function NovoCliente({
                     ),
                     device_types: withoutLegacyDevices(
                       Array.isArray(app.device_types) ? app.device_types : [],
+                    ),
+                    // ✅ 05/10/2026: download por aparelho (mesma regra do portal)
+                    downloads: Object.fromEntries(
+                      withoutLegacyDevices(Array.isArray(app.device_types) ? app.device_types : []).map((dt) => [
+                        dt,
+                        withDownloadLogo(resolveDownloadHint(app as any, dt), downloadLogos),
+                      ]),
                     ),
                     cost_type: app.cost_type as any,
                     partner_server_id: app.partner_server_id ?? null,
