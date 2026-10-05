@@ -556,8 +556,8 @@ export default function AppManagerPage() {
       "success",
       next ? "Portal ativo" : "Portal inativo",
       next
-        ? "Todos os clientes veem o botão Adicionar aplicativo."
-        : "Só os WhatsApp de teste veem o botão Adicionar aplicativo.",
+        ? "O Adicionar aplicativo funciona pra todos os clientes."
+        : "Clientes veem o aviso de manutenção ao clicar em Adicionar (os WhatsApp de teste usam normal).",
     );
   }
   const dlLogoInputs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -1932,8 +1932,8 @@ export default function AppManagerPage() {
               disabled={savingPortalAdd}
               title={
                 portalAddEnabled
-                  ? "Portal ativo: todos os clientes veem 'Adicionar aplicativo'. Clique pra desativar."
-                  : "Portal inativo: só os WhatsApp de teste veem 'Adicionar aplicativo'. Clique pra ativar pra todos."
+                  ? "Portal ativo: o Adicionar aplicativo funciona pra todos os clientes. Clique pra colocar em manutenção."
+                  : "Portal inativo: o cliente vê o botão, mas ao clicar aparece o aviso de manutenção com o seu WhatsApp (os WhatsApp de teste usam normal). Clique pra ativar pra todos."
               }
               className={`h-9 md:h-10 px-3 rounded-lg border font-semibold text-xs md:text-sm transition-all flex items-center gap-2 disabled:opacity-50 ${
                 portalAddEnabled

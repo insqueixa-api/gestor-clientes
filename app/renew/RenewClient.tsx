@@ -484,6 +484,10 @@ export default function RenewClient() {
   // ✅ 04/10/2026: "Adicionar aplicativo" visível? (chave Portal do admin, ou
   // WhatsApp de teste) — vem da rota /apps/list
   const [canAddApp, setCanAddApp] = useState(false);
+  // ✅ 05/10/2026, pedido do Márcio: o botão aparece SEMPRE (o portal pede pro
+  // cliente atualizar o cadastro); com a chave "Portal" inativa no admin, o
+  // clique abre um aviso de manutenção com o WhatsApp do suporte.
+  const [showAddMaintenance, setShowAddMaintenance] = useState(false);
   // ✅ Instruções de configuração — pedido do Márcio (25/07/2026): substitui
   // a página de detalhe (/renew/apps/[id]), que ficou redundante depois
   // que o card da lista passou a mostrar tudo. Só o texto curado pelo admin
@@ -5141,9 +5145,13 @@ export default function RenewClient() {
                 Meus Aplicativos
               </h1>
               {/* ⏸️ Escondido até a vitrine nova (lib/apps/portal-apps-flag.ts) */}
-              {canAddApp && (
+              {(
                 <button
                   onClick={() => {
+                    if (!canAddApp) {
+                      setShowAddMaintenance(true);
+                      return;
+                    }
                     setShowAddAppPicker(true);
                     loadAppCatalog();
                   }}
@@ -5254,11 +5262,13 @@ export default function RenewClient() {
                     Ainda não temos o registro do aplicativo que você usa na sua Smart TV ou outro aparelho.
                     Adicione aqui — isso facilita a manutenção e as renovações.
                   </p>
-                  {!canAddApp ? (
-                    <p className="text-xs text-muted-foreground">Fale com o suporte pra cadastrar o seu aplicativo.</p>
-                  ) : (
+                  {(
                     <button
                       onClick={() => {
+                        if (!canAddApp) {
+                          setShowAddMaintenance(true);
+                          return;
+                        }
                         setShowAddAppPicker(true);
                         loadAppCatalog();
                       }}
@@ -5690,6 +5700,33 @@ export default function RenewClient() {
               </a>
             )}
 
+            {showAddMaintenance && (
+              <div
+                className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                onMouseDown={(e) => {
+                  if (e.target === e.currentTarget) setShowAddMaintenance(false);
+                }}
+              >
+                <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
+                  <p className="text-sm font-bold text-foreground">🛠️ Estamos em manutenção</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    O cadastro de aplicativos pelo portal está passando por uma atualização. Fale comigo no WhatsApp que eu
+                    atualizo o seu cadastro rapidinho.
+                  </p>
+                  <WhatsAppHelpLink
+                    phone={supportPhone}
+                    label="Falar no WhatsApp pra atualizar meu cadastro"
+                    message="Olá! Quero atualizar o cadastro do aplicativo que eu uso."
+                  />
+                  <button
+                    onClick={() => setShowAddMaintenance(false)}
+                    className="h-10 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:bg-muted"
+                  >
+                    Fechar
+                  </button>
+                </div>
+              </div>
+            )}
             {postAddPrompt && (
               <div
                 className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
