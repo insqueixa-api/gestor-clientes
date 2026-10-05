@@ -527,35 +527,55 @@ export async function POST(req: Request) {
   const allFailed = results.length > 0 && results.every((r) => r.status !== 200);
 
   // ✅ NOVO: Grava no histórico (client_message_jobs) para aparecer na listagem
+  // ✅ 05/10/2026, pedido do Márcio: 1 linha POR CONTATO (antes era 1 linha
+  // só pros dois — ex: "Pagamento Realizado" confirmado pelo painel ia pro
+  // principal E pro secundário, mas o Histórico só mostrava o principal).
+  // Mesmo formato do envio_programado: a linha do secundário é
+  // `secondary_only=true` (a view vw_client_message_jobs_queue_details já
+  // mostra nome/telefone do secundário nela, e um "Reenviar" dessa linha
+  // pela fila só manda pro secundário). Cada linha com o seu próprio
+  // status — principal enviado e secundário falhou aparecem separados.
   try {
-    const insertPayload: any = {
-      tenant_id: tenantId,
-      message: message, // Grava o texto do template (variáveis brutas)
-      message_template_id: messageTemplateId || null,
-      image_url: imageUrl,
-      status: allFailed ? "FAILED" : "SENT",
-      send_at: new Date().toISOString(),
-      sent_at: allFailed ? null : new Date().toISOString(),
-      error_message: allFailed ? "Falha ao enviar via API do WhatsApp" : null,
-      whatsapp_session: targetSession,
-      created_by: authedUserId && authedUserId !== "system" ? authedUserId : null,
-    };
+    const nowIso = new Date().toISOString();
+    for (let i = 0; i < wa.phones.length; i++) {
+      const contact = wa.phones[i];
+      const result: any = results[i];
+      const ok = result?.status === 200;
+      const insertPayload: any = {
+        tenant_id: tenantId,
+        message: message, // Grava o texto do template (variáveis brutas)
+        message_template_id: messageTemplateId || null,
+        image_url: imageUrl,
+        status: ok ? "SENT" : "FAILED",
+        send_at: nowIso,
+        sent_at: ok ? nowIso : null,
+        error_message: ok ? null : String(result?.error || "Falha ao enviar via API do WhatsApp").slice(0, 500),
+        whatsapp_session: targetSession,
+        created_by: authedUserId && authedUserId !== "system" ? authedUserId : null,
+        secondary_only: !!contact.is_secondary,
+      };
 
-    if (recipientType === "reseller") {
-      insertPayload.reseller_id = recipientId;
-    } else {
-      insertPayload.client_id = recipientId;
-    }
+      if (recipientType === "reseller") {
+        insertPayload.reseller_id = recipientId;
+      } else {
+        insertPayload.client_id = recipientId;
+      }
 
-    const { data: insertedJob } = await sb.from("client_message_jobs").insert(insertPayload).select("id").single();
-    for (const m of sentMessageIds) {
-      await recordSentMessage(sb, {
-        waMessageId: m.id,
-        tenantId,
-        jobId: insertedJob?.id ?? null,
-        phone: m.phone,
-        isSecondary: m.isSecondary,
-      });
+      const { data: insertedJob, error: insertErr } = await sb
+        .from("client_message_jobs")
+        .insert(insertPayload)
+        .select("id")
+        .single();
+      if (insertErr) throw insertErr;
+      for (const m of sentMessageIds.filter((s) => s.phone === contact.number)) {
+        await recordSentMessage(sb, {
+          waMessageId: m.id,
+          tenantId,
+          jobId: insertedJob?.id ?? null,
+          phone: m.phone,
+          isSecondary: m.isSecondary,
+        });
+      }
     }
   } catch (err) {
     safeServerLog("[WA][send_now] falha ao gravar log em client_message_jobs", err);

@@ -244,6 +244,7 @@ export async function POST(req: Request) {
       reseller_id,
       whatsapp_session,
       message,
+      message_template_id,
       secondary_only,
       image_url,
       send_at,
@@ -763,6 +764,11 @@ export async function POST(req: Request) {
               reseller_id: (job as any).reseller_id || null,
               whatsapp_session: (job as any).whatsapp_session || "default",
               message: job.message,
+              // ✅ 05/10/2026: sem isto a linha do secundário de um envio
+              // sem automação (ex: "Pagamento Realizado" do portal) aparecia
+              // como "Personalizada" no Histórico — a view só acha o nome
+              // pelo template do job ou da automação.
+              message_template_id: (job as any).message_template_id || null,
               image_url: (job as any).image_url || null,
               send_at: new Date(Date.now() + delaySecs * 1000).toISOString(),
               status: "SCHEDULED",
