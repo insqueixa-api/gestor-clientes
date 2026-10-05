@@ -5061,27 +5061,32 @@ export default function RenewClient() {
             </p>
           </div>
 
-          <div className="flex-1 min-h-0 flex flex-col gap-2.5 px-3 pb-3 sm:block sm:gap-0 sm:space-y-4 sm:px-0 sm:pb-0">
+          {/* ✅ 05/10/2026, pedido do Márcio: no celular continua 2 metades
+              da tela, só com texto maior dentro dos cards; no computador os 2
+              cards ficam LADO A LADO e maiores (antes eram 2 faixas finas
+              empilhadas), com descrição mais clara + chamada pra ação. */}
+          <div className="flex-1 min-h-0 flex flex-col gap-2.5 px-3 pb-3 sm:flex-none sm:grid sm:grid-cols-2 sm:gap-6 sm:px-0 sm:pb-0">
             {/* Bloco 1 — Pagamentos e Renovação */}
             <button
               onClick={() => setActiveSection("payment")}
-              className="flex-1 min-h-0 sm:flex-none w-full text-left rounded-2xl p-4 border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group overflow-hidden"
+              className="flex-1 min-h-0 sm:flex-none sm:min-h-[240px] w-full text-left rounded-2xl p-4 sm:p-7 border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group overflow-hidden"
             >
-              <div className="h-full flex flex-col items-center justify-center text-center gap-2 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20 text-2xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
+              <div className="h-full flex flex-col items-center justify-center text-center gap-2.5 sm:items-start sm:justify-start sm:text-left sm:gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20 text-3xl sm:w-16 sm:h-16 sm:text-4xl">
                   💳
                 </div>
                 <div className="min-w-0 sm:flex-1">
-                  <p className="text-base font-bold text-foreground sm:text-base">
+                  <p className="text-xl font-bold text-foreground sm:text-2xl">
                     Pagamentos e Renovação
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:text-xs sm:mt-0.5">
-                    Veja o vencimento, escolha como pagar e acompanhe a
-                    renovação até o fim.
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-3 sm:text-base sm:mt-2 sm:leading-relaxed">
+                    Veja quando seu acesso vence e renove com PIX ou cartão.
+                    Você acompanha a liberação aqui mesmo, até o fim.
                   </p>
                 </div>
-                <span className="text-emerald-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:inline">
-                  →
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold px-4 py-1.5 sm:text-base sm:px-5 sm:py-2 group-hover:bg-emerald-500/25 transition-colors">
+                  Renovar meu acesso
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
                 </span>
               </div>
             </button>
@@ -5094,29 +5099,30 @@ export default function RenewClient() {
                 if (!PORTAL_APPS_DISABLED) setActiveSection("apps");
               }}
               disabled={PORTAL_APPS_DISABLED}
-              className={`flex-1 min-h-0 sm:flex-none w-full text-left rounded-2xl p-4 border-2 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent transition-all shadow-sm group overflow-hidden ${
+              className={`flex-1 min-h-0 sm:flex-none sm:min-h-[240px] w-full text-left rounded-2xl p-4 sm:p-7 border-2 border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent transition-all shadow-sm group overflow-hidden ${
                 PORTAL_APPS_DISABLED
                   ? "opacity-60 cursor-not-allowed"
                   : "hover:border-amber-500/60 hover:shadow-md"
               }`}
             >
-              <div className="h-full flex flex-col items-center justify-center text-center gap-2 sm:h-auto sm:flex-row sm:items-center sm:text-left sm:gap-4">
-                <div className="w-11 h-11 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-2xl sm:w-12 sm:h-12 sm:rounded-xl sm:text-2xl">
+              <div className="h-full flex flex-col items-center justify-center text-center gap-2.5 sm:items-start sm:justify-start sm:text-left sm:gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-3xl sm:w-16 sm:h-16 sm:text-4xl">
                   📱
                 </div>
                 <div className="min-w-0 sm:flex-1">
-                  <p className="text-base font-bold text-foreground sm:text-base">
+                  <p className="text-xl font-bold text-foreground sm:text-2xl">
                     Meus Aplicativos
                   </p>
-                  <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 sm:text-xs sm:mt-0.5">
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-3 sm:text-base sm:mt-2 sm:leading-relaxed">
                     {PORTAL_APPS_DISABLED
                       ? "Em atualização — volta em breve."
-                      : "Diga quais aplicativos você usa, atualize ou instale novos."}
+                      : "Cadastre os aplicativos da sua TV ou celular, libere o sinal com um toque e confira o vencimento de cada um."}
                   </p>
                 </div>
                 {!PORTAL_APPS_DISABLED && (
-                  <span className="text-amber-500 text-xl group-hover:translate-x-0.5 transition-transform shrink-0 hidden sm:inline">
-                    →
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-sm font-semibold px-4 py-1.5 sm:text-base sm:px-5 sm:py-2 group-hover:bg-amber-500/25 transition-colors">
+                    Ver meus aplicativos
+                    <span className="group-hover:translate-x-0.5 transition-transform">→</span>
                   </span>
                 )}
               </div>

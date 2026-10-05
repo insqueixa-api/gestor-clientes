@@ -9,6 +9,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { TenantProvider } from "@/lib/tenant-context";
 import { usePathname } from "next/navigation";
 import React from "react";
+import dynamic from "next/dynamic";
 import {
   Modal as SharedModal,
   ModalHeader,
@@ -61,6 +62,12 @@ const PAGE_NAMES: Record<string, string> = {
   "/admin/settings/cupons": "Cupons",
   "/admin/settings/api-server": "API de Integrações",
 };
+
+// Só baixa o modal da fila quando alguém clica em "Fila WhatsApp" no sino —
+// o AdminShell carrega em toda página do admin.
+const GlobalQueueMonitor = dynamic(() => import("@/components/whatsapp/GlobalQueueMonitor"), {
+  ssr: false,
+});
 
 function getPageName(path: string): string {
   if (PAGE_NAMES[path]) return PAGE_NAMES[path];
@@ -168,6 +175,10 @@ export default function AdminShell({
   >(null);
   const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ vem direto da tabela notifications
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  // ✅ 05/10/2026, pedido do Márcio: botão "Fila WhatsApp" no sino abre o
+  // mesmo modal de Fila/Histórico da Automação de Cobrança (já no
+  // Histórico), sem ter que ir até aquela página.
+  const [showQueueModal, setShowQueueModal] = useState(false);
 
   // ✅ Pedido do Márcio, 06/08/2026: o botão "Sincronizar" só incrementava
   // um contador (refreshTrigger, removido) sem nenhum feedback visual —
@@ -983,6 +994,19 @@ export default function AdminShell({
         <TenantProvider tenantId={tenantId}>{children}</TenantProvider>
       </main>
 
+      {showQueueModal && (
+        <TenantProvider tenantId={tenantId}>
+          <GlobalQueueMonitor
+            hideTrigger
+            initialTab="historico"
+            open
+            onOpenChange={(o) => {
+              if (!o) setShowQueueModal(false);
+            }}
+          />
+        </TenantProvider>
+      )}
+
       {showNotificationsModal && (
         <Modal
           title="Notificações"
@@ -1025,6 +1049,17 @@ export default function AdminShell({
                 </button>
               )}
             </div>
+
+            <button
+              onClick={() => {
+                setShowNotificationsModal(false);
+                setShowQueueModal(true);
+              }}
+              className="w-full px-3 py-1.5 rounded-lg border border-border text-foreground/90 font-medium hover:bg-muted transition-colors text-xs uppercase flex items-center justify-center gap-1.5 whitespace-nowrap"
+              title="Fila e histórico de envios do WhatsApp de hoje"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-emerald-500" /> Fila WhatsApp
+            </button>
 
             {notifications.length === 0 ? (
               <div className="text-center text-muted-foreground/70 py-8">
