@@ -34,23 +34,33 @@ function randomAlnum(n: number) {
   return s;
 }
 
-function onlyAlnum(v: unknown) {
-  return String(v ?? "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-zA-Z0-9]/g, "");
-}
-
 function digits(n: number) {
   let s = "";
   for (let i = 0; i < n; i++) s += String(randomInt(10));
   return s;
 }
 
-/** Ajusta pro tamanho exigido: completa com números, corta o excesso. */
-function fit(base: string, min: number, max: number, filler: (n: number) => string) {
-  let s = base;
-  if (s.length < min) s += filler(min - s.length);
+const LETTERS = "abcdefghijkmnpqrstuvwxyz";
+
+/**
+ * Regra do Elite (resposta real da API, 05/10/2026): "Login: use 12 a 100
+ * caracteres, incluindo letras e números; apenas ponto, hífen e sublinhado
+ * são aceitos como símbolos". Mantém o que dá do valor digitado, garante 1
+ * letra + 1 número e completa com números até o mínimo.
+ */
+function shapeCredential(raw: string, min: number, max: number, keepSymbols: boolean) {
+  const clean = String(raw ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(keepSymbols ? /[^a-zA-Z0-9._-]/g : /[^a-zA-Z0-9]/g, "");
+  const ok = (v: string) => /[a-zA-Z]/.test(v) && /[0-9]/.test(v);
+  let s = clean.slice(0, max);
+  if (!ok(s)) {
+    s = clean.slice(0, max - 2);
+    if (!/[a-zA-Z]/.test(s)) s += LETTERS[randomInt(LETTERS.length)];
+    if (!/[0-9]/.test(s)) s += digits(1);
+  }
+  if (s.length < min) s += digits(min - s.length);
   return s.slice(0, max);
 }
 
@@ -67,17 +77,23 @@ export async function POST(req: Request) {
     const integ = await loadEliteIntegration(integration_id, caller.tenantId);
     const tech = eliteTechOf(body?.technology);
 
-    const userBase = onlyAlnum(body?.username) || randomAlnum(8);
-    const passBase = String(body?.password ?? "").trim();
+    const userBase = String(body?.username ?? "").trim() || randomAlnum(8);
+    const passBase = String(body?.password ?? "").trim() || randomAlnum(12);
 
+    // P2P: exatamente 12 letras/números. IPTV: 12–100, letras+números, só . - _
+    // (a senha IPTV digitada é mantida se já cumprir a regra — o exemplo da doc
+    // aceita "!" na senha; só ajusta quando é curta ou sem letra/número).
     let username: string;
     let password: string;
     if (tech === "p2p") {
-      username = fit(userBase, 12, 12, digits);
-      password = fit(onlyAlnum(passBase) || randomAlnum(12), 12, 12, randomAlnum);
+      username = shapeCredential(userBase, 12, 12, false);
+      password = shapeCredential(passBase, 12, 12, false);
     } else {
-      username = fit(userBase, 12, 32, digits);
-      password = passBase || randomAlnum(12);
+      username = shapeCredential(userBase, 12, 100, true);
+      password =
+        passBase.length >= 12 && passBase.length <= 100 && /[a-zA-Z]/.test(passBase) && /[0-9]/.test(passBase) && !/s/.test(passBase)
+          ? passBase
+          : shapeCredential(passBase, 12, 100, true);
     }
 
     const { data, requestId } = await eliteRequest(integ, "POST", `/${tech}/trials`, {
