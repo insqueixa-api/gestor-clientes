@@ -6750,7 +6750,9 @@ export default function RenewClient() {
                   </>
                 )}
               </p>
-              <div className="space-y-2">
+              {/* ✅ 05/10/2026, pedido do Márcio: 2 por linha no computador,
+                  igual a lista de Meus Aplicativos (mesmo lg:grid-cols-2). */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                 {expiringAppsForAlert.map((app) => {
                   const datePart =
                     app.expiration && !app.is_trial
