@@ -8,6 +8,7 @@ import { formatDateBR, formatDateTimeBR, isoDateInSaoPaulo } from "@/lib/date-br
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm"; // ✅ Trazendo a caixa de confirmação bonita
+import { stripAccents } from "@/lib/dom-focus";
 import { getIntegrationHandler } from "@/lib/integrations"; // ✅ O Roteador Inteligente
 import FormattedTimeInput from "@/components/ui/FormattedTimeInput";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
@@ -3656,7 +3657,7 @@ export default function NovoCliente({
           p_client_id: clientId,
           p_display_name: displayName,
           p_server_id: serverId,
-          p_server_username: username,
+          p_server_username: stripAccents(username),
           p_server_password: password?.trim() || "",
           p_screens: rpcScreens,
           p_plan_label: rpcPlanLabel,
@@ -3839,7 +3840,7 @@ export default function NovoCliente({
         // ("joaosilva"), quebrando a regra de "tem que ser o mesmo do
         // cliente normal".
         let apiUsername = sourceClientId
-          ? username.trim()
+          ? stripAccents(username.trim())
           : username
               .trim()
               .normalize("NFD")
@@ -5535,7 +5536,8 @@ export default function NovoCliente({
                           value={username}
                           onChange={(e) => {
                             setUsernameTouched(true);
-                            setUsername(e.target.value);
+                            // nenhum servidor aceita acento no usuário
+                            setUsername(stripAccents(e.target.value));
                           }}
                           className="pr-10"
                         />

@@ -34,3 +34,12 @@ export function focusNextWhenMacComplete(el: HTMLElement | null, previous: strin
 export function capitalizeFirst(v: string): string {
   return v ? v.charAt(0).toLocaleUpperCase("pt-BR") + v.slice(1) : v;
 }
+
+/**
+ * ✅ 05/10/2026 (pedido do Márcio): usuário de servidor nunca leva acento
+ * (nenhum painel aceita) — "João" vira "Joao", "Conceição" vira "Conceicao".
+ * Só tira o acento; não mexe em mais nada do que foi digitado.
+ */
+export function stripAccents(v: string): string {
+  return String(v ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
