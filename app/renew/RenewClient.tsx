@@ -30,7 +30,7 @@ import { ambientePlaceholder } from "@/lib/apps/device-types";
 import { formatDateBR } from "@/lib/date-br";
 import DownloadHintCard from "@/components/apps/DownloadHintCard";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
-import type { DownloadHint } from "@/lib/apps/download-info";
+import { adaptSetupText, type DownloadHint } from "@/lib/apps/download-info";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
 // consulta espera mais (a pessoa ainda precisa abrir o banco e pagar),
@@ -6120,7 +6120,7 @@ export default function RenewClient() {
                       )}
                       <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
                         {instrApp?.portal_setup_instructions &&
-                          linkifyText(instrApp.portal_setup_instructions)}
+                          linkifyText(adaptSetupText(instrApp.portal_setup_instructions, instrApp.download) || "")}
                       </p>
                       <WhatsAppHelpLink phone={supportPhone} appName={instrApp?.name} />
                       {instrApp && instrApp.variable_fields.length > 0 && (

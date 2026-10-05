@@ -16,6 +16,8 @@ import {
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { uploadToR2, releaseR2Files } from "@/lib/r2-upload";
 import { useTenantId } from "@/lib/tenant-context";
+import DownloadHintCard from "@/components/apps/DownloadHintCard";
+import { adaptSetupText, pickCatalogDownload, type DownloadHint } from "@/lib/apps/download-info";
 
 export type AppPickerCatalogItem = {
   id: string;
@@ -39,6 +41,8 @@ export type AppPickerCatalogItem = {
   tier?: number | null;
   /** instruções do app com {licenca} preenchida — mostrada no "Detalhes" */
   description?: string | null;
+  /** download por aparelho (portal, 05/10/2026) — card no "Detalhes" */
+  downloads?: Record<string, DownloadHint | null> | null;
 };
 
 // ✅ 02/10/2026 (pedido do Márcio): filtro rápido ao lado da busca (seta)
@@ -663,13 +667,24 @@ export default function AppPickerModal({
                 <DeviceBadges types={detailsApp.device_types} />
               </div>
             )}
-            {detailsApp.description ? (
-              <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
-                {renderRichText(detailsApp.description)}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">Sem descrição cadastrada.</p>
-            )}
+            {/* ✅ 05/10/2026: download do aparelho escolhido (Xbox, Computador...)
+                + texto sem "link acima" quando não há link em cima */}
+            {(() => {
+              const hint = pickCatalogDownload(detailsApp.downloads, specificDevice ? deviceType : null);
+              const text = adaptSetupText(detailsApp.description, hint);
+              return (
+                <>
+                  <DownloadHintCard hint={hint} />
+                  {text ? (
+                    <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+                      {renderRichText(text)}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Sem descrição cadastrada.</p>
+                  )}
+                </>
+              );
+            })()}
             {isPortal && <WhatsAppHelpLink phone={supportWhatsapp} appName={detailsApp.name} />}
             {chooseButton(detailsApp, "w-full h-10")}
           </div>

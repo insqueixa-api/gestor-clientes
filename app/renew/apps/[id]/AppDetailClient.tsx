@@ -17,7 +17,7 @@ import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/Reconfi
 import DownloadHintCard from "@/components/apps/DownloadHintCard";
 import { ambientePlaceholder } from "@/lib/apps/device-types";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
-import type { DownloadHint } from "@/lib/apps/download-info";
+import { adaptSetupText, type DownloadHint } from "@/lib/apps/download-info";
 
 type AppField = { id: string; type: string; label: string; value: string };
 type AppDetail = {
@@ -553,7 +553,7 @@ export default function AppDetailClient() {
             {app.portal_setup_instructions && (
               <div className="bg-card rounded-xl p-4 border border-border shadow-sm space-y-2">
                 <p className="text-sm font-bold text-foreground">Como configurar</p>
-                <p className="text-xs text-muted-foreground">{renderInstructionText(app.portal_setup_instructions)}</p>
+                <p className="text-xs text-muted-foreground">{renderInstructionText(adaptSetupText(app.portal_setup_instructions, app.download) || "")}</p>
               </div>
             )}
 

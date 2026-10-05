@@ -11,6 +11,7 @@ import { convertAmount } from "@/lib/fx";
 import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
 import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { withoutLegacyDevices } from "@/lib/apps/device-types";
+import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     // adicionar app) — client e apps são independentes (o filtro por
     // technology, que dependia do client, virou filtro em JS logo abaixo em
     // vez de condição no .eq() — troca 2 round-trips sequenciais por 1).
-    const [{ data: client }, { data: apps, error: appsErr }] = await Promise.all([
+    const [{ data: client }, { data: apps, error: appsErr }, { data: downloadLogos }] = await Promise.all([
       supabaseAdmin.from("clients").select("technology, server_id, price_currency").eq("id", client_id).single(),
       // ✅ Descontinuado (is_active=false) continua na lista de propósito
       // (pedido do Marcio, 25/07/2026) — sumir faria quem já usa não achar o
@@ -54,9 +55,15 @@ export async function POST(req: NextRequest) {
       // adicionar (bloqueado em /apps/add, defesa em profundidade).
       supabaseAdmin
         .from("apps")
-        .select("id, name, icon_url, technology, device_types, integration_type, cost_type, partner_server_id, license_price, license_period, is_active, discontinued_replacement_name, appativa_app_id, appativa_meta, tier, portal_setup_instructions, fields_config")
+        .select("id, name, icon_url, technology, device_types, integration_type, cost_type, partner_server_id, license_price, license_period, is_active, discontinued_replacement_name, appativa_app_id, appativa_meta, tier, portal_setup_instructions, fields_config, download_info")
         .eq("tenant_id", ctx.tenant_id)
         .order("name", { ascending: true }),
+      // ✅ 05/10/2026: logos do card de download (1 leitura pra todo o catálogo)
+      supabaseAdmin
+        .from("app_download_logos")
+        .select("pc_logo_url, downloader_logo_url, ios_logo_url")
+        .eq("tenant_id", ctx.tenant_id)
+        .maybeSingle(),
     ]);
     if (appsErr) return jsonError("Erro interno", 500);
 
@@ -85,7 +92,7 @@ export async function POST(req: NextRequest) {
         // DAQUELE servidor específico; oferecer pra cliente de outro servidor
         // mostraria um app "grátis" que na prática ele não tem direito a usar.
         .filter((a: any) => a.cost_type !== "partnership" || (a.partner_server_id && a.partner_server_id === client?.server_id))
-        .map(async ({ integration_type, partner_server_id, cost_type, license_price, license_period, appativa_app_id, appativa_meta, tier, portal_setup_instructions, fields_config, ...rest }: any) => {
+        .map(async ({ integration_type, partner_server_id, cost_type, license_price, license_period, appativa_app_id, appativa_meta, tier, portal_setup_instructions, fields_config, download_info, ...rest }: any) => {
           // ✅ Mesmo cálculo do has_integration em list/route.ts — sinaliza no
           // picker (ícone ⚡, pedido do Márcio 26/07/2026) quais apps ativam
           // sozinhos vs. precisam de configuração manual pelo suporte.
@@ -108,6 +115,15 @@ export async function POST(req: NextRequest) {
             description: renderAppDescription(
               portal_setup_instructions,
               formatLicenca(licensePriceDisplay, clientCurrency, cost_type === "paid" ? license_period : null),
+            ),
+            // ✅ 05/10/2026: download por aparelho (mesma regra da página do
+            // app adicionado) — o "Detalhes" da vitrine mostra o do aparelho
+            // escolhido e o texto não fala de "link acima" que não existe.
+            downloads: Object.fromEntries(
+              withoutLegacyDevices(rest.device_types).map((dt: string) => [
+                dt,
+                withDownloadLogo(resolveDownloadHint({ download_info, appativa_meta }, dt), downloadLogos),
+              ]),
             ),
             cost_type: cost_type || null,
             license_price: licensePriceBRL,
