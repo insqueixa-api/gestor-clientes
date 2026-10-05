@@ -371,6 +371,10 @@ export async function POST(req: Request) {
 
   const results = [];
   const sentMessageIds: { id: string; phone: string; isSecondary: boolean }[] = [];
+  // ✅ 05/10/2026: horário de cada contato (o secundário sai segundos depois
+  // do principal) — antes as 2 linhas do Histórico iam com o mesmo horário
+  // (o do fim do loop) e parecia envio simultâneo (caso Neli/Sirlei).
+  const contactSentAt: string[] = [];
 
   // ✅ Intervalo entre contato primário e secundário — SEMPRE 3-10s fixo
   // aqui, independente da faixa configurada em billing_campaign_settings
@@ -402,6 +406,7 @@ export async function POST(req: Request) {
     // portal etc. à toa pra um envio que já sabemos que vai falhar).
     if (!sessionConnected) {
       results.push({ phone: contact.number, error: "Sessão do WhatsApp desconectada", status: 503 });
+      contactSentAt[i] = new Date().toISOString();
       continue;
     }
 
@@ -521,6 +526,7 @@ export async function POST(req: Request) {
     } catch (err: any) {
       results.push({ phone: contact.number, error: err?.message, status: 500 });
     }
+    contactSentAt[i] = new Date().toISOString();
   }
 
   // Mantendo o mesmo padrão de erro 502 global se todos os números falharam
@@ -547,8 +553,8 @@ export async function POST(req: Request) {
         message_template_id: messageTemplateId || null,
         image_url: imageUrl,
         status: ok ? "SENT" : "FAILED",
-        send_at: nowIso,
-        sent_at: ok ? nowIso : null,
+        send_at: contactSentAt[i] || nowIso,
+        sent_at: ok ? contactSentAt[i] || nowIso : null,
         error_message: ok ? null : String(result?.error || "Falha ao enviar via API do WhatsApp").slice(0, 500),
         whatsapp_session: targetSession,
         created_by: authedUserId && authedUserId !== "system" ? authedUserId : null,
