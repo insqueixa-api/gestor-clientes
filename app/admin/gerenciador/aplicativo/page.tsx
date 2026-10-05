@@ -528,6 +528,38 @@ export default function AppManagerPage() {
     ios: null,
   });
   const [uploadingDlLogo, setUploadingDlLogo] = useState<DownloadKind | null>(null);
+  // ✅ 04/10/2026: chave "Portal" — "Adicionar aplicativo" no portal pra todos
+  // (ativo) ou só pros WhatsApp de teste (inativo). tenants.portal_add_app_enabled
+  const [portalAddEnabled, setPortalAddEnabled] = useState<boolean | null>(null);
+  const [savingPortalAdd, setSavingPortalAdd] = useState(false);
+  useEffect(() => {
+    if (!tenantId) return;
+    supabaseBrowser
+      .from("tenants")
+      .select("portal_add_app_enabled")
+      .eq("id", tenantId)
+      .maybeSingle()
+      .then(({ data }) => setPortalAddEnabled(!!data?.portal_add_app_enabled));
+  }, [tenantId]);
+  async function togglePortalAdd() {
+    if (!tenantId || portalAddEnabled === null) return;
+    const next = !portalAddEnabled;
+    setSavingPortalAdd(true);
+    const { error } = await supabaseBrowser.from("tenants").update({ portal_add_app_enabled: next }).eq("id", tenantId);
+    setSavingPortalAdd(false);
+    if (error) {
+      addToast("error", "Erro", error.message);
+      return;
+    }
+    setPortalAddEnabled(next);
+    addToast(
+      "success",
+      next ? "Portal ativo" : "Portal inativo",
+      next
+        ? "Todos os clientes veem o botão Adicionar aplicativo."
+        : "Só os WhatsApp de teste veem o botão Adicionar aplicativo.",
+    );
+  }
   const dlLogoInputs = useRef<Record<string, HTMLInputElement | null>>({});
   // Ctrl+V: vale pro ícone com o mouse em cima ou com foco (clicar abre a
   // janela de arquivo e tira o foco — por isso o "mouse em cima" também conta)
@@ -1894,6 +1926,25 @@ export default function AppManagerPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {portalAddEnabled !== null && (
+            <button
+              onClick={togglePortalAdd}
+              disabled={savingPortalAdd}
+              title={
+                portalAddEnabled
+                  ? "Portal ativo: todos os clientes veem 'Adicionar aplicativo'. Clique pra desativar."
+                  : "Portal inativo: só os WhatsApp de teste veem 'Adicionar aplicativo'. Clique pra ativar pra todos."
+              }
+              className={`h-9 md:h-10 px-3 rounded-lg border font-semibold text-xs md:text-sm transition-all flex items-center gap-2 disabled:opacity-50 ${
+                portalAddEnabled
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "border-border text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${portalAddEnabled ? "bg-emerald-500" : "bg-muted-foreground/50"}`} />
+              Portal {portalAddEnabled ? "ativo" : "inativo"}
+            </button>
+          )}
           <button
             onClick={exportAppsCsv}
             title="Exportar catálogo (CSV) — pra comparar com o de um parceiro"

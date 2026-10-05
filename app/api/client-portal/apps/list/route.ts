@@ -1,6 +1,7 @@
 // app/api/client-portal/apps/list/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
+import { getPortalAddAppAccess } from "@/lib/client-portal/add-app-access";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib/apps/field-types";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
@@ -382,7 +383,8 @@ export async function POST(req: NextRequest) {
     }));
 
     return NextResponse.json(
-      { ok: true, data: apps },
+      // ✅ 04/10/2026: botão "Adicionar aplicativo" (chave do admin + testers)
+      { ok: true, data: apps, can_add_app: (await getPortalAddAppAccess(supabaseAdmin, ctx.tenant_id, ctx.whatsapp_username)).canAdd },
       { status: 200, headers: NO_STORE_HEADERS },
     );
   } catch {

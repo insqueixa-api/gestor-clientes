@@ -6,7 +6,10 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { PORTAL_APPS_DISABLED, PORTAL_APPS_DISABLED_MESSAGE } from "@/lib/apps/portal-apps-flag";
-import { logAppActivity } from "@/lib/apps/panel";
+import { logAppActivity, findFieldByType } from "@/lib/apps/panel";
+import { loadClientAppDraft, checkClientAppValidity } from "@/lib/apps/orchestration";
+import { HIDDEN_CLIENT_FIELD_TYPES, type AppFieldType } from "@/lib/apps/field-types";
+import { getPortalAddAppAccess } from "@/lib/client-portal/add-app-access";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +50,10 @@ export async function POST(req: NextRequest) {
     if (!ctx) return jsonError("Sessão inválida ou cliente não encontrado", 401);
     if (!app_id) return jsonError("app_id é obrigatório", 400);
 
+    // ✅ 04/10/2026: chave "Portal" do admin (ou WhatsApp de teste)
+    const access = await getPortalAddAppAccess(supabaseAdmin, ctx.tenant_id, ctx.whatsapp_username);
+    if (!access.canAdd) return jsonError("Adicionar aplicativo pelo portal está desativado no momento. Fale com o suporte.", 403);
+
     // ✅ Mesmo app pode ser adicionado mais de uma vez de propósito (pedido
     // do Marcio, 24/07/2026) — cliente pode ter 2 TVs da mesma marca ou 2
     // celulares Android, cada instalação com seu próprio MAC/Device Key.
@@ -75,13 +82,13 @@ export async function POST(req: NextRequest) {
         .single(),
       supabaseAdmin
         .from("apps")
-        .select("id, name, technology, integration_type, cost_type, partner_server_id, is_active, discontinued_replacement_name")
+        .select("id, name, technology, integration_type, cost_type, partner_server_id, is_active, discontinued_replacement_name, fields_config")
         .eq("id", app_id)
         .eq("tenant_id", ctx.tenant_id)
         .maybeSingle(),
     ]);
 
-    if ((installedCount || 0) >= MAX_APPS_PER_CLIENT) {
+    if (!access.isTester && (installedCount || 0) >= MAX_APPS_PER_CLIENT) {
       return jsonError(
         `Limite de ${MAX_APPS_PER_CLIENT} aplicativos por conta atingido. Fale com o suporte se precisar de mais.`,
         400,
@@ -115,6 +122,80 @@ export async function POST(req: NextRequest) {
     // novo_cliente.tsx) — sem isso, list/detail/check-validity nunca sabiam
     // se esse app era "parceria"/pago (field_values._config_cost sempre
     // vinha vazio pra apps adicionados pelo próprio cliente).
+    // ✅ 04/10/2026, pedido do Márcio: o app só nasce no banco quando o
+    // cliente SALVA o formulário (antes nascia vazio ao escolher, e o
+    // "Cancelar" deixava o registro lá). Com os campos preenchidos, confere
+    // os dados no parceiro (consulta de vencimento, só leitura) ANTES de
+    // gravar: dado errado = não salva e pede pra conferir; dado certo = salva
+    // já com o vencimento. App sem consulta (ou GerenciaApp, que pode ainda
+    // não ter o MAC no painel) só salva.
+    const fieldValues: Record<string, string> = {
+      _config_cost: app.cost_type || "paid",
+      _config_partner: app.partner_server_id || "",
+    };
+    const sent = body?.field_values && typeof body.field_values === "object" ? body.field_values : null;
+    const cfg: any[] = Array.isArray((app as any).fields_config) ? (app as any).fields_config : [];
+    if (sent) {
+      for (const f of cfg) {
+        if (!f?.id || f.type === "date" || HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType)) continue;
+        const v = normalizeStr(sent[f.id]).slice(0, 200);
+        if (v) fieldValues[String(f.id)] = v;
+      }
+      const integ = String(app.integration_type || "").toUpperCase();
+      if (integ && integ !== "GERENCIAAPP") {
+        // 🔒 04/10/2026: a conferência consulta o parceiro com MAC/Key
+        // digitados — sem limite, daria pra usar o portal pra testar chaves
+        // de aparelho dos outros (força bruta). 5 conferências erradas por
+        // conta em 30min = bloqueia sem chamar o parceiro. Testers não.
+        const ADD_CHECK_WINDOW_MIN = 30;
+        const ADD_CHECK_MAX_FAILS = 5;
+        if (!access.isTester) {
+          const { count: recentFails } = await supabaseAdmin
+            .from("client_app_activity_log")
+            .select("id", { count: "exact", head: true })
+            .eq("client_id", client_id)
+            .eq("event", "check_validity_failed")
+            .eq("detail->>source", "portal_add")
+            .gte("created_at", new Date(Date.now() - ADD_CHECK_WINDOW_MIN * 60 * 1000).toISOString());
+          if ((recentFails || 0) >= ADD_CHECK_MAX_FAILS) {
+            return jsonError(
+              "Muitas tentativas com dados que não conferem. Aguarde alguns minutos ou fale com o suporte que a gente ajuda.",
+              429,
+            );
+          }
+        }
+        const draft = await loadClientAppDraft(supabaseAdmin, {
+          appId: app_id,
+          clientId: client_id,
+          tenantId: ctx.tenant_id,
+          fieldValues,
+        });
+        const check = draft ? await checkClientAppValidity(supabaseAdmin, draft) : null;
+        if (check && !check.ok) {
+          const err = String((check as { error?: string }).error || "");
+          const cannotCheck = /não disponível|não tem vencimento próprio/i.test(err);
+          if (!cannotCheck) {
+            await logAppActivity(supabaseAdmin, {
+              tenantId: ctx.tenant_id,
+              clientId: client_id,
+              clientAppId: null,
+              appName: app.name || "Aplicativo",
+              event: "check_validity_failed",
+              detail: { source: "portal_add" },
+            });
+            return jsonError(
+              `Não conseguimos confirmar esses dados no ${app.name}. Confira o que foi preenchido e tente de novo. (${err})`,
+              422,
+            );
+          }
+        } else if (check?.ok) {
+          const dateField = findFieldByType(cfg, "date");
+          if (dateField && check.rawExpireDate) fieldValues[String(dateField.id || dateField.label)] = check.rawExpireDate;
+          else if (check.isTrial) fieldValues._trial_hint = "1";
+        }
+      }
+    }
+
     const { data: inserted, error: insertErr } = await supabaseAdmin
       .from("client_apps")
       .insert({
@@ -122,10 +203,7 @@ export async function POST(req: NextRequest) {
         tenant_id: ctx.tenant_id,
         app_id,
         device_type,
-        field_values: {
-          _config_cost: app.cost_type || "paid",
-          _config_partner: app.partner_server_id || "",
-        },
+        field_values: fieldValues,
       })
       .select("id")
       .single();

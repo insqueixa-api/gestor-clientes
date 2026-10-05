@@ -22,7 +22,7 @@ import ReconfigureModeModal, {
 } from "@/components/apps/ReconfigureModeModal";
 import AppPickerModal from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
-import { PORTAL_ADD_APP_HIDDEN, PORTAL_APPS_DISABLED } from "@/lib/apps/portal-apps-flag";
+import { PORTAL_APPS_DISABLED } from "@/lib/apps/portal-apps-flag";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 import { focusNextWhenMacComplete } from "@/lib/dom-focus";
 import { formatDateBR } from "@/lib/date-br";
@@ -479,6 +479,9 @@ export default function RenewClient() {
     is_appativa: boolean;
   };
   const [installedApps, setInstalledApps] = useState<InstalledApp[]>([]);
+  // ✅ 04/10/2026: "Adicionar aplicativo" visível? (chave Portal do admin, ou
+  // WhatsApp de teste) — vem da rota /apps/list
+  const [canAddApp, setCanAddApp] = useState(false);
   // ✅ Instruções de configuração — pedido do Márcio (25/07/2026): substitui
   // a página de detalhe (/renew/apps/[id]), que ficou redundante depois
   // que o card da lista passou a mostrar tudo. Só o texto curado pelo admin
@@ -1041,8 +1044,24 @@ export default function RenewClient() {
       license_period?: "annual" | "lifetime" | null;
       is_active?: boolean;
       discontinued_replacement_name?: string | null;
+      // ✅ 04/10/2026: campos pra preencher ao adicionar
+      fields?: { id: string; type: string; label: string }[];
     }[]
   >([]);
+  // ✅ 04/10/2026, pedido do Márcio: app escolhido mas AINDA NÃO salvo — o
+  // registro só nasce no banco ao salvar (com os dados conferidos no
+  // parceiro). "Cancelar" não deixa nada pra trás (bug antigo).
+  const [pendingAdd, setPendingAdd] = useState<{
+    appId: string;
+    deviceType: string | null;
+    name: string;
+    icon: string | null;
+    hasIntegration: boolean;
+    fields: { id: string; type: string; label: string }[];
+    values: Record<string, string>;
+    error: string | null;
+    busy: boolean;
+  } | null>(null);
   const [appCatalogLoading, setAppCatalogLoading] = useState(false);
 
   const [prices, setPrices] = useState<PlanPrice[]>([]);
@@ -1446,6 +1465,7 @@ export default function RenewClient() {
         throw new Error("Não foi possível carregar seus aplicativos");
       const data: InstalledApp[] = result.data || [];
       setInstalledApps(data);
+      setCanAddApp(!!result.can_add_app);
       setInstalledAppsLoadedForAccount(selectedAccountId);
       return data;
     } catch (err: any) {
@@ -1597,7 +1617,10 @@ export default function RenewClient() {
         return;
       }
     }
-    if (targetApp?.expiration) {
+    // ✅ 04/10/2026, pedido do Márcio: "já foi configurado" = tem registro de
+    // lista (m3u_list principal/secundária), não o vencimento — app recém
+    // adicionado já vem com vencimento e ainda precisa do 1º Configurar.
+    if (targetApp?.m3u_list) {
       // Reconfigurar (já tinha config antes) — pede pra escolher entre
       // manter a config atual (Principal) ou gerar uma nova (Secundária).
       setReconfigureModeTarget(clientAppId);
@@ -1886,6 +1909,22 @@ export default function RenewClient() {
       );
       return;
     }
+    // ✅ 04/10/2026: app com campos → abre o formulário; só grava ao salvar
+    if (catalogEntry?.fields && catalogEntry.fields.length > 0) {
+      setShowAddAppPicker(false);
+      setPendingAdd({
+        appId,
+        deviceType: deviceType || null,
+        name: catalogEntry.name,
+        icon: catalogEntry.icon_url,
+        hasIntegration: !!catalogEntry.has_integration,
+        fields: catalogEntry.fields,
+        values: {},
+        error: null,
+        busy: false,
+      });
+      return;
+    }
     setAppActionBusy(`add-${appId}`);
     try {
       const res = await fetch("/api/client-portal/apps/add", {
@@ -1923,6 +1962,50 @@ export default function RenewClient() {
       addToast("error", "Falha ao adicionar", err?.message);
     } finally {
       setAppActionBusy(null);
+    }
+  }
+
+  // ✅ 04/10/2026: salva o app novo — o servidor confere os dados no parceiro
+  // (consulta de vencimento) antes de gravar; errado = não grava.
+  async function submitPendingAdd() {
+    if (!pendingAdd || !selectedAccountId || !session) return;
+    const missing = pendingAdd.fields.filter(
+      (f) => (f.type === "mac" || f.type === "device_key") && !String(pendingAdd.values[f.id] || "").trim(),
+    );
+    if (missing.length) {
+      setPendingAdd((p) => (p ? { ...p, error: `Preencha: ${missing.map((f) => f.label).join(", ")}.` } : p));
+      return;
+    }
+    setPendingAdd((p) => (p ? { ...p, busy: true, error: null } : p));
+    try {
+      const res = await fetch("/api/client-portal/apps/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_token: session,
+          client_id: selectedAccountId,
+          app_id: pendingAdd.appId,
+          device_type: pendingAdd.deviceType,
+          field_values: pendingAdd.values,
+        }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!result?.ok) {
+        setPendingAdd((p) => (p ? { ...p, busy: false, error: result?.error || "Não foi possível adicionar." } : p));
+        return;
+      }
+      const hasIntegration = pendingAdd.hasIntegration;
+      setPendingAdd(null);
+      await refreshInstalledApps();
+      addToast(
+        "success",
+        "Aplicativo adicionado!",
+        hasIntegration
+          ? "Dados conferidos. Agora toque em Configurar no card pra liberar o sinal."
+          : "Agora toque em Configurar no card pra pedir a liberação do sinal.",
+      );
+    } catch {
+      setPendingAdd((p) => (p ? { ...p, busy: false, error: "Falha de conexão. Tente de novo." } : p));
     }
   }
 
@@ -5031,7 +5114,7 @@ export default function RenewClient() {
                 Meus Aplicativos
               </h1>
               {/* ⏸️ Escondido até a vitrine nova (lib/apps/portal-apps-flag.ts) */}
-              {!PORTAL_ADD_APP_HIDDEN && (
+              {canAddApp && (
                 <button
                   onClick={() => {
                     setShowAddAppPicker(true);
@@ -5055,8 +5138,7 @@ export default function RenewClient() {
                     </span>
                   </div>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    Explicação simples sobre configuração e renovação de
-                    licença.
+                    Qual aplicativo escolher, como configurar e renovar.
                   </p>
                 </div>
 
@@ -5087,54 +5169,32 @@ export default function RenewClient() {
                     </li>
                   ) : (
                     <>
+                      {/* ✅ 04/10/2026, pedido do Márcio: curto e direto (texto longo não é lido) */}
                       <li>
-                        Atualize seu cadastro, clique em{" "}
-                        <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
-                          + Adicionar aplicativo
-                        </span>{" "}
-                        e selecione o{" "}
-                        <strong className="text-foreground">aplicativo</strong>{" "}
-                        que você usa na Smart TV, celular ou outro dispositivo.
-                        Se quiser dividir o ponto e configurar mais de um
-                        acesso, saiba que é possível, basta adicionar o
-                        aplicativo seguindo as instruções da tela.
+                        <strong className="text-foreground">Primeiro veja na sua TV</strong> quais destes aplicativos ela tem
+                        — não adianta adicionar aqui um app que não existe nela.
                       </li>
-
                       <li>
-                        Aplicativos com a tag{" "}
+                        <strong className="text-foreground">Recomendados:</strong> os com{" "}
                         <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">
                           ⚡ Configuração automática
                         </span>{" "}
-                        são configurados no Portal; os demais são configurados
-                        no dispositivo com os dados exibidos após a escolha do
-                        app.
+                        e mais estrelas ★. Mas todos funcionam.
                       </li>
-
                       <li>
-                        Aplicativos{" "}
-                        <span className="inline-flex items-center rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">
-                          Pagos
-                        </span>{" "}
-                        costumam ter melhor desempenho e normalmente usam
-                        licença anual. Depois de inserir os dados, você pode
-                        usar o botão{" "}
-                        <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-bold text-emerald-600">
-                          Ver validade
-                        </span>{" "}
-                        para conferir a validade. Se estiver próximo do
-                        vencimento, você pode pagar a licença aqui no portal ou
-                        direto no site do desenvolvedor.
+                        <strong className="text-foreground">Todos têm teste grátis</strong> de alguns dias: instale e teste.
+                        Gostou? Ative. Não gostou? Remova e teste outro.
                       </li>
-
                       <li>
-                        Quando uma licença já foi paga e ainda depende de
-                        conclusão manual do suporte, o aplicativo aparece com a
-                        indicação{" "}
-                        <span className="inline-flex items-center rounded-md bg-rose-500/10 px-1.5 py-0.5 text-[11px] font-bold text-rose-600">
-                          Licença paga • renovação em andamento
+                        Instalou na TV? Toque em{" "}
+                        <span className="inline-flex items-center rounded-md bg-emerald-600 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                          + Adicionar aplicativo
                         </span>
-                        . Apenas aguarde a conclusão da renovação e a validade
-                        será atualizada automaticamente.
+                        , preencha os dados e depois toque em <strong className="text-foreground">Configurar</strong> pra liberar o sinal.
+                      </li>
+                      <li>
+                        Algum problema no aplicativo? Toque em <strong className="text-foreground">Reconfigurar</strong>.
+                        Perto de vencer, aparece o botão <strong className="text-foreground">Renovar</strong> no card.
                       </li>
                     </>
                   )}
@@ -5157,24 +5217,36 @@ export default function RenewClient() {
             {!installedAppsLoading &&
               !installedAppsError &&
               installedApps.length === 0 && (
-                <div className="text-center py-8 px-4 text-muted-foreground bg-muted/40 rounded-xl border border-dashed border-border">
-                  {PORTAL_ADD_APP_HIDDEN ? (
-                    <>
-                      Ainda não identificamos nenhum aplicativo nesta conta.
-                      Para configurar um aplicativo, fale com o suporte.
-                    </>
+                <div className="mx-3 sm:mx-0 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5 space-y-3">
+                  {/* ✅ 04/10/2026, pedido do Márcio: muita gente sem app cadastrado */}
+                  <p className="text-sm font-bold text-foreground">📺 Qual aplicativo você usa?</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                    Ainda não temos o registro do aplicativo que você usa na sua Smart TV ou outro aparelho.
+                    Adicione aqui — isso facilita a manutenção e as renovações.
+                  </p>
+                  {!canAddApp ? (
+                    <p className="text-xs text-muted-foreground">Fale com o suporte pra cadastrar o seu aplicativo.</p>
                   ) : (
-                    <>
-                      Ainda não identificamos nenhum aplicativo nesta conta. Use{" "}
-                      <strong className="text-foreground">
-                        "+ Adicionar aplicativo"
-                      </strong>{" "}
-                      para escolher o app que você usa ou para começar uma nova
-                      configuração.
-                    </>
+                    <button
+                      onClick={() => {
+                        setShowAddAppPicker(true);
+                        loadAppCatalog();
+                      }}
+                      className="h-9 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm inline-flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <span>+</span> Adicionar meu aplicativo
+                    </button>
                   )}
                 </div>
               )}
+
+            {/* ✅ 04/10/2026: dica curta pra quem já tem app */}
+            {!installedAppsLoading && !installedAppsError && installedApps.length > 0 && (
+              <p className="px-3 sm:px-1 text-xs text-muted-foreground">
+                💡 Adicionou agora? Toque em <strong className="text-foreground">Configurar</strong> pra liberar o sinal. Com
+                dificuldade no aplicativo? Toque em <strong className="text-foreground">Reconfigurar</strong>.
+              </p>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             {!installedAppsLoading &&
@@ -5521,7 +5593,7 @@ export default function RenewClient() {
                                 className={`${btn} bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20 hover:bg-sky-500/20`}
                               >
                                 {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                                {busy ? "Configurando..." : app.expiration ? "Reconfigurar" : "Configurar"}
+                                {busy ? "Configurando..." : app.m3u_list ? "Reconfigurar" : "Configurar"}
                               </button>
                             )}
                             {/* "Solicitar configuração" só pra app PAGO sem
@@ -5596,6 +5668,67 @@ export default function RenewClient() {
               </a>
             )}
 
+            {pendingAdd && (
+              <div
+                className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                onMouseDown={(e) => {
+                  if (e.target === e.currentTarget && !pendingAdd.busy) setPendingAdd(null);
+                }}
+              >
+                <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    {pendingAdd.icon ? (
+                      <img src={pendingAdd.icon} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                    ) : null}
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate">{pendingAdd.name}</p>
+                      <p className="text-xs text-muted-foreground">Preencha com os dados que aparecem no aplicativo.</p>
+                    </div>
+                  </div>
+                  {pendingAdd.fields.map((f) => (
+                    <div key={f.id}>
+                      <label className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{f.label}</label>
+                      <input
+                        type="text"
+                        value={pendingAdd.values[f.id] ?? ""}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
+                          if (f.type === "mac") focusNextWhenMacComplete(e.currentTarget, pendingAdd.values[f.id] ?? "", next);
+                          setPendingAdd((p) => (p ? { ...p, error: null, values: { ...p.values, [f.id]: next } } : p));
+                        }}
+                        placeholder={f.type === "obs" ? "Ex: Sala, Quarto, Escritório, Celular..." : undefined}
+                        autoCapitalize={f.type === "mac" ? "characters" : "none"}
+                        spellCheck={false}
+                        className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"
+                      />
+                    </div>
+                  ))}
+                  {pendingAdd.error && (
+                    <p className="text-xs font-semibold text-rose-600 bg-rose-500/10 border border-rose-500/20 rounded-lg px-3 py-2">
+                      {pendingAdd.error}
+                    </p>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      disabled={pendingAdd.busy}
+                      onClick={submitPendingAdd}
+                      className="flex-1 h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-1.5"
+                    >
+                      {pendingAdd.busy && <Loader2 className="w-4 h-4 animate-spin" />}
+                      {pendingAdd.busy ? "Conferindo os dados..." : "Salvar"}
+                    </button>
+                    <button
+                      disabled={pendingAdd.busy}
+                      onClick={() => setPendingAdd(null)}
+                      className="flex-1 h-10 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <AppPickerModal
               open={showAddAppPicker}
               onClose={() => setShowAddAppPicker(false)}

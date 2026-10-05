@@ -4,6 +4,7 @@
 // Adicionar aplicativo" do Bloco 3. Mesmo app pode ser adicionado mais de
 // uma vez (2 TVs, 2 celulares...) — não exclui os já instalados.
 import { NextRequest, NextResponse } from "next/server";
+import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, type AppFieldType } from "@/lib/apps/field-types";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { convertAmount } from "@/lib/fx";
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
       // adicionar (bloqueado em /apps/add, defesa em profundidade).
       supabaseAdmin
         .from("apps")
-        .select("id, name, icon_url, technology, device_types, integration_type, cost_type, partner_server_id, license_price, license_period, is_active, discontinued_replacement_name, appativa_app_id, appativa_meta, tier, portal_setup_instructions")
+        .select("id, name, icon_url, technology, device_types, integration_type, cost_type, partner_server_id, license_price, license_period, is_active, discontinued_replacement_name, appativa_app_id, appativa_meta, tier, portal_setup_instructions, fields_config")
         .eq("tenant_id", ctx.tenant_id)
         .order("name", { ascending: true }),
     ]);
@@ -84,7 +85,7 @@ export async function POST(req: NextRequest) {
         // DAQUELE servidor específico; oferecer pra cliente de outro servidor
         // mostraria um app "grátis" que na prática ele não tem direito a usar.
         .filter((a: any) => a.cost_type !== "partnership" || (a.partner_server_id && a.partner_server_id === client?.server_id))
-        .map(async ({ integration_type, partner_server_id, cost_type, license_price, license_period, appativa_app_id, appativa_meta, tier, portal_setup_instructions, ...rest }: any) => {
+        .map(async ({ integration_type, partner_server_id, cost_type, license_price, license_period, appativa_app_id, appativa_meta, tier, portal_setup_instructions, fields_config, ...rest }: any) => {
           // ✅ Mesmo cálculo do has_integration em list/route.ts — sinaliza no
           // picker (ícone ⚡, pedido do Márcio 26/07/2026) quais apps ativam
           // sozinhos vs. precisam de configuração manual pelo suporte.
@@ -114,6 +115,16 @@ export async function POST(req: NextRequest) {
             license_price_display_currency: licensePriceBRL == null ? null : clientCurrency,
             license_period: cost_type === "paid" ? license_period || null : null,
             has_integration: !!handler && (handler as any).useApi,
+            // ✅ 04/10/2026: campos que o cliente preenche ao ADICIONAR (o app
+            // só nasce no banco depois de salvar e conferir) — mesmo filtro do
+            // extractEditableFields de list/route.ts.
+            fields: (Array.isArray(fields_config) ? fields_config : [])
+              .filter((f: any) => f && f.id && f.type !== "date" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType))
+              .map((f: any) => ({
+                id: String(f.id),
+                type: String(f.type || ""),
+                label: String(String(f.label || "").trim() || APP_FIELD_LABELS[f.type as AppFieldType] || f.id),
+              })),
           };
         }),
     );
