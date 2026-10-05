@@ -33,7 +33,7 @@ function providerLabel(p: string) {
 
 export async function POST(req: Request) {
   const sb = adminSupabase();
-  const received = (req.headers.get("authorization") || "").replace(/^Bearers+/i, "").trim();
+  const received = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   const { data: allowed } = await sb.rpc("check_vault_cron_secret", {
     p_name: "api_key_expiry_cron_secret",
     p_secret: received,

@@ -57,7 +57,7 @@ function proxyFor(url: string | null | undefined): ProxyAgent | undefined {
 /** Texto curto da resposta crua (HTML de bloqueio, etc.) pra mensagem de erro. */
 function rawSnippet(data: any): string {
   const raw = typeof data?.raw === "string" ? data.raw : "";
-  return raw.replace(/<[^>]*>/g, " ").replace(/s+/g, " ").trim().slice(0, 140);
+  return raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 140);
 }
 
 export class EliteApiError extends Error {
@@ -287,7 +287,7 @@ export function eliteExpiry(client: any): string | null {
   if (v === null || v === undefined || v === "") return null;
   // Formato real (05/10/2026): IPTV exp_date e P2P expires_at em segundos;
   // P2P sem 1º acesso vem 0 = "ainda sem vencimento" (não é 1970).
-  if (typeof v === "number" || /^d+$/.test(String(v))) {
+  if (typeof v === "number" || /^\d+$/.test(String(v))) {
     const n = Number(v);
     if (!Number.isFinite(n) || n <= 0) return null;
     return new Date(n < 1e12 ? n * 1000 : n).toISOString();

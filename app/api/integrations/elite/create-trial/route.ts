@@ -91,7 +91,7 @@ export async function POST(req: Request) {
     } else {
       username = shapeCredential(userBase, 12, 100, true);
       password =
-        passBase.length >= 12 && passBase.length <= 100 && /[a-zA-Z]/.test(passBase) && /[0-9]/.test(passBase) && !/s/.test(passBase)
+        passBase.length >= 12 && passBase.length <= 100 && /[a-zA-Z]/.test(passBase) && /[0-9]/.test(passBase) && !/\s/.test(passBase)
           ? passBase
           : shapeCredential(passBase, 12, 100, true);
     }
