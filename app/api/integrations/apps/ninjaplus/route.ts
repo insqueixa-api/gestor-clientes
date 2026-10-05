@@ -63,6 +63,9 @@ function extractExpireFromDevice(dev: any): { expireDate: string | null; isTrial
   const payed = !!dev?.payed;
   const isTrial = !payed && !!dev?.free_trial;
   const rawDate: string | null = payed ? (dev?.activation_expired ?? dev?.expired) : dev?.free_trial_expired;
+  // ✅ 05/10/2026: ativado (payed) SEM data = vitalício (mesmo achado real do
+  // Quick Player, mesma API) — 9999-12-31, padrão do UTM Play.
+  if (payed && !rawDate) return { expireDate: "9999-12-31", isTrial: false };
   return { expireDate: rawDate ? String(rawDate).slice(0, 10) : null, isTrial };
 }
 
@@ -105,7 +108,9 @@ export async function POST(req: Request) {
           ok: true,
           expireDate,
           isTrial,
-          message: expireDate
+          message: expireDate === "9999-12-31"
+            ? "Licença vitalícia (ativada sem data de vencimento)."
+            : expireDate
             ? isTrial
               ? "Ainda em teste gratuito — vencimento do trial atualizado."
               : "Vencimento atualizado."

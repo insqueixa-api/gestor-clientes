@@ -105,9 +105,15 @@ async function getDevice(brand: string, base: string, authToken: string): Promis
   const payed = !!dev.payed;
   const paidUntil = dev.activation_expired || dev.expired || null;
   const isTrial = !payed && !paidUntil && !!dev.free_trial;
+  // ✅ 05/10/2026: ativado (payed) SEM data = licença vitalícia (achado real
+  // no Quick Player, mesma API: payed:true + activation_expired:null) —
+  // grava 9999-12-31, mesmo padrão do UTM Play. Antes ficava sem vencimento.
+  const lifetime = payed && !paidUntil;
   return {
     playlists: Array.isArray(dev.playlists) ? dev.playlists : [],
-    expireDate: extractDateOnly(paidUntil || (isTrial ? dev.free_trial_expired : null)),
+    expireDate: lifetime
+      ? "9999-12-31"
+      : extractDateOnly(paidUntil || (isTrial ? dev.free_trial_expired : null)),
     isTrial,
   };
 }
@@ -161,6 +167,7 @@ async function deletePlaylistByName(brand: string, base: string, authToken: stri
 
 function trialMessage(info: Pick<DeviceInfo, "expireDate" | "isTrial">, okText: string) {
   if (info.isTrial) return info.expireDate ? "Ainda no teste grátis — vencimento do teste atualizado." : "Em teste grátis.";
+  if (info.expireDate === "9999-12-31") return "Licença vitalícia (ativada sem data de vencimento).";
   return info.expireDate ? okText : "Não encontrei o vencimento da licença nesse aparelho.";
 }
 
