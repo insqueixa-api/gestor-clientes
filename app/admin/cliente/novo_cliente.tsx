@@ -4105,9 +4105,36 @@ export default function NovoCliente({
             }
           } catch (apiErr: any) {
             const msg = String(apiErr?.message || apiErr || "").trim();
+            // ✅ 05/10/2026, pedido do Márcio: integração falhou = o teste NÃO
+            // existe no painel. Antes seguia salvando e mandava WhatsApp com
+            // login inexistente. Agora pergunta: criar só no Gestor (offline)
+            // ou cancelar tudo (nada é salvo nem enviado, formulário fica
+            // aberto pra corrigir). Loading sai da frente pro popup aparecer.
+            setLoading(false);
+            const goOffline = await confirm({
+              title: "Integração falhou",
+              subtitle: `O teste não foi criado no painel ${serverName}${msg ? `: ${msg}` : "."}`,
+              details: [
+                "Sim: cria o teste só aqui no Gestor (sem painel) e segue com o envio da mensagem.",
+                "Não: cancela, nada é criado nem enviado — dá pra corrigir os dados e tentar de novo.",
+              ],
+              maxWidth: "max-w-md",
+              tone: "rose",
+              confirmText: "Sim, criar offline",
+              cancelText: "Não, cancelar",
+            });
+            if (!goOffline) {
+              addToast(
+                "warning",
+                "Teste cancelado",
+                "Nada foi criado nem enviado. Ajuste os dados e tente de novo.",
+              );
+              return;
+            }
+            setLoading(true);
             queueListToast("trial", {
               type: "error",
-              title: "Teste Manual Criado",
+              title: "Teste criado só no Gestor",
               message: `Integração falhou${msg ? `: ${msg}` : ""}. Teste salvo apenas localmente (sem painel).`,
             });
           }
