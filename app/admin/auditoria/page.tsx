@@ -569,10 +569,13 @@ function AuditoriaPageContent() {
         // (não só no filtro client-side em `filtered`) pra pegar os 50 mais
         // recentes DENTRO da condição escolhida, não os 50 mais recentes no
         // geral.
+        // ✅ 05/10/2026: "com cupom" = cupom COM desconto nesta linha — cupom
+        // de app embutido fica no pai só pro resgate (desconto null) e o
+        // desconto mora na linha do app; o pai não pode contar como cupom.
         if (filterCoupon === "Com cupom") {
-          query = query.not("coupon_code", "is", null);
+          query = query.not("coupon_code", "is", null).gt("coupon_discount_amount", 0);
         } else if (filterCoupon === "Sem cupom") {
-          query = query.is("coupon_code", null);
+          query = query.or("coupon_code.is.null,coupon_discount_amount.is.null,coupon_discount_amount.eq.0");
         }
 
         if (searchTerm) {
@@ -995,8 +998,9 @@ function AuditoriaPageContent() {
       if (filterWhatsapp !== "Todos" && !matchesWhatsapp(r, filterWhatsapp))
         return false;
 
-      if (filterCoupon === "Com cupom" && !r.coupon_code) return false;
-      if (filterCoupon === "Sem cupom" && r.coupon_code) return false;
+      const hasCouponDiscount = !!r.coupon_code && Number(r.coupon_discount_amount || 0) > 0;
+      if (filterCoupon === "Com cupom" && !hasCouponDiscount) return false;
+      if (filterCoupon === "Sem cupom" && hasCouponDiscount) return false;
 
       if (q) {
         const hay = [
