@@ -2388,9 +2388,11 @@ function AuditoriaPageContent() {
 
                             {/* Desconto — cupom aplicado nesta cobrança (12/09/2026, pedido
                             do Márcio: separado da Valor pra ficar claro o que foi pago vs
-                            o que foi descontado e por qual cupom). */}
+                            o que foi descontado e por qual cupom). Só com desconto > 0:
+                            cupom de app embutido fica no pai só pro resgate, o
+                            desconto aparece na linha do app (05/10/2026). */}
                             <td className="px-4 py-3 text-center">
-                              {r.coupon_code ? (
+                              {r.coupon_code && Number(r.coupon_discount_amount || 0) > 0 ? (
                                 <>
                                   <span className="font-medium text-emerald-500 finance-value">
                                     -{fmtMoney(r.coupon_discount_amount || 0, r.price_currency)}
