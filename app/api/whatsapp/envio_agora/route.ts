@@ -21,6 +21,11 @@ import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/clie
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";
 import { recordSentMessage } from "@/lib/whatsapp/receipts";
+import {
+  DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
+  DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
+  normalizeSecondaryContactDelay,
+} from "@/lib/admin/billing-campaign-window";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { formatDateBR } from "@/lib/date-br";
 
@@ -376,31 +381,32 @@ export async function POST(req: Request) {
   // (o do fim do loop) e parecia envio simultâneo (caso Neli/Sirlei).
   const contactSentAt: string[] = [];
 
-  // ✅ Intervalo entre contato primário e secundário — SEMPRE 3-10s fixo
-  // aqui, independente da faixa configurada em billing_campaign_settings
-  // (pedido do Márcio, 06/08/2026). Esse endpoint é "envio AGORA": alguém
-  // (admin ou o próprio cliente, via portal aguardando confirmação de
-  // pagamento) está esperando a resposta em tempo real — a faixa de
-  // 60-120s pensada pra campanha em massa (envio_programado, que não muda)
-  // deixava a tela travada por até 2min. Só sorteia pra não ser sempre o
-  // mesmo número exato, não pra espalhar disparos.
-  const SECONDARY_CONTACT_DELAY_MIN_SECS = 3;
-  const SECONDARY_CONTACT_DELAY_MAX_SECS = 10;
-  const secondaryContactDelayMs =
-    wa.phones.length > 1
-      ? (SECONDARY_CONTACT_DELAY_MIN_SECS +
-          Math.floor(
-            Math.random() *
-              (SECONDARY_CONTACT_DELAY_MAX_SECS - SECONDARY_CONTACT_DELAY_MIN_SECS + 1),
-          )) *
-        1000
-      : 0;
+  // ✅ 05/10/2026, pedido do Márcio ("3 segundos claramente é robô"): o
+  // contato SECUNDÁRIO não sai mais daqui, 3-10s depois do principal (regra
+  // de 06/08/2026). Aqui só vai o principal, na hora; o secundário vira uma
+  // linha `secondary_only` na fila, agendada pra daqui a 60-120s (faixa de
+  // billing_campaign_settings), e o envio_programado manda — exatamente
+  // como já fazia pro pagamento pelo portal e pros vencimentos. De quebra,
+  // ninguém fica com a tela esperando o intervalo. Sem principal (só
+  // secundário cadastrado) ou sessão fora do ar: segue tudo daqui, como antes.
+  const secondaryPhones = wa.phones.filter((p: any) => p.is_secondary);
+  const primaryPhones = wa.phones.filter((p: any) => !p.is_secondary);
+  const queueSecondary = sessionConnected && primaryPhones.length > 0 && secondaryPhones.length > 0;
+  const phonesNow: any[] = queueSecondary ? primaryPhones : wa.phones;
+
+  // Só sobra pra quando mais de 1 contato sai daqui (raro, ver acima).
+  const NOW_CONTACT_DELAY_MIN_SECS = 20;
+  const NOW_CONTACT_DELAY_MAX_SECS = 30;
+  const nowContactDelayMs =
+    (NOW_CONTACT_DELAY_MIN_SECS +
+      Math.floor(Math.random() * (NOW_CONTACT_DELAY_MAX_SECS - NOW_CONTACT_DELAY_MIN_SECS + 1))) *
+    1000;
 
   // ==========================================
   // LOOP DE DISPARO
   // ==========================================
-  for (let i = 0; i < wa.phones.length; i++) {
-    const contact = wa.phones[i];
+  for (let i = 0; i < phonesNow.length; i++) {
+    const contact = phonesNow[i];
 
     // ✅ sessão fora do ar — nem monta a mensagem (evita gerar link de
     // portal etc. à toa pra um envio que já sabemos que vai falhar).
@@ -412,7 +418,7 @@ export async function POST(req: Request) {
 
     // ✅ Delay entre contatos do mesmo cliente (principal → secundário)
     if (i > 0) {
-      await new Promise((r) => setTimeout(r, secondaryContactDelayMs));
+      await new Promise((r) => setTimeout(r, nowContactDelayMs));
     }
 
     const vars =
@@ -543,8 +549,8 @@ export async function POST(req: Request) {
   // status — principal enviado e secundário falhou aparecem separados.
   try {
     const nowIso = new Date().toISOString();
-    for (let i = 0; i < wa.phones.length; i++) {
-      const contact = wa.phones[i];
+    for (let i = 0; i < phonesNow.length; i++) {
+      const contact = phonesNow[i];
       const result: any = results[i];
       const ok = result?.status === 200;
       const insertPayload: any = {
@@ -588,6 +594,54 @@ export async function POST(req: Request) {
     console.error("[data_loss_risk:client_message_jobs_insert]", { message: (err as any)?.message, kind: "data_loss_risk", where: "client_message_jobs_insert" });
   }
 
+  // ✅ 05/10/2026: agenda o secundário na fila (ver comentário de
+  // `queueSecondary` lá em cima). Só se o principal saiu — se falhou, o
+  // "Reenviar" da linha do principal passa pela fila, que manda o principal
+  // e agenda o secundário sozinha (sem risco de o secundário receber 2x).
+  // {app_nome}/{app_vencimento} já vão preenchidos no texto: a fila não
+  // tem de onde tirar (vêm do corpo desta chamada); o resto das variáveis
+  // (nome do secundário, link dele, pendência, etc.) a fila calcula.
+  let secondaryScheduledAt: string | null = null;
+  if (queueSecondary && !allFailed) {
+    try {
+      const { data: delayCfg } = await sb
+        .from("billing_campaign_settings")
+        .select("secondary_contact_delay_min_secs, secondary_contact_delay_max_secs")
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+      const { minSecs, maxSecs } = normalizeSecondaryContactDelay(
+        delayCfg?.secondary_contact_delay_min_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MIN_SECS,
+        delayCfg?.secondary_contact_delay_max_secs ?? DEFAULT_SECONDARY_CONTACT_DELAY_MAX_SECS,
+      );
+      const delaySecs = minSecs + Math.floor(Math.random() * Math.max(maxSecs - minSecs + 1, 1));
+      secondaryScheduledAt = new Date(Date.now() + delaySecs * 1000).toISOString();
+      const queuedMessage = message
+        .split("{app_nome}").join(appNome)
+        .split("{app_vencimento}").join(appVencimentoFormatted);
+      const { error: scheduleErr } = await sb.from("client_message_jobs").insert({
+        tenant_id: tenantId,
+        client_id: recipientType === "reseller" ? null : recipientId,
+        reseller_id: recipientType === "reseller" ? recipientId : null,
+        whatsapp_session: targetSession,
+        message: queuedMessage,
+        message_template_id: messageTemplateId || null,
+        image_url: imageUrl,
+        send_at: secondaryScheduledAt,
+        status: "SCHEDULED",
+        created_by: authedUserId && authedUserId !== "system" ? authedUserId : null,
+        secondary_only: true,
+      });
+      if (scheduleErr) throw scheduleErr;
+    } catch (err: any) {
+      secondaryScheduledAt = null;
+      console.error("[envio_agora: falha ao agendar contato secundário]", {
+        kind: "billing_secondary_schedule_failed",
+        recipientId,
+        message: err?.message,
+      });
+    }
+  }
+
   // ✅ 01/09/2026, pedido do Márcio: antes só a confirmação de pagamento
   // deixava rastro no sino quando o envio falhava (os outros ~9 pontos que
   // chamam esta rota só mostravam um toast na tela, que some se ninguém
@@ -624,5 +678,6 @@ export async function POST(req: Request) {
     recipient_type: recipientType,
     recipient_id: recipientId,
     disparos: results,
+    secondary_scheduled_at: secondaryScheduledAt,
   });
 }
