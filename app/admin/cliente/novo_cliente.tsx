@@ -3694,7 +3694,8 @@ export default function NovoCliente({
 
         const patchEdit: any = {};
         if (finalM3u) patchEdit.m3u_url = finalM3u;
-        if (m3uUrlSecondary.trim()) patchEdit.m3u_url_secondary = m3uUrlSecondary.trim();
+        const finalSecondaryEdit = secondaryForSave(username, password || "", finalM3u);
+        if (finalSecondaryEdit) patchEdit.m3u_url_secondary = finalSecondaryEdit;
         if (finalCreatedAt) patchEdit.created_at = finalCreatedAt;
 
         if (Object.keys(patchEdit).length > 0) {
@@ -4248,7 +4249,8 @@ export default function NovoCliente({
             tipo_cadastro: "iptv", // ✅ GARANTE QUE TODO NOVO TESTE/CLIENTE DESTA TELA SEJA IPTV
           };
           if (finalM3u) patch.m3u_url = finalM3u;
-          if (m3uUrlSecondary.trim()) patch.m3u_url_secondary = m3uUrlSecondary.trim();
+          const finalSecondary = secondaryForSave(apiUsername, apiPassword || "", finalM3u);
+          if (finalSecondary) patch.m3u_url_secondary = finalSecondary;
           if (finalExternalUserId) patch.external_user_id = finalExternalUserId;
           if (finalCreatedAt) patch.created_at = finalCreatedAt; // ✅ ADICIONADO
 
@@ -4699,6 +4701,21 @@ export default function NovoCliente({
       serverName: servers.find((sv) => sv.id === serverId)?.name || "",
       currentPrincipal: m3uUrl,
     });
+  }
+  // ✅ 05/10/2026, pedido do Márcio: todo teste/cliente já nasce com as DUAS
+  // listas gravadas — secundária vazia no Salvar é gerada aqui (mesma regra
+  // do botão Gerar: domínio diferente da principal; NaTV r2./r3.).
+  function secondaryForSave(user: string, pass: string, principal: string): string {
+    if (m3uUrlSecondary.trim()) return m3uUrlSecondary.trim();
+    if (!user.trim() || serverDomains.length === 0) return "";
+    return rotateSecondaryM3u({
+      dnsList: serverDomains,
+      username: user.trim(),
+      password: (pass || "").trim(),
+      serverName: servers.find((sv) => sv.id === serverId)?.name || "",
+      currentPrincipal: principal,
+      currentSecondary: "",
+    }).trim();
   }
   function buildM3uUrlSecondary(): string {
     return rotateSecondaryM3u({
