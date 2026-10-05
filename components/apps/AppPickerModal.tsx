@@ -664,7 +664,7 @@ export default function AppPickerModal({
             {(detailsApp.device_types?.length || 0) > 0 && (
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Aparelhos compatíveis</p>
-                <DeviceBadges types={detailsApp.device_types} />
+                <DeviceBadges types={detailsApp.device_types} selected={specificDevice ? deviceType : null} />
               </div>
             )}
             {/* ✅ 05/10/2026: download do aparelho escolhido (Xbox, Computador...)
