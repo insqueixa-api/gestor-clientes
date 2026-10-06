@@ -22,6 +22,7 @@ const QuickRechargeModal = dynamic(() => import("../recarga_revenda"), {
 
 // Componentes Visuais
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
+import PainelStats from "./painel_stats";
 import { formatDateBR } from "@/lib/date-br";
 
 /* =========================
@@ -706,7 +707,7 @@ export default function ResellerDetailPage() {
                 {servers.map((s) => (
                   <div
                     key={s.reseller_server_id}
-                    className="group relative flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-transparent border border-border rounded-xl hover:border-emerald-500/30 transition-all"
+                    className="group relative flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between p-4 bg-transparent border border-border rounded-xl hover:border-emerald-500/30 transition-all"
                   >
                     {/* Info do Servidor */}
                     <div className="flex items-center gap-4 mb-3 sm:mb-0">
@@ -777,6 +778,9 @@ export default function ResellerDetailPage() {
                         <IconTrash />
                       </IconActionBtn>
                     </div>
+
+                    {/* ✅ 06/10/2026: resumo do painel (NaTV) + Sync */}
+                    <PainelStats resellerServerId={s.reseller_server_id} username={s.server_username} />
                   </div>
                 ))}
               </div>

@@ -129,3 +129,40 @@ export async function natvTransferCredits(token: string, username: string, amoun
         : `NaTV recusou o envio (HTTP ${res.status}).`),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Relatório de clientes (GET /report/allusers — 1 chamada por minuto).
+// Vem com TODOS os clientes da sua conta e das sub-revendas ("r" = revenda
+// dona). Traz senha ("p") — nunca guardar/repassar a linha crua.
+export type NatvReportUser = {
+  username: string;
+  reseller: string;
+  expiresAt: string | null; // texto do NaTV "AAAA-MM-DD HH:MM:SS"
+  status: string; // "Ativo" | "Expirado" | …
+  blocked: boolean;
+  connections: number;
+};
+
+export async function natvAllUsersReport(token: string): Promise<NatvReportUser[]> {
+  const res = await fetch(`${NATV_BASE}/report/allusers`, {
+    method: "GET",
+    headers: headers(token),
+    signal: AbortSignal.timeout(30000),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(
+      res.status === 429
+        ? "O NaTV só libera esse relatório 1 vez por minuto — tente de novo em instantes."
+        : detailOf(body) || `NaTV respondeu ${res.status} ao gerar o relatório de clientes.`,
+    );
+  }
+  return (Array.isArray(body) ? body : []).map((u: any) => ({
+    username: String(u?.u ?? ""),
+    reseller: String(u?.r ?? ""),
+    expiresAt: u?.e ? String(u.e) : null,
+    status: String(u?.t ?? ""),
+    blocked: String(u?.b ?? "").toLowerCase() === "yes",
+    connections: Number(u?.c) || 0,
+  }));
+}
