@@ -298,6 +298,24 @@ export default function AppPickerModal({
     });
   }, [catalog, deviceType, clientServerId, presetDeviceTypes, hasPresetDeviceTypes, q, quickFilter, specificDevice]);
 
+  // ✅ 06/10/2026, pedido do Márcio: o filtro só oferece o que tem o que
+  // filtrar (ex: "Gratuitos"/"Parceiros" sumiam? não — apareciam vazios).
+  // Contagem sobre o mesmo recorte da vitrine (aparelho + busca); a opção
+  // ativa continua visível pra dar pra voltar.
+  const quickFilterCounts = useMemo(() => {
+    const base = appsForDevice.filter((app) => app.name.toLowerCase().includes(q));
+    const counts: Record<string, number> = {};
+    for (const o of QUICK_FILTERS) {
+      counts[o.value] = o.value ? base.filter((app) => matchesQuickFilter(app, o.value)).length : base.length;
+    }
+    return counts;
+  }, [appsForDevice, q]);
+  const visibleQuickFilters = QUICK_FILTERS.filter(
+    (o) => !o.value || o.value === quickFilter || (quickFilterCounts[o.value] || 0) > 0,
+  );
+  // só "Todos" sobrando = nada pra filtrar → o botão some
+  const hasQuickFilterOptions = visibleQuickFilters.length > 1;
+
   // ✅ 02/10/2026 (pedido do Márcio): vitrine por estrelas (5 → 1, depois
   // sem classificação), cada nível num carrossel. As abas Pagos/Parceiros
   // saíram — o preço (ou "Grátis"/"Parceria") aparece no próprio card.
@@ -426,6 +444,7 @@ export default function AppPickerModal({
           className={`w-full h-9 pl-8 pr-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none ${inputFocusClass}`}
         />
       </div>
+      {(hasQuickFilterOptions || !!quickFilter) && (
       <button
         type="button"
         onClick={(e) => {
@@ -439,6 +458,7 @@ export default function AppPickerModal({
       >
         <ChevronDown className="w-4 h-4" />
       </button>
+      )}
     </div>
   );
 
@@ -530,7 +550,7 @@ export default function AppPickerModal({
             zClass="z-[100010]"
           >
             <div className="py-1 overflow-y-auto">
-              {QUICK_FILTERS.map((o) => (
+              {visibleQuickFilters.map((o) => (
                 <button
                   key={o.value || "todos"}
                   type="button"
@@ -545,6 +565,9 @@ export default function AppPickerModal({
                 >
                   <span className="w-4 shrink-0">{quickFilter === o.value && <Check className="w-4 h-4" />}</span>
                   <span className={o.value && /^[1-5]$/.test(o.value) ? "text-amber-500" : ""}>{o.label}</span>
+                  <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
+                    {quickFilterCounts[o.value] ?? 0}
+                  </span>
                 </button>
               ))}
             </div>
