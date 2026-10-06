@@ -318,6 +318,8 @@ export default function LogsModal({
               )}
             </div>
 
+            {/* ✅ 06/10/2026: filtro só aparece se divide alguma coisa (2+ opções) */}
+            {(availableLogStatusOptions.length > 1 || logStatusFilter !== "Todos") && (
             <select
               value={logStatusFilter}
               onChange={(e) => setLogStatusFilter(e.target.value)}
@@ -330,8 +332,9 @@ export default function LogsModal({
                 </option>
               ))}
             </select>
+            )}
 
-            {uniqueLogServers.length > 0 && (
+            {(uniqueLogServers.length > 1 || logServerFilter !== "Todos") && (
               <select
                 value={logServerFilter}
                 onChange={(e) => setLogServerFilter(e.target.value)}

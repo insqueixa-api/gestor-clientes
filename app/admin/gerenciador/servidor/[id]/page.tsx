@@ -441,38 +441,31 @@ export default function ServerDetailsPage() {
     };
   }, [movements, server]);
 
+  // ✅ Regra de cada tipo do dropdown (06/10/2026: num lugar só — também
+  // conta quantas movimentações cabem em cada opção, pra o filtro só
+  // oferecer tipo que existe no mês).
+  const kindMatches = (m: any, kind: string): boolean => {
+    if (kind === "ALL") return true;
+    if (kind === "RESELLER_SALE") return m.kind === "RESELLER_SALE";
+    if (kind === "PURCHASE") return m.kind === "PURCHASE";
+    // Sub-filtros para Clientes
+    if (m.kind !== "CLIENT_RENEWAL") return false;
+    const lbl = String(m.label || "").toLowerCase();
+    if (kind === "CLIENT_RENEWAL_AUTO") return lbl.includes("automática") || lbl.includes("automatica");
+    if (kind === "CLIENT_RENEWAL_MANUAL") return lbl.includes("manual") || lbl.includes("painel");
+    if (kind === "CLIENT_RENEWAL_PORTAL") return lbl.includes("portal");
+    return true; // CLIENT_RENEWAL (todos de clientes)
+  };
+  const kindCount = (kind: string) => (movements || []).filter((m) => kindMatches(m, kind)).length;
+  const kindOk = (kind: string) => kind === filterKind || kindCount(kind) > 0;
+
   // ✅ Lógica de filtro da tabela super blindada e com sub-tipos de clientes
   const filteredMovements = useMemo(() => {
     if (!movements) return [];
 
     return movements.filter((m) => {
       // 1. Filtro por Tipo (Dropdown)
-      if (filterKind !== "ALL") {
-        if (filterKind === "RESELLER_SALE" && m.kind !== "RESELLER_SALE")
-          return false;
-        if (filterKind === "PURCHASE" && m.kind !== "PURCHASE") return false;
-
-        // Sub-filtros para Clientes
-        if (filterKind.startsWith("CLIENT_RENEWAL")) {
-          if (m.kind !== "CLIENT_RENEWAL") return false;
-
-          const lbl = String(m.label || "").toLowerCase();
-          if (
-            filterKind === "CLIENT_RENEWAL_AUTO" &&
-            !lbl.includes("automática") &&
-            !lbl.includes("automatica")
-          )
-            return false;
-          if (
-            filterKind === "CLIENT_RENEWAL_MANUAL" &&
-            !lbl.includes("manual") &&
-            !lbl.includes("painel")
-          )
-            return false;
-          if (filterKind === "CLIENT_RENEWAL_PORTAL" && !lbl.includes("portal"))
-            return false;
-        }
-      }
+      if (!kindMatches(m, filterKind)) return false;
 
       // 2. Filtro por Busca Escrita (Texto)
       if (searchTerm) {
@@ -821,16 +814,20 @@ export default function ServerDetailsPage() {
                 className="h-9 px-2 bg-card border border-border rounded-lg text-xs font-medium text-foreground/90 outline-none focus:border-emerald-500 transition-colors cursor-pointer"
               >
                 <option value="ALL">Todos os Tipos</option>
+                {kindOk("CLIENT_RENEWAL") && (
                 <optgroup label="Clientes">
                   <option value="CLIENT_RENEWAL">Todos de Clientes</option>
-                  <option value="CLIENT_RENEWAL_AUTO">↳ Automáticas</option>
-                  <option value="CLIENT_RENEWAL_PORTAL">↳ Via Portal</option>
-                  <option value="CLIENT_RENEWAL_MANUAL">↳ Manuais</option>
+                  {kindOk("CLIENT_RENEWAL_AUTO") && <option value="CLIENT_RENEWAL_AUTO">↳ Automáticas</option>}
+                  {kindOk("CLIENT_RENEWAL_PORTAL") && <option value="CLIENT_RENEWAL_PORTAL">↳ Via Portal</option>}
+                  {kindOk("CLIENT_RENEWAL_MANUAL") && <option value="CLIENT_RENEWAL_MANUAL">↳ Manuais</option>}
                 </optgroup>
+                )}
+                {(kindOk("RESELLER_SALE") || kindOk("PURCHASE")) && (
                 <optgroup label="Outros">
-                  <option value="RESELLER_SALE">Vendas Revendas</option>
-                  <option value="PURCHASE">Recargas Servidor</option>
+                  {kindOk("RESELLER_SALE") && <option value="RESELLER_SALE">Vendas Revendas</option>}
+                  {kindOk("PURCHASE") && <option value="PURCHASE">Recargas Servidor</option>}
                 </optgroup>
+                )}
               </select>
             </div>
           </div>

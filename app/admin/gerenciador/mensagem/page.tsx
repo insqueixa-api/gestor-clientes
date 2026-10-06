@@ -297,6 +297,7 @@ export default function MessagesPage() {
           </div>
 
           <div className="w-[180px]">
+            {(availableCategories.length > 1 || categoryFilter !== "Todos") && (
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -312,6 +313,7 @@ export default function MessagesPage() {
                 );
               })}
             </select>
+            )}
           </div>
 
           <button
@@ -325,6 +327,7 @@ export default function MessagesPage() {
         {/* Painel de filtros no mobile */}
         {mobileFiltersOpen && (
           <div className="md:hidden mt-1 p-2.5 rounded-xl border border-border bg-transparent space-y-2">
+            {(availableCategories.length > 1 || categoryFilter !== "Todos") && (
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
@@ -340,6 +343,7 @@ export default function MessagesPage() {
                 );
               })}
             </select>
+            )}
 
             <button
               onClick={() => {
