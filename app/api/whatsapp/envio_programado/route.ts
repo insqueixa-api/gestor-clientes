@@ -13,11 +13,11 @@ import {
   fetchResellerWhatsApp,
   fetchManualPaymentVars,
   generatePortalLink,
-  generateResellerPortalLink,
   renderTemplate,
   pickRandomDns,
   toolConsultarPrecosTexto,
 } from "@/lib/whatsapp/template-vars";
+import { generateResellerPortalLink } from "@/lib/reseller-portal/link";
 import { notify } from "@/lib/notifications/notify";
 import { isWhatsAppDisconnectedResponse, reportWhatsAppDisconnected, reportWhatsAppReconnected } from "@/lib/whatsapp/disconnect-alert";
 import { reportSessionHealthFromSend } from "@/lib/whatsapp/session-health-alert";

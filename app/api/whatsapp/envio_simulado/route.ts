@@ -15,11 +15,11 @@ import {
   fetchResellerWhatsApp,
   fetchManualPaymentVars,
   generatePortalLink,
-  generateResellerPortalLink,
   renderTemplate,
   pickRandomDns,
   toolConsultarPrecosTexto,
 } from "@/lib/whatsapp/template-vars";
+import { generateResellerPortalLink } from "@/lib/reseller-portal/link";
 import { getCouponPhraseForClient, getPendencyPhraseForClient } from "@/lib/client-portal/coupons";
 
 export const runtime = "nodejs";

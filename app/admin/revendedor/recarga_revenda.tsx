@@ -785,7 +785,9 @@ export default function QuickRechargeModal({
         const syncUrl =
           provider === "FAST"
             ? "/api/integrations/fast/sync"
-            : "/api/integrations/natv/sync";
+            : provider === "ELITE"
+              ? "/api/integrations/elite/sync" // ✅ 06/10/2026: antes caía no NaTV e a recarga parava no meio
+              : "/api/integrations/natv/sync";
 
         // 3C) Chama sync
         // ✅ INJEÇÃO DO TOKEN DE SEGURANÇA

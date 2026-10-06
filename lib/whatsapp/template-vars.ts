@@ -6,8 +6,6 @@
 // ⚠️ Não contém nada de revenda — isso fica nas rotas que ainda precisam.
 // ============================================================
 
-import { getOrCreateResellerPortalToken, resellerPortalUrl } from "@/lib/reseller-portal/session";
-
 const TZ_SP = "America/Sao_Paulo";
 
 // ── Datas/hora (sempre travado em SP, independente do timezone do servidor) ──
@@ -444,30 +442,6 @@ export async function generatePortalLink(
     }
   } catch (e: any) {
     log("[PORTAL][token:v2] falhou", e?.message ?? e);
-    return "";
-  }
-}
-
-// ── Link do Portal da REVENDA ({link_pagamento} quando o destino é revenda) ──
-// ✅ 06/10/2026: antes a revenda passava pelo generatePortalLink do cliente,
-// que não acha cliente pro telefone dela e devolvia vazio. Tabelas próprias
-// (lib/reseller-portal/session.ts) — o link do cliente não muda.
-export async function generateResellerPortalLink(
-  sb: any,
-  params: { tenantId: string; resellerId: string; createdBy?: string | null; label: string; onLog?: (...args: any[]) => void },
-): Promise<string> {
-  const log = params.onLog || (() => {});
-  try {
-    const token = await getOrCreateResellerPortalToken(sb, {
-      tenantId: params.tenantId,
-      resellerId: params.resellerId,
-      createdBy: safeUuidOrNull(params.createdBy),
-      label: params.label,
-    });
-    log("[PORTAL_REVENDA][token]", { ok: !!token, token_suffix: token ? token.slice(-6) : null });
-    return token ? resellerPortalUrl(token) : "";
-  } catch (e: any) {
-    log("[PORTAL_REVENDA][token] falhou", e?.message ?? e);
     return "";
   }
 }
