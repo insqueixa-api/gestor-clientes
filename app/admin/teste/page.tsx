@@ -496,6 +496,12 @@ export default function TrialsPage() {
   const [dropdownApps, setDropdownApps] = useState<
     { id: string; name: string; integration_type: string | null }[]
   >([]);
+  // ✅ 06/10/2026, pedido do Márcio: filtro só oferece opção que tem teste
+  // (mesma contagem da tela de Clientes, com p_trial). null = carregando →
+  // mostra tudo; a opção selecionada nunca some.
+  const [filterFacets, setFilterFacets] = useState<Record<string, Record<string, number>> | null>(null);
+  const facetOk = (group: string, key: string, current: string) =>
+    !filterFacets || key === current || (filterFacets[group]?.[key] ?? 0) > 0;
 
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
@@ -1124,6 +1130,12 @@ export default function TrialsPage() {
         if (alive && data) setDropdownApps(data as typeof dropdownApps);
       });
 
+    supabaseBrowser
+      .rpc("get_clients_filter_facets", { p_archived: archivedFilter === "Sim", p_trial: true })
+      .then(({ data, error }) => {
+        if (alive) setFilterFacets(!error && data ? (data as Record<string, Record<string, number>>) : null);
+      });
+
     return () => {
       alive = false;
     };
@@ -1484,9 +1496,9 @@ export default function TrialsPage() {
               onChange={(e) => setStatusFilter(e.target.value as any)}
             >
               <option value="Todos">Status (Todos)</option>
-              <option value="Ativo">Ativo</option>
-              <option value="Vencido">Vencido</option>
-              <option value="Arquivado">Arquivado</option>
+              {facetOk("status", "Ativo", statusFilter) && <option value="Ativo">Ativo</option>}
+              {facetOk("status", "Vencido", statusFilter) && <option value="Vencido">Vencido</option>}
+              {facetOk("status", "Arquivado", statusFilter) && <option value="Arquivado">Arquivado</option>}
             </Select>
           </div>
 
@@ -1496,7 +1508,7 @@ export default function TrialsPage() {
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <option value="Todos">Servidor (Todos)</option>
-              {dropdownServers.map((s) => (
+              {dropdownServers.filter((s) => facetOk("servers", s.id, serverFilter)).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -1524,12 +1536,12 @@ export default function TrialsPage() {
               onChange={(e) => setDueFilter(e.target.value)}
             >
               <option value="Todos">Vencimento (Todos)</option>
-              <option value="Venceu há 2 dias">Venceu há 2 dias</option>
-              <option value="Venceu Ontem">Venceu Ontem</option>
-              <option value="Hoje">Hoje</option>
-              <option value="Vence Amanhã">Vence Amanhã</option>
-              <option value="Vence em 2 dias">Vence em 2 dias</option>
-              <option value="Mês Atual">Mês Atual</option>
+              {facetOk("due", "Venceu há 2 dias", dueFilter) && <option value="Venceu há 2 dias">Venceu há 2 dias</option>}
+              {facetOk("due", "Venceu Ontem", dueFilter) && <option value="Venceu Ontem">Venceu Ontem</option>}
+              {facetOk("due", "Hoje", dueFilter) && <option value="Hoje">Hoje</option>}
+              {facetOk("due", "Vence Amanhã", dueFilter) && <option value="Vence Amanhã">Vence Amanhã</option>}
+              {facetOk("due", "Vence em 2 dias", dueFilter) && <option value="Vence em 2 dias">Vence em 2 dias</option>}
+              {facetOk("due", "Mês Atual", dueFilter) && <option value="Mês Atual">Mês Atual</option>}
             </Select>
           </div>
 
@@ -1540,9 +1552,9 @@ export default function TrialsPage() {
               onChange={(e) => setAppFilter(e.target.value)}
             >
               <option value="Todos">Aplicativos (Todos)</option>
-              <option value="15_dias">Vencendo em 15 dias</option>
-              <option value="30_dias">Vencendo em 30 dias</option>
-              <option value="mais_30_dias">Vencendo em mais de 30 dias</option>
+              {facetOk("app_windows", "15_dias", appFilter) && <option value="15_dias">Vencendo em 15 dias</option>}
+              {facetOk("app_windows", "30_dias", appFilter) && <option value="30_dias">Vencendo em 30 dias</option>}
+              {facetOk("app_windows", "mais_30_dias", appFilter) && <option value="mais_30_dias">Vencendo em mais de 30 dias</option>}
               <optgroup label="Filtrar por nome">
                 {dropdownApps.map((app) => {
                   const temIntegracao =
@@ -1614,9 +1626,9 @@ export default function TrialsPage() {
               onChange={(e) => setStatusFilter(e.target.value as any)}
             >
               <option value="Todos">Status (Todos)</option>
-              <option value="Ativo">Ativo</option>
-              <option value="Vencido">Vencido</option>
-              <option value="Arquivado">Arquivado</option>
+              {facetOk("status", "Ativo", statusFilter) && <option value="Ativo">Ativo</option>}
+              {facetOk("status", "Vencido", statusFilter) && <option value="Vencido">Vencido</option>}
+              {facetOk("status", "Arquivado", statusFilter) && <option value="Arquivado">Arquivado</option>}
             </Select>
 
             <Select
@@ -1624,7 +1636,7 @@ export default function TrialsPage() {
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <option value="Todos">Servidor (Todos)</option>
-              {dropdownServers.map((s) => (
+              {dropdownServers.filter((s) => facetOk("servers", s.id, serverFilter)).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -1648,12 +1660,12 @@ export default function TrialsPage() {
               onChange={(e) => setDueFilter(e.target.value)}
             >
               <option value="Todos">Vencimento (Todos)</option>
-              <option value="Venceu há 2 dias">Venceu há 2 dias</option>
-              <option value="Venceu Ontem">Venceu Ontem</option>
-              <option value="Hoje">Hoje</option>
-              <option value="Vence Amanhã">Vence Amanhã</option>
-              <option value="Vence em 2 dias">Vence em 2 dias</option>
-              <option value="Mês Atual">Mês Atual</option>
+              {facetOk("due", "Venceu há 2 dias", dueFilter) && <option value="Venceu há 2 dias">Venceu há 2 dias</option>}
+              {facetOk("due", "Venceu Ontem", dueFilter) && <option value="Venceu Ontem">Venceu Ontem</option>}
+              {facetOk("due", "Hoje", dueFilter) && <option value="Hoje">Hoje</option>}
+              {facetOk("due", "Vence Amanhã", dueFilter) && <option value="Vence Amanhã">Vence Amanhã</option>}
+              {facetOk("due", "Vence em 2 dias", dueFilter) && <option value="Vence em 2 dias">Vence em 2 dias</option>}
+              {facetOk("due", "Mês Atual", dueFilter) && <option value="Mês Atual">Mês Atual</option>}
             </Select>
 
             {/* ✅ Select de Aplicativos Mobile */}
@@ -1662,9 +1674,9 @@ export default function TrialsPage() {
               onChange={(e) => setAppFilter(e.target.value)}
             >
               <option value="Todos">Aplicativos (Todos)</option>
-              <option value="15_dias">Vencendo em 15 dias</option>
-              <option value="30_dias">Vencendo em 30 dias</option>
-              <option value="mais_30_dias">Vencendo em mais de 30 dias</option>
+              {facetOk("app_windows", "15_dias", appFilter) && <option value="15_dias">Vencendo em 15 dias</option>}
+              {facetOk("app_windows", "30_dias", appFilter) && <option value="30_dias">Vencendo em 30 dias</option>}
+              {facetOk("app_windows", "mais_30_dias", appFilter) && <option value="mais_30_dias">Vencendo em mais de 30 dias</option>}
               <optgroup label="Filtrar por nome">
                 {dropdownApps.map((app) => {
                   const temIntegracao =
@@ -3137,6 +3149,18 @@ function PapaTestesModal({
     return Array.from(new Set(names)).sort();
   }, [records]);
 
+  // ✅ 06/10/2026, pedido do Márcio: filtro só existe se divide alguma coisa
+  // — some quando todos os registros caem na mesma opção (ex: só testes,
+  // ninguém convertido). Opção ativa mantém o filtro visível pra poder voltar.
+  const papaCounts = useMemo(() => {
+    const trial = records.filter((r) => r.is_trial).length;
+    const conv = records.filter((r) => r.converted).length;
+    return { trial, client: records.length - trial, sim: conv, nao: records.length - conv };
+  }, [records]);
+  const showTypeFilter = filterType !== "todos" || (papaCounts.trial > 0 && papaCounts.client > 0);
+  const showConvertedFilter = filterConverted !== "todos" || (papaCounts.sim > 0 && papaCounts.nao > 0);
+  const showServerFilter = filterServer !== "Todos" || uniqueServers.length > 1;
+
   const filtered = useMemo(() => {
     const q = search
       .trim()
@@ -3251,26 +3275,31 @@ function PapaTestesModal({
               </button>
             )}
           </div>
+          {showTypeFilter && (
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
             className="h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90"
           >
             <option value="todos">Todos</option>
-            <option value="trial">Só Testes</option>
-            <option value="client">Só Clientes</option>
+            {(papaCounts.trial > 0 || filterType === "trial") && <option value="trial">Só Testes</option>}
+            {(papaCounts.client > 0 || filterType === "client") && <option value="client">Só Clientes</option>}
           </select>
+          )}
 
+          {showConvertedFilter && (
           <select
             value={filterConverted}
             onChange={(e) => setFilterConverted(e.target.value as any)}
             className="h-9 px-3 bg-transparent border border-border rounded-lg text-sm outline-none text-foreground/90"
           >
             <option value="todos">Convertido (Todos)</option>
-            <option value="sim">Convertidos</option>
-            <option value="nao">Não convertidos</option>
+            {(papaCounts.sim > 0 || filterConverted === "sim") && <option value="sim">Convertidos</option>}
+            {(papaCounts.nao > 0 || filterConverted === "nao") && <option value="nao">Não convertidos</option>}
           </select>
+          )}
 
+          {showServerFilter && (
           <select
             value={filterServer}
             onChange={(e) => setFilterServer(e.target.value)}
@@ -3283,6 +3312,7 @@ function PapaTestesModal({
               </option>
             ))}
           </select>
+          )}
         </div>
 
         {/* Lista */}

@@ -6,7 +6,9 @@
 -- a pergunta é "existe alguém nessa opção?". Plano e app por nome já vêm de
 -- get_client_plan_periods / get_client_used_apps (só valores em uso).
 -- SECURITY INVOKER (padrão) + tenant do usuário logado, igual à listagem.
-create or replace function public.get_clients_filter_facets(p_archived boolean default false)
+-- p_trial = true → mesma contagem pra tela de Testes (get_trials_list_page).
+drop function if exists public.get_clients_filter_facets(boolean);
+create or replace function public.get_clients_filter_facets(p_archived boolean default false, p_trial boolean default false)
 returns jsonb
 language sql
 stable
@@ -22,7 +24,7 @@ base as materialized (
     c.id,
     c.server_id,
     c.deep_archived_at,
-    case when c.vencimento < now() then 'Vencido' else 'Ativo' end as status_label,
+    case when c.is_archived then 'Arquivado' when c.vencimento < now() then 'Vencido' else 'Ativo' end as status_label,
     ((c.vencimento at time zone 'America/Sao_Paulo')::date - sp.today) as diff_days,
     date_trunc('month', c.vencimento at time zone 'America/Sao_Paulo')
       = date_trunc('month', now() at time zone 'America/Sao_Paulo') as same_month,
@@ -42,12 +44,13 @@ base as materialized (
   from public.clients c
   cross join sp
   join tenant t on c.tenant_id = t.tenant_id
-  where c.is_archived = p_archived and c.is_trial = false
+  where c.is_archived = p_archived and c.is_trial = p_trial
 )
 select jsonb_build_object(
   'status', jsonb_build_object(
     'Ativo', (select count(*) from base where status_label = 'Ativo'),
-    'Vencido', (select count(*) from base where status_label = 'Vencido')
+    'Vencido', (select count(*) from base where status_label = 'Vencido'),
+    'Arquivado', (select count(*) from base where status_label = 'Arquivado')
   ),
   'servers', coalesce((
     select jsonb_object_agg(server_id, n)
@@ -73,5 +76,5 @@ select jsonb_build_object(
 );
 $$;
 
-revoke all on function public.get_clients_filter_facets(boolean) from public, anon;
-grant execute on function public.get_clients_filter_facets(boolean) to authenticated;
+revoke all on function public.get_clients_filter_facets(boolean, boolean) from public, anon;
+grant execute on function public.get_clients_filter_facets(boolean, boolean) to authenticated;
