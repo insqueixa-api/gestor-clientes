@@ -213,6 +213,9 @@ export default function QuickRechargeModal({
   const [transferId, setTransferId] = useState<string>(() => crypto.randomUUID());
   const [openTransfer, setOpenTransfer] = useState<any | null>(null);
   const [resolving, setResolving] = useState(false);
+  // ✅ Pacotes da "Tabela Revenda" (Tabelas de Preço) do servidor escolhido
+  const [packages, setPackages] = useState<{ credits: number; price: number | null }[]>([]);
+  const [selectedPackage, setSelectedPackage] = useState<{ credits: number; price: number } | null>(null);
 
   async function loadWhatsAppSessions() {
     try {
@@ -278,7 +281,23 @@ export default function QuickRechargeModal({
     let alive = true;
     setServerProvider(null);
     setOpenTransfer(null);
+    setPackages([]);
+    setSelectedPackage(null);
     if (!selectedLink?.server_id) return;
+    supabaseBrowser
+      .from("reseller_credit_packages")
+      .select("position, credits, price_brl")
+      .eq("server_id", selectedLink.server_id)
+      .order("position", { ascending: true })
+      .then(({ data }) => {
+        if (!alive) return;
+        setPackages(
+          (data || []).map((p: any) => ({
+            credits: Number(p.credits),
+            price: p.price_brl != null ? Number(p.price_brl) : null,
+          })),
+        );
+      });
     (async () => {
       const { data: srv } = await supabaseBrowser
         .from("servers")
@@ -342,10 +361,27 @@ export default function QuickRechargeModal({
     }
   }
 
+  // pacote escolhido (e não alterado depois): o total é o preço do pacote,
+  // não unitário arredondado × quantidade (ex: 30 cr por R$100 ≠ 3,33 × 30)
+  const packageActive =
+    !!selectedPackage && currency === "BRL" && qty === selectedPackage.credits;
+
   const totalCurrency = useMemo(() => {
+    if (packageActive && selectedPackage) return selectedPackage.price;
     if (!qty || !Number.isFinite(unitCurrency) || unitCurrency <= 0) return NaN;
     return qty * unitCurrency;
-  }, [qty, unitCurrency]);
+  }, [qty, unitCurrency, packageActive, selectedPackage]);
+
+  function pickPackage(p: { credits: number; price: number | null }) {
+    setQtyCredits(String(p.credits));
+    if (p.price != null && p.price > 0) {
+      setCurrency("BRL");
+      setUnitPriceCurrency(toBRMoneyInput(p.price / p.credits));
+      setSelectedPackage({ credits: p.credits, price: p.price });
+    } else {
+      setSelectedPackage(null);
+    }
+  }
 
   const totalBRL = useMemo(() => {
     if (!Number.isFinite(totalCurrency) || totalCurrency <= 0) return NaN;
@@ -957,6 +993,35 @@ export default function QuickRechargeModal({
                 </div>
               )}
 
+              {/* ✅ Pacotes da Tabela Revenda */}
+              {packages.length > 0 && (
+                <div>
+                  <Label>Pacotes (Tabela Revenda)</Label>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                    {packages.map((p) => {
+                      const active = packageActive && selectedPackage?.credits === p.credits;
+                      return (
+                        <button
+                          key={p.credits}
+                          type="button"
+                          onClick={() => pickPackage(p)}
+                          className={`rounded-lg border px-2 py-2 text-left transition-colors ${
+                            active
+                              ? "border-emerald-500/60 bg-emerald-500/10"
+                              : "border-border hover:border-emerald-500/40"
+                          }`}
+                        >
+                          <div className="text-[10px] font-semibold text-emerald-500">{p.credits} cr</div>
+                          <div className="text-sm font-medium text-foreground/90">
+                            {p.price != null && p.price > 0 ? fmtMoney("BRL", p.price) : "A definir"}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Grid Principal */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="animate-in slide-in-from-bottom-3 duration-400">
@@ -986,7 +1051,10 @@ export default function QuickRechargeModal({
                     <Label>Preço unit.</Label>
                     <Input
                       value={unitPriceCurrency}
-                      onChange={(e) => setUnitPriceCurrency(e.target.value)}
+                      onChange={(e) => {
+                        setUnitPriceCurrency(e.target.value);
+                        setSelectedPackage(null); // preço editado à mão: vale unitário × quantidade
+                      }}
                       placeholder="0,00"
                       inputMode="decimal"
                     />

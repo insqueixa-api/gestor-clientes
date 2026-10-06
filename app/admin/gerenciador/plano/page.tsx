@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 const PlanoModal = dynamic(() => import("./plano_modal"), { ssr: false });
+const RevendaCreditosCard = dynamic(() => import("./revenda_creditos"), { ssr: false });
 import ToastNotifications from "@/hooks/ToastNotifications"; // ✅ Novo import
 import { useConfirm } from "@/hooks/useConfirm";
 
@@ -581,6 +582,9 @@ export default function PlanosPage() {
             </div>
           );
         })()}
+
+      {/* ✅ 06/10/2026: Tabela Revenda (pacotes de crédito por servidor) */}
+      {!loading && <RevendaCreditosCard tenantId={tenantId} />}
 
       {/* Modal Unificado */}
       {(isNewOpen || editingPlan) && (
