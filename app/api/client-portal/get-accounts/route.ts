@@ -69,13 +69,15 @@ if (!session_token) {
       );
     }
 
-    // 1. Validar sessão
-    const { data: sess, error: sessErr } = await supabaseAdmin
-      .from("client_portal_sessions")
-      .select("tenant_id, whatsapp_username, phone_anchor")
-      .eq("session_token", session_token)
-      .gt("expires_at", new Date().toISOString())
-      .single();
+    // 1. Validar sessão + contas dela numa ida só (✅ 06/10/2026, performance:
+    // antes sessão → contas eram 2 idas em sequência —
+    // docs/sql/portal_session_accounts.sql, mesma regra de identidade)
+    const { data: sessRows, error: sessErr } = await supabaseAdmin.rpc("portal_session_accounts", {
+      p_session_token: session_token,
+    });
+    const sess = Array.isArray(sessRows) && sessRows.length
+      ? (sessRows[0] as { tenant_id: string; whatsapp_username: string; client_ids: string[] | null })
+      : null;
 
     if (sessErr || !sess) {
       safeServerLog("get-accounts: invalid/expired session");
@@ -89,30 +91,28 @@ if (!session_token) {
     // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
     after(() => touchPortalSession(supabaseAdmin, session_token));
 
-    // ✅ Resolve por texto (whatsapp_username/secondary, de sempre) OU pela
+    // ✅ Contas por texto (whatsapp_username/secondary, de sempre) OU pela
     // âncora de telefone — cobre o caso de várias contas compartilharem o
     // mesmo WhatsApp e uma delas ter trocado de identidade pra um username
-    // (ver docs/sql/portal_phone_anchor_hybrid_identity.sql). Sem isso, a
-    // conta renomeada simplesmente sumia da lista mesmo com a sessão válida.
-    const { data: idsData, error: idsErr } = await supabaseAdmin.rpc(
-      "portal_client_ids_for_identity",
-      {
-        p_tenant_id: sess.tenant_id,
-        p_whatsapp_username: sess.whatsapp_username,
-        p_phone_anchor: (sess as any).phone_anchor ?? null,
-      },
-    );
-    if (idsErr) {
-      safeServerLog("get-accounts: rpc error", idsErr?.message);
-      console.error("[get-accounts: rpc error]", { kind: "client_portal_error", route: "get-accounts", message: idsErr?.message });
-      return NextResponse.json(
-        { ok: false, error: "Erro interno" },
-        { status: 500, headers: NO_STORE_HEADERS }
-      );
-    }
-    const accessibleIds = ((idsData as { id: string }[] | null) || []).map((r) => r.id);
+    // (ver docs/sql/portal_phone_anchor_hybrid_identity.sql). Vêm junto da
+    // sessão (portal_session_accounts).
+    const accessibleIds = (sess.client_ids || []).map(String);
 
-    // 2. Buscar contas do cliente
+    // 2. Contas + renovações pendentes EM PARALELO (as pendências filtram
+    // pelos mesmos ids da sessão, não precisam esperar as contas chegarem)
+    const pendingPromise = accessibleIds.length
+      ? Promise.resolve(
+          supabaseAdmin
+            .from("client_portal_payments")
+            .select("client_id")
+            .eq("tenant_id", sess.tenant_id)
+            .eq("payment_method", "online")
+            .eq("status", "approved")
+            .eq("fulfillment_status", "manual_pending")
+            .in("client_id", accessibleIds)
+            .or("payment_type.is.null,payment_type.neq.app_renewal"),
+        )
+      : Promise.resolve({ data: [] as any[] });
     const { data: accounts, error: accErr } = accessibleIds.length === 0
       ? { data: [], error: null }
       : await supabaseAdmin
@@ -154,15 +154,7 @@ if (!session_token) {
     let pendingManualRenewalByClientId = new Set<string>();
 
     if (clientIds.length > 0) {
-      const { data: pendingManualRenewals } = await supabaseAdmin
-        .from("client_portal_payments")
-        .select("client_id")
-        .eq("tenant_id", sess.tenant_id)
-        .eq("payment_method", "online")
-        .eq("status", "approved")
-        .eq("fulfillment_status", "manual_pending")
-        .in("client_id", clientIds)
-        .or("payment_type.is.null,payment_type.neq.app_renewal");
+      const { data: pendingManualRenewals } = await pendingPromise;
 
       pendingManualRenewalByClientId = new Set(
         (pendingManualRenewals || []).map((row: any) => String(row.client_id || "")).filter(Boolean)
