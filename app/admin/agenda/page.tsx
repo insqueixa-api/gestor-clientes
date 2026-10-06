@@ -49,6 +49,19 @@ type SortKey = "name" | "labels" | "birthday";
 type SortDir = "asc" | "desc";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
+// Foto "falsa" do Google: vazia, bolinha colorida (/cm/) ou silhueta padrão.
+// Usado no filtro de foto e na contagem que decide se o filtro aparece.
+function isFakeAvatar(url: string | null | undefined): boolean {
+  const avatar = url || "";
+  return (
+    avatar === "" ||
+    avatar.includes("/cm/") ||
+    avatar.includes("default-user") ||
+    avatar.includes("AAAAAAAAAAA") ||
+    avatar.includes("silhouette")
+  );
+}
+
 function compareText(a: string, b: string) {
   return (a || "").localeCompare(b || "", "pt-BR", { sensitivity: "base" });
 }
@@ -139,6 +152,20 @@ function AgendaPageContent() {
       ).sort(),
     [rows],
   );
+
+  // ✅ 06/10/2026, pedido do Márcio: filtro só existe se divide os contatos
+  // ("Sem grupo"/"Com foto"/"Sem foto" só com contato; select some quando
+  // tudo cai numa opção só). A opção ativa mantém o filtro visível.
+  const agendaCounts = useMemo(() => {
+    const semGrupo = rows.filter((r) => !(r.labels || []).some((l) => l && l.trim().length > 0)).length;
+    const semFoto = rows.filter((r) => isFakeAvatar(r.avatar_url)).length;
+    return { semGrupo, comGrupo: rows.length - semGrupo, semFoto, comFoto: rows.length - semFoto };
+  }, [rows]);
+  const showLabelFilter =
+    labelFilter !== "Todos" || uniqueLabels.length + (agendaCounts.semGrupo > 0 ? 1 : 0) > 1;
+  const showEmailFilter = emailLabelFilter !== "Todos" || uniqueEmailLabels.length > 1;
+  const showPhoneFilter = phoneLabelFilter !== "Todos" || uniquePhoneLabels.length > 1;
+  const showPhotoFilter = photoFilter !== "Todos" || (agendaCounts.semFoto > 0 && agendaCounts.comFoto > 0);
 
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const hasActiveFilters =
@@ -462,15 +489,7 @@ function AgendaPageContent() {
       }
 
       // 4. Filtro de Foto (Aprimorado)
-      const avatar = r.avatar_url || "";
-
-      // Identifica as bolinhas coloridas (geradas sob o caminho /cm/) e outros padrões vazios do Google
-      const isFakePhoto =
-        avatar === "" ||
-        avatar.includes("/cm/") ||
-        avatar.includes("default-user") ||
-        avatar.includes("AAAAAAAAAAA") ||
-        avatar.includes("silhouette");
+      const isFakePhoto = isFakeAvatar(r.avatar_url);
 
       if (photoFilter === "ComFoto" && isFakePhoto) return false;
       if (photoFilter === "SemFoto" && !isFakePhoto) return false;
@@ -735,6 +754,7 @@ function AgendaPageContent() {
 
           {/* Filtros inline — visíveis só no desktop */}
           <div className="hidden md:flex items-center gap-2">
+            {showLabelFilter && (
             <select
               value={labelFilter}
               onChange={(e) => {
@@ -744,14 +764,16 @@ function AgendaPageContent() {
               className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground"
             >
               <option value="Todos">Grupo (Todos)</option>
-              <option value="__SEM_GRUPO__">Sem grupo</option>
+              {(agendaCounts.semGrupo > 0 || labelFilter === "__SEM_GRUPO__") && <option value="__SEM_GRUPO__">Sem grupo</option>}
               {uniqueLabels.map((lbl) => (
                 <option key={lbl} value={lbl}>
                   {lbl}
                 </option>
               ))}
             </select>
+            )}
 
+            {showEmailFilter && (
             <select
               value={emailLabelFilter}
               onChange={(e) => {
@@ -767,8 +789,10 @@ function AgendaPageContent() {
                 </option>
               ))}
             </select>
+            )}
 
             {/* <--- ADICIONADO: Filtro Operadora (Desktop) */}
+            {showPhoneFilter && (
             <select
               value={phoneLabelFilter}
               onChange={(e) => {
@@ -784,8 +808,10 @@ function AgendaPageContent() {
                 </option>
               ))}
             </select>
+            )}
 
             {/* <--- NOVO: Filtro de Foto (Desktop) */}
+            {showPhotoFilter && (
             <select
               value={photoFilter}
               onChange={(e) => {
@@ -795,9 +821,10 @@ function AgendaPageContent() {
               className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">📷 Foto (Todas)</option>
-              <option value="ComFoto">Com foto</option>
-              <option value="SemFoto">Sem foto</option>
+              {(agendaCounts.comFoto > 0 || photoFilter === "ComFoto") && <option value="ComFoto">Com foto</option>}
+              {(agendaCounts.semFoto > 0 || photoFilter === "SemFoto") && <option value="SemFoto">Sem foto</option>}
             </select>
+            )}
 
             {hasActiveFilters && (
               <button
@@ -841,6 +868,7 @@ function AgendaPageContent() {
         {/* Painel expandido no mobile */}
         {showMobileFilters && (
           <div className="md:hidden flex flex-col gap-2 mt-2 animate-in slide-in-from-top-2">
+            {showLabelFilter && (
             <select
               value={labelFilter}
               onChange={(e) => {
@@ -850,14 +878,16 @@ function AgendaPageContent() {
               className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">Grupo (Todos)</option>
-              <option value="__SEM_GRUPO__">Sem grupo</option>
+              {(agendaCounts.semGrupo > 0 || labelFilter === "__SEM_GRUPO__") && <option value="__SEM_GRUPO__">Sem grupo</option>}
               {uniqueLabels.map((lbl) => (
                 <option key={lbl} value={lbl}>
                   {lbl}
                 </option>
               ))}
             </select>
+            )}
 
+            {showEmailFilter && (
             <select
               value={emailLabelFilter}
               onChange={(e) => {
@@ -873,8 +903,10 @@ function AgendaPageContent() {
                 </option>
               ))}
             </select>
+            )}
 
             {/* <--- ADICIONADO: Filtro Operadora no Mobile */}
+            {showPhoneFilter && (
             <select
               value={phoneLabelFilter}
               onChange={(e) => {
@@ -890,8 +922,10 @@ function AgendaPageContent() {
                 </option>
               ))}
             </select>
+            )}
 
             {/* <--- NOVO: Filtro de Foto no Mobile */}
+            {showPhotoFilter && (
             <select
               value={photoFilter}
               onChange={(e) => {
@@ -901,9 +935,10 @@ function AgendaPageContent() {
               className="h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90"
             >
               <option value="Todos">📷 Foto (Todas)</option>
-              <option value="ComFoto">Com foto</option>
-              <option value="SemFoto">Sem foto</option>
+              {(agendaCounts.comFoto > 0 || photoFilter === "ComFoto") && <option value="ComFoto">Com foto</option>}
+              {(agendaCounts.semFoto > 0 || photoFilter === "SemFoto") && <option value="SemFoto">Sem foto</option>}
             </select>
+            )}
 
             {hasActiveFilters && (
               <button
