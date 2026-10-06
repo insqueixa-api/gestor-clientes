@@ -1,5 +1,5 @@
 // app/api/client-portal/create-payment/route.ts
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { notify, formatClientLabel } from "@/lib/notifications/notify";
 import { randomUUID } from "crypto";
@@ -14,7 +14,7 @@ import {
   computeAppCouponDiscount,
   type CouponRow,
 } from "@/lib/client-portal/coupons";
-import { touchPortalSession } from "@/lib/client-portal/session";
+import { validatePortalClient } from "@/lib/client-portal/session";
 import { sanitizeEmailLocalPart } from "@/lib/whatsapp/template-vars";
 import { createFastDepixTransaction, getFastDepixTransaction, fetchQrCodeAsBase64, isFastDepixGatewayType } from "@/lib/fastdepix";
 
@@ -130,50 +130,26 @@ if (!session_token || !client_id || !period) {
       return jsonError("Período inválido", 400);
     }
 
-    // 1) Validar sessão
-    const { data: sess, error: sessErr } = await supabaseAdmin
-      .from("client_portal_sessions")
-      .select("tenant_id, whatsapp_username, phone_anchor")
-      .eq("session_token", session_token)
-      .gt("expires_at", new Date().toISOString())
-      .single();
-
-    if (sessErr || !sess) {
-      safeServerLog("create-payment: invalid/expired session");
-      return jsonError("Sessão inválida", 401);
-    }
-
-    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
-    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
-    after(() => touchPortalSession(supabaseAdmin, session_token));
-
-    // 2) Buscar dados do cliente
+    // 1) Validar sessão + dono da conta numa ida só
     // ✅ CRÍTICO: garante que o client_id pertence ao whatsapp da sessão
     // (Principal ou Secundário) OU compartilha a mesma âncora de telefone
     // (ver docs/sql/portal_phone_anchor_hybrid_identity.sql — sem isso, uma
     // conta que trocou de whatsapp_username pra um username reservado do
     // WhatsApp não conseguia mais pagar, mesmo com sessão válida).
-    const { data: idsData, error: idsErr } = await supabaseAdmin.rpc(
-      "portal_client_ids_for_identity",
-      {
-        p_tenant_id: sess.tenant_id,
-        p_whatsapp_username: sess.whatsapp_username,
-        p_phone_anchor: (sess as any).phone_anchor ?? null,
-      },
-    );
-    if (idsErr) {
-      safeServerLog("create-payment: rpc error", idsErr?.message);
-      return jsonError("Erro interno", 500);
-    }
-    const accessibleIds = new Set(((idsData as { id: string }[] | null) || []).map((r) => r.id));
-    if (!accessibleIds.has(client_id)) {
-      safeServerLog("create-payment: client not found or not owned");
-      return jsonError("Cliente não encontrado", 404);
+    // ✅ 06/10/2026 (performance): eram 2 idas em sequência (sessão →
+    // contas); validatePortalClient faz as duas numa só e estende a sessão
+    // sem segurar a resposta.
+    const sess = await validatePortalClient(supabaseAdmin, session_token, client_id);
+    if (!sess) {
+      safeServerLog("create-payment: invalid session or client not owned");
+      return jsonError("Sessão inválida", 401);
     }
 
+    // 2) Buscar dados do cliente (✅ 06/10/2026: a tabela de preço dele vem
+    // junto — antes era outra ida só pra conferir se valia e a moeda)
     const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")
-      .select("id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, server_username, plan_label, price_currency, screens, plan_table_id, price_amount, servers(name)")
+      .select("id, display_name, secondary_display_name, whatsapp_username, secondary_whatsapp_username, server_username, plan_label, price_currency, screens, plan_table_id, price_amount, servers(name), plan_tables(id, currency, tenant_id, is_active)")
       .eq("id", client_id)
       .eq("tenant_id", sess.tenant_id)
       .single();
@@ -213,15 +189,10 @@ let planTableId = String((client as any).plan_table_id || "").trim();
 
 // 1) se veio plan_table_id, valida e também pega a moeda real dela
 if (planTableId) {
-  const { data: pt, error: ptErr } = await supabaseAdmin
-    .from("plan_tables")
-    .select("id, currency")
-    .eq("id", planTableId)
-    .eq("tenant_id", sess.tenant_id)
-    .eq("is_active", true)
-    .maybeSingle();
+  // mesma validação de antes (tenant + ativa), com os dados que vieram junto do cliente
+  const pt = (client as any).plan_tables as { id: string; currency: string | null; tenant_id: string; is_active: boolean } | null;
 
-  if (ptErr || !pt) {
+  if (!pt || pt.tenant_id !== sess.tenant_id || pt.is_active !== true) {
     planTableId = "";
   } else {
     // ✅ moeda do plano é a fonte da verdade
