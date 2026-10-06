@@ -379,16 +379,34 @@ export default function QuickRechargeModal({
     for (const p of pricedPackages) if (p.credits <= q) tier = p;
     return tier;
   }
-  const activeTier = currency === "BRL" ? tierFor(qty) : null;
+  const activeTier = tierFor(qty);
+
+  // A tabela é em BRL. Em USD/EUR o unitário é a faixa convertida pelo
+  // câmbio do banco (fxRate = 1 moeda → BRL): R$10 ÷ 5,8454 = €1,71.
+  // Antes a faixa ficava "10,00" e virava €10 ao trocar a moeda.
+  function tierUnitIn(cur: Currency, rate: number, tier: { price: number | null } | null) {
+    if (!tier?.price) return null;
+    if (cur === "BRL") return tier.price;
+    if (!Number.isFinite(rate) || rate <= 0) return null;
+    return Math.round((tier.price / rate) * 100) / 100;
+  }
 
   // quantidade digitada → preço unitário da faixa (o Márcio ainda pode editar
   // o unitário depois, à mão)
   function onQtyChange(raw: string) {
     const digits = onlyDigits(raw);
     setQtyCredits(digits);
-    const tier = currency === "BRL" ? tierFor(Number(digits)) : null;
-    if (tier?.price) setUnitPriceCurrency(toBRMoneyInput(tier.price));
+    const unit = tierUnitIn(currency, fxRate, tierFor(Number(digits)));
+    if (unit !== null) setUnitPriceCurrency(toBRMoneyInput(unit));
   }
+
+  // trocou a moeda (ou o câmbio terminou de carregar) → reconverte a faixa
+  useEffect(() => {
+    if (fxLoading) return;
+    const unit = tierUnitIn(currency, fxRate, tierFor(qty));
+    if (unit !== null) setUnitPriceCurrency(toBRMoneyInput(unit));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currency, fxRate, fxLoading, pricedPackages]);
 
   const totalCurrency = useMemo(() => {
     if (!qty || !Number.isFinite(unitCurrency) || unitCurrency <= 0) return NaN;
@@ -1028,7 +1046,8 @@ export default function QuickRechargeModal({
                       const active =
                         !!activeTier &&
                         activeTier.credits === p.credits &&
-                        Math.abs(unitCurrency - (p.price ?? -1)) < 0.005;
+                        Math.abs(unitCurrency - (tierUnitIn(currency, fxRate, p) ?? -1)) < 0.005;
+                      const converted = currency !== "BRL" ? tierUnitIn(currency, fxRate, p) : null;
                       return (
                         <button
                           key={p.credits}
@@ -1051,6 +1070,11 @@ export default function QuickRechargeModal({
                               "A definir"
                             )}
                           </div>
+                          {converted !== null && (
+                            <div className="text-[10px] text-muted-foreground">
+                              ≈ {fmtMoney(currency, converted)}/cr
+                            </div>
+                          )}
                         </button>
                       );
                     })}
