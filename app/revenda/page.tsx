@@ -1,12 +1,19 @@
 "use client";
 // app/revenda/page.tsx
-// ✅ 06/10/2026: Portal da Revenda (docs/revenda-portal/PLANO.md, fase 2).
+// ✅ 06/10/2026: Portal da Revenda — "cópia" do portal do cliente (/renew),
+// pedido do Márcio: mesma barra preta no topo, mesma saudação + 2 cards
+// (Pagamentos e Recargas / Meus Aplicativos), mesmos cards "📺 / 💰".
+// Diferenças: em vez de vencimento a revenda tem SALDO DE CRÉDITOS; os
+// "planos" são as faixas da Tabela Revenda (preço por crédito).
 // Entrada: link mágico (/#t=TOKEN → login → sessionStorage "rp_session") ou
-// "Acessar o Portal" do admin (/revenda?session=...). Primeira versão: resumo
-// do painel por servidor, Tabela Revenda (preço por crédito) e compras de
-// crédito. Aplicativos dos clientes da revenda entram na próxima fase.
-import { useEffect, useState } from "react";
-import { CheckCircle2, Clock, CreditCard, LogOut, Users, XCircle } from "lucide-react";
+// "Acessar o Portal" do admin (/revenda?session=...).
+// O resumo do painel é sincronizado sozinho ao abrir (app/api/reseller-portal/home).
+// Ainda NÃO tem pagamento: "Comprar créditos" abre o WhatsApp do suporte com
+// o pedido pronto (PIX automático é a próxima etapa do plano).
+// Aplicativos dos clientes da revenda: próxima fase (docs/revenda-portal/PLANO.md).
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
+import { CheckCircle2 } from "lucide-react";
 
 type Server = {
   id: string;
@@ -15,6 +22,7 @@ type Server = {
   username: string | null;
   stats: {
     credits: number;
+    account_status?: string;
     total: number;
     active: number;
     expired: number;
@@ -25,20 +33,36 @@ type Server = {
 };
 type Home = {
   reseller: { name: string; since: string | null };
+  support_phone: string | null;
   servers: Server[];
   purchases: { server: string; credits: number; total: number; at: string }[];
 };
+type Section = "menu" | "payment" | "apps";
 
 const KEY = "rp_session";
 const brl = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
-const dt = (iso: string | null) =>
+const dateBR = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
+const dateTimeBR = (iso: string | null) =>
   iso
-    ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "2-digit" })
+    ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
     : "—";
 const panelDate = (s: string | null) => {
   const m = s ? /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(s) : null;
   return m ? `${m[3]}/${m[2]} ${m[4]}:${m[5]}` : s || "—";
 };
+function greeting() {
+  const h = Number(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
+  return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+}
+/** Faixa da Tabela Revenda: maior pacote com créditos ≤ quantidade (abaixo do menor, vale o menor). */
+function tierPrice(prices: { credits: number; price: number }[], qty: number) {
+  const sorted = [...prices].sort((a, b) => a.credits - b.credits);
+  if (!sorted.length || qty <= 0) return null;
+  let t = sorted[0];
+  for (const p of sorted) if (p.credits <= qty) t = p;
+  return t;
+}
 
 function readSession() {
   try {
@@ -60,6 +84,10 @@ export default function RevendaPortalPage() {
   const [session, setSession] = useState("");
   const [data, setData] = useState<Home | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "expired" | "error">("loading");
+  const [section, setSection] = useState<Section>("menu");
+  const [serverId, setServerId] = useState<string>("");
+  const [qty, setQty] = useState<number>(0);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     const s = readSession();
@@ -87,10 +115,35 @@ export default function RevendaPortalPage() {
           return;
         }
         setData(j as Home);
+        setServerId((j as Home).servers[0]?.id || "");
         setState("ok");
+        // 2ª chamada: sincroniza com o painel e atualiza os números
+        setSyncing(true);
+        fetch("/api/reseller-portal/home", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_token: s, sync: true }),
+        })
+          .then(async (r2) => {
+            const j2 = await r2.json().catch(() => ({}));
+            if (r2.ok && j2?.ok) setData(j2 as Home);
+          })
+          .catch(() => {})
+          .finally(() => setSyncing(false));
       })
       .catch(() => setState("error"));
   }, []);
+
+  const server = useMemo(() => data?.servers.find((s) => s.id === serverId) || null, [data, serverId]);
+  const sortedPrices = useMemo(() => [...(server?.prices || [])].sort((a, b) => a.credits - b.credits), [server]);
+  // quantidade inicial = menor pacote do servidor (chave por conteúdo: o
+  // 2º carregamento, do sync, não apaga a quantidade que a revenda escolheu)
+  const firstPackageCredits = sortedPrices[0]?.credits || 0;
+  useEffect(() => {
+    setQty(firstPackageCredits);
+  }, [serverId, firstPackageCredits]);
+  const tier = server ? tierPrice(server.prices, qty) : null;
+  const total = tier ? qty * tier.price : 0;
 
   async function logout() {
     try {
@@ -101,8 +154,7 @@ export default function RevendaPortalPage() {
       });
       window.sessionStorage.removeItem(KEY);
     } catch {}
-    setData(null);
-    setState("expired");
+    window.location.href = "/";
   }
 
   if (state === "loading") {
@@ -123,121 +175,369 @@ export default function RevendaPortalPage() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Portal da Revenda</div>
-            <h1 className="text-xl font-semibold text-foreground truncate">Olá, {data.reseller.name.split(" ")[0]}</h1>
+  const firstName = data.reseller.name.split(" ")[0];
+  const supportDigits = String(data.support_phone || "").replace(/\D/g, "");
+  const waLink = (text: string) => `https://wa.me/${supportDigits}?text=${encodeURIComponent(text)}`;
+
+  const topBar = (
+    <div className="sticky top-0 z-50 bg-[#050505] text-white border-b border-white/10 shadow-lg">
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {section !== "menu" && (
+            <button
+              onClick={() => setSection("menu")}
+              className="w-8 h-8 flex items-center justify-center bg-card/10 hover:bg-card/20 rounded-lg text-white transition-colors shrink-0"
+              title="Voltar"
+            >
+              <span className="text-lg leading-none mt-[-2px]">←</span>
+            </button>
+          )}
+          <Image src="/brand/logo-gestor-celular.png" alt="Gestor" width={44} height={44} className="h-10 w-10 select-none object-contain sm:hidden" draggable={false} priority />
+          <Image src="/brand/logo-gestor.png" alt="Gestor" width={160} height={40} className="hidden sm:block h-10 w-auto select-none object-contain" draggable={false} priority />
+          <div className="min-w-0 flex flex-col justify-center">
+            <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">Revenda</div>
+            <div className="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-66 tracking-tight uppercase">{data.reseller.name}</div>
           </div>
-          <button
-            onClick={logout}
-            className="h-9 px-3 rounded-lg border border-border text-muted-foreground text-xs font-medium hover:bg-muted inline-flex items-center gap-1.5"
-          >
-            <LogOut className="w-4 h-4" /> Sair
+        </div>
+        <div className="flex-1" />
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          {supportDigits && (
+            <a
+              href={waLink("Olá, sou revenda e preciso de ajuda!")}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 text-[#25D366] hover:opacity-80 transition-opacity"
+              title="Fale com o Suporte"
+            >
+              <IconWhatsapp />
+              <div className="hidden sm:flex flex-col text-left">
+                <span className="text-[9px] uppercase tracking-wider text-white/50 leading-none">Suporte</span>
+                <span className="text-xs font-bold tracking-wide leading-none mt-0.5">{data.support_phone}</span>
+              </div>
+            </a>
+          )}
+          <button onClick={logout} className="text-white/50 hover:text-rose-500 transition-colors" title="Sair">
+            <IconLogout />
           </button>
         </div>
+      </div>
+    </div>
+  );
 
-        {data.servers.map((s) => (
-          <div key={s.id} className="bg-card border border-border rounded-2xl p-4 shadow-sm space-y-4">
-            <div className="flex items-center gap-3">
-              {s.logo_url ? (
-                <img src={s.logo_url} alt={s.name} className="w-11 h-11 rounded-lg object-cover border border-border" />
-              ) : (
-                <div className="w-11 h-11 rounded-lg border border-border flex items-center justify-center text-muted-foreground">{s.name.charAt(0)}</div>
-              )}
-              <div className="min-w-0 flex-1">
-                <div className="font-medium text-foreground">{s.name}</div>
-                <div className="text-xs text-muted-foreground">Usuário: {s.username || "—"}</div>
-              </div>
-              {s.stats && (
-                <div className="text-right">
-                  <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Saldo</div>
-                  <div className="text-lg font-semibold text-emerald-500">{s.stats.credits} cr</div>
-                </div>
-              )}
-            </div>
-
-            {s.stats ? (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                <Stat icon={<Users className="w-4 h-4 text-sky-400" />} label="Clientes" value={s.stats.total} />
-                <Stat icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />} label="Ativos" value={s.stats.active} />
-                <Stat icon={<XCircle className="w-4 h-4 text-rose-500" />} label="Expirados" value={s.stats.expired} />
-                <Stat icon={<Clock className="w-4 h-4 text-amber-500" />} label="Vencem em 2 dias" value={s.stats.expiring_2d.length} />
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">Resumo do painel ainda não disponível.</p>
-            )}
-
-            {s.stats && s.stats.expiring_2d.length > 0 && (
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 space-y-1">
-                <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400">Vencem nos próximos 2 dias</div>
-                {s.stats.expiring_2d.map((u) => (
-                  <div key={u.username} className="flex justify-between text-xs">
-                    <span className="text-foreground/90 font-medium">{u.username}</span>
-                    <span className="text-muted-foreground">{panelDate(u.expires_at)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {s.prices.length > 0 && (
-              <div>
-                <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2">Preço do crédito</div>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                  {s.prices.map((p) => (
-                    <div key={p.credits} className="rounded-lg border border-border px-2 py-1.5">
-                      <div className="text-[10px] font-semibold text-emerald-500">a partir de {p.credits} cr</div>
-                      <div className="text-sm font-medium text-foreground/90">
-                        {brl(p.price)}
-                        <span className="text-[10px] text-muted-foreground font-normal">/cr</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {s.synced_at && <div className="text-[10px] text-muted-foreground">Atualizado em {dt(s.synced_at)}</div>}
+  // ================= MENU (2 blocos, igual ao portal do cliente) =================
+  if (section === "menu") {
+    return (
+      <div className="h-dvh sm:h-auto sm:min-h-screen bg-background flex flex-col overflow-hidden sm:overflow-visible">
+        {topBar}
+        <div className="flex-1 min-h-0 flex flex-col sm:block max-w-6xl mx-auto w-full px-0 sm:px-4 py-3 sm:py-6 sm:space-y-4">
+          <div className="mb-2 px-3 sm:px-0 shrink-0">
+            <h1 className="text-lg sm:text-2xl font-bold text-foreground tracking-tight">
+              {greeting()}, {firstName}! 👋
+            </h1>
+            <p className="text-foreground/70 text-xs sm:text-sm mt-0.5 sm:mt-1">Escolha abaixo o que você quer resolver agora.</p>
           </div>
-        ))}
-
-        <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
-          <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-2">
-            <CreditCard className="w-4 h-4" /> Suas compras de crédito
-          </div>
-          {data.purchases.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic">Nenhuma compra registrada.</p>
-          ) : (
-            <div className="divide-y divide-border">
-              {data.purchases.map((p, i) => (
-                <div key={i} className="flex items-center justify-between py-2 text-sm">
-                  <div>
-                    <div className="text-foreground/90 font-medium">
-                      {p.credits} créditos · {p.server}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground">{dt(p.at)}</div>
-                  </div>
-                  <div className="text-foreground/90">{brl(p.total)}</div>
+          <div className="flex-1 min-h-0 flex flex-col gap-2.5 px-3 pb-3 sm:flex-none sm:grid sm:grid-cols-2 sm:gap-6 sm:px-0 sm:pb-0">
+            <button
+              onClick={() => setSection("payment")}
+              className="flex-1 min-h-0 sm:flex-none sm:min-h-[240px] w-full text-left rounded-2xl p-4 sm:p-7 border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group overflow-hidden"
+            >
+              <div className="h-full flex flex-col items-center justify-center text-center gap-2.5 sm:items-start sm:justify-start sm:text-left sm:gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/15 flex items-center justify-center shrink-0 border border-emerald-500/20 text-3xl sm:w-16 sm:h-16 sm:text-4xl">💳</div>
+                <div className="min-w-0 sm:flex-1">
+                  <p className="text-xl font-bold text-foreground sm:text-2xl">Pagamentos e Recargas</p>
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-3 sm:text-base sm:mt-2 sm:leading-relaxed">
+                    Veja seu saldo de créditos, seus clientes e quem vence nos próximos dias. Compre créditos na hora, no preço da sua faixa.
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-sm font-semibold px-4 py-1.5 sm:text-base sm:px-5 sm:py-2 group-hover:bg-emerald-500/25 transition-colors">
+                  Comprar créditos
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setSection("apps")}
+              className="flex-1 min-h-0 sm:flex-none sm:min-h-[240px] w-full text-left rounded-2xl p-4 sm:p-7 border-2 border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 hover:shadow-md transition-all shadow-sm group overflow-hidden"
+            >
+              <div className="h-full flex flex-col items-center justify-center text-center gap-2.5 sm:items-start sm:justify-start sm:text-left sm:gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-3xl sm:w-16 sm:h-16 sm:text-4xl">📱</div>
+                <div className="min-w-0 sm:flex-1">
+                  <p className="text-xl font-bold text-foreground sm:text-2xl">Meus Aplicativos</p>
+                  <p className="text-sm text-muted-foreground mt-1 line-clamp-3 sm:text-base sm:mt-2 sm:leading-relaxed">
+                    Cadastre os aplicativos dos seus clientes, configure a lista com um toque e pague ativações sem sair daqui.
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-sm font-semibold px-4 py-1.5 sm:text-base sm:px-5 sm:py-2 group-hover:bg-amber-500/25 transition-colors">
+                  Ver aplicativos
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </span>
+              </div>
+            </button>
+          </div>
         </div>
+      </div>
+    );
+  }
+
+  // ================= APLICATIVOS (próxima fase) =================
+  if (section === "apps") {
+    return (
+      <div className="min-h-screen bg-background">
+        {topBar}
+        <div className="max-w-6xl mx-auto space-y-3 sm:space-y-4 px-0 sm:px-4 py-4 sm:py-6">
+          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+            <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
+              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">📱 Meus Aplicativos</h2>
+            </div>
+            <div className="p-4 sm:p-6 text-center space-y-3">
+              <div className="text-4xl">🚧</div>
+              <p className="text-base font-semibold text-foreground">Em breve por aqui</p>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                Você vai cadastrar os aparelhos dos seus clientes (ID/MAC, Device Key e lista M3U), configurar a lista com um toque e pagar a
+                ativação do aplicativo — com aviso no seu WhatsApp quando ficar pronto.
+              </p>
+              {supportDigits && (
+                <a
+                  href={waLink("Olá! Sou revenda e preciso de ajuda com um aplicativo de cliente.")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#25D366] text-white font-bold rounded-xl hover:bg-[#20BA5A] transition-colors"
+                >
+                  <IconWhatsapp /> Precisa agora? Fale com o suporte
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ================= PAGAMENTOS E RECARGAS =================
+  const st = server?.stats || null;
+  const lowBalance = !!st && st.credits <= 5;
+  return (
+    <div className="min-h-screen bg-background">
+      {topBar}
+      <div className="max-w-6xl mx-auto space-y-3 sm:space-y-4 px-0 sm:px-4 py-4 sm:py-6">
+        {data.servers.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto px-3 sm:px-0">
+            {data.servers.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setServerId(s.id)}
+                className={`px-3 py-1.5 rounded-lg border text-sm font-medium whitespace-nowrap ${
+                  s.id === serverId ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-600" : "border-border text-muted-foreground"
+                }`}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {!server ? (
+          <div className="bg-card rounded-xl border border-border p-6 text-center text-sm text-muted-foreground">Nenhum servidor vinculado.</div>
+        ) : (
+          <>
+            {/* Saldo (no lugar do "Status da Assinatura") */}
+            <div
+              className={`w-full text-center py-2.5 sm:py-4 rounded-xl shadow-sm border-2 ${
+                !st ? "bg-muted border-border" : lowBalance ? "bg-amber-500/10 border-amber-500/20" : "bg-emerald-500/10 border-emerald-500/20"
+              }`}
+            >
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Saldo de créditos · {server.name}</p>
+              <div className="flex items-center justify-center gap-2">
+                <span className={`w-3 h-3 rounded-full animate-pulse ${!st ? "bg-muted-foreground" : lowBalance ? "bg-amber-500" : "bg-emerald-500"}`} />
+                <span className={`text-lg sm:text-xl font-black tracking-tight ${!st ? "text-muted-foreground" : lowBalance ? "text-amber-600" : "text-emerald-500"}`}>
+                  {st ? `${st.credits} ${st.credits === 1 ? "crédito" : "créditos"}` : "Saldo indisponível no momento"}
+                  {lowBalance && " · saldo baixo"}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {syncing ? "Atualizando com o painel..." : server.synced_at ? `Atualizado ${dateTimeBR(server.synced_at)}` : ""}
+              </p>
+            </div>
+
+            {/* Dados de acesso */}
+            <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+              <div className="bg-muted/50 px-3 sm:px-4 py-2 sm:py-3 border-b border-border">
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">📺 Dados de Acesso</h2>
+              </div>
+              <div className="p-2.5 sm:p-4 grid grid-cols-2 gap-2 sm:gap-3">
+                <Field label="Usuário" mono value={server.username || "—"} />
+                <Field label="Servidor" value={server.name} />
+              </div>
+            </div>
+
+            {/* Seus clientes */}
+            <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+              <div className="bg-muted/50 px-3 sm:px-4 py-2 sm:py-3 border-b border-border">
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">👥 Seus Clientes</h2>
+              </div>
+              <div className="p-2.5 sm:p-4 space-y-2 sm:space-y-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                  <Field label="Clientes" value={st ? String(st.total) : "—"} bold />
+                  <Field label="Ativos" value={st ? String(st.active) : "—"} tone="text-emerald-600" bold />
+                  <Field label="Expirados" value={st ? String(st.expired) : "—"} tone="text-rose-500" bold />
+                  <Field label="Vencem em 2 dias" value={st ? String(st.expiring_2d.length) : "—"} tone="text-amber-600" bold />
+                </div>
+                {st && st.expiring_2d.length > 0 && (
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Vencem nos próximos 2 dias</div>
+                    {st.expiring_2d.map((u) => (
+                      <div key={u.username} className="flex justify-between text-sm">
+                        <span className="font-mono text-foreground">{u.username}</span>
+                        <span className="text-muted-foreground">{panelDate(u.expires_at)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Comprar créditos — faixas da Tabela Revenda */}
+            <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+              <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">💰 Comprar Créditos</h2>
+              </div>
+              <div className="p-3 sm:p-4 space-y-3">
+                {sortedPrices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Preços ainda não disponíveis — fale com o suporte.</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                      {sortedPrices.map((p) => {
+                        const active = tier?.credits === p.credits;
+                        return (
+                          <button
+                            key={p.credits}
+                            onClick={() => setQty(p.credits)}
+                            className={`rounded-xl border-2 px-2.5 py-2 text-left transition-colors ${
+                              active ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:border-emerald-500/40"
+                            }`}
+                          >
+                            <div className="text-[10px] font-semibold text-emerald-600">a partir de {p.credits} cr</div>
+                            <div className="text-sm sm:text-base font-bold text-foreground">
+                              {brl(p.price)}
+                              <span className="text-[10px] text-muted-foreground font-normal">/cr</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">Quantidade</label>
+                      <div className="flex items-center rounded-lg border border-border overflow-hidden">
+                        <button onClick={() => setQty((q) => Math.max(5, q - 5))} className="w-9 h-9 text-lg text-muted-foreground hover:bg-muted">
+                          −
+                        </button>
+                        <input
+                          value={qty || ""}
+                          onChange={(e) => setQty(Number(e.target.value.replace(/\D/g, "")) || 0)}
+                          inputMode="numeric"
+                          className="w-16 h-9 text-center bg-transparent text-base font-bold text-foreground outline-none border-x border-border"
+                        />
+                        <button onClick={() => setQty((q) => q + 5)} className="w-9 h-9 text-lg text-muted-foreground hover:bg-muted">
+                          +
+                        </button>
+                      </div>
+                      {tier && (
+                        <span className="text-xs text-muted-foreground">
+                          {brl(tier.price)}/crédito
+                        </span>
+                      )}
+                    </div>
+                    {qty > 0 && qty < 5 && <p className="text-xs text-rose-500">O mínimo é 5 créditos.</p>}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {sortedPrices.length > 0 && (
+              <a
+                href={
+                  qty >= 5 && supportDigits
+                    ? waLink(
+                        `Olá! Quero comprar ${qty} créditos no ${server.name} (usuário ${server.username || "—"}) — ${brl(total)}.`,
+                      )
+                    : undefined
+                }
+                target="_blank"
+                rel="noreferrer"
+                aria-disabled={qty < 5 || !supportDigits}
+                className={`w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-base sm:text-lg ${
+                  qty < 5 || !supportDigits ? "opacity-50 pointer-events-none" : ""
+                }`}
+              >
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
+                Comprar {qty} créditos • {brl(total)}
+              </a>
+            )}
+            <p className="text-[11px] text-center text-muted-foreground -mt-1">
+              O pedido vai para o suporte no WhatsApp. Em breve o pagamento por PIX direto aqui.
+            </p>
+
+            {/* Histórico de compras */}
+            <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+              <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">🧾 Suas Compras de Crédito</h2>
+              </div>
+              <div className="p-3 sm:p-4">
+                {data.purchases.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma compra registrada.</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {data.purchases.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 text-sm">
+                        <div>
+                          <div className="text-foreground font-medium">
+                            {p.credits} créditos · {p.server}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">{dateBR(p.at)}</div>
+                        </div>
+                        <div className="text-foreground font-medium">{brl(p.total)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 }
 
-function Stat({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+function Field({ label, value, mono, bold, tone }: { label: string; value: string; mono?: boolean; bold?: boolean; tone?: string }) {
   return (
-    <div className="rounded-xl border border-border px-3 py-2">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        {icon}
-        <span>{label}</span>
+    <div>
+      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">{label}</label>
+      <div
+        className={`text-sm ${mono ? "font-mono" : bold ? "font-bold" : "font-medium"} ${tone || "text-foreground"} bg-muted px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg border border-border truncate`}
+      >
+        {value}
       </div>
-      <div className="text-lg font-semibold text-foreground mt-0.5">{value}</div>
     </div>
+  );
+}
+
+function IconWhatsapp() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+    </svg>
+  );
+}
+
+function IconLogout() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
   );
 }
