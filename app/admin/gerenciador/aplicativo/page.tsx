@@ -750,39 +750,72 @@ export default function AppManagerPage() {
     loadData();
   }, []);
 
+  // ✅ 06/10/2026: regra de CADA filtro num lugar só — usada pra filtrar e
+  // pra contar quantos apps cabem em cada opção (filtro só oferece o que tem).
+  // Valor "todos"/"todas"/"Todos" = sem filtro.
+  type AppFilterKind = "device" | "star" | "config" | "integration" | "renew" | "cost";
+  const appMatches = React.useCallback(
+    (a: any, kind: AppFilterKind, v: string): boolean => {
+      if (v === "todos" || v === "todas" || v === "Todos") return true;
+      switch (kind) {
+        case "device":
+          // ✅ 02/10/2026: "Sem aparelho" = ainda não mapeado (nem à mão nem pela AtivaApp)
+          return v === "__none__"
+            ? effectiveDevices(a, appativaCatalog).value.length === 0
+            : effectiveDevices(a, appativaCatalog).value.includes(v);
+        case "star": {
+          const t = effectiveTier(a, appativaCatalog).value;
+          return v === "sem" ? !t : t === Number(v);
+        }
+        case "config":
+          return v === "auto" ? !!a.integration_type : !a.integration_type;
+        case "integration":
+          return v === "none" ? !a.integration_type : a.integration_type === v;
+        case "renew": {
+          // mesma regra dos raios do card (activationProviders)
+          const via: string[] = [];
+          if (a.integration_type === "DUPLECAST") via.push("DupleCast");
+          if (a.appativa_app_id) via.push("AtivaApp");
+          if (a.integration_type === "GERENCIAAPP") via.push("GerenciaApp");
+          return v === "none" ? via.length === 0 : via.includes(v);
+        }
+        case "cost":
+          return (a.cost_type || "") === v;
+      }
+    },
+    [appativaCatalog],
+  );
+
   const filteredApps = React.useMemo(() => {
     const q = search.trim().toLowerCase();
     return apps.filter((a) => {
       if (q && !String(a.name ?? "").toLowerCase().includes(q)) return false;
-      if (deviceTypeFilter === "__none__") {
-        // ✅ 02/10/2026: "Sem aparelho" = ainda não mapeado (nem à mão nem pela AtivaApp)
-        if (effectiveDevices(a, appativaCatalog).value.length > 0) return false;
-      } else if (
-        deviceTypeFilter !== "Todos" &&
-        !effectiveDevices(a, appativaCatalog).value.includes(deviceTypeFilter)
-      )
-        return false;
-      if (starFilter !== "todas") {
-        const t = effectiveTier(a, appativaCatalog).value;
-        if (starFilter === "sem" ? !!t : t !== Number(starFilter)) return false;
-      }
-      if (configFilter === "auto" && !a.integration_type) return false;
-      if (configFilter === "manual" && !!a.integration_type) return false;
-      if (integrationFilter !== "todas") {
-        if (integrationFilter === "none" ? !!a.integration_type : a.integration_type !== integrationFilter) return false;
-      }
-      if (renewFilter !== "todas") {
-        // mesma regra dos raios do card (activationProviders)
-        const via: string[] = [];
-        if (a.integration_type === "DUPLECAST") via.push("DupleCast");
-        if (a.appativa_app_id) via.push("AtivaApp");
-        if (a.integration_type === "GERENCIAAPP") via.push("GerenciaApp");
-        if (renewFilter === "none" ? via.length > 0 : !via.includes(renewFilter)) return false;
-      }
-      if (costFilter !== "todos" && (a.cost_type || "") !== costFilter) return false;
-      return true;
+      return (
+        appMatches(a, "device", deviceTypeFilter) &&
+        appMatches(a, "star", starFilter) &&
+        appMatches(a, "config", configFilter) &&
+        appMatches(a, "integration", integrationFilter) &&
+        appMatches(a, "renew", renewFilter) &&
+        appMatches(a, "cost", costFilter)
+      );
     });
-  }, [search, apps, deviceTypeFilter, appativaCatalog, starFilter, configFilter, integrationFilter, renewFilter, costFilter]);
+  }, [search, apps, appMatches, deviceTypeFilter, starFilter, configFilter, integrationFilter, renewFilter, costFilter]);
+
+  // ✅ 06/10/2026, pedido do Márcio: filtro só existe se tiver o que filtrar.
+  // Contagem por opção sobre o catálogo inteiro (não cruzada); a opção
+  // ativa nunca some. O select inteiro some quando nenhuma opção divide a
+  // lista (todas vazias ou uma só com todos os apps).
+  const appCount = React.useCallback(
+    (kind: AppFilterKind, v: string) => apps.filter((a) => appMatches(a, kind, v)).length,
+    [apps, appMatches],
+  );
+  const optOk = (kind: AppFilterKind, v: string, current: string) => v === current || appCount(kind, v) > 0;
+  const selectUseful = (kind: AppFilterKind, values: string[], current: string, def: string) =>
+    current !== def ||
+    values.some((v) => {
+      const n = appCount(kind, v);
+      return n > 0 && n < apps.length;
+    });
 
   const hasActiveFilters =
     deviceTypeFilter !== "Todos" ||
@@ -1969,6 +2002,7 @@ export default function AppManagerPage() {
       {(() => {
         const filterSelects = (
           <>
+              {selectUseful("star", ["5", "4", "3", "2", "1", "sem"], starFilter, "todas") && (
               <select
                 value={starFilter}
                 onChange={(e) => setStarFilter(e.target.value)}
@@ -1976,13 +2010,15 @@ export default function AppManagerPage() {
                 className={`${filterSelectCls} ${starFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
               >
                 <option value="todas">Todas as estrelas</option>
-                <option value="5">★★★★★ 5 estrelas</option>
-                <option value="4">★★★★ 4 estrelas</option>
-                <option value="3">★★★ 3 estrelas</option>
-                <option value="2">★★ 2 estrelas</option>
-                <option value="1">★ 1 estrela</option>
-                <option value="sem">Sem estrela</option>
+                {optOk("star", "5", starFilter) && <option value="5">★★★★★ 5 estrelas</option>}
+                {optOk("star", "4", starFilter) && <option value="4">★★★★ 4 estrelas</option>}
+                {optOk("star", "3", starFilter) && <option value="3">★★★ 3 estrelas</option>}
+                {optOk("star", "2", starFilter) && <option value="2">★★ 2 estrelas</option>}
+                {optOk("star", "1", starFilter) && <option value="1">★ 1 estrela</option>}
+                {optOk("star", "sem", starFilter) && <option value="sem">Sem estrela</option>}
               </select>
+              )}
+              {selectUseful("config", ["auto", "manual"], configFilter, "todas") && (
               <select
                 value={configFilter}
                 onChange={(e) => setConfigFilter(e.target.value)}
@@ -1990,9 +2026,11 @@ export default function AppManagerPage() {
                 className={`${filterSelectCls} ${configFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
               >
                 <option value="todas">Automático e manual</option>
-                <option value="auto">Automático</option>
-                <option value="manual">Manual</option>
+                {optOk("config", "auto", configFilter) && <option value="auto">Automático</option>}
+                {optOk("config", "manual", configFilter) && <option value="manual">Manual</option>}
               </select>
+              )}
+              {selectUseful("integration", ["none", ...integrationFilterOptions.map((o) => o.value)], integrationFilter, "todas") && (
               <select
                 value={integrationFilter}
                 onChange={(e) => setIntegrationFilter(e.target.value)}
@@ -2000,13 +2038,15 @@ export default function AppManagerPage() {
                 className={`${filterSelectCls} ${integrationFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
               >
                 <option value="todas">Todas as integrações</option>
-                <option value="none">Sem integração</option>
+                {optOk("integration", "none", integrationFilter) && <option value="none">Sem integração</option>}
                 {integrationFilterOptions.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
                 ))}
               </select>
+              )}
+              {selectUseful("renew", ["AtivaApp", "DupleCast", "GerenciaApp", "none"], renewFilter, "todas") && (
               <select
                 value={renewFilter}
                 onChange={(e) => setRenewFilter(e.target.value)}
@@ -2014,11 +2054,13 @@ export default function AppManagerPage() {
                 className={`${filterSelectCls} ${renewFilter !== "todas" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
               >
                 <option value="todas">Toda ativação</option>
-                <option value="AtivaApp">⚡ AtivaApp</option>
-                <option value="DupleCast">⚡ DupleCast</option>
-                <option value="GerenciaApp">⚡ GerenciaApp</option>
-                <option value="none">Sem ativação automática</option>
+                {optOk("renew", "AtivaApp", renewFilter) && <option value="AtivaApp">⚡ AtivaApp</option>}
+                {optOk("renew", "DupleCast", renewFilter) && <option value="DupleCast">⚡ DupleCast</option>}
+                {optOk("renew", "GerenciaApp", renewFilter) && <option value="GerenciaApp">⚡ GerenciaApp</option>}
+                {optOk("renew", "none", renewFilter) && <option value="none">Sem ativação automática</option>}
               </select>
+              )}
+              {selectUseful("cost", ["paid", "free", "partnership"], costFilter, "todos") && (
               <select
                 value={costFilter}
                 onChange={(e) => setCostFilter(e.target.value)}
@@ -2026,10 +2068,12 @@ export default function AppManagerPage() {
                 className={`${filterSelectCls} ${costFilter !== "todos" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
               >
                 <option value="todos">Pago, grátis e parceria</option>
-                <option value="paid">Pago</option>
-                <option value="free">Gratuito</option>
-                <option value="partnership">Parceria</option>
+                {optOk("cost", "paid", costFilter) && <option value="paid">Pago</option>}
+                {optOk("cost", "free", costFilter) && <option value="free">Gratuito</option>}
+                {optOk("cost", "partnership", costFilter) && <option value="partnership">Parceria</option>}
               </select>
+              )}
+              {selectUseful("device", ["__none__", ...deviceOptions], deviceTypeFilter, "Todos") && (
               <select
                 value={deviceTypeFilter}
                 onChange={(e) => setDeviceTypeFilter(e.target.value)}
@@ -2037,13 +2081,14 @@ export default function AppManagerPage() {
                 className={`${filterSelectCls} ${deviceTypeFilter !== "Todos" ? "border-emerald-500/50 bg-emerald-500/5 text-emerald-700 dark:text-emerald-300" : ""}`}
               >
                 <option value="Todos">Todos os aparelhos</option>
-                <option value="__none__">Sem aparelho (não mapeado)</option>
-                {deviceOptions.map((dt) => (
+                {optOk("device", "__none__", deviceTypeFilter) && <option value="__none__">Sem aparelho (não mapeado)</option>}
+                {deviceOptions.filter((dt) => optOk("device", dt, deviceTypeFilter)).map((dt) => (
                   <option key={dt} value={dt}>
                     {deviceLabel(dt)}
                   </option>
                 ))}
               </select>
+              )}
           </>
         );
         const searchBox = (
