@@ -276,12 +276,15 @@ export async function configureClientApp(
   // parecida ou TODAS as listas do aparelho (regra do Remover). Agora
   // Configurar e Reconfigurar só apagam a lista com o MESMO nome exato (a
   // própria, pra não duplicar ao reenviar) e criam de novo — nunca a mais
-  // parecida, nunca as outras listas do aparelho. Duplex TV fica de fora:
-  // o parceiro só sabe apagar TODAS as listas do MAC, então lá só adiciona.
+  // parecida, nunca as outras listas do aparelho. Ficam de fora (só
+  // adicionam): Duplex TV (o parceiro só sabe apagar TODAS as listas do MAC)
+  // e DupleCast (a VM, sem achar o nome, apaga a que "contém" o nome ou a
+  // ÚNICA lista do aparelho, seja de quem for — corrigir isso exige
+  // atualizar a VM).
   // Secundária tem nome próprio (sufixo _2) — principal e secundária
   // convivem no aparelho, uma nunca apaga a outra.
   const listName = mode === "secundaria" ? `${finalServerName}_2` : finalServerName;
-  if (handler.actionPrefix !== "DUPLEXTV") {
+  if (handler.actionPrefix !== "DUPLEXTV" && handler.actionPrefix !== "DUPLECAST") {
     try {
       const deletePayload = handler.buildDeletePayload({
         username: client.server_username,
