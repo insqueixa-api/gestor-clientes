@@ -105,11 +105,41 @@ export async function POST(req: NextRequest) {
     // carregar os apps) — as duas queries são independentes entre si (só
     // precisam de client_id), eram 2 round-trips sequenciais.
     // ✅ 04/10/2026: logos de download da conta (Computador/Downloader/iPhone)
-    const dlLogosPromise = supabaseAdmin
-      .from("app_download_logos")
-      .select("pc_logo_url, downloader_logo_url, ios_logo_url")
-      .eq("tenant_id", ctx.tenant_id)
-      .maybeSingle();
+    // ✅ 06/10/2026 (auditoria de performance, pedido do Márcio): tudo que só
+    // depende da conta sai numa leva só, em paralelo — antes eram 6 etapas em
+    // sequência (apps → pagamentos pendentes → cliente → servidor → acesso).
+    // Pagamentos pendentes filtram por client_id (não precisam dos ids dos
+    // apps), o cliente já vem com o servidor junto (1 consulta em vez de 2) e
+    // a permissão de "Adicionar" não espera mais o resto.
+    // ⚠️ Promise.resolve(...) dispara a consulta AGORA — o query builder do
+    // Supabase é preguiçoso (só executa quando alguém dá await/then); sem
+    // isso, guardar numa variável não paraleliza nada.
+    const dlLogosPromise = Promise.resolve(
+      supabaseAdmin
+        .from("app_download_logos")
+        .select("pc_logo_url, downloader_logo_url, ios_logo_url")
+        .eq("tenant_id", ctx.tenant_id)
+        .maybeSingle(),
+    );
+    const pendingManualPromise = Promise.resolve(
+      supabaseAdmin
+        .from("client_portal_payments")
+        .select("client_app_id, fulfillment_error, created_at")
+        .eq("tenant_id", ctx.tenant_id)
+        .eq("client_id", client_id)
+        .eq("payment_type", "app_renewal")
+        .eq("status", "approved")
+        .eq("fulfillment_status", "manual_pending")
+        .order("created_at", { ascending: true }),
+    );
+    const clientPromise = Promise.resolve(
+      supabaseAdmin
+        .from("clients")
+        .select("server_username, server_password, server_id, m3u_url, m3u_url_secondary, price_currency, servers(name, dns)")
+        .eq("id", client_id)
+        .maybeSingle(),
+    );
+    const addAccessPromise = getPortalAddAppAccess(supabaseAdmin, ctx.tenant_id, ctx.whatsapp_username);
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
@@ -145,20 +175,12 @@ export async function POST(req: NextRequest) {
     // "Tentar novamente" no card certo.
     const pendingRenewalErrorByAppId = new Map<string, string>();
     if (clientAppIds.length > 0) {
-      const { data: pendingManualPayments } = await supabaseAdmin
-        .from("client_portal_payments")
-        .select("client_app_id, fulfillment_error, created_at")
-        .eq("tenant_id", ctx.tenant_id)
-        .eq("client_id", client_id)
-        .eq("payment_type", "app_renewal")
-        .eq("status", "approved")
-        .eq("fulfillment_status", "manual_pending")
-        .in("client_app_id", clientAppIds)
-        .order("created_at", { ascending: true });
+      const { data: pendingManualPayments } = await pendingManualPromise;
+      const ownAppIds = new Set(clientAppIds.map(String));
 
       for (const p of pendingManualPayments || []) {
         const appId = String((p as any).client_app_id || "");
-        if (!appId) continue;
+        if (!appId || !ownAppIds.has(appId)) continue;
         pendingManualRenewalByAppId.add(appId);
         // ✅ Ordenado por created_at asc — a última sobrescreve, então o
         // mapa sempre fica com o erro mais recente pra esse app.
@@ -195,17 +217,11 @@ export async function POST(req: NextRequest) {
     let instructionVars: Record<string, string> | null = null;
     let clientCurrency = "BRL";
     if (hasAnyInstructions || hasAnyPaidLicense) {
-      const { data: client } = await supabaseAdmin
-        .from("clients")
-        .select("server_username, server_password, server_id, m3u_url, m3u_url_secondary, price_currency")
-        .eq("id", client_id)
-        .maybeSingle();
+      const { data: client } = await clientPromise;
       clientCurrency = String(client?.price_currency || "BRL").trim() || "BRL";
 
       if (hasAnyInstructions) {
-        const { data: server } = client?.server_id
-          ? await supabaseAdmin.from("servers").select("name, dns").eq("id", client.server_id).maybeSingle()
-          : { data: null };
+        const server = ((client as any)?.servers || null) as { name?: string; dns?: unknown } | null;
         const dns = pickRandomDns(Array.isArray(server?.dns) ? server.dns : []);
         const username = client?.server_username || "";
         const password = client?.server_password || "";
@@ -385,7 +401,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       // ✅ 04/10/2026: botão "Adicionar aplicativo" (chave do admin + testers)
-      { ok: true, data: apps, can_add_app: (await getPortalAddAppAccess(supabaseAdmin, ctx.tenant_id, ctx.whatsapp_username)).canAdd },
+      { ok: true, data: apps, can_add_app: (await addAccessPromise).canAdd },
       { status: 200, headers: NO_STORE_HEADERS },
     );
   } catch {

@@ -84,22 +84,36 @@ export async function validatePortalClient(
   if (!isPlausibleSessionToken(session_token)) return null;
   if (!isUuid(client_id)) return null;
 
-  const { data: sess, error: sessErr } = await supabaseAdmin
-    .from("client_portal_sessions")
-    .select("tenant_id, whatsapp_username, phone_anchor")
-    .eq("session_token", session_token)
-    .gt("expires_at", new Date().toISOString())
-    .single();
-
-  if (sessErr || !sess) return null;
-
-  const accessibleIds = await resolveAccessibleClientIds(
-    supabaseAdmin,
-    sess.tenant_id,
-    sess.whatsapp_username,
-    (sess as any).phone_anchor ?? null,
-  );
-  if (!accessibleIds.includes(client_id)) return null;
+  // ✅ 06/10/2026 (performance): sessão + "essa conta é dessa sessão?" numa
+  // ida só ao banco (docs/sql/portal_validate_client.sql), em vez de 2 em
+  // sequência — toda rota do portal passa por aqui. Mesma regra de
+  // identidade (portal_client_ids_for_identity) por dentro.
+  let sess: { tenant_id: string; whatsapp_username: string } | null = null;
+  const { data: rows, error: rpcErr } = await supabaseAdmin.rpc("portal_validate_client", {
+    p_session_token: session_token,
+    p_client_id: client_id,
+  });
+  if (!rpcErr) {
+    sess = Array.isArray(rows) && rows.length ? (rows[0] as any) : null;
+  } else {
+    // fallback (função ainda não aplicada no banco): caminho antigo, 2 idas
+    const { data: s, error: sessErr } = await supabaseAdmin
+      .from("client_portal_sessions")
+      .select("tenant_id, whatsapp_username, phone_anchor")
+      .eq("session_token", session_token)
+      .gt("expires_at", new Date().toISOString())
+      .single();
+    if (!sessErr && s) {
+      const accessibleIds = await resolveAccessibleClientIds(
+        supabaseAdmin,
+        s.tenant_id,
+        s.whatsapp_username,
+        (s as any).phone_anchor ?? null,
+      );
+      if (accessibleIds.includes(client_id)) sess = s as any;
+    }
+  }
+  if (!sess) return null;
 
   // ✅ Não bloqueia a resposta por causa disso (pedido do Márcio, 26/07/2026
   // — lentidão sentida ao carregar/adicionar apps): touchPortalSession é só
