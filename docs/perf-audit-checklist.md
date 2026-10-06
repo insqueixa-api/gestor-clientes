@@ -1,5 +1,44 @@
 # Auditoria de performance (data-fetching) — checklist
 
+## Rodada 2 (06/10/2026)
+
+Motivo: muita coisa nova desde 24/08 (portal, aplicativos, Elite, cupons).
+
+- **Medição real**: `pg_stat_statements` acumulava desde jan/2026 (misturava
+  código já corrigido, ex: monitor da fila que fazia polling até 29/08).
+  Backup salvo e estatísticas ZERADAS em 06/10/2026 — reler depois de uns
+  dias de uso pra ver o comportamento atual (consultas `authenticated`/`anon`
+  ordenadas por `total_exec_time` e `calls`).
+- **Banco não é o gargalo hoje** (medido como admin logado, mediana de 5):
+  `get_dashboard_iptv_bundle` 25ms, `get_dashboard_finance_bundle` 17ms,
+  `get_clients_list_page` 23ms, `get_clients_filter_facets` 7ms. O custo
+  estava nas idas e voltas EM SEQUÊNCIA nas rotas do portal.
+- ✅ Validação de sessão do portal (toda rota): 2 idas → 1
+  (`portal_validate_client`, docs/sql/portal_validate_client.sql), usada por
+  `validatePortalClient` (com fallback pro caminho antigo).
+- ✅ `apps/list`: 6 etapas sequenciais → 2 (pendências por client_id, cliente
+  já com servidor, acesso "Adicionar" em paralelo).
+- ✅ `get-prices`: até 8 idas → 2 (cliente + tabela + itens + preços +
+  integração numa consulta aninhada; tabela padrão em paralelo). Conferido
+  igual ao jeito antigo (Fast e Elite).
+- ✅ `get-accounts`: 4 → 2 (`portal_session_accounts`: sessão + ids numa ida;
+  pendências em paralelo com as contas).
+- ✅ `pending-charges`: validação 2 → 1.
+- ✅ `payment-status` (polling do PIX): pagamento + contas da sessão em paralelo.
+- ✅ `create-payment`: validação 2 → 1 e tabela de preço junto com o cliente
+  (−2 idas antes do PIX). Só leituras mudaram, nenhuma regra de cálculo.
+- 🔎 Admin: Dashboard (2 RPCs em paralelo), Aplicativos (Promise.all + 2
+  cargas avulsas paralelas), AdminShell (notificações 1x), polling (PIX
+  progressivo 10s→5s, WhatsApp 80s/5min) — ok.
+- ⚠️ **Lição**: o query builder do Supabase é PREGUIÇOSO — guardar
+  `supabase.from(...)` numa variável NÃO dispara a consulta; só sai no
+  await. Pra paralelizar de verdade: `Promise.all([...])` ou
+  `Promise.resolve(builder)` na hora de criar.
+- ⬜ Pendente: reler `pg_stat_statements` após uso real; `validate-coupon`
+  ainda valida em 2 idas (só no clique de "Aplicar cupom", baixa frequência).
+
+---
+
 **Status: pente-fino completo (24/08/2026)** — todo `app/admin/**` (páginas +
 modais) e o Portal do Cliente (`/renew`) foram auditados. Achados reais
 corrigidos e no ar; o que já estava bom ficou documentado como tal (🔎)
