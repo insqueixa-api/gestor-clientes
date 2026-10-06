@@ -2509,7 +2509,11 @@ function ClientePageContent() {
                       </Td>
 
                       <Td align="center">
-                        <div className="flex flex-wrap gap-1 justify-center max-w-[200px] sm:max-w-[400px] mx-auto">
+                        {/* ✅ 06/10/2026, pedido do Márcio: no celular cabia 1 app por
+                            linha (caixa de 200px) e a linha ficava gigante — agora a
+                            coluna é mais larga no celular (a tabela já rola pro lado),
+                            ~3 por linha; no computador segue como estava. */}
+                        <div className="flex flex-wrap gap-1 justify-center w-[320px] sm:w-auto sm:max-w-[400px] mx-auto">
                           {r.apps && r.apps.length > 0 ? (() => {
                             // ✅ Contador por nome, zerado a cada linha de
                             // cliente — nunca por Set/booleano de nome: o
@@ -2545,7 +2549,7 @@ function ClientePageContent() {
                                     e.stopPropagation();
                                     openEditById(r.id, "apps");
                                   }}
-                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm active:scale-95 transition-all max-w-[170px] truncate ${
+                                  className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-1 rounded-lg border text-[10px] font-medium tracking-tight shadow-sm active:scale-95 transition-all max-w-[170px] truncate ${
                                     hasIntegration
                                       ? "border-sky-500/20 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
                                       : "border-amber-500/20 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
