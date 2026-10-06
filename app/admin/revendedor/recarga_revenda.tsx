@@ -7,6 +7,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useTenantId } from "@/lib/tenant-context";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
 import { Modal, ModalHeader, ModalBody } from "@/components/ui/Modal";
+import { useConfirm } from "@/hooks/useConfirm";
 
 type Currency = "BRL" | "USD" | "EUR";
 
@@ -46,6 +47,8 @@ type ResellerServerRow = {
   server_name: string | null;
   server_is_archived: boolean | null;
   server_logo_url: string | null; // ✅ NOVO
+  // login da revenda no painel do servidor (destino do envio de crédito)
+  server_username: string | null;
 
   // pode existir no seu view
   unit_price_override?: number | null;
@@ -201,6 +204,16 @@ export default function QuickRechargeModal({
     { id: string; label: string }[]
   >([{ id: "default", label: "Carregando..." }]);
 
+  // ✅ 06/10/2026: envio do crédito pela API do servidor (NaTV). O id da
+  // transferência nasce 1x por tentativa — clique duplo/reenvio cai no mesmo
+  // registro no servidor e nunca envia 2x (ver .../natv/transfer-credits).
+  const { confirm } = useConfirm();
+  const [serverProvider, setServerProvider] = useState<string | null>(null);
+  const [autoSend, setAutoSend] = useState(true);
+  const [transferId, setTransferId] = useState<string>(() => crypto.randomUUID());
+  const [openTransfer, setOpenTransfer] = useState<any | null>(null);
+  const [resolving, setResolving] = useState(false);
+
   async function loadWhatsAppSessions() {
     try {
       const [res1, res2] = await Promise.all([
@@ -255,6 +268,79 @@ export default function QuickRechargeModal({
       ) || null
     );
   }, [servers, selectedResellerServerId]);
+
+  const recipientUsername = String(selectedLink?.server_username || "").trim();
+  const canAutoSend = serverProvider === "NATV" && !!recipientUsername;
+  const sendingViaApi = canAutoSend && autoSend;
+
+  // Provedor da integração do servidor escolhido + envio pendente de conferência
+  useEffect(() => {
+    let alive = true;
+    setServerProvider(null);
+    setOpenTransfer(null);
+    if (!selectedLink?.server_id) return;
+    (async () => {
+      const { data: srv } = await supabaseBrowser
+        .from("servers")
+        .select("panel_integration")
+        .eq("id", selectedLink.server_id)
+        .maybeSingle();
+      if (!alive || !srv?.panel_integration) return;
+      const { data: integ } = await supabaseBrowser
+        .from("server_integrations")
+        .select("provider")
+        .eq("id", srv.panel_integration)
+        .maybeSingle();
+      const provider = String(integ?.provider || "").toUpperCase() || null;
+      if (!alive) return;
+      setServerProvider(provider);
+      if (provider === "NATV") {
+        const res = await fetch("/api/integrations/natv/transfer-credits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "open", reseller_server_id: selectedLink.reseller_server_id }),
+        }).catch(() => null);
+        const j = res ? await res.json().catch(() => ({})) : {};
+        if (alive) setOpenTransfer(j?.open || null);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [selectedLink?.server_id, selectedLink?.reseller_server_id]);
+
+  async function resolveOpenTransfer(outcome: "arrived" | "not_arrived") {
+    if (!openTransfer || resolving) return;
+    const ok = await confirm({
+      title: outcome === "arrived" ? "Os créditos chegaram?" : "Os créditos NÃO chegaram?",
+      subtitle:
+        outcome === "arrived"
+          ? `Confirme que você viu os ${openTransfer.amount} créditos na conta ${openTransfer.recipient_username} no painel do NaTV. A venda será registrada no Financeiro.`
+          : `Confirme que você conferiu no painel do NaTV e os ${openTransfer.amount} créditos não chegaram em ${openTransfer.recipient_username}. Nada será registrado e você poderá enviar de novo.`,
+      tone: outcome === "arrived" ? "emerald" : "rose",
+      confirmText: outcome === "arrived" ? "Chegou" : "Não chegou",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+    setResolving(true);
+    try {
+      const res = await fetch("/api/integrations/natv/transfer-credits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resolve", transfer_id: openTransfer.id, outcome }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j?.ok) throw new Error(j?.error || "Falha ao resolver o envio.");
+      setOpenTransfer(null);
+      if (outcome === "arrived" && j?.sale_error) {
+        onError?.(`Envio confirmado, mas falhou registrar a venda: ${j.sale_error}`);
+      }
+    } catch (e: any) {
+      onError?.(e?.message || "Falha ao resolver o envio.");
+    } finally {
+      setResolving(false);
+    }
+  }
 
   const totalCurrency = useMemo(() => {
     if (!qty || !Number.isFinite(unitCurrency) || unitCurrency <= 0) return NaN;
@@ -388,6 +474,7 @@ export default function QuickRechargeModal({
           server_name: r.server_name ?? null,
           server_is_archived: r.server_is_archived ?? false,
           server_logo_url: r.server_logo_url ?? null, // ✅ NOVO
+          server_username: r.server_username ?? null,
 
           unit_price_override:
             r.unit_price_override != null
@@ -506,6 +593,24 @@ export default function QuickRechargeModal({
 
   async function onSave() {
     if (!canSave || saving) return;
+    if (sendingViaApi && openTransfer) {
+      onError?.("Há um envio anterior sem confirmação. Resolva ele (Chegou / Não chegou) antes de enviar outro.");
+      return;
+    }
+    if (sendingViaApi) {
+      const ok = await confirm({
+        title: `Enviar ${qty} créditos no NaTV?`,
+        subtitle: `Os créditos saem da sua conta e vão para "${recipientUsername}". O NaTV não permite desfazer o envio.`,
+        details: [
+          `Revenda: ${resellerName}`,
+          `Valor da venda: ${fmtMoney("BRL", totalBRL)}`,
+        ],
+        tone: "amber",
+        confirmText: "Enviar créditos",
+        cancelText: "Voltar",
+      });
+      if (!ok) return;
+    }
 
     setSaving(true);
     setLoadingText("Processando recarga..."); // ✅ Adicionado
@@ -548,7 +653,40 @@ export default function QuickRechargeModal({
         p_notes: autoNote,
       };
 
-      if (hasIntegration) {
+      if (hasIntegration && sendingViaApi) {
+        // 3A') ✅ 06/10/2026: envia o crédito de verdade no NaTV. A rota faz
+        // trava + conferência antes/depois e SÓ registra a venda com o
+        // crédito confirmado — aqui não chama o RPC da venda.
+        setLoadingText("Enviando créditos no NaTV...");
+        const res = await fetch("/api/integrations/natv/transfer-credits", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "transfer",
+            transfer_id: transferId,
+            reseller_server_id: selectedResellerServerId,
+            amount: qty,
+            unit_price: unitCurrency,
+            currency,
+            total_brl: totalBRL,
+            notes: autoNote,
+          }),
+        });
+        const j = await res.json().catch(() => ({}) as any);
+        if (j?.unknown || res.status === 409) {
+          // sem confirmação: trava novas recargas até conferir no painel
+          setOpenTransfer(j?.transfer || j?.open || null);
+          throw new Error(j?.error || "Envio sem confirmação — confira no painel do NaTV.");
+        }
+        if (!res.ok || !j?.ok) {
+          // recusado ANTES/NO envio: nada saiu → próxima tentativa é outra transferência
+          setTransferId(crypto.randomUUID());
+          throw new Error(j?.error || "Falha ao enviar os créditos.");
+        }
+        if (j?.sale_error) {
+          onError?.(`Créditos enviados, mas falhou registrar a venda: ${j.sale_error}`);
+        }
+      } else if (hasIntegration) {
         // 3A) Servidor COM integração → salva log + sync
         const { error: saleErr } = await supabaseBrowser.rpc(
           "sell_credits_to_reseller_without_balance",
@@ -556,6 +694,9 @@ export default function QuickRechargeModal({
         );
 
         if (saleErr) throw new Error(saleErr.message);
+      }
+
+      if (hasIntegration) {
 
         // 3B) Busca provider da integração
         const { data: integData, error: integErr } = await supabaseBrowser
@@ -589,7 +730,8 @@ export default function QuickRechargeModal({
         });
 
         const syncJson = await syncRes.json().catch(() => ({}));
-        if (!syncRes.ok || !syncJson?.ok) {
+        // pelo envio via API o saldo já foi atualizado na rota — sync aqui é bônus
+        if ((!syncRes.ok || !syncJson?.ok) && !sendingViaApi) {
           throw new Error(
             "Venda registrada, mas falhou ao sincronizar saldo: " +
               (syncJson?.error || ""),
@@ -765,6 +907,55 @@ export default function QuickRechargeModal({
                   </p>
                 )}
               </div>
+
+              {/* ✅ Envio do crédito pela API (NaTV) */}
+              {canAutoSend && (
+                <div className="p-3 rounded-xl border border-border flex flex-col gap-2">
+                  <div
+                    onClick={() => setAutoSend(!autoSend)}
+                    className="cursor-pointer flex items-center gap-3"
+                  >
+                    <Switch checked={autoSend} onChange={setAutoSend} label="" />
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Enviar os créditos no NaTV automaticamente para{" "}
+                      <span className="font-semibold text-foreground/90">{recipientUsername}</span>
+                    </span>
+                  </div>
+                  {!autoSend && (
+                    <p className="text-[11px] text-muted-foreground/70">
+                      Só registra a venda — você envia os créditos no painel.
+                    </p>
+                  )}
+                  {openTransfer && (
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600 dark:text-amber-400 space-y-2">
+                      <div>
+                        Envio de <b>{openTransfer.amount} créditos</b> em{" "}
+                        {new Date(openTransfer.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}{" "}
+                        ficou <b>sem confirmação</b>. Confira no painel do NaTV se chegou em{" "}
+                        {openTransfer.recipient_username} antes de enviar outro.
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={resolving}
+                          onClick={() => resolveOpenTransfer("arrived")}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold disabled:opacity-50"
+                        >
+                          Chegou
+                        </button>
+                        <button
+                          type="button"
+                          disabled={resolving}
+                          onClick={() => resolveOpenTransfer("not_arrived")}
+                          className="px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted font-semibold disabled:opacity-50"
+                        >
+                          Não chegou
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Grid Principal */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -968,11 +1159,11 @@ export default function QuickRechargeModal({
                       setSaving(false);
                     })
                   }
-                  disabled={!canSave || saving}
+                  disabled={!canSave || saving || (sendingViaApi && !!openTransfer)}
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:hover:bg-emerald-600 disabled:opacity-50 text-white font-bold transition-colors flex items-center justify-center gap-2"
                 >
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {saving ? loadingText : "Confirmar recarga"}
+                  {saving ? loadingText : sendingViaApi ? "Enviar créditos e registrar" : "Confirmar recarga"}
                 </button>
               </div>
             </div>
