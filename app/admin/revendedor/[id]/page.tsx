@@ -615,6 +615,109 @@ export default function ResellerDetailPage() {
           </div>
           )}
 
+          {/* SERVIDORES VINCULADOS — ✅ 06/10/2026: veio pra coluna esquerda (pedido do Márcio) */}
+          <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+              Servidores Vinculados
+            </h3>
+
+            {servers.length === 0 ? (
+              <div className="p-8 text-center bg-transparent border border-dashed border-border rounded-xl text-muted-foreground italic">
+                Nenhum servidor vinculado.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                {servers.map((s) => (
+                  <div
+                    key={s.reseller_server_id}
+                    className="group relative flex flex-row flex-wrap items-center justify-between gap-y-3 p-3 bg-transparent border border-border rounded-xl hover:border-emerald-500/30 transition-all"
+                  >
+                    {/* Info do Servidor */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      {s.server_logo_url ? (
+                        <img
+                          src={s.server_logo_url}
+                          alt={s.server_name}
+                          className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg bg-card border border-border flex items-center justify-center text-lg font-medium text-muted-foreground shrink-0">
+                          {String(s.server_name || "?").charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium text-foreground text-sm">
+                          {s.server_name}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-2">
+                          <span>User: {s.server_username || "—"}</span>
+                          {s.server_password && (
+                            <span className="text-[10px] px-1.5 rounded bg-transparent opacity-70">
+                              Senha salva
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ações */}
+                    <div className="flex items-center gap-2 ml-auto">
+                      {/* Botão de Recarga mantido em destaque textual, mas alinhado */}
+                      <button
+                        onClick={() => {
+                          setQrResellerServerId(s.reseller_server_id);
+                          setQrOpen(true);
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
+                      >
+                        + Recarga
+                      </button>
+
+                      <IconActionBtn
+                        title="Editar Vínculo"
+                        tone="amber"
+                        onClick={() => {
+                          setEditLink({
+                            resellerServerId: s.reseller_server_id,
+                            initial: {
+                              server_id: s.server_id ?? null,
+                              server_username: s.server_username ?? null,
+                              server_password: s.server_password ?? null,
+                            },
+                          });
+                          setShowServerModal(true);
+                        }}
+                      >
+                        <IconEdit />
+                      </IconActionBtn>
+
+                      <IconActionBtn
+                        title="Remover Vínculo"
+                        tone="red"
+                        onClick={() =>
+                          handleDeleteLink(s.reseller_server_id, s.server_name)
+                        }
+                      >
+                        <IconTrash />
+                      </IconActionBtn>
+                    </div>
+
+                    {/* ✅ 06/10/2026: com painel integrado, o Resumo da conta vem pra cá */}
+                    {panelById[s.reseller_server_id]?.supported && (
+                      <ResumoContaNoCard
+                        since={fmtDate(reseller.created_at)}
+                        serversCount={servers.length}
+                        totalInvested={fmtBRL(totalInvested)}
+                        valuesHidden={valuesHidden}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* 2. CARD CONTATOS */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
             <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest">
@@ -710,111 +813,8 @@ export default function ResellerDetailPage() {
           </div>
         </div>
 
-        {/* ================= COLUNA DIREITA (2 SPANS: SERVIDORES + TIMELINE) ================= */}
+        {/* ================= COLUNA DIREITA (2 SPANS: HISTÓRICO) ================= */}
         <div className="lg:col-span-2 space-y-6">
-          {/* BLOCO 1: SERVIDORES VINCULADOS */}
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-              Servidores Vinculados
-            </h3>
-
-            {servers.length === 0 ? (
-              <div className="p-8 text-center bg-transparent border border-dashed border-border rounded-xl text-muted-foreground italic">
-                Nenhum servidor vinculado.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3">
-                {servers.map((s) => (
-                  <div
-                    key={s.reseller_server_id}
-                    className="group relative flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between p-4 bg-transparent border border-border rounded-xl hover:border-emerald-500/30 transition-all"
-                  >
-                    {/* Info do Servidor */}
-                    <div className="flex items-center gap-4 mb-3 sm:mb-0">
-                      {s.server_logo_url ? (
-                        <img
-                          src={s.server_logo_url}
-                          alt={s.server_name}
-                          className="w-12 h-12 rounded-lg object-cover border border-border shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-card border border-border flex items-center justify-center text-lg font-medium text-muted-foreground shrink-0">
-                          {String(s.server_name || "?").charAt(0)}
-                        </div>
-                      )}
-                      <div>
-                        <div className="font-medium text-foreground text-sm">
-                          {s.server_name}
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center gap-2">
-                          <span>User: {s.server_username || "—"}</span>
-                          {s.server_password && (
-                            <span className="text-[10px] px-1.5 rounded bg-transparent opacity-70">
-                              Senha salva
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Ações */}
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
-                      {/* Botão de Recarga mantido em destaque textual, mas alinhado */}
-                      <button
-                        onClick={() => {
-                          setQrResellerServerId(s.reseller_server_id);
-                          setQrOpen(true);
-                        }}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-500 text-xs font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-all mr-1"
-                      >
-                        + Recarga
-                      </button>
-
-                      <IconActionBtn
-                        title="Editar Vínculo"
-                        tone="amber"
-                        onClick={() => {
-                          setEditLink({
-                            resellerServerId: s.reseller_server_id,
-                            initial: {
-                              server_id: s.server_id ?? null,
-                              server_username: s.server_username ?? null,
-                              server_password: s.server_password ?? null,
-                            },
-                          });
-                          setShowServerModal(true);
-                        }}
-                      >
-                        <IconEdit />
-                      </IconActionBtn>
-
-                      <IconActionBtn
-                        title="Remover Vínculo"
-                        tone="red"
-                        onClick={() =>
-                          handleDeleteLink(s.reseller_server_id, s.server_name)
-                        }
-                      >
-                        <IconTrash />
-                      </IconActionBtn>
-                    </div>
-
-                    {/* ✅ 06/10/2026: com painel integrado, o Resumo da conta vem pra cá */}
-                    {panelById[s.reseller_server_id]?.supported && (
-                      <ResumoContaNoCard
-                        since={fmtDate(reseller.created_at)}
-                        serversCount={servers.length}
-                        totalInvested={fmtBRL(totalInvested)}
-                        valuesHidden={valuesHidden}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* BLOCO 2: HISTÓRICO */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
             <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-6 tracking-widest flex items-center gap-2">
