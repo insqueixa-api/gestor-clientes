@@ -13,6 +13,7 @@ import {
   fetchResellerWhatsApp,
   fetchManualPaymentVars,
   generatePortalLink,
+  generateResellerPortalLink,
   renderTemplate,
   pickRandomDns,
   toolConsultarPrecosTexto,
@@ -632,7 +633,16 @@ export async function POST(req: Request) {
           // ⚠️ O original tinha 30 dias aqui; removido a pedido — o link nunca deve expirar.
           // ✅ Usa safeUuidOrNull internamente: corrige o caso de job.created_by vir
           // como "system_fulfillment" (não-UUID), que antes quebrava o RPC em silêncio.
-          if (contact.number) {
+          // ✅ 06/10/2026: revenda recebe o link do Portal da Revenda (antes vinha vazio)
+          if (recipientType === "reseller") {
+            vars.link_pagamento = await generateResellerPortalLink(sb, {
+              tenantId: String(job.tenant_id),
+              resellerId: recipientId,
+              createdBy: job.created_by,
+              label: "Envio agendado",
+              onLog: safeServerLog,
+            });
+          } else if (contact.number) {
             vars.link_pagamento = await generatePortalLink(sb, {
               tenantId: String(job.tenant_id),
               contact: { number: contact.number, username: contact.username, is_secondary: contact.is_secondary },

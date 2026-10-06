@@ -1,6 +1,7 @@
 // app/api/client-portal/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { startResellerSessionFromToken } from "@/lib/reseller-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -81,14 +82,23 @@ export async function POST(req: NextRequest) {
       p_token: token,
     });
 
-    if (error) {
-      safeServerLog("[PORTAL][login] rpc error");
-      console.error("[login: rpc error (portal_start_session)]", { kind: "client_portal_error", route: "login", message: error?.message });
-      return NextResponse.json({ error: "invalid_credentials" }, { status: 401, headers: NO_STORE_HEADERS });
-    }
+    const row = !error && Array.isArray(data) ? data[0] : null;
 
-    const row = Array.isArray(data) ? data[0] : null;
     if (!row?.session_token) {
+      // ✅ 06/10/2026: token que NÃO é de cliente pode ser o link do Portal
+      // da Revenda (tabelas próprias, lib/reseller-portal/session.ts). Só
+      // roda quando o caminho do cliente já recusou — cliente não muda nada.
+      const reseller = await startResellerSessionFromToken(supabaseAdmin, token).catch(() => null);
+      if (reseller) {
+        return NextResponse.json(
+          { session_token: reseller.session_token, expires_at: reseller.expires_at, kind: "reseller" },
+          { status: 200, headers: NO_STORE_HEADERS },
+        );
+      }
+      if (error) {
+        safeServerLog("[PORTAL][login] rpc error");
+        console.error("[login: rpc error (portal_start_session)]", { kind: "client_portal_error", route: "login", message: error?.message });
+      }
       return NextResponse.json({ error: "invalid_credentials" }, { status: 401, headers: NO_STORE_HEADERS });
     }
 

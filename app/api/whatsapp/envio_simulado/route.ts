@@ -15,6 +15,7 @@ import {
   fetchResellerWhatsApp,
   fetchManualPaymentVars,
   generatePortalLink,
+  generateResellerPortalLink,
   renderTemplate,
   pickRandomDns,
   toolConsultarPrecosTexto,
@@ -142,14 +143,23 @@ export async function POST(req: Request) {
       vars.pendencia_detalhe = pendenciaDetalhe;
     }
 
-    vars.link_pagamento = await generatePortalLink(sb, {
-      tenantId,
-      contact: { number: contact.number, username: contact.username, is_secondary: contact.is_secondary },
-      createdBy: safeUserId,
-      label: contact.is_secondary ? "Envio simulado Secundário" : "Envio simulado",
-      expiresAt: null,
-      onLog: () => {},
-    });
+    // ✅ 06/10/2026: revenda recebe o link do Portal da Revenda (antes vinha vazio)
+    vars.link_pagamento =
+      recipientType === "reseller"
+        ? await generateResellerPortalLink(sb, {
+            tenantId,
+            resellerId: recipientId,
+            createdBy: safeUserId,
+            label: "Envio simulado",
+          })
+        : await generatePortalLink(sb, {
+            tenantId,
+            contact: { number: contact.number, username: contact.username, is_secondary: contact.is_secondary },
+            createdBy: safeUserId,
+            label: contact.is_secondary ? "Envio simulado Secundário" : "Envio simulado",
+            expiresAt: null,
+            onLog: () => {},
+          });
 
     if (recipientType !== "reseller") {
       vars.cupom_frase = await getCouponPhraseForClient(sb, tenantId, wa.row);

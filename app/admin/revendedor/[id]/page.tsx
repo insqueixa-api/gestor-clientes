@@ -23,6 +23,7 @@ const QuickRechargeModal = dynamic(() => import("../recarga_revenda"), {
 // Componentes Visuais
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { usePainelStats, ResumoContaNoCard, PainelContaCard } from "./painel_stats";
+import PortalRevendaMenu from "./portal_menu";
 import { formatDateBR } from "@/lib/date-br";
 
 /* =========================
@@ -548,6 +549,9 @@ export default function ResellerDetailPage() {
           >
             Voltar
           </Link>
+
+          {/* ✅ 06/10/2026: Portal da Revenda (acessar / copiar / trocar link / desvincular) */}
+          <PortalRevendaMenu resellerId={reseller.id} onToast={addToast} />
 
           {/* Vincular Servidor (Visível Mobile e Desktop) */}
           <button

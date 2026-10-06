@@ -262,6 +262,14 @@ export default function LoginClient() {
         return;
       }
 
+      // ✅ 06/10/2026: link do Portal da Revenda → sessão própria + /revenda
+      if (data?.kind === "reseller") {
+        setStored("rp_session", String(sessionToken));
+        clearStored(KEY_LOGIN_TOKEN);
+        window.location.href = "/revenda";
+        return;
+      }
+
       // ✅ BLINDADO: guarda sessão e vai pro destino SEM querystring
       setStored(KEY_SESSION, String(sessionToken));
 
