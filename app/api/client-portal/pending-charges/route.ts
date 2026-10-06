@@ -1,8 +1,8 @@
 // app/api/client-portal/pending-charges/route.ts
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getPendingCharges } from "@/lib/client-portal/pending-charges";
-import { touchPortalSession } from "@/lib/client-portal/session";
+import { validatePortalClient } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -55,32 +55,11 @@ export async function POST(req: NextRequest) {
     if (!isPlausibleSessionToken(session_token)) return jsonError("Sessão inválida", 401);
     if (!isUuid(client_id)) return jsonError("Cliente não encontrado", 404);
 
-    const { data: sess, error: sessErr } = await supabaseAdmin
-      .from("client_portal_sessions")
-      .select("tenant_id, whatsapp_username, phone_anchor")
-      .eq("session_token", session_token)
-      .gt("expires_at", new Date().toISOString())
-      .single();
-
-    if (sessErr || !sess) return jsonError("Sessão inválida", 401);
-
-    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
-    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
-    after(() => touchPortalSession(supabaseAdmin, session_token));
-
-    // ✅ Texto OU âncora de telefone (ver
-    // docs/sql/portal_phone_anchor_hybrid_identity.sql)
-    const { data: idsData, error: idsErr } = await supabaseAdmin.rpc(
-      "portal_client_ids_for_identity",
-      {
-        p_tenant_id: sess.tenant_id,
-        p_whatsapp_username: sess.whatsapp_username,
-        p_phone_anchor: (sess as any).phone_anchor ?? null,
-      },
-    );
-    if (idsErr) return jsonError("Erro interno", 500);
-    const accessibleIds = new Set(((idsData as { id: string }[] | null) || []).map((r) => r.id));
-    if (!accessibleIds.has(client_id)) return jsonError("Cliente não encontrado", 404);
+    // ✅ 06/10/2026 (performance): sessão + "conta é dessa sessão" (texto OU
+    // âncora de telefone) numa ida só — validatePortalClient também estende
+    // a sessão sem segurar a resposta.
+    const sess = await validatePortalClient(supabaseAdmin, session_token, client_id);
+    if (!sess) return jsonError("Sessão inválida", 401);
 
     const { data: client, error: clientErr } = await supabaseAdmin
       .from("clients")

@@ -86,20 +86,19 @@ async function fetchPayment(supabaseAdmin: any, tenantId: string, paymentId: str
 // conta que trocou de whatsapp_username pra um username reservado do
 // WhatsApp nunca confirmava o próprio pagamento, mesmo já pago (o polling de
 // payment-status caía sempre em "Pagamento não encontrado").
-async function paymentBelongsToWhatsapp(
+async function sessionClientIds(
   supabaseAdmin: any,
   tenantId: string,
-  clientId: string,
   whatsapp: string,
   phoneAnchor: string | null,
-) {
+): Promise<string[]> {
   const { data, error } = await supabaseAdmin.rpc("portal_client_ids_for_identity", {
     p_tenant_id: tenantId,
     p_whatsapp_username: whatsapp,
     p_phone_anchor: phoneAnchor,
   });
-  if (error || !data) return false;
-  return (data as { id: string }[]).some((r) => r.id === clientId);
+  if (error || !data) return [];
+  return (data as { id: string }[]).map((r) => String(r.id));
 }
 
 async function refreshMercadoPagoStatusIfNotApproved(
@@ -228,11 +227,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Erro interno" }, { status: 500, headers: NO_STORE_HEADERS });
     }
 
-    // 2) Buscar pagamento
-    let payment = await fetchPayment(supabaseAdmin, tenantId, String(payment_id));
+    // 2) Buscar pagamento + contas da sessão EM PARALELO (✅ 06/10/2026,
+    // performance: rota chamada a cada ~3s no PIX; antes eram 2 idas em
+    // sequência aqui — as duas só dependem da sessão)
+    const [fetchedPayment, accessibleIds] = await Promise.all([
+      fetchPayment(supabaseAdmin, tenantId, String(payment_id)),
+      sessionClientIds(supabaseAdmin, tenantId, whatsapp, (sess as any).phone_anchor ?? null),
+    ]);
+    let payment = fetchedPayment;
 
     // ✅ garante que o pagamento pertence ao mesmo whatsapp da sessão
-    const owns = await paymentBelongsToWhatsapp(supabaseAdmin, tenantId, String(payment.client_id), whatsapp, (sess as any).phone_anchor ?? null);
+    const owns = accessibleIds.includes(String(payment.client_id));
     if (!owns) {
       return NextResponse.json({ ok: false, error: "Pagamento não encontrado" }, { status: 404, headers: NO_STORE_HEADERS });
     }
