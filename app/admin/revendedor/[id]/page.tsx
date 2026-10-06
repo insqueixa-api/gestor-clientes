@@ -22,7 +22,7 @@ const QuickRechargeModal = dynamic(() => import("../recarga_revenda"), {
 
 // Componentes Visuais
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
-import PainelStats from "./painel_stats";
+import { usePainelStats, PainelResumoCard, PainelContaCard } from "./painel_stats";
 import { formatDateBR } from "@/lib/date-br";
 
 /* =========================
@@ -476,6 +476,13 @@ export default function ResellerDetailPage() {
     }, 0);
   }, [history]);
 
+  // ✅ 06/10/2026: resumo do painel (NaTV) por vínculo — mesmo estado pro
+  // card do servidor e pro card "Conta no painel" da coluna esquerda.
+  const { byId: panelById, sync: syncPanel } = usePainelStats(
+    servers.map((s) => s.reseller_server_id).filter(Boolean),
+  );
+  const panelLinks = servers.filter((s) => panelById[s.reseller_server_id]?.supported);
+
   if (loading)
     return (
       <div className="p-10 text-center text-muted-foreground animate-pulse font-medium">
@@ -559,7 +566,19 @@ export default function ResellerDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-0 sm:px-0">
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4">
-          {/* 1. CARD RESUMO */}
+          {/* 1. CARD RESUMO — ✅ 06/10/2026: com painel integrado (NaTV), aqui
+              fica a conta no painel e o "Resumo da conta" vai pro card do
+              servidor; sem painel, continua o resumo de sempre. */}
+          {panelLinks.length > 0 ? (
+            panelLinks.map((s) => (
+              <PainelContaCard
+                key={s.reseller_server_id}
+                state={panelById[s.reseller_server_id]}
+                serverName={s.server_name}
+                username={s.server_username ?? null}
+              />
+            ))
+          ) : (
           <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
             <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest">
               Resumo da Conta
@@ -593,6 +612,7 @@ export default function ResellerDetailPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* 2. CARD CONTATOS */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
@@ -779,8 +799,17 @@ export default function ResellerDetailPage() {
                       </IconActionBtn>
                     </div>
 
-                    {/* ✅ 06/10/2026: resumo do painel (NaTV) + Sync */}
-                    <PainelStats resellerServerId={s.reseller_server_id} username={s.server_username} />
+                    {/* ✅ 06/10/2026: resumo do painel (NaTV) + Resumo da conta + Sync */}
+                    {panelById[s.reseller_server_id] && (
+                      <PainelResumoCard
+                        state={panelById[s.reseller_server_id]}
+                        onSync={() => syncPanel(s.reseller_server_id)}
+                        since={fmtDate(reseller.created_at)}
+                        serversCount={servers.length}
+                        totalInvested={fmtBRL(totalInvested)}
+                        valuesHidden={valuesHidden}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
