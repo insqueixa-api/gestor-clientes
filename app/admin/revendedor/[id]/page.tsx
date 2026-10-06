@@ -566,55 +566,6 @@ export default function ResellerDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-0 sm:px-0">
         {/* COLUNA ESQUERDA */}
         <div className="space-y-4">
-          {/* 1. CARD RESUMO — ✅ 06/10/2026: com painel integrado (NaTV), aqui
-              fica a conta no painel e o "Resumo da conta" vai pro card do
-              servidor; sem painel, continua o resumo de sempre. */}
-          {panelLinks.length > 0 ? (
-            panelLinks.map((s) => (
-              <PainelContaCard
-                key={s.reseller_server_id}
-                state={panelById[s.reseller_server_id]}
-                onSync={() => syncPanel(s.reseller_server_id)}
-                serverName={s.server_name}
-                username={s.server_username ?? null}
-              />
-            ))
-          ) : (
-          <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
-            <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest">
-              Resumo da Conta
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-border">
-                <span className="text-muted-foreground font-medium">Desde</span>
-                <span className="font-medium text-foreground/90 text-right">
-                  {fmtDate(reseller.created_at)}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">
-                  Servidores
-                </span>
-                <span className="font-medium text-foreground">
-                  {servers.length}
-                </span>
-              </div>
-
-              {/* TOTAL INVESTIDO */}
-              <div className="pt-4 mt-2 border-t border-border flex justify-between items-center bg-transparent p-3 rounded-lg">
-                <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
-                  Total Investido
-                </span>
-                <div
-                  className={`text-right font-medium text-base text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
-                >
-                  {fmtBRL(totalInvested)}
-                </div>
-              </div>
-            </div>
-          </div>
-          )}
-
           {/* SERVIDORES VINCULADOS — ✅ 06/10/2026: veio pra coluna esquerda (pedido do Márcio) */}
           <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
             <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest flex items-center gap-2">
@@ -717,6 +668,55 @@ export default function ResellerDetailPage() {
               </div>
             )}
           </div>
+
+          {/* 1. CARD RESUMO — ✅ 06/10/2026: com painel integrado (NaTV), aqui
+              fica a conta no painel e o "Resumo da conta" vai pro card do
+              servidor; sem painel, continua o resumo de sempre. */}
+          {panelLinks.length > 0 ? (
+            panelLinks.map((s) => (
+              <PainelContaCard
+                key={s.reseller_server_id}
+                state={panelById[s.reseller_server_id]}
+                onSync={() => syncPanel(s.reseller_server_id)}
+                serverName={s.server_name}
+                username={s.server_username ?? null}
+              />
+            ))
+          ) : (
+          <div className="bg-card border-y sm:border border-border sm:rounded-xl p-4 shadow-sm transition-colors">
+            <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-4 tracking-widest">
+              Resumo da Conta
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center pb-2 border-b border-border">
+                <span className="text-muted-foreground font-medium">Desde</span>
+                <span className="font-medium text-foreground/90 text-right">
+                  {fmtDate(reseller.created_at)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-medium">
+                  Servidores
+                </span>
+                <span className="font-medium text-foreground">
+                  {servers.length}
+                </span>
+              </div>
+
+              {/* TOTAL INVESTIDO */}
+              <div className="pt-4 mt-2 border-t border-border flex justify-between items-center bg-transparent p-3 rounded-lg">
+                <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">
+                  Total Investido
+                </span>
+                <div
+                  className={`text-right font-medium text-base text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
+                >
+                  {fmtBRL(totalInvested)}
+                </div>
+              </div>
+            </div>
+          </div>
+          )}
 
           {/* 2. CARD CONTATOS */}
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm transition-colors">
