@@ -215,6 +215,9 @@ export default function QuickRechargeModal({
   const [resolving, setResolving] = useState(false);
   // ✅ Pacotes da "Tabela Revenda" (Tabelas de Preço) do servidor escolhido
   const [packages, setPackages] = useState<{ credits: number; price: number | null }[]>([]);
+  // ✅ custo médio do crédito do servidor (servers.avg_credit_cost_brl — o
+  // mesmo "Custo crédito" do card de Servidor) pra mostrar o lucro da venda
+  const [avgCreditCost, setAvgCreditCost] = useState<number | null>(null);
 
   async function loadWhatsAppSessions() {
     try {
@@ -281,6 +284,7 @@ export default function QuickRechargeModal({
     setServerProvider(null);
     setOpenTransfer(null);
     setPackages([]);
+    setAvgCreditCost(null);
     if (!selectedLink?.server_id) return;
     supabaseBrowser
       .from("reseller_credit_packages")
@@ -299,10 +303,13 @@ export default function QuickRechargeModal({
     (async () => {
       const { data: srv } = await supabaseBrowser
         .from("servers")
-        .select("panel_integration")
+        .select("panel_integration, avg_credit_cost_brl")
         .eq("id", selectedLink.server_id)
         .maybeSingle();
-      if (!alive || !srv?.panel_integration) return;
+      if (!alive) return;
+      const avg = Number(srv?.avg_credit_cost_brl);
+      setAvgCreditCost(Number.isFinite(avg) && avg > 0 ? avg : null);
+      if (!srv?.panel_integration) return;
       const { data: integ } = await supabaseBrowser
         .from("server_integrations")
         .select("provider")
@@ -1154,9 +1161,34 @@ export default function QuickRechargeModal({
                       : "—"}
                   </div>
                 </div>
-                <div className="text-[10px] text-muted-foreground/60 italic text-right max-w-[160px]">
-                  Contabilidade processada em Reais (BRL).
-                </div>
+                {/* ✅ lucro = total da venda − créditos × custo médio do servidor */}
+                {avgCreditCost !== null && qty > 0 && Number.isFinite(totalBRL) ? (
+                  (() => {
+                    const cost = qty * avgCreditCost;
+                    const profit = totalBRL - cost;
+                    const pct = totalBRL > 0 ? (profit / totalBRL) * 100 : 0;
+                    const good = profit >= 0;
+                    return (
+                      <div className="text-right space-y-0.5">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
+                          {good ? "Lucro" : "Prejuízo"}
+                        </span>
+                        <div className={`text-xl font-medium tracking-tight ${good ? "text-emerald-500" : "text-rose-500"}`}>
+                          {good ? "+" : "−"}
+                          {fmtMoney("BRL", Math.abs(profit))}
+                          <span className="ml-1.5 text-xs font-semibold">({pct.toFixed(0)}%)</span>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground/70">
+                          custo {qty} × {fmtMoney("BRL", avgCreditCost)} = {fmtMoney("BRL", cost)}
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="text-[10px] text-muted-foreground/60 italic text-right max-w-[160px]">
+                    Contabilidade processada em Reais (BRL).
+                  </div>
+                )}
               </div>
 
               {/* ✅ BLOCO DO WHATSAPP (Agora com 2 selects) */}
