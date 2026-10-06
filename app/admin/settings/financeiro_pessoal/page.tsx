@@ -749,6 +749,28 @@ function FinanceiroPageContent() {
     recorrenciaFilter,
   ]);
 
+  // ✅ 06/10/2026, pedido do Márcio: filtro só oferece o que existe nos
+  // lançamentos carregados (o mês da tela) — conta/categoria sem lançamento
+  // somem; a opção ativa nunca some; o filtro inteiro some quando não divide
+  // nada (ex: só uma conta usada no mês).
+  const finUsed = useMemo(() => {
+    const recOf = (t: any) => {
+      if (t.observacoes === "Ajuste automático de saldo") return "AJUSTE";
+      if (t.parcela_total) return "PARCELADA";
+      if (t.is_recorrente) return "RECORRENTE";
+      return "UNICA";
+    };
+    return {
+      tipo: new Set(transacoes.map((t: any) => t.tipo).filter(Boolean)),
+      conta: new Set(transacoes.map((t: any) => t.conta_id).filter(Boolean)),
+      categoria: new Set(transacoes.map((t: any) => t.categoria_id).filter(Boolean)),
+      rec: new Set<string>(transacoes.map(recOf)),
+    };
+  }, [transacoes]);
+  const finOk = (kind: keyof typeof finUsed, v: string, current: string) =>
+    v === current || finUsed[kind].has(v);
+  const finUseful = (kind: keyof typeof finUsed, current: string) => current !== "Todos" || finUsed[kind].size > 1;
+
   // Base isolada para os cards: ignora todos os filtros, exceto a Conta
   const transacoesCards =
     contaFilter !== "Todos"
@@ -1165,41 +1187,47 @@ function FinanceiroPageContent() {
 
         {mobileFiltersOpen && (
           <div className="md:hidden grid grid-cols-3 gap-1.5 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
+            {finUseful("conta", contaFilter) && (
             <select
               value={contaFilter}
               onChange={(e) => setContaFilter(e.target.value)}
               className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
             >
               <option value="Todos">Conta</option>
-              {contasDB.map((c) => (
+              {contasDB.filter((c) => finOk("conta", c.id, contaFilter)).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nome}
                 </option>
               ))}
             </select>
+            )}
+            {finUseful("categoria", categoriaFilter) && (
             <select
               value={categoriaFilter}
               onChange={(e) => setCategoriaFilter(e.target.value)}
               className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
             >
               <option value="Todos">Categoria</option>
-              {categoriasDB.map((c) => (
+              {categoriasDB.filter((c) => finOk("categoria", c.id, categoriaFilter)).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nome}
                 </option>
               ))}
             </select>
+            )}
+            {finUseful("rec", recorrenciaFilter) && (
             <select
               value={recorrenciaFilter}
               onChange={(e) => setRecorrenciaFilter(e.target.value)}
               className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
             >
               <option value="Todos">Recorrência</option>
-              <option value="UNICA">Única</option>
-              <option value="RECORRENTE">Recorrente</option>
-              <option value="PARCELADA">Parcelada</option>
-              <option value="AJUSTE">Ajuste Auto</option>
+              {finOk("rec", "UNICA", recorrenciaFilter) && <option value="UNICA">Única</option>}
+              {finOk("rec", "RECORRENTE", recorrenciaFilter) && <option value="RECORRENTE">Recorrente</option>}
+              {finOk("rec", "PARCELADA", recorrenciaFilter) && <option value="PARCELADA">Parcelada</option>}
+              {finOk("rec", "AJUSTE", recorrenciaFilter) && <option value="AJUSTE">Ajuste Auto</option>}
             </select>
+            )}
           </div>
         )}
 
@@ -1249,50 +1277,58 @@ function FinanceiroPageContent() {
           >
             ✅ Concluído
           </button>
+          {finUseful("tipo", tipoFilter) && (
           <select
             value={tipoFilter}
             onChange={(e) => setTipoFilter(e.target.value)}
             className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
           >
             <option value="Todos">Tipo</option>
-            <option value="RECEITA">Receitas</option>
-            <option value="DESPESA">Despesas</option>
+            {finOk("tipo", "RECEITA", tipoFilter) && <option value="RECEITA">Receitas</option>}
+            {finOk("tipo", "DESPESA", tipoFilter) && <option value="DESPESA">Despesas</option>}
           </select>
+          )}
+          {finUseful("conta", contaFilter) && (
           <select
             value={contaFilter}
             onChange={(e) => setContaFilter(e.target.value)}
             className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
           >
             <option value="Todos">Conta</option>
-            {contasDB.map((c) => (
+            {contasDB.filter((c) => finOk("conta", c.id, contaFilter)).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nome}
               </option>
             ))}
           </select>
+          )}
+          {finUseful("categoria", categoriaFilter) && (
           <select
             value={categoriaFilter}
             onChange={(e) => setCategoriaFilter(e.target.value)}
             className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
           >
             <option value="Todos">Categoria</option>
-            {categoriasDB.map((c) => (
+            {categoriasDB.filter((c) => finOk("categoria", c.id, categoriaFilter)).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.nome}
               </option>
             ))}
           </select>
+          )}
+          {finUseful("rec", recorrenciaFilter) && (
           <select
             value={recorrenciaFilter}
             onChange={(e) => setRecorrenciaFilter(e.target.value)}
             className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
           >
             <option value="Todos">Recorrência</option>
-            <option value="UNICA">Única</option>
-            <option value="RECORRENTE">Recorrente</option>
-            <option value="PARCELADA">Parcelada</option>
-            <option value="AJUSTE">Ajuste Automático</option>
+            {finOk("rec", "UNICA", recorrenciaFilter) && <option value="UNICA">Única</option>}
+            {finOk("rec", "RECORRENTE", recorrenciaFilter) && <option value="RECORRENTE">Recorrente</option>}
+            {finOk("rec", "PARCELADA", recorrenciaFilter) && <option value="PARCELADA">Parcelada</option>}
+            {finOk("rec", "AJUSTE", recorrenciaFilter) && <option value="AJUSTE">Ajuste Automático</option>}
           </select>
+          )}
           <button
             onClick={() => {
               setSearch("");
