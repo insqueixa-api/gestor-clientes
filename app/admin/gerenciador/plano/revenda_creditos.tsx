@@ -165,7 +165,7 @@ export default function RevendaCreditosCard({ tenantId }: { tenantId: string | n
                           {p.credits} cr
                         </span>
                         <div className="text-sm font-medium text-foreground tracking-tight">
-                          {p.price === "" ? "A definir" : fmtBRL(Number(p.price))}
+                          {p.price === "" ? "A definir" : `${fmtBRL(Number(p.price))}/cr`}
                         </div>
                       </div>
                     ))}
@@ -290,7 +290,7 @@ function RevendaCreditosModal({
                     className="border border-border rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 flex flex-col justify-center h-16 sm:h-20 focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/20 transition-all"
                   >
                     <div className="flex justify-between items-center w-full mb-1 gap-1">
-                      <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">Créditos</span>
+                      <span className="text-[10px] sm:text-[11px] font-medium text-muted-foreground">A partir de</span>
                       <span className="flex items-center text-[9px] font-medium text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
                         <input
                           type="number"
@@ -326,9 +326,9 @@ function RevendaCreditosModal({
 
       <ModalFooter className="flex justify-between items-center">
         <span className="text-[10px] text-muted-foreground italic">
-          * Só BRL · mínimo 5 créditos por pacote (regra do NaTV)
+          * Só BRL · preço POR CRÉDITO a partir da quantidade · mínimo 5 (regra do NaTV)
         </span>
-        <span className="text-[10px] text-muted-foreground">Os preços vão direto para a Recarga rápida</span>
+        <span className="text-[10px] text-muted-foreground">A Recarga rápida usa a faixa pela quantidade digitada</span>
       </ModalFooter>
     </Modal>
   );

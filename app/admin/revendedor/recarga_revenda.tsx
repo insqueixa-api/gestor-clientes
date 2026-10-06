@@ -101,7 +101,7 @@ function toBRMoneyInput(n: number) {
 // --- COMPONENTES VISUAIS PADRONIZADOS ---
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-muted-foreground mb-1.5 tracking-tight">
+    <label className="block text-xs font-medium text-muted-foreground mb-1 tracking-tight">
       {children}
     </label>
   );
@@ -114,7 +114,7 @@ function Input({
   return (
     <input
       {...props}
-      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground/60 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-9 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 placeholder-muted-foreground/60 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     />
   );
 }
@@ -127,7 +127,7 @@ function Select({
   return (
     <select
       {...props}
-      className={`w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
+      className={`w-full h-9 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 transition-colors ${className}`}
     >
       {children}
     </select>
@@ -215,7 +215,6 @@ export default function QuickRechargeModal({
   const [resolving, setResolving] = useState(false);
   // ✅ Pacotes da "Tabela Revenda" (Tabelas de Preço) do servidor escolhido
   const [packages, setPackages] = useState<{ credits: number; price: number | null }[]>([]);
-  const [selectedPackage, setSelectedPackage] = useState<{ credits: number; price: number } | null>(null);
 
   async function loadWhatsAppSessions() {
     try {
@@ -282,7 +281,6 @@ export default function QuickRechargeModal({
     setServerProvider(null);
     setOpenTransfer(null);
     setPackages([]);
-    setSelectedPackage(null);
     if (!selectedLink?.server_id) return;
     supabaseBrowser
       .from("reseller_credit_packages")
@@ -361,25 +359,40 @@ export default function QuickRechargeModal({
     }
   }
 
-  // pacote escolhido (e não alterado depois): o total é o preço do pacote,
-  // não unitário arredondado × quantidade (ex: 30 cr por R$100 ≠ 3,33 × 30)
-  const packageActive =
-    !!selectedPackage && currency === "BRL" && qty === selectedPackage.credits;
+  // ✅ Tabela Revenda = preço POR CRÉDITO por faixa (10 cr R$13, 20 cr
+  // R$12,50 … 100 cr R$10 — como o Márcio preencheu). Faixa = o maior pacote
+  // com créditos ≤ quantidade; abaixo do menor, vale o menor.
+  const pricedPackages = useMemo(
+    () => packages.filter((p) => p.price != null && p.price > 0).sort((a, b) => a.credits - b.credits),
+    [packages],
+  );
+  function tierFor(q: number) {
+    if (!pricedPackages.length || !q) return null;
+    let tier = pricedPackages[0];
+    for (const p of pricedPackages) if (p.credits <= q) tier = p;
+    return tier;
+  }
+  const activeTier = currency === "BRL" ? tierFor(qty) : null;
+
+  // quantidade digitada → preço unitário da faixa (o Márcio ainda pode editar
+  // o unitário depois, à mão)
+  function onQtyChange(raw: string) {
+    const digits = onlyDigits(raw);
+    setQtyCredits(digits);
+    const tier = currency === "BRL" ? tierFor(Number(digits)) : null;
+    if (tier?.price) setUnitPriceCurrency(toBRMoneyInput(tier.price));
+  }
 
   const totalCurrency = useMemo(() => {
-    if (packageActive && selectedPackage) return selectedPackage.price;
     if (!qty || !Number.isFinite(unitCurrency) || unitCurrency <= 0) return NaN;
     return qty * unitCurrency;
-  }, [qty, unitCurrency, packageActive, selectedPackage]);
+  }, [qty, unitCurrency]);
 
   function pickPackage(p: { credits: number; price: number | null }) {
     setQtyCredits(String(p.credits));
     if (p.price != null && p.price > 0) {
       setCurrency("BRL");
-      setUnitPriceCurrency(toBRMoneyInput(p.price / p.credits));
-      setSelectedPackage({ credits: p.credits, price: p.price });
-    } else {
-      setSelectedPackage(null);
+      setUnitPriceCurrency(toBRMoneyInput(p.price));
     }
   }
 
@@ -885,10 +898,15 @@ export default function QuickRechargeModal({
         </h2>
         <div className="text-xs text-muted-foreground mt-0.5 font-medium">
           {resellerName}
+          {recipientUsername && (
+            <span className="ml-1.5 px-1.5 py-0.5 rounded bg-muted text-foreground/80 font-semibold">
+              {recipientUsername}
+            </span>
+          )}
         </div>
       </ModalHeader>
 
-        <ModalBody className="p-6 space-y-6 bg-card">
+        <ModalBody className="p-4 sm:p-5 space-y-4 bg-card">
           {loadErr && (
             <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-500 text-sm font-medium animate-in slide-in-from-top-2">
               <span className="font-medium">Erro:</span> {loadErr}
@@ -900,11 +918,11 @@ export default function QuickRechargeModal({
               Carregando servidores...
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* Servidor Selecionado */}
+            <div className="space-y-4">
+              {/* Servidor Selecionado (+ toggle do envio automático na mesma linha) */}
               <div className="animate-in slide-in-from-bottom-2 duration-300">
                 <Label>Servidor vinculado</Label>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                   {selectedLink?.server_logo_url ? (
                     <img
                       src={selectedLink.server_logo_url}
@@ -936,32 +954,33 @@ export default function QuickRechargeModal({
                       </option>
                     ))}
                   </Select>
+                  {/* ✅ Envio do crédito pela API (NaTV) */}
+                  {canAutoSend && (
+                    <div
+                      onClick={() => setAutoSend(!autoSend)}
+                      className="cursor-pointer flex items-center gap-2 shrink-0 h-9 px-2.5 rounded-lg border border-border"
+                    >
+                      <Switch checked={autoSend} onChange={setAutoSend} label="" />
+                      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        Enviar os créditos automaticamente
+                      </span>
+                    </div>
+                  )}
                 </div>
                 {lockServer && (
                   <p className="text-[10px] text-muted-foreground/60 mt-1 italic">
                     * Servidor travado para este contexto.
                   </p>
                 )}
+                {canAutoSend && !autoSend && (
+                  <p className="text-[11px] text-muted-foreground/70 mt-1">
+                    Só registra a venda — você envia os créditos no painel.
+                  </p>
+                )}
               </div>
 
-              {/* ✅ Envio do crédito pela API (NaTV) */}
-              {canAutoSend && (
-                <div className="p-3 rounded-xl border border-border flex flex-col gap-2">
-                  <div
-                    onClick={() => setAutoSend(!autoSend)}
-                    className="cursor-pointer flex items-center gap-3"
-                  >
-                    <Switch checked={autoSend} onChange={setAutoSend} label="" />
-                    <span className="text-xs font-medium text-muted-foreground">
-                      Enviar os créditos no NaTV automaticamente para{" "}
-                      <span className="font-semibold text-foreground/90">{recipientUsername}</span>
-                    </span>
-                  </div>
-                  {!autoSend && (
-                    <p className="text-[11px] text-muted-foreground/70">
-                      Só registra a venda — você envia os créditos no painel.
-                    </p>
-                  )}
+              {canAutoSend && openTransfer && (
+                <div>
                   {openTransfer && (
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-600 dark:text-amber-400 space-y-2">
                       <div>
@@ -996,24 +1015,34 @@ export default function QuickRechargeModal({
               {/* ✅ Pacotes da Tabela Revenda */}
               {packages.length > 0 && (
                 <div>
-                  <Label>Pacotes (Tabela Revenda)</Label>
+                  <Label>Preço por crédito (Tabela Revenda)</Label>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                     {packages.map((p) => {
-                      const active = packageActive && selectedPackage?.credits === p.credits;
+                      const active =
+                        !!activeTier &&
+                        activeTier.credits === p.credits &&
+                        Math.abs(unitCurrency - (p.price ?? -1)) < 0.005;
                       return (
                         <button
                           key={p.credits}
                           type="button"
                           onClick={() => pickPackage(p)}
-                          className={`rounded-lg border px-2 py-2 text-left transition-colors ${
+                          className={`rounded-lg border px-2 py-1.5 text-left transition-colors ${
                             active
                               ? "border-emerald-500/60 bg-emerald-500/10"
                               : "border-border hover:border-emerald-500/40"
                           }`}
                         >
-                          <div className="text-[10px] font-semibold text-emerald-500">{p.credits} cr</div>
+                          <div className="text-[10px] font-semibold text-emerald-500">a partir de {p.credits} cr</div>
                           <div className="text-sm font-medium text-foreground/90">
-                            {p.price != null && p.price > 0 ? fmtMoney("BRL", p.price) : "A definir"}
+                            {p.price != null && p.price > 0 ? (
+                              <>
+                                {fmtMoney("BRL", p.price)}
+                                <span className="text-[10px] text-muted-foreground font-normal">/cr</span>
+                              </>
+                            ) : (
+                              "A definir"
+                            )}
                           </div>
                         </button>
                       );
@@ -1023,14 +1052,14 @@ export default function QuickRechargeModal({
               )}
 
               {/* Grid Principal */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="animate-in slide-in-from-bottom-3 duration-400">
                   <Label>Quantidade de créditos</Label>
                   <Input
                     value={qtyCredits}
-                    onChange={(e) => setQtyCredits(onlyDigits(e.target.value))}
+                    onChange={(e) => onQtyChange(e.target.value)}
                     placeholder="Ex: 10"
-                    className="font-medium text-center text-lg"
+                    className="font-medium text-center text-base"
                     inputMode="numeric"
                   />
                 </div>
@@ -1051,10 +1080,7 @@ export default function QuickRechargeModal({
                     <Label>Preço unit.</Label>
                     <Input
                       value={unitPriceCurrency}
-                      onChange={(e) => {
-                        setUnitPriceCurrency(e.target.value);
-                        setSelectedPackage(null); // preço editado à mão: vale unitário × quantidade
-                      }}
+                      onChange={(e) => setUnitPriceCurrency(e.target.value)}
                       placeholder="0,00"
                       inputMode="decimal"
                     />
@@ -1064,7 +1090,7 @@ export default function QuickRechargeModal({
 
               {/* FX automático (do banco) */}
               {currency !== "BRL" && (
-                <div className="p-4 bg-sky-500/10 rounded-xl border border-sky-500/20 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                <div className="p-3 bg-sky-500/10 rounded-xl border border-sky-500/20 grid grid-cols-1 md:grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2">
                   <div className="space-y-1">
                     <Label>
                       <span className="flex justify-between">
@@ -1117,12 +1143,12 @@ export default function QuickRechargeModal({
               )}
 
               {/* Totais Finais */}
-              <div className="bg-transparent p-4 rounded-xl border border-border flex justify-between items-center animate-in zoom-in-95 duration-500">
+              <div className="bg-transparent px-3 py-2 rounded-xl border border-border flex justify-between items-center animate-in zoom-in-95 duration-500">
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
                     Valor contábil final
                   </span>
-                  <div className="text-2xl font-medium text-emerald-500 tracking-tight">
+                  <div className="text-xl font-medium text-emerald-500 tracking-tight">
                     {Number.isFinite(totalBRL)
                       ? fmtMoney("BRL", totalBRL)
                       : "—"}
@@ -1203,7 +1229,7 @@ export default function QuickRechargeModal({
               <div className="animate-in slide-in-from-bottom-4 duration-500">
                 <Label>Observações internas (opcional)</Label>
                 <textarea
-                  className="w-full h-24 px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-none transition-colors"
+                  className="w-full h-16 px-3 py-2 bg-transparent border border-border rounded-lg text-sm text-foreground/90 outline-none focus:border-emerald-500/50 resize-none transition-colors"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                 />
