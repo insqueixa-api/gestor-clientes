@@ -93,46 +93,36 @@ export async function POST(req: NextRequest) {
     const tenantId = ctx.tenant_id;
 
     // ✅ 06/10/2026 (auditoria de performance, pedido do Márcio): eram até 8
-    // idas ao banco em sequência (sessão → contas → cliente → tabela →
-    // tabela padrão → preços → servidor → integração). Agora, depois da
-    // validação, UMA leva em paralelo: o cliente já vem com a tabela dele
-    // (+ itens e preços) e a integração do servidor; a tabela padrão BRL
-    // (+ preços) vem junto, pro caso de a do cliente não valer.
+    // idas ao banco em sequência. Agora, depois da validação, UMA consulta:
+    // o cliente já vem com a tabela DELE (+ itens e preços) e a integração
+    // do servidor.
     const PRICE_TREE = "id, tenant_id, is_active, plan_table_items(period, plan_table_item_prices(screens_count, price_amount))";
-    const [{ data: client, error: clientErr }, { data: defaultTable, error: defErr }] = await Promise.all([
-      supabaseAdmin
-        .from("clients")
-        .select(
-          `screens, plan_label, price_amount, price_currency, plan_table_id, server_id,
-           plan_tables(${PRICE_TREE}),
-           servers(server_integrations(provider))`,
-        )
-        .eq("id", client_id)
-        .eq("tenant_id", tenantId)
-        .single(),
-      supabaseAdmin
-        .from("plan_tables")
-        .select(PRICE_TREE)
-        .eq("tenant_id", tenantId)
-        .eq("is_system_default", true)
-        .eq("currency", "BRL")
-        .eq("is_active", true)
-        .maybeSingle(),
-    ]);
+    const { data: client, error: clientErr } = await supabaseAdmin
+      .from("clients")
+      .select(
+        `screens, plan_label, price_amount, price_currency, plan_table_id, server_id,
+         plan_tables(${PRICE_TREE}),
+         servers(server_integrations(provider))`,
+      )
+      .eq("id", client_id)
+      .eq("tenant_id", tenantId)
+      .single();
 
     if (clientErr || !client) {
       safeServerLog("get-prices: client not found or not owned");
       return jsonError("Cliente não encontrado", 404);
     }
 
-    // 3. Tabela do cliente (se for do mesmo tenant e ativa) ou padrão BRL
-    const ownTable = (client as any).plan_tables as any;
-    const ownTableValid = !!ownTable && ownTable.tenant_id === tenantId && ownTable.is_active === true;
-    const table = ownTableValid ? ownTable : defaultTable;
-    if (!table) {
-      safeServerLog("get-prices: default price table not found", defErr?.message);
-      console.error("[get-prices: default price table not found]", { kind: "client_portal_error", route: "get-prices", tenant_id: tenantId });
-      return jsonError("Tabela de preços não encontrada", 404);
+    // 3. SEMPRE a tabela do próprio cliente (do mesmo tenant e ativa).
+    // ✅ 06/10/2026, pedido do Márcio: SEM fallback pra tabela padrão — antes
+    // uma tabela inválida/inativa caía em silêncio na padrão BRL e o cliente
+    // via (e pagava) preço de outra tabela. Agora recusa e loga.
+    const table = (client as any).plan_tables as any;
+    const tableValid = !!table && table.tenant_id === tenantId && table.is_active === true;
+    if (!tableValid) {
+      safeServerLog("get-prices: client price table missing/inactive", { client_id });
+      console.error("[get-prices: client price table missing/inactive]", { kind: "client_portal_error", route: "get-prices", tenant_id: tenantId, client_id });
+      return jsonError("Tabela de preços da conta não configurada. Fale com o suporte.", 409);
     }
 
     // 4. Preços da tabela (vieram junto)

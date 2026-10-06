@@ -28,27 +28,6 @@ export type PortalClientContext = {
   client_id: string;
 };
 
-// Resolve quais client_id essa sessão pode acessar — via o texto
-// (whatsapp_username/secondary, comportamento de sempre) OU via a âncora de
-// telefone (phone_anchor), que continua batendo mesmo quando uma das contas
-// do mesmo WhatsApp trocou de identidade pra um username (ver
-// docs/sql/portal_phone_anchor_hybrid_identity.sql). RPC única — evita
-// reimplementar essa lógica combinada em cada rota.
-async function resolveAccessibleClientIds(
-  supabaseAdmin: SupabaseClient,
-  tenantId: string,
-  whatsappUsername: string,
-  phoneAnchor: string | null,
-): Promise<string[]> {
-  const { data, error } = await supabaseAdmin.rpc("portal_client_ids_for_identity", {
-    p_tenant_id: tenantId,
-    p_whatsapp_username: whatsappUsername,
-    p_phone_anchor: phoneAnchor,
-  });
-  if (error || !data) return [];
-  return (data as { id: string }[]).map((r) => r.id);
-}
-
 // Sessão desliza: cada chamada válida empurra expires_at +30min de novo
 // (mesma janela do login, portal_start_session). Sem isso, um cliente que
 // demora a navegar/pagar (ex: PIX gerado aos 20min, pago aos 35min) perdia
@@ -88,31 +67,14 @@ export async function validatePortalClient(
   // ida só ao banco (docs/sql/portal_validate_client.sql), em vez de 2 em
   // sequência — toda rota do portal passa por aqui. Mesma regra de
   // identidade (portal_client_ids_for_identity) por dentro.
-  let sess: { tenant_id: string; whatsapp_username: string } | null = null;
   const { data: rows, error: rpcErr } = await supabaseAdmin.rpc("portal_validate_client", {
     p_session_token: session_token,
     p_client_id: client_id,
   });
-  if (!rpcErr) {
-    sess = Array.isArray(rows) && rows.length ? (rows[0] as any) : null;
-  } else {
-    // fallback (função ainda não aplicada no banco): caminho antigo, 2 idas
-    const { data: s, error: sessErr } = await supabaseAdmin
-      .from("client_portal_sessions")
-      .select("tenant_id, whatsapp_username, phone_anchor")
-      .eq("session_token", session_token)
-      .gt("expires_at", new Date().toISOString())
-      .single();
-    if (!sessErr && s) {
-      const accessibleIds = await resolveAccessibleClientIds(
-        supabaseAdmin,
-        s.tenant_id,
-        s.whatsapp_username,
-        (s as any).phone_anchor ?? null,
-      );
-      if (accessibleIds.includes(client_id)) sess = s as any;
-    }
-  }
+  // erro ou nenhuma linha = sessão recusada (sem caminho alternativo)
+  const sess = !rpcErr && Array.isArray(rows) && rows.length
+    ? (rows[0] as { tenant_id: string; whatsapp_username: string })
+    : null;
   if (!sess) return null;
 
   // ✅ Não bloqueia a resposta por causa disso (pedido do Márcio, 26/07/2026

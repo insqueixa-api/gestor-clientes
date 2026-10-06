@@ -184,54 +184,19 @@ let currency = String(client.price_currency || "BRL").trim() || "BRL";
 // 2.1) Calcular preço REAL (server)
 // ===============================
 
-// 1) resolve plan_table_id (valida tenant/ativa, senão cai no default BRL)
-let planTableId = String((client as any).plan_table_id || "").trim();
-
-// 1) se veio plan_table_id, valida e também pega a moeda real dela
-if (planTableId) {
-  // mesma validação de antes (tenant + ativa), com os dados que vieram junto do cliente
-  const pt = (client as any).plan_tables as { id: string; currency: string | null; tenant_id: string; is_active: boolean } | null;
-
-  if (!pt || pt.tenant_id !== sess.tenant_id || pt.is_active !== true) {
-    planTableId = "";
-  } else {
-    // ✅ moeda do plano é a fonte da verdade
-    if (pt.currency) currency = String(pt.currency).trim() || currency;
-  }
+// 1) SEMPRE a tabela do próprio cliente (mesmo tenant e ativa) — ela também
+// define a moeda. ✅ 06/10/2026, pedido do Márcio: SEM fallback pra tabela
+// padrão (antes caía em silêncio na padrão da moeda/BRL e cobrava preço de
+// outra tabela). Tabela inválida = não gera cobrança, avisa e loga.
+const pt = (client as any).plan_tables as { id: string; currency: string | null; tenant_id: string; is_active: boolean } | null;
+if (!pt || pt.tenant_id !== sess.tenant_id || pt.is_active !== true) {
+  safeServerLog("create-payment: client price table missing/inactive", { client_id });
+  console.error("[create-payment: client price table missing/inactive]", { kind: "client_portal_error", route: "create-payment", tenant_id: sess.tenant_id, client_id });
+  return jsonError("Tabela de preços da conta não configurada. Fale com o suporte.", 409);
 }
-
-// 2) fallback: tenta default da moeda atual; se não achar e não for BRL, tenta BRL
-if (!planTableId) {
-  const { data: def1, error: defErr1 } = await supabaseAdmin
-    .from("plan_tables")
-    .select("id, currency")
-    .eq("tenant_id", sess.tenant_id)
-    .eq("is_system_default", true)
-    .eq("currency", currency)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (def1 && !defErr1) {
-    planTableId = String(def1.id);
-    if (def1.currency) currency = String(def1.currency).trim() || currency;
-  } else if (currency !== "BRL") {
-    const { data: def2, error: defErr2 } = await supabaseAdmin
-      .from("plan_tables")
-      .select("id, currency")
-      .eq("tenant_id", sess.tenant_id)
-      .eq("is_system_default", true)
-      .eq("currency", "BRL")
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (!def2 || defErr2) return jsonError("Tabela de preços não encontrada", 404);
-
-    planTableId = String(def2.id);
-    currency = "BRL";
-  } else {
-    return jsonError("Tabela de preços não encontrada", 404);
-  }
-}
+const planTableId = String(pt.id);
+// ✅ moeda do plano é a fonte da verdade
+if (pt.currency) currency = String(pt.currency).trim() || currency;
 
 
 // 2) pega APENAS o período solicitado
