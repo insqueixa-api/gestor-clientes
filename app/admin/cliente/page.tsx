@@ -2513,7 +2513,7 @@ function ClientePageContent() {
                             linha (caixa de 200px) e a linha ficava gigante — agora a
                             coluna é mais larga no celular (a tabela já rola pro lado),
                             ~3 por linha; no computador segue como estava. */}
-                        <div className="flex flex-wrap gap-1 justify-center w-[320px] sm:w-auto sm:max-w-[400px] mx-auto">
+                        <div className="flex flex-wrap gap-1 justify-center w-[320px] sm:w-auto sm:max-w-[470px] mx-auto">
                           {r.apps && r.apps.length > 0 ? (() => {
                             // ✅ Contador por nome, zerado a cada linha de
                             // cliente — nunca por Set/booleano de nome: o
