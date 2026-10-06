@@ -270,25 +270,35 @@ export async function configureClientApp(
   const internalSecret = String(process.env.INTERNAL_API_SECRET || "");
   const apiEndpointUrl = internalAppUrl(handler.apiEndpoint || "");
 
-  // "Configurar" = deletar (tolerante a "não encontrado") + criar — muitos
-  // clientes já têm o app configurado de antes desse fluxo existir. Erro do
-  // delete nunca derruba o fluxo (best-effort, igual ao original).
-  try {
-    const deletePayload = handler.buildDeletePayload({
-      username: client.server_username,
-      finalServerName,
-      serverName: serverNameClean,
-      macValue,
-      appName: row.appName,
-      password: payloadPassword,
-    });
-    await fetch(apiEndpointUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
-      body: JSON.stringify({ ...deletePayload, base_url: integ?.api_url || "", deviceKey }),
-    });
-  } catch {
-    // best-effort — segue pro create de qualquer jeito
+  // ✅ 06/10/2026, pedido do Márcio: "se eu estiver apenas adicionando uma
+  // lista m3u, só quero adicionar e não substituir". Antes TODO Configurar
+  // apagava antes de criar — e o delete, sem achar o nome, apagava a mais
+  // parecida ou TODAS as listas do aparelho (regra do Remover). Agora
+  // Configurar e Reconfigurar só apagam a lista com o MESMO nome exato (a
+  // própria, pra não duplicar ao reenviar) e criam de novo — nunca a mais
+  // parecida, nunca as outras listas do aparelho. Duplex TV fica de fora:
+  // o parceiro só sabe apagar TODAS as listas do MAC, então lá só adiciona.
+  // Secundária tem nome próprio (sufixo _2) — principal e secundária
+  // convivem no aparelho, uma nunca apaga a outra.
+  const listName = mode === "secundaria" ? `${finalServerName}_2` : finalServerName;
+  if (handler.actionPrefix !== "DUPLEXTV") {
+    try {
+      const deletePayload = handler.buildDeletePayload({
+        username: client.server_username,
+        finalServerName: listName,
+        serverName: serverNameClean,
+        macValue,
+        appName: row.appName,
+        password: payloadPassword,
+      });
+      await fetch(apiEndpointUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
+        body: JSON.stringify({ ...deletePayload, base_url: integ?.api_url || "", deviceKey, exact_only: true }),
+      });
+    } catch {
+      // best-effort — segue pro create de qualquer jeito
+    }
   }
 
   // ✅ buildCreatePayload pode travar de propósito (ex: GERENCIAAPP sem
@@ -302,7 +312,7 @@ export async function configureClientApp(
       username: client.server_username,
       password: payloadPassword,
       macValue,
-      finalServerName,
+      finalServerName: listName,
       serverName: serverNameClean,
       m3uUrl,
       appName: row.appName,
@@ -378,7 +388,7 @@ export async function configureClientApp(
       const checkRes = await fetch(apiEndpointUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
-        body: JSON.stringify({ action: "check", base_url: integ?.api_url || "", username: finalServerName, macValue }),
+        body: JSON.stringify({ action: "check", base_url: integ?.api_url || "", username: listName, macValue }),
       });
       const checkJson = (await checkRes.json().catch(() => ({} as PartnerApiResponse))) as PartnerApiResponse;
       if (checkJson?.ok && checkJson.expireDate) expireDate = checkJson.expireDate;
@@ -570,6 +580,29 @@ export async function removeClientAppFromPartner(
     body: JSON.stringify({ ...payload, base_url: integ?.api_url || "", deviceKey }),
   });
   const apiJson = (await apiRes.json().catch(() => ({} as PartnerApiResponse))) as PartnerApiResponse;
+
+  // ✅ 06/10/2026: a secundária tem nome próprio (`<nome>_2`) — o Remover tira
+  // ela também, mas SÓ pelo nome exato (best-effort; Duplex TV já apagou
+  // tudo do MAC no delete acima).
+  if (finalServerName && handler.actionPrefix !== "DUPLEXTV") {
+    try {
+      const secPayload = handler.buildDeletePayload({
+        username: client?.server_username || "",
+        finalServerName: `${finalServerName}_2`,
+        serverName: serverNameClean,
+        macValue,
+        appName: row.appName,
+        password: payloadPassword,
+      });
+      await fetch(internalAppUrl(handler.apiEndpoint || ""), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-internal-secret": internalSecret },
+        body: JSON.stringify({ ...secPayload, base_url: integ?.api_url || "", deviceKey, exact_only: true }),
+      });
+    } catch {
+      // best-effort
+    }
+  }
 
   if (apiJson?.ok) return { attempted: true, ok: true };
   return { attempted: true, ok: false, error: apiJson?.error || "Falha ao remover do painel do parceiro." };

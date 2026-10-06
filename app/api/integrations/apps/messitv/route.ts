@@ -34,7 +34,7 @@ import { createClient as createAdmin } from "@supabase/supabase-js";
 import { Resvg } from "@resvg/resvg-js";
 import { callGemini } from "@/lib/whatsapp/gemini-client";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
-import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
+import { pickPlaylistsToDelete, setPlaylistDeleteExactOnly } from "@/lib/integrations/playlist-match";
 import { extractDateOnly } from "@/lib/apps/panel";
 import { cleanupResvgTmpCache } from "@/lib/apps/resvg-tmp-cleanup";
 
@@ -272,6 +272,8 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const { action, macValue, finalServerName, m3uUrl, password, username, deviceKey } = body;
+    // Reconfigurar apaga só o nome EXATO (06/10/2026) — ver lib/integrations/playlist-match.ts
+    setPlaylistDeleteExactOnly(!!(body as any)?.exact_only);
 
     if (!action) {
       return NextResponse.json({ ok: false, error: "action é obrigatório." }, { status: 400 });

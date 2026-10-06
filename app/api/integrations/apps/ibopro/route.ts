@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 import { extractDateOnly } from "@/lib/apps/panel";
-import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
+import { pickPlaylistsToDelete, setPlaylistDeleteExactOnly } from "@/lib/integrations/playlist-match";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,6 +119,8 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const { action, mac, deviceKey, playlist_name, playlist_url, pin } = body;
+    // Reconfigurar apaga só o nome EXATO (06/10/2026) — ver lib/integrations/playlist-match.ts
+    setPlaylistDeleteExactOnly(!!(body as any)?.exact_only);
 
     if (!action) return NextResponse.json({ ok: false, error: "action é obrigatório." }, { status: 400 });
     if (!mac) return NextResponse.json({ ok: false, error: "mac é obrigatório." }, { status: 400 });

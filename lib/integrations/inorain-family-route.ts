@@ -31,7 +31,7 @@ import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 import { extractDateOnly } from "@/lib/apps/panel";
 
 import { INORAIN_FAMILY } from "@/lib/integrations/inorain-family";
-import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
+import { pickPlaylistsToDelete, setPlaylistDeleteExactOnly } from "@/lib/integrations/playlist-match";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
@@ -192,6 +192,8 @@ export function makeInorainRoute(handler: string) {
 
     const body = await req.json().catch(() => ({}));
     const { action, macValue, finalServerName, m3uUrl, password, username, deviceKey } = body;
+    // Reconfigurar apaga só o nome EXATO (06/10/2026) — ver lib/integrations/playlist-match.ts
+    setPlaylistDeleteExactOnly(!!(body as any)?.exact_only);
 
     if (!action) return NextResponse.json({ ok: false, error: "action é obrigatório." }, { status: 400 });
     if (!macValue) return NextResponse.json({ ok: false, error: "macValue é obrigatório." }, { status: 400 });

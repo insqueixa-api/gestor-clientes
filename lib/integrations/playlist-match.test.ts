@@ -53,3 +53,31 @@ describe("pickPlaylistsToDelete", () => {
     expect(pick(["Insqueixa"], "").matches).toEqual([]);
   });
 });
+
+// ✅ 06/10/2026: Configurar/Reconfigurar apagam SÓ o nome exato — nunca a
+// mais parecida, nunca todas as listas do aparelho (o Remover segue a regra
+// acima).
+describe("pickPlaylistsToDelete — só nome exato (Configurar/Reconfigurar)", () => {
+  const exact = (names: string[], wanted: string) =>
+    pickPlaylistsToDelete(names.map((name) => ({ name })), wanted, (p) => p.name, { exactOnly: true });
+
+  it("apaga a própria lista (mesmo nome)", () => {
+    const r = exact(["Insqueixa_NaTV", "Lista do Joao"], "Insqueixa_NaTV");
+    expect(r.matches.map((p) => p.name)).toEqual(["Insqueixa_NaTV"]);
+  });
+
+  it("aparelho com listas de outros: não apaga nenhuma", () => {
+    const r = exact(["Lista do Joao", "Elite - InsqueixaElite", "Fast"], "Insqueixa_NaTV");
+    expect(r.mode).toBe("none");
+    expect(r.matches).toEqual([]);
+  });
+
+  it("não apaga a 'mais parecida' (outro servidor do mesmo usuário)", () => {
+    expect(exact(["Insqueixa_Fast", "Insqueixa"], "Insqueixa_NaTV").matches).toEqual([]);
+  });
+
+  it("principal e secundária convivem: configurar uma não apaga a outra", () => {
+    expect(exact(["Insqueixa_NaTV"], "Insqueixa_NaTV_2").matches).toEqual([]);
+    expect(exact(["Insqueixa_NaTV_2"], "Insqueixa_NaTV").matches).toEqual([]);
+  });
+});

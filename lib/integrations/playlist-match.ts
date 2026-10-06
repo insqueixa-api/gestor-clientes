@@ -11,6 +11,7 @@
 //      Configurar (apaga antes de criar) limpa a TV inteira nesse caso.
 //   Nome vazio → nada (nunca apaga às cegas por falta de nome).
 // Comparação sem maiúsculas/acentos/espaços/símbolos.
+import { AsyncLocalStorage } from "node:async_hooks";
 
 const norm = (s: string) =>
   String(s || "")
@@ -37,16 +38,29 @@ function longestCommonSubstring(a: string, b: string): number {
   return best;
 }
 
+// ✅ 06/10/2026, pedido do Márcio ("se eu estiver apenas adicionando uma lista,
+// só quero adicionar e não substituir"): os passos 2 e 3 acima continuam valendo
+// SÓ pro Remover (botão explícito). O Reconfigurar (reenviar a mesma lista)
+// apaga com "só nome exato" — nunca a mais parecida, nunca todas. A rota liga
+// o modo pela requisição (body.exact_only) com setPlaylistDeleteExactOnly(),
+// sem precisar passar parâmetro por cada função de delete das 12 rotas.
+const exactOnlyStore = new AsyncLocalStorage<boolean>();
+export function setPlaylistDeleteExactOnly(flag: boolean) {
+  exactOnlyStore.enterWith(!!flag);
+}
+
 export function pickPlaylistsToDelete<T>(
   playlists: T[],
   wanted: string,
   getName: (p: T) => string,
+  opts?: { exactOnly?: boolean },
 ): { matches: T[]; mode: "exact" | "closest" | "all" | "none" } {
   const target = norm(wanted);
   if (!target || !playlists.length) return { matches: [], mode: "none" };
 
   const exact = playlists.filter((p) => norm(getName(p)) === target);
   if (exact.length) return { matches: exact, mode: "exact" };
+  if (opts?.exactOnly ?? exactOnlyStore.getStore() ?? false) return { matches: [], mode: "none" };
 
   const targetUser = userPart(wanted);
   let best: { p: T; score: number } | null = null;

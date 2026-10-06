@@ -17,7 +17,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
-import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
+import { pickPlaylistsToDelete, setPlaylistDeleteExactOnly } from "@/lib/integrations/playlist-match";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -90,6 +90,8 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const { action, mac, deviceKey, device_key, username, password, server_id, playlist_name, m3u_url } = body;
+    // Reconfigurar apaga só o nome EXATO (06/10/2026) — ver lib/integrations/playlist-match.ts
+    setPlaylistDeleteExactOnly(!!(body as any)?.exact_only);
     const key = deviceKey || device_key; // aceita os dois formatos (o modal injeta "deviceKey")
 
     // ✅ 28/08/2026: achado ao vivo (Márcio testou com MAC real) — GET

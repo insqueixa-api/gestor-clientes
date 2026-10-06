@@ -44,7 +44,7 @@
 import { NextResponse } from "next/server";
 import { addYearsToIsoDate, isoDateInSaoPaulo } from "@/lib/date-br";
 import { fetch as undiciFetch } from "undici";
-import { pickPlaylistsToDelete } from "@/lib/integrations/playlist-match";
+import { pickPlaylistsToDelete, setPlaylistDeleteExactOnly } from "@/lib/integrations/playlist-match";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
@@ -451,6 +451,8 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const { action, base_url, macValue } = body;
+    // Reconfigurar apaga só o nome EXATO (06/10/2026) — ver lib/integrations/playlist-match.ts
+    setPlaylistDeleteExactOnly(!!(body as any)?.exact_only);
 
     if (!action || (action !== "create" && action !== "delete" && action !== "check" && action !== "renew")) {
       return NextResponse.json({ ok: false, error: "action inválida. Use: create | delete | check | renew" }, { status: 400 });
