@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pickPlaylistsToDelete } from "./playlist-match";
+import { pickPlaylistsToDelete, setPlaylistDeleteExactOnly } from "./playlist-match";
 
 const pick = (names: string[], wanted: string) =>
   pickPlaylistsToDelete(names.map((name) => ({ name })), wanted, (p) => p.name);
@@ -79,5 +79,31 @@ describe("pickPlaylistsToDelete — só nome exato (Configurar/Reconfigurar)", (
   it("principal e secundária convivem: configurar uma não apaga a outra", () => {
     expect(exact(["Insqueixa_NaTV"], "Insqueixa_NaTV_2").matches).toEqual([]);
     expect(exact(["Insqueixa_NaTV_2"], "Insqueixa_NaTV").matches).toEqual([]);
+  });
+});
+
+// O modo é ligado pela ROTA (body.exact_only) e tem que valer depois das
+// esperas de rede da própria requisição — sem vazar pra requisições
+// simultâneas (uma "Remover" ao mesmo tempo segue a regra antiga).
+describe("setPlaylistDeleteExactOnly — vale por requisição", () => {
+  const lists = ["Lista do Joao", "Fast"].map((name) => ({ name }));
+  const pickLater = async (wait: number) => {
+    await new Promise((r) => setTimeout(r, wait));
+    return pickPlaylistsToDelete(lists, "Insqueixa_NaTV", (p) => p.name).mode;
+  };
+
+  it("continua valendo depois de await e não vaza pra outra requisição", async () => {
+    const configurar = (async () => {
+      setPlaylistDeleteExactOnly(true);
+      return pickLater(20);
+    })();
+    const remover = (async () => {
+      setPlaylistDeleteExactOnly(false);
+      return pickLater(10);
+    })();
+    const semFlag = (async () => pickLater(5))();
+    expect(await configurar).toBe("none"); // só exato: não apaga nada
+    expect(await remover).toBe("all"); // regra do Remover (03/10/2026)
+    expect(await semFlag).toBe("all");
   });
 });
