@@ -22,7 +22,7 @@ const QuickRechargeModal = dynamic(() => import("../recarga_revenda"), {
 
 // Componentes Visuais
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
-import { usePainelStats, PainelResumoCard, PainelContaCard } from "./painel_stats";
+import { usePainelStats, ResumoContaNoCard, PainelContaCard } from "./painel_stats";
 import { formatDateBR } from "@/lib/date-br";
 
 /* =========================
@@ -574,6 +574,7 @@ export default function ResellerDetailPage() {
               <PainelContaCard
                 key={s.reseller_server_id}
                 state={panelById[s.reseller_server_id]}
+                onSync={() => syncPanel(s.reseller_server_id)}
                 serverName={s.server_name}
                 username={s.server_username ?? null}
               />
@@ -799,11 +800,9 @@ export default function ResellerDetailPage() {
                       </IconActionBtn>
                     </div>
 
-                    {/* ✅ 06/10/2026: resumo do painel (NaTV) + Resumo da conta + Sync */}
-                    {panelById[s.reseller_server_id] && (
-                      <PainelResumoCard
-                        state={panelById[s.reseller_server_id]}
-                        onSync={() => syncPanel(s.reseller_server_id)}
+                    {/* ✅ 06/10/2026: com painel integrado, o Resumo da conta vem pra cá */}
+                    {panelById[s.reseller_server_id]?.supported && (
+                      <ResumoContaNoCard
                         since={fmtDate(reseller.created_at)}
                         serversCount={servers.length}
                         totalInvested={fmtBRL(totalInvested)}
