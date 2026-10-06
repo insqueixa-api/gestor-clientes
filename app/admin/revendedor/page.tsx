@@ -527,6 +527,25 @@ export default function RevendaPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [archivedFilter]);
 
+  // ✅ 06/10/2026, pedido do Márcio: filtro só oferece servidor/status que
+  // têm revenda na lista atual (ativas ou arquivadas). Vínculos carregados
+  // uma vez; a opção ativa nunca some; o select some se não divide nada.
+  const [allResellerServers, setAllResellerServers] = useState<{ reseller_id: string; server_id: string }[] | null>(null);
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    supabaseBrowser
+      .from("reseller_servers")
+      .select("reseller_id, server_id")
+      .eq("tenant_id", tenantId)
+      .then(({ data, error }) => {
+        if (alive) setAllResellerServers(!error && data ? (data as any[]) : null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -603,6 +622,27 @@ export default function RevendaPage() {
       return true;
     });
   }, [rows, search, statusFilter, resellerIdsByServer]);
+
+  const resellerFacets = useMemo(() => {
+    const status: Record<string, number> = {};
+    for (const r of rows) status[r.status] = (status[r.status] || 0) + 1;
+    const inList = new Set(rows.map((r) => r.id));
+    const servers: Record<string, Set<string>> = {};
+    for (const l of allResellerServers || []) {
+      if (!inList.has(String(l.reseller_id))) continue;
+      (servers[l.server_id] ||= new Set()).add(String(l.reseller_id));
+    }
+    return { status, servers };
+  }, [rows, allResellerServers]);
+  const statusOk = (v: string) => v === statusFilter || (resellerFacets.status[v] || 0) > 0;
+  const serverOk = (id: string) =>
+    !allResellerServers || id === serverFilter || (resellerFacets.servers[id]?.size || 0) > 0;
+  const showStatusFilter =
+    statusFilter !== "Todos" || Object.values(resellerFacets.status).filter((n) => n > 0).length > 1;
+  const showServerFilter =
+    serverFilter !== "Todos" ||
+    !allResellerServers ||
+    Object.values(resellerFacets.servers).some((set) => set.size > 0 && set.size < rows.length);
 
   const sorted = useMemo(() => {
     const list = [...filtered];
@@ -1087,30 +1127,34 @@ export default function RevendaPage() {
             )}
           </div>
           <div className="w-[190px]">
+            {showStatusFilter && (
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Status (Todos)</option>
-              <option value="Ativo">Ativo</option>
-              <option value="Inativo">Inativo</option>
-              <option value="Arquivado">Arquivado</option>
+              {statusOk("Ativo") && <option value="Ativo">Ativo</option>}
+              {statusOk("Inativo") && <option value="Inativo">Inativo</option>}
+              {statusOk("Arquivado") && <option value="Arquivado">Arquivado</option>}
             </select>
+            )}
           </div>
           <div className="w-[220px]">
+            {showServerFilter && (
             <select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
               className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Servidor (Todos)</option>
-              {(serversOptions || []).map((s) => (
+              {(serversOptions || []).filter((s) => serverOk(s.id)).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
             </select>
+            )}
           </div>
           <button
             onClick={() => {
@@ -1145,28 +1189,32 @@ export default function RevendaPage() {
                 {archivedFilter === "Sim" ? "ON" : "OFF"}
               </span>
             </button>
+            {showStatusFilter && (
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
               className="w-full h-10 px-3 bg-card border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Status (Todos)</option>
-              <option value="Ativo">Ativo</option>
-              <option value="Inativo">Inativo</option>
-              <option value="Arquivado">Arquivado</option>
+              {statusOk("Ativo") && <option value="Ativo">Ativo</option>}
+              {statusOk("Inativo") && <option value="Inativo">Inativo</option>}
+              {statusOk("Arquivado") && <option value="Arquivado">Arquivado</option>}
             </select>
+            )}
+            {showServerFilter && (
             <select
               value={serverFilter}
               onChange={(e) => setServerFilter(e.target.value)}
               className="w-full h-10 px-3 bg-card border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90"
             >
               <option value="Todos">Servidor (Todos)</option>
-              {(serversOptions || []).map((s) => (
+              {(serversOptions || []).filter((s) => serverOk(s.id)).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
               ))}
             </select>
+            )}
             <button
               onClick={() => {
                 setSearch("");
