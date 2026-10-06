@@ -514,6 +514,13 @@ function ClientePageContent() {
   const [dropdownApps, setDropdownApps] = useState<
     { id: string; name: string; integration_type: string | null }[]
   >([]);
+  // ✅ 06/10/2026, pedido do Márcio: filtro só oferece opção que tem cliente
+  // (contagem no banco com as mesmas regras da listagem —
+  // docs/sql/get_clients_filter_facets.sql). null = ainda carregando → mostra
+  // tudo; a opção selecionada nunca some.
+  const [filterFacets, setFilterFacets] = useState<Record<string, Record<string, number>> | null>(null);
+  const facetOk = (group: string, key: string, current: string) =>
+    !filterFacets || key === current || (filterFacets[group]?.[key] ?? 0) > 0;
 
   // --- ADICIONAR ESTE useEffect ---
   // Captura o clique vindo do Dashboard
@@ -1207,6 +1214,13 @@ function ClientePageContent() {
         if (alive && data) setDropdownApps(data as typeof dropdownApps);
       });
 
+    supabaseBrowser
+      .rpc("get_clients_filter_facets", { p_archived: archivedFilter === "Sim" })
+      .then(({ data, error }) => {
+        // erro (ex: SQL ainda não aplicado) = mostra todas as opções, como antes
+        if (alive) setFilterFacets(!error && data ? (data as Record<string, Record<string, number>>) : null);
+      });
+
     return () => {
       alive = false;
     };
@@ -1853,8 +1867,8 @@ function ClientePageContent() {
               onChange={(e) => setArchSub(e.target.value as "Todos" | "Arquivado" | "Desvinculado")}
             >
               <option value="Todos">Arquivados (Todos)</option>
-              <option value="Arquivado">Arquivado</option>
-              <option value="Desvinculado">Desvinculado</option>
+              {facetOk("archived", "Arquivado", archSub) && <option value="Arquivado">Arquivado</option>}
+              {facetOk("archived", "Desvinculado", archSub) && <option value="Desvinculado">Desvinculado</option>}
             </Select>
             ) : (
             <Select
@@ -1864,8 +1878,8 @@ function ClientePageContent() {
               }
             >
               <option value="Todos">Status (Todos)</option>
-              <option value="Ativo">Ativo</option>
-              <option value="Vencido">Vencido</option>
+              {facetOk("status", "Ativo", statusFilter) && <option value="Ativo">Ativo</option>}
+              {facetOk("status", "Vencido", statusFilter) && <option value="Vencido">Vencido</option>}
             </Select>
             )}
           </div>
@@ -1876,7 +1890,7 @@ function ClientePageContent() {
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <option value="Todos">Servidor (Todos)</option>
-              {dropdownServers.map((s) => (
+              {dropdownServers.filter((s) => facetOk("servers", s.id, serverFilter)).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -1904,12 +1918,12 @@ function ClientePageContent() {
               onChange={(e) => setDueFilter(e.target.value)}
             >
               <option value="Todos">Vencimento (Todos)</option>
-              <option value="Venceu há 2 dias">Venceu há 2 dias</option>
-              <option value="Venceu Ontem">Venceu Ontem</option>
-              <option value="Hoje">Hoje</option>
-              <option value="Vence Amanhã">Vence Amanhã</option>
-              <option value="Vence em 2 dias">Vence em 2 dias</option>
-              <option value="Mês Atual">Mês Atual</option>
+              {facetOk("due", "Venceu há 2 dias", dueFilter) && <option value="Venceu há 2 dias">Venceu há 2 dias</option>}
+              {facetOk("due", "Venceu Ontem", dueFilter) && <option value="Venceu Ontem">Venceu Ontem</option>}
+              {facetOk("due", "Hoje", dueFilter) && <option value="Hoje">Hoje</option>}
+              {facetOk("due", "Vence Amanhã", dueFilter) && <option value="Vence Amanhã">Vence Amanhã</option>}
+              {facetOk("due", "Vence em 2 dias", dueFilter) && <option value="Vence em 2 dias">Vence em 2 dias</option>}
+              {facetOk("due", "Mês Atual", dueFilter) && <option value="Mês Atual">Mês Atual</option>}
             </Select>
           </div>
 
@@ -1920,9 +1934,9 @@ function ClientePageContent() {
               onChange={(e) => setAppFilter(e.target.value)}
             >
               <option value="Todos">Aplicativos (Todos)</option>
-              <option value="15_dias">Vencendo em 15 dias</option>
-              <option value="30_dias">Vencendo em 30 dias</option>
-              <option value="mais_30_dias">Vencendo em mais de 30 dias</option>
+              {facetOk("app_windows", "15_dias", appFilter) && <option value="15_dias">Vencendo em 15 dias</option>}
+              {facetOk("app_windows", "30_dias", appFilter) && <option value="30_dias">Vencendo em 30 dias</option>}
+              {facetOk("app_windows", "mais_30_dias", appFilter) && <option value="mais_30_dias">Vencendo em mais de 30 dias</option>}
               <optgroup label="Filtrar por nome">
                 {dropdownApps.map((app) => {
                   // Verifica se tem integração para adicionar o indicador visual
@@ -2006,8 +2020,8 @@ function ClientePageContent() {
               onChange={(e) => setArchSub(e.target.value as "Todos" | "Arquivado" | "Desvinculado")}
             >
               <option value="Todos">Arquivados (Todos)</option>
-              <option value="Arquivado">Arquivado</option>
-              <option value="Desvinculado">Desvinculado</option>
+              {facetOk("archived", "Arquivado", archSub) && <option value="Arquivado">Arquivado</option>}
+              {facetOk("archived", "Desvinculado", archSub) && <option value="Desvinculado">Desvinculado</option>}
             </Select>
             ) : (
             <Select
@@ -2017,8 +2031,8 @@ function ClientePageContent() {
               }
             >
               <option value="Todos">Status (Todos)</option>
-              <option value="Ativo">Ativo</option>
-              <option value="Vencido">Vencido</option>
+              {facetOk("status", "Ativo", statusFilter) && <option value="Ativo">Ativo</option>}
+              {facetOk("status", "Vencido", statusFilter) && <option value="Vencido">Vencido</option>}
             </Select>
             )}
 
@@ -2028,7 +2042,7 @@ function ClientePageContent() {
               onChange={(e) => setServerFilter(e.target.value)}
             >
               <option value="Todos">Servidor (Todos)</option>
-              {dropdownServers.map((s) => (
+              {dropdownServers.filter((s) => facetOk("servers", s.id, serverFilter)).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -2054,12 +2068,12 @@ function ClientePageContent() {
               onChange={(e) => setDueFilter(e.target.value)}
             >
               <option value="Todos">Vencimento (Todos)</option>
-              <option value="Venceu há 2 dias">Venceu há 2 dias</option>
-              <option value="Venceu Ontem">Venceu Ontem</option>
-              <option value="Hoje">Hoje</option>
-              <option value="Vence Amanhã">Vence Amanhã</option>
-              <option value="Vence em 2 dias">Vence em 2 dias</option>
-              <option value="Mês Atual">Mês Atual</option>
+              {facetOk("due", "Venceu há 2 dias", dueFilter) && <option value="Venceu há 2 dias">Venceu há 2 dias</option>}
+              {facetOk("due", "Venceu Ontem", dueFilter) && <option value="Venceu Ontem">Venceu Ontem</option>}
+              {facetOk("due", "Hoje", dueFilter) && <option value="Hoje">Hoje</option>}
+              {facetOk("due", "Vence Amanhã", dueFilter) && <option value="Vence Amanhã">Vence Amanhã</option>}
+              {facetOk("due", "Vence em 2 dias", dueFilter) && <option value="Vence em 2 dias">Vence em 2 dias</option>}
+              {facetOk("due", "Mês Atual", dueFilter) && <option value="Mês Atual">Mês Atual</option>}
             </Select>
 
             {/* ✅ Filtro Único de Aplicativos no Mobile */}
@@ -2068,9 +2082,9 @@ function ClientePageContent() {
               onChange={(e) => setAppFilter(e.target.value)}
             >
               <option value="Todos">Aplicativos (Todos)</option>
-              <option value="15_dias">Vencendo em 15 dias</option>
-              <option value="30_dias">Vencendo em 30 dias</option>
-              <option value="mais_30_dias">Vencendo em mais de 30 dias</option>
+              {facetOk("app_windows", "15_dias", appFilter) && <option value="15_dias">Vencendo em 15 dias</option>}
+              {facetOk("app_windows", "30_dias", appFilter) && <option value="30_dias">Vencendo em 30 dias</option>}
+              {facetOk("app_windows", "mais_30_dias", appFilter) && <option value="mais_30_dias">Vencendo em mais de 30 dias</option>}
               <optgroup label="Filtrar por nome">
                 {dropdownApps.map((app) => {
                   const temIntegracao =
