@@ -1,7 +1,8 @@
 // app/api/client-portal/get-prices/route.ts
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { touchPortalSession } from "@/lib/client-portal/session";
+// validatePortalClient já estende a sessão (touchPortalSession via after())
+import { validatePortalClient } from "@/lib/client-portal/session";
 
 export const dynamic = "force-dynamic";
 
@@ -81,119 +82,61 @@ export async function POST(req: NextRequest) {
       return jsonError("Cliente não encontrado", 404);
     }
 
-    // 1. Validar sessão
-    // ✅ pega também whatsapp_username/phone_anchor para travar autorização do client_id
-    const { data: sess, error: sessErr } = await supabaseAdmin
-      .from("client_portal_sessions")
-      .select("tenant_id, whatsapp_username, phone_anchor")
-      .eq("session_token", session_token)
-      .gt("expires_at", new Date().toISOString())
-      .single();
-
-    if (sessErr || !sess) {
-      safeServerLog("get-prices: invalid/expired session");
+    // 1. Validar sessão + "esse client_id é dessa sessão" (titular,
+    // secundário ou âncora de telefone — docs/sql/portal_phone_anchor_hybrid_identity.sql)
+    // numa ida só ao banco (validatePortalClient → portal_validate_client).
+    const ctx = await validatePortalClient(supabaseAdmin, session_token, client_id);
+    if (!ctx) {
+      safeServerLog("get-prices: invalid session or client not owned");
       return jsonError("Sessão inválida", 401);
     }
+    const tenantId = ctx.tenant_id;
 
-    // ✅ Não bloqueia a resposta (mesmo padrão de validatePortalClient em
-    // lib/client-portal/session.ts) — bookkeeping, não precisa do round-trip.
-    after(() => touchPortalSession(supabaseAdmin, session_token));
-
-    // 2. Buscar dados do cliente
-    // ✅ CRÍTICO: garante que o client_id é do mesmo whatsapp da sessão
-    // (Principal ou Secundário) OU compartilha a mesma âncora de telefone —
-    // sem isso, uma conta que trocou de whatsapp_username pra um username
-    // (ex: várias contas no mesmo WhatsApp, uma delas renomeada) ficava sem
-    // conseguir carregar plano/preço nenhum, mesmo com sessão válida (ver
-    // docs/sql/portal_phone_anchor_hybrid_identity.sql).
-    const { data: idsData, error: idsErr } = await supabaseAdmin.rpc(
-      "portal_client_ids_for_identity",
-      {
-        p_tenant_id: sess.tenant_id,
-        p_whatsapp_username: sess.whatsapp_username,
-        p_phone_anchor: (sess as any).phone_anchor ?? null,
-      },
-    );
-    if (idsErr) {
-      safeServerLog("get-prices: rpc error", idsErr?.message);
-      return jsonError("Erro interno", 500);
-    }
-    const accessibleIds = new Set(((idsData as { id: string }[] | null) || []).map((r) => r.id));
-    if (!accessibleIds.has(client_id)) {
-      safeServerLog("get-prices: client not found or not owned");
-      return jsonError("Cliente não encontrado", 404);
-    }
-
-    const { data: client, error: clientErr } = await supabaseAdmin
-      .from("clients")
-      // ✅ ADICIONAMOS O server_id PARA DESCOBRIR A INTEGRAÇÃO
-      .select("screens, plan_label, price_amount, price_currency, plan_table_id, whatsapp_username, secondary_whatsapp_username, server_id")
-      .eq("id", client_id)
-      .eq("tenant_id", sess.tenant_id)
-      .single();
+    // ✅ 06/10/2026 (auditoria de performance, pedido do Márcio): eram até 8
+    // idas ao banco em sequência (sessão → contas → cliente → tabela →
+    // tabela padrão → preços → servidor → integração). Agora, depois da
+    // validação, UMA leva em paralelo: o cliente já vem com a tabela dele
+    // (+ itens e preços) e a integração do servidor; a tabela padrão BRL
+    // (+ preços) vem junto, pro caso de a do cliente não valer.
+    const PRICE_TREE = "id, tenant_id, is_active, plan_table_items(period, plan_table_item_prices(screens_count, price_amount))";
+    const [{ data: client, error: clientErr }, { data: defaultTable, error: defErr }] = await Promise.all([
+      supabaseAdmin
+        .from("clients")
+        .select(
+          `screens, plan_label, price_amount, price_currency, plan_table_id, server_id,
+           plan_tables(${PRICE_TREE}),
+           servers(server_integrations(provider))`,
+        )
+        .eq("id", client_id)
+        .eq("tenant_id", tenantId)
+        .single(),
+      supabaseAdmin
+        .from("plan_tables")
+        .select(PRICE_TREE)
+        .eq("tenant_id", tenantId)
+        .eq("is_system_default", true)
+        .eq("currency", "BRL")
+        .eq("is_active", true)
+        .maybeSingle(),
+    ]);
 
     if (clientErr || !client) {
       safeServerLog("get-prices: client not found or not owned");
       return jsonError("Cliente não encontrado", 404);
     }
 
-    // 3. Buscar tabela de preços do cliente ou fallback para padrão BRL
-let planTableId = client.plan_table_id;
-
-// ✅ se veio plan_table_id do cliente, valida que pertence ao mesmo tenant e está ativa
-if (planTableId) {
-  const { data: pt, error: ptErr } = await supabaseAdmin
-    .from("plan_tables")
-    .select("id")
-    .eq("id", planTableId)
-    .eq("tenant_id", sess.tenant_id)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (ptErr || !pt) {
-    // se inválida/inativa/outro tenant, cai no fallback padrão BRL (mantém seu comportamento)
-    planTableId = "";
-  }
-}
-
-if (!planTableId) {
-  // Buscar tabela padrão BRL
-  const { data: defaultTable, error: defErr } = await supabaseAdmin
-    .from("plan_tables")
-    .select("id, currency")
-    .eq("tenant_id", sess.tenant_id)
-    .eq("is_system_default", true)
-    .eq("currency", "BRL")
-    .eq("is_active", true)
-    .single();
-
-  if (defErr || !defaultTable) {
-    safeServerLog("get-prices: default price table not found", defErr?.message);
-    console.error("[get-prices: default price table not found]", { kind: "client_portal_error", route: "get-prices", tenant_id: sess.tenant_id });
-    return jsonError("Tabela de preços não encontrada", 404);
-  }
-
-  planTableId = defaultTable.id;
-}
-
-
-    // 4. Buscar preços da tabela
-    const { data: priceData, error: pricesErr } = await supabaseAdmin
-      .from("plan_table_items")
-      .select(`
-        period,
-        plan_table_item_prices (
-          screens_count,
-          price_amount
-        )
-      `)
-      .eq("plan_table_id", planTableId);
-
-    if (pricesErr || !priceData) {
-      safeServerLog("get-prices: prices query error", pricesErr?.message);
-      console.error("[get-prices: prices query error]", { kind: "client_portal_error", route: "get-prices", message: pricesErr?.message });
-      return jsonError("Erro interno", 500);
+    // 3. Tabela do cliente (se for do mesmo tenant e ativa) ou padrão BRL
+    const ownTable = (client as any).plan_tables as any;
+    const ownTableValid = !!ownTable && ownTable.tenant_id === tenantId && ownTable.is_active === true;
+    const table = ownTableValid ? ownTable : defaultTable;
+    if (!table) {
+      safeServerLog("get-prices: default price table not found", defErr?.message);
+      console.error("[get-prices: default price table not found]", { kind: "client_portal_error", route: "get-prices", tenant_id: tenantId });
+      return jsonError("Tabela de preços não encontrada", 404);
     }
+
+    // 4. Preços da tabela (vieram junto)
+    const priceData = Array.isArray((table as any).plan_table_items) ? (table as any).plan_table_items : [];
 
     // 5. Processar preços (Sem multiplicações)
     const prices = (priceData || [])
@@ -226,14 +169,9 @@ if (!planTableId) {
       
 
 // 6. Descobrir se é Elite para aplicar a trava
-    let isElite = false;
-    if (client.server_id) {
-      const { data: srv } = await supabaseAdmin.from("servers").select("panel_integration").eq("id", client.server_id).single();
-      if (srv?.panel_integration) {
-        const { data: integ } = await supabaseAdmin.from("server_integrations").select("provider").eq("id", srv.panel_integration).single();
-        if (integ?.provider?.toUpperCase() === "ELITE") isElite = true;
-      }
-    }
+    // (integração do servidor veio junto com o cliente)
+    const isElite =
+      String((client as any).servers?.server_integrations?.provider || "").toUpperCase() === "ELITE";
 
     // 7. Ordenar por período e TRAVAR O ANUAL (SÓ PARA ELITE)
     const ORDER = ["MONTHLY", "BIMONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"];
