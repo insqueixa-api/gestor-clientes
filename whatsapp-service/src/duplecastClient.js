@@ -378,7 +378,10 @@ async function playlistExists(siteRoot, jar, userAgent, id) {
 // ✅ 03/10/2026 (regra do Márcio — mesma de lib/integrations/playlist-match.ts
 // no app principal): nome exato (todas as cópias) → o mais parecido → todas
 // as playlists do aparelho (pelo MAC). Nome vazio → nada.
-function pickPlaylistsToDelete(rows, wanted) {
+// ✅ 06/10/2026 (pedido do Márcio): exactOnly = Configurar/Reconfigurar —
+// apaga SÓ a de mesmo nome exato, nunca a mais parecida nem todas (a regra
+// acima continua só pro Remover).
+function pickPlaylistsToDelete(rows, wanted, exactOnly = false) {
   const norm = (v) => String(v || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
   const userPart = (v) => norm(String(v || "").split("_")[0]);
   const lcs = (a, b) => {
@@ -399,6 +402,7 @@ function pickPlaylistsToDelete(rows, wanted) {
   if (!target || !rows.length) return [];
   const exact = rows.filter((r) => norm(r.name) === target);
   if (exact.length) return exact;
+  if (exactOnly) return [];
   const tUser = userPart(wanted);
   let best = null;
   for (const r of rows) {
@@ -414,10 +418,10 @@ function pickPlaylistsToDelete(rows, wanted) {
   return [...rows];
 }
 
-async function deletePlaylistByName(siteRoot, jar, userAgent, searchName, pin) {
+async function deletePlaylistByName(siteRoot, jar, userAgent, searchName, pin, exactOnly = false) {
   const mainHtml = await fetchDeviceMain(siteRoot, jar, userAgent);
   const rows = parsePlaylistRows(mainHtml);
-  const targets = pickPlaylistsToDelete(rows, searchName);
+  const targets = pickPlaylistsToDelete(rows, searchName, exactOnly);
 
   if (!targets.length) {
     const err = new Error(`Nenhuma playlist nesse dispositivo — nada foi apagado.`);
@@ -467,7 +471,7 @@ async function deletePlaylistByName(siteRoot, jar, userAgent, searchName, pin) {
 }
 
 // Ponto de entrada único, chamado pela rota /duplecast/action.
-export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, username, password, code }) {
+export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey, m3uName, m3uUrl, pin, searchName, username, password, code, exactOnly }) {
   if (!baseUrl) throw new Error("baseUrl é obrigatório.");
 
   const siteRoot = String(baseUrl).replace(/\/$/, "");
@@ -579,7 +583,7 @@ export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey,
     if (!searchName) throw new Error("searchName é obrigatório para delete.");
     let cleanPin = String(pin || "").replace(/\D/g, "");
     if (cleanPin.length < 4) cleanPin = "";
-    await deletePlaylistByName(siteRoot, jar, userAgent, searchName, cleanPin);
+    await deletePlaylistByName(siteRoot, jar, userAgent, searchName, cleanPin, !!exactOnly);
     return {};
   }
 

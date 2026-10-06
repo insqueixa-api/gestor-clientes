@@ -91,7 +91,8 @@ export async function POST(req: Request) {
     if (action === "create") {
       vmPayload = { ...vmPayload, m3uName: finalServerName, m3uUrl, pin: password };
     } else if (action === "delete") {
-      vmPayload = { ...vmPayload, searchName: finalServerName || username, pin: password };
+      // exactOnly (06/10/2026): Configurar/Reconfigurar apagam só o nome exato
+      vmPayload = { ...vmPayload, searchName: finalServerName || username, pin: password, exactOnly: !!(body as any)?.exact_only };
     }
 
     const vmRes = await fetch(`${vmBaseUrl.replace(/\/$/, "")}/duplecast/action`, {
