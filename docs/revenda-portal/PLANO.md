@@ -101,6 +101,14 @@ reseller_end_user_apps  id, tenant_id, reseller_end_user_id, app_id,
   5. Com timeout, **não repetir sozinho**, porque a API não tem idempotência e o crédito poderia sair em dobro. O sistema confere o saldo da sub-revenda (`subreseller/search`) e só então marca como concluída ou falha.
 - **Elite e Fast:** mesmo desenho, depois de recebermos a documentação do endpoint de cada um.
 
+> ✅ **Fase 1 implementada em 06/10/2026** (commit 2ef1c7e9): `reseller_credit_transfers` (SQL aplicado), `lib/integrations/natv-credits.ts` e `app/api/integrations/natv/transfer-credits` (actions `transfer`, `open` e `resolve`). Na tela, o switch "Enviar os créditos no NaTV automaticamente" e o aviso "Chegou / Não chegou". A API do NaTV **não tem como retirar crédito** (o valor precisa ser maior que 0 e o envio só vai para o master ou para uma sub-revenda direta). Leitura conferida: Jaime1983 é sub-revenda direta.
+
+### 2.7 Tabela de preço de crédito para revenda (pedido do Márcio, 06/10/2026)
+- É uma tabela **só em BRL**, com **pacotes de créditos** (ex.: 10, 20, 30, 50, 100) e o preço de cada pacote.
+- Cada **linha é um servidor**. O Márcio vai "adicionando servidores" e uma única tabela cobre todos os servidores do sistema.
+- A revenda é ligada a uma tabela, como o cliente é ligado a uma tabela de planos.
+- A tabela serve para a recarga do admin (preço sugerido) e, mais adiante, para a revenda comprar crédito sozinha por PIX no portal (fase 5).
+
 ---
 
 ## 3. Fases sugeridas
