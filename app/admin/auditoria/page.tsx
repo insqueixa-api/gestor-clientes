@@ -890,6 +890,28 @@ function AuditoriaPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterCoupon]);
 
+  // ✅ 06/10/2026, pedido do Márcio: filtro só existe se tiver o que
+  // filtrar. Cupom é raro e o filtro dele busca no banco (fora dos 50
+  // recentes) — então a existência também é checada no banco (contagem
+  // leve, sem trazer linhas). null = ainda não sabe → mostra o filtro.
+  const [hasCouponRows, setHasCouponRows] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!tenantId) return;
+    let alive = true;
+    supabaseBrowser
+      .from("client_portal_payments")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .not("coupon_code", "is", null)
+      .gt("coupon_discount_amount", 0)
+      .then(({ count, error }) => {
+        if (alive) setHasCouponRows(error ? null : (count || 0) > 0);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId]);
+
   // ✅ NOVO: Escuta os toasts que vieram do Modal quando o loading termina
   useEffect(() => {
     if (loading) return;
@@ -1920,7 +1942,8 @@ function AuditoriaPageContent() {
                 </button>
               </div>
 
-              <div className="w-[160px]">
+              <div className="w-[160px] empty:hidden">
+                {(uniqueGateways.length > 1 || filterGateway !== "Todos") && (
                 <select
                   value={filterGateway}
                   onChange={(e) => setFilterGateway(e.target.value)}
@@ -1933,9 +1956,11 @@ function AuditoriaPageContent() {
                     </option>
                   ))}
                 </select>
+                )}
               </div>
 
-              <div className="w-[170px]">
+              <div className="w-[170px] empty:hidden">
+                {(availablePaymentOptions.length > 1 || filterPayment !== "Todos") && (
                 <select
                   value={filterPayment}
                   onChange={(e) => setFilterPayment(e.target.value)}
@@ -1948,9 +1973,11 @@ function AuditoriaPageContent() {
                     </option>
                   ))}
                 </select>
+                )}
               </div>
 
-              <div className="w-[180px]">
+              <div className="w-[180px] empty:hidden">
+                {(availableFulfillmentOptions.length > 1 || filterFulfillment !== "Todos") && (
                 <select
                   value={filterFulfillment}
                   onChange={(e) => setFilterFulfillment(e.target.value)}
@@ -1963,9 +1990,11 @@ function AuditoriaPageContent() {
                     </option>
                   ))}
                 </select>
+                )}
               </div>
 
-              <div className="w-[170px]">
+              <div className="w-[170px] empty:hidden">
+                {(availableWhatsappOptions.length > 1 || filterWhatsapp !== "Todos") && (
                 <select
                   value={filterWhatsapp}
                   onChange={(e) => setFilterWhatsapp(e.target.value)}
@@ -1978,9 +2007,11 @@ function AuditoriaPageContent() {
                     </option>
                   ))}
                 </select>
+                )}
               </div>
 
-              <div className="w-[150px]">
+              <div className="w-[150px] empty:hidden">
+                {(hasCouponRows !== false || filterCoupon !== "Todos") && (
                 <select
                   value={filterCoupon}
                   onChange={(e) => setFilterCoupon(e.target.value)}
@@ -1990,6 +2021,7 @@ function AuditoriaPageContent() {
                   <option value="Com cupom">Com cupom</option>
                   <option value="Sem cupom">Sem cupom</option>
                 </select>
+                )}
               </div>
 
               <button
@@ -2003,6 +2035,7 @@ function AuditoriaPageContent() {
             {/* Painel de filtros no mobile */}
             {mobileFiltersOpen && (
               <div className="md:hidden mt-1 p-3 rounded-xl border border-border bg-transparent space-y-2">
+                {(uniqueGateways.length > 1 || filterGateway !== "Todos") && (
                 <select
                   value={filterGateway}
                   onChange={(e) => setFilterGateway(e.target.value)}
@@ -2015,7 +2048,9 @@ function AuditoriaPageContent() {
                     </option>
                   ))}
                 </select>
+                )}
 
+                {(availablePaymentOptions.length > 1 || filterPayment !== "Todos") && (
                 <select
                   value={filterPayment}
                   onChange={(e) => setFilterPayment(e.target.value)}
@@ -2028,7 +2063,9 @@ function AuditoriaPageContent() {
                     </option>
                   ))}
                 </select>
+                )}
 
+                {(availableFulfillmentOptions.length > 1 || filterFulfillment !== "Todos") && (
                 <select
                   value={filterFulfillment}
                   onChange={(e) => setFilterFulfillment(e.target.value)}
@@ -2041,7 +2078,9 @@ function AuditoriaPageContent() {
                     </option>
                   ))}
                 </select>
+                )}
 
+                {(availableWhatsappOptions.length > 1 || filterWhatsapp !== "Todos") && (
                 <select
                   value={filterWhatsapp}
                   onChange={(e) => setFilterWhatsapp(e.target.value)}
@@ -2054,7 +2093,9 @@ function AuditoriaPageContent() {
                     </option>
                   ))}
                 </select>
+                )}
 
+                {(hasCouponRows !== false || filterCoupon !== "Todos") && (
                 <select
                   value={filterCoupon}
                   onChange={(e) => setFilterCoupon(e.target.value)}
@@ -2064,6 +2105,7 @@ function AuditoriaPageContent() {
                   <option value="Com cupom">Com cupom</option>
                   <option value="Sem cupom">Sem cupom</option>
                 </select>
+                )}
 
                 <button
                   onClick={() => {

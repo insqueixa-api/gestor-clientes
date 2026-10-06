@@ -1126,7 +1126,7 @@ export default function RevendaPage() {
               </button>
             )}
           </div>
-          <div className="w-[190px]">
+          <div className="w-[190px] empty:hidden">
             {showStatusFilter && (
             <select
               value={statusFilter}
@@ -1140,7 +1140,7 @@ export default function RevendaPage() {
             </select>
             )}
           </div>
-          <div className="w-[220px]">
+          <div className="w-[220px] empty:hidden">
             {showServerFilter && (
             <select
               value={serverFilter}
