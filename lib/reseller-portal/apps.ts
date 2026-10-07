@@ -40,12 +40,19 @@ export function resolveHandlerFor(app: { integration_type?: string | null; name?
   return h;
 }
 
-/** Entra no catálogo da revenda? */
+/** Configurar/Verificar pelo servidor? (SET IPTV/ClouDDy dependem da extensão → não) */
+export function canConfigureResellerApp(app: any) {
+  const h = resolveHandlerFor(app);
+  return !!h && !!h.useApi;
+}
+
+/** Entra no catálogo da revenda? Automação pelo servidor, família GerenciaApp
+ * (menos "GPC Computador") OU licença pela AtivaApp (SET IPTV, ClouDDy,
+ * SmartOne… — entram só pra licença; Configurar fica indisponível). */
 export function isResellerCatalogApp(app: any) {
   if (app?.is_hidden) return false;
   if (isGerenciaAppFamily(app)) return !/computador/i.test(String(app.name || ""));
-  const h = resolveHandlerFor(app);
-  return !!h && !!h.useApi;
+  return canConfigureResellerApp(app) || !!app?.appativa_app_id;
 }
 
 /** Preço anual da licença pra revenda (BRL) — null = sem cobrança. */

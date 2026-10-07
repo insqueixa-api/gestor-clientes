@@ -24,6 +24,7 @@ type Row = {
   license_paid_until: string | null;
   configure_blocked: boolean;
   can_check: boolean;
+  can_configure: boolean;
 };
 
 const brl = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -171,21 +172,30 @@ export default function AppsSection({ session, supportPhone }: { session: string
                       Licença {r.license_price ? `${brl(r.license_price)}/ano` : ""} — pague a licença para liberar o Configurar (pagamento pelo portal em breve).
                     </p>
                   )}
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => void act(r, "configure")}
-                      disabled={!!busy || r.configure_blocked}
-                      className="h-9 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold disabled:opacity-50"
-                    >
-                      {busy === `${r.id}:configure` ? "Configurando..." : r.configured_at ? "Reconfigurar" : "Configurar m3u"}
-                    </button>
-                    <button
-                      onClick={() => void act(r, "check")}
-                      disabled={!!busy || !r.can_check}
-                      className="h-9 rounded-lg border border-border text-emerald-600 text-xs font-semibold hover:bg-muted disabled:opacity-50"
-                    >
-                      {busy === `${r.id}:check` ? "Verificando..." : "Verificar"}
-                    </button>
+                  {!r.can_configure && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Licença pela AtivaApp. A configuração da lista desse aplicativo é feita pelo suporte (não pelo portal).
+                    </p>
+                  )}
+                  <div className={`grid gap-2 ${r.can_configure ? "grid-cols-3" : "grid-cols-1"}`}>
+                    {r.can_configure && (
+                      <button
+                        onClick={() => void act(r, "configure")}
+                        disabled={!!busy || r.configure_blocked}
+                        className="h-9 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold disabled:opacity-50"
+                      >
+                        {busy === `${r.id}:configure` ? "Configurando..." : r.configured_at ? "Reconfigurar" : "Configurar m3u"}
+                      </button>
+                    )}
+                    {r.can_configure && (
+                      <button
+                        onClick={() => void act(r, "check")}
+                        disabled={!!busy || !r.can_check}
+                        className="h-9 rounded-lg border border-border text-emerald-600 text-xs font-semibold hover:bg-muted disabled:opacity-50"
+                      >
+                        {busy === `${r.id}:check` ? "Verificando..." : "Verificar"}
+                      </button>
+                    )}
                     <button
                       onClick={() => void act(r, "remove")}
                       disabled={!!busy}

@@ -18,6 +18,7 @@ import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { withoutLegacyDevices } from "@/lib/apps/device-types";
 import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
 import {
+  canConfigureResellerApp,
   checkResellerApp,
   configureResellerApp,
   detectServerForM3u,
@@ -27,7 +28,6 @@ import {
   removeResellerAppFromPartner,
   requiresPaymentBeforeConfigure,
   resellerLicensePrice,
-  resolveHandlerFor,
 } from "@/lib/reseller-portal/apps";
 
 export const dynamic = "force-dynamic";
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
             license_price_display_currency: price ? "BRL" : null,
             license_period: price ? "annual" : null,
             is_active: true,
-            has_integration: true,
+            has_integration: canConfigureResellerApp(a),
             fields: (Array.isArray(a.fields_config) ? a.fields_config : [])
               .filter((f: any) => f && f.id && f.type !== "date" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType))
               .map((f: any) => ({
@@ -126,7 +126,9 @@ export async function POST(req: NextRequest) {
           license_paid_until: r.license_paid_until,
           // GerenciaApp: configurar só com licença paga
           configure_blocked: requiresPaymentBeforeConfigure(a) && !paid,
-          can_check: !!resolveHandlerFor(a)?.useApi,
+          can_check: canConfigureResellerApp(a),
+          // SET IPTV/ClouDDy/SmartOne…: só licença (AtivaApp) — lista não é pelo portal
+          can_configure: canConfigureResellerApp(a),
         };
       });
       return NextResponse.json({ ok: true, data }, { headers: NO_STORE });
@@ -190,6 +192,12 @@ export async function POST(req: NextRequest) {
       serverId: (row as any).server_id,
     };
 
+    // SET IPTV/ClouDDy/SmartOne…: só licença (AtivaApp) — a lista não é pelo portal
+    const canConfigure = canConfigureResellerApp(app);
+    if ((action === "configure" || action === "check") && !canConfigure) {
+      return jsonError(400, "A configuração da lista desse aplicativo não é feita pelo portal — fale com o suporte.");
+    }
+
     if (action === "configure") {
       const paid = !!row.license_paid_until && new Date(`${row.license_paid_until}T23:59:59`).getTime() > Date.now();
       if (requiresPaymentBeforeConfigure(app) && !paid) {
@@ -218,8 +226,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "remove") {
-      const r = await removeResellerAppFromPartner(sb, partnerCtx);
-      if (!r.ok) return jsonError(400, r.error);
+      // só os com automação mexem no parceiro; os demais só apagam o cadastro
+      if (canConfigure) {
+        const r = await removeResellerAppFromPartner(sb, partnerCtx);
+        if (!r.ok) return jsonError(400, r.error);
+      }
       await sb.from("reseller_client_apps").delete().eq("id", row.id);
       return NextResponse.json({ ok: true }, { headers: NO_STORE });
     }
