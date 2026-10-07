@@ -17,6 +17,7 @@ import { createFastDepixTransaction, fetchQrCodeAsBase64, getFastDepixTransactio
 import { executeNatvCreditTransfer } from "@/lib/integrations/natv-transfer";
 import { notify } from "@/lib/notifications/notify";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
+import { handleResellerAppOrderWebhook } from "@/lib/reseller-portal/app-orders";
 
 const ORDER_TTL_MS = 30 * 60 * 1000;
 
@@ -531,7 +532,8 @@ export async function handleResellerOrderWebhook(
   let q = admin.from("reseller_credit_orders").select("id, tenant_id, gateway_type").eq("gateway_payment_id", params.gatewayPaymentId);
   q = params.gatewayFamily === "mercadopago" ? q.eq("gateway_type", "mercadopago") : q.in("gateway_type", ["fastpay", "fastflow"]);
   const { data: order } = await q.maybeSingle();
-  if (!order) return "not_found";
+  // ✅ 07/10/2026: não é compra de créditos → pode ser ativação de app da revenda
+  if (!order) return handleResellerAppOrderWebhook(admin, params, (t, type) => gatewayConfig(admin, t, type));
 
   const cfg = await gatewayConfig(admin, order.tenant_id, order.gateway_type);
   const secret = String(cfg.webhook_secret || "").trim();

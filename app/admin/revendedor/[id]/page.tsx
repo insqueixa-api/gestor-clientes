@@ -201,6 +201,22 @@ export default function ResellerDetailPage() {
   const [reseller, setReseller] = useState<Reseller | null>(null);
   const [servers, setServers] = useState<ServerLink[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  // ✅ 07/10/2026: ativações de app pagas pela revenda no Portal (reseller_app_orders)
+  // — lista separada de propósito: não entra nos totais de créditos
+  const [appActs, setAppActs] = useState<
+    {
+      id: string;
+      app_name: string;
+      end_client_username: string | null;
+      amount_brl: number;
+      created_at: string;
+      paid_at: string | null;
+      fulfillment_status: string | null;
+      fulfillment_error: string | null;
+      new_expire_date: string | null;
+      gateway_type: string;
+    }[]
+  >([]);
 
   // Estados de Modais
   const [showServerModal, setShowServerModal] = useState(false);
@@ -412,6 +428,16 @@ export default function ResellerDetailPage() {
 
         setHistory(mappedHistory);
       }
+
+      const { data: acts } = await supabaseBrowser
+        .from("reseller_app_orders")
+        .select("id, app_name, end_client_username, amount_brl, created_at, paid_at, fulfillment_status, fulfillment_error, new_expire_date, gateway_type")
+        .eq("tenant_id", tid)
+        .eq("reseller_id", resellerId)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      setAppActs((acts || []).map((a: any) => ({ ...a, amount_brl: Number(a.amount_brl) })));
     } catch (e: any) {
       addToast("error", "Erro", e?.message ?? "Erro desconhecido");
     } finally {
@@ -851,12 +877,58 @@ export default function ResellerDetailPage() {
             </h3>
 
             <div className="space-y-0 px-2">
-              {history.length === 0 ? (
+              {history.length === 0 && appActs.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground text-sm italic border-2 border-dashed border-border rounded-xl">
                   Nenhuma movimentação registrada.
                 </div>
               ) : (
-                history.map((h) => {
+                [
+                  ...history.map((h) => ({ at: String(h.created_at), sale: h, act: null as (typeof appActs)[number] | null })),
+                  ...appActs.map((a) => ({ at: String(a.paid_at || a.created_at), sale: null as HistoryRow | null, act: a })),
+                ]
+                  .sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())
+                  .map(({ sale, act }) => {
+                  if (act) {
+                    const done = act.fulfillment_status === "done";
+                    const failed = act.fulfillment_status === "error" || act.fulfillment_status === "unknown";
+                    return (
+                      <div key={`act-${act.id}`} className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-border last:border-0 group">
+                        <div
+                          className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-background ${done ? "bg-amber-500" : failed ? "bg-rose-500" : "bg-sky-500"}`}
+                        />
+                        <div className="flex justify-between items-start gap-2 bg-muted/30 p-2 rounded-xl border border-transparent hover:border-border transition-all">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-foreground tracking-tight flex flex-wrap items-center gap-2">
+                              ⚡ Ativação de aplicativo
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-violet-500/10 text-violet-500 border border-violet-500/20">
+                                Portal da Revenda · PIX{act.gateway_type === "mercadopago" ? " (Mercado Pago)" : ` (${act.gateway_type})`}
+                              </span>
+                              {!done && (
+                                <span
+                                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${failed ? "bg-rose-500/10 text-rose-500 border-rose-500/20" : "bg-sky-500/10 text-sky-500 border-sky-500/20"}`}
+                                >
+                                  {failed ? "Ativação falhou — conferir" : "Ativando"}
+                                </span>
+                              )}
+                            </div>
+                            <div
+                              className={`mt-1 text-xs font-medium text-muted-foreground/70 tracking-tight ${valuesHidden ? "blur-sm select-none" : ""}`}
+                            >
+                              {act.app_name}
+                              {act.end_client_username ? ` · cliente ${act.end_client_username}` : ""}
+                              {act.new_expire_date ? ` · novo vencimento ${act.new_expire_date.split("-").reverse().join("/")}` : ""}
+                              {` · ${fmtBRL(act.amount_brl)}`}
+                            </div>
+                            {failed && act.fulfillment_error && <div className="mt-0.5 text-[11px] text-rose-500">{act.fulfillment_error}</div>}
+                          </div>
+                          <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap shrink-0">
+                            {fmtDate(act.paid_at || act.created_at)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  const h = sale as HistoryRow;
                   const serverName =
                     (h.server_id
                       ? serverNameById.get(String(h.server_id))

@@ -83,11 +83,13 @@ type LogRow = {
   // ✅ 06/10/2026: "reseller_credits" = compra de créditos pelo Portal da
   // Revenda (reseller_credit_orders) — linha só de leitura aqui (nenhuma
   // ação de cliente: Concluir/Reprocessar/Reenviar não se aplicam).
-  payment_type: "subscription" | "app_renewal" | "reseller_credits";
+  // ✅ 07/10/2026: "reseller_app" = ativação de app paga pela revenda (reseller_app_orders)
+  payment_type: "subscription" | "app_renewal" | "reseller_credits" | "reseller_app";
   app_name_snapshot: string | null;
   client_app_id: string | null;
   reseller_id?: string | null;
   reseller_credits?: number | null;
+  reseller_app_expire?: string | null;
 };
 
 function fmtMoney(amount: number, currency: string = "BRL") {
@@ -881,8 +883,54 @@ function AuditoriaPageContent() {
             .eq("tenant_id", tid)
             .order("created_at", { ascending: false })
             .limit(50);
+          const { data: appOrders } = await supabaseBrowser
+            .from("reseller_app_orders")
+            .select(
+              "id, created_at, reseller_id, app_name, end_client_username, amount_brl, gateway_type, gateway_payment_id, status, expires_at, fulfillment_status, fulfillment_error, whatsapp_status, new_expire_date, resellers(display_name)",
+            )
+            .eq("tenant_id", tid)
+            .order("created_at", { ascending: false })
+            .limit(50);
           const term = searchTerm.trim().toLowerCase();
-          resellerRows = (orders || [])
+          const appRows = (appOrders || []).map(
+            (o: any): LogRow => ({
+              id: o.id,
+              created_at: o.created_at,
+              client_id: "",
+              client_name: `${o.resellers?.display_name || "Revenda"} · revenda`,
+              technology: "IPTV",
+              server_username: o.end_client_username || "—",
+              server_name: "—",
+              server_logo_url: null,
+              app_icon_url: null,
+              screens: 1,
+              payment_method: "online",
+              payment_status:
+                o.status === "pending" && o.expires_at && new Date(o.expires_at).getTime() < Date.now() ? "cancelled" : o.status,
+              // ativando na AtivaApp/DupleCast = processando; sem confirmação = erro (chama atenção)
+              fulfillment_status:
+                o.fulfillment_status === "unknown" ? "error" : o.fulfillment_status === "activating" ? "processing" : o.fulfillment_status || "",
+              fulfillment_error: o.fulfillment_error || null,
+              fulfilled_automatically: o.fulfillment_status === "done",
+              whatsapp_status: o.whatsapp_status || null,
+              price_amount: Number(o.amount_brl),
+              price_currency: "BRL",
+              period: "",
+              plan_label: null,
+              gateway_name: o.gateway_type,
+              mp_payment_id: o.gateway_payment_id || null,
+              coupon_code: null,
+              coupon_discount_amount: null,
+              pendencies: [],
+              payment_type: "reseller_app",
+              app_name_snapshot: o.app_name,
+              client_app_id: null,
+              reseller_id: o.reseller_id,
+              reseller_credits: null,
+              reseller_app_expire: o.new_expire_date || null,
+            }),
+          );
+          resellerRows = [...(orders || [])
             .map((o: any): LogRow => ({
               id: o.id,
               created_at: o.created_at,
@@ -919,13 +967,14 @@ function AuditoriaPageContent() {
               client_app_id: null,
               reseller_id: o.reseller_id,
               reseller_credits: o.credits,
-            }))
+            })), ...appRows]
             .filter(
               (r) =>
                 !term ||
                 r.client_name.toLowerCase().includes(term) ||
                 r.server_username.toLowerCase().includes(term) ||
-                String(r.gateway_name || "").toLowerCase().includes(term),
+                String(r.gateway_name || "").toLowerCase().includes(term) ||
+                String(r.app_name_snapshot || "").toLowerCase().includes(term),
             );
         }
 
@@ -1052,7 +1101,7 @@ function AuditoriaPageContent() {
     () =>
       rows.filter((r) =>
         // ✅ compra de créditos da revenda: conta só se pagou e o envio não concluiu
-        r.payment_type === "reseller_credits"
+        r.payment_type === "reseller_credits" || r.payment_type === "reseller_app"
           ? r.payment_status === "approved" && r.fulfillment_status !== "done"
           : r.fulfillment_status === "manual_pending" ||
             r.fulfillment_status === "awaiting_transfer" ||
@@ -2232,7 +2281,8 @@ function AuditoriaPageContent() {
 
                         // ✅ Compra de créditos da revenda: só leitura aqui —
                         // nenhuma ação de cliente (resolve na página da revenda)
-                        const isReseller = r.payment_type === "reseller_credits";
+                        const isReseller = r.payment_type === "reseller_credits" || r.payment_type === "reseller_app";
+                        const isResellerApp = r.payment_type === "reseller_app";
 
                         // ✅ Separação clara dos estados
                         const isManualPending =
@@ -2334,7 +2384,17 @@ function AuditoriaPageContent() {
                                   );
                                 })()}
                                 
-                                {isReseller ? (
+                                {isResellerApp ? (
+                                  <div className="flex flex-col gap-0.5 items-start">
+                                    <span className="text-xs font-medium text-foreground/80">
+                                      Ativação (revenda)
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                                      {r.app_name_snapshot}
+                                      {r.reseller_app_expire ? ` · até ${r.reseller_app_expire.split("-").reverse().join("/")}` : ""}
+                                    </span>
+                                  </div>
+                                ) : isReseller ? (
                                   <div className="flex flex-col gap-0.5 items-start">
                                     <span className="text-xs font-medium text-foreground/80">
                                       Créditos (revenda)
@@ -2439,7 +2499,7 @@ function AuditoriaPageContent() {
                                 )}
                                 {isReseller && (
                                   <span className="text-[10px] text-muted-foreground font-medium">
-                                    Compra de créditos · Portal da Revenda
+                                    {isResellerApp ? "Ativação de app · Portal da Revenda" : "Compra de créditos · Portal da Revenda"}
                                   </span>
                                 )}
                               </div>

@@ -19,7 +19,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { validateResellerSession } from "@/lib/reseller-portal/session";
 import { syncResellerPanels } from "@/lib/reseller-portal/sync";
-import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, type AppFieldType } from "@/lib/apps/field-types";
 import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
 import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { withoutLegacyDevices } from "@/lib/apps/device-types";
@@ -42,6 +41,8 @@ import {
   removeResellerAppFromPartner,
   renewGerenciaAppFree,
   resellerLicensePrice,
+  editableFields,
+  readFieldValues,
   resolveHandlerFor,
   type PartnerCtx,
 } from "@/lib/reseller-portal/apps";
@@ -64,29 +65,6 @@ function jsonError(status: number, error: string) {
 }
 const s = (v: unknown) => String(v ?? "").trim();
 const ok = (data: Record<string, unknown>) => NextResponse.json({ ok: true, ...data }, { headers: NO_STORE });
-
-/** Campos que a revenda preenche (sem data e sem Ambiente — Ambiente é coluna própria, opcional). */
-function editableFields(app: any): { id: string; type: string; label: string }[] {
-  return (Array.isArray(app?.fields_config) ? app.fields_config : [])
-    .filter((f: any) => f && f.id && f.type !== "date" && f.type !== "obs" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType))
-    .map((f: any) => ({
-      id: String(f.id),
-      type: String(f.type || ""),
-      label: String(String(f.label || "").trim() || APP_FIELD_LABELS[f.type as AppFieldType] || f.id),
-    }));
-}
-
-/** Só os campos do app, todos obrigatórios. */
-function readFieldValues(app: any, input: unknown): { values: Record<string, string> } | { error: string } {
-  const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
-  const values: Record<string, string> = {};
-  for (const f of editableFields(app)) {
-    const v = s(src[f.id]).slice(0, 200);
-    if (!v) return { error: `Preencha o ${f.label}.` };
-    values[f.id] = v;
-  }
-  return { values };
-}
 
 function isoDate(d: unknown): string | null {
   const m = /^(\d{4}-\d{2}-\d{2})/.exec(s(d));

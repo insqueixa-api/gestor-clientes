@@ -358,7 +358,7 @@ export async function syncIptvRendimentos(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const { dataVenc, mesStart, mesStartStr, mesEndStr, dataPagamentoMes } = monthBounds(dateObj);
-    const [{ catId, contaMpPj }, { data: renewals }, { data: sales }, { data: apps }, { data: fx }] = await Promise.all([
+    const [{ catId, contaMpPj }, { data: renewals }, { data: sales }, { data: apps }, { data: fx }, { data: resellerApps }] = await Promise.all([
       resolveIptvContext(supabaseAdmin, tenantId),
       supabaseAdmin
         .from("client_renewals")
@@ -387,6 +387,14 @@ export async function syncIptvRendimentos(
         .select("usd_to_brl, eur_to_brl")
         .eq("tenant_id", tenantId)
         .maybeSingle(),
+      // ✅ 07/10/2026: ativação de app paga pela revenda (Portal da Revenda) — sempre BRL
+      supabaseAdmin
+        .from("reseller_app_orders")
+        .select("amount_brl")
+        .eq("tenant_id", tenantId)
+        .eq("status", "approved")
+        .gte("paid_at", mesStartStr)
+        .lte("paid_at", mesEndStr),
     ]);
 
     const usdToBrl = Number(fx?.usd_to_brl ?? 5);
@@ -407,7 +415,8 @@ export async function syncIptvRendimentos(
     const valor =
       (renewals || []).reduce((acc: number, r: any) => acc + Number(r.total_amount || 0), 0) +
       (sales || []).reduce((acc: number, s: any) => acc + Number(s.total_amount_brl || 0), 0) +
-      (apps || []).reduce((acc: number, a: any) => acc + appToBrl(a), 0);
+      (apps || []).reduce((acc: number, a: any) => acc + appToBrl(a), 0) +
+      (resellerApps || []).reduce((acc: number, a: any) => acc + Number(a.amount_brl || 0), 0);
 
     return upsertIptvLancamento(supabaseAdmin, tenantId, {
       descricao: "IPTV - Rendimentos",

@@ -84,12 +84,24 @@ export default function AppsSection({
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [adding, setAdding] = useState<{ app: CatalogItem; deviceType: string | null } | null>(null);
   const [activating, setActivating] = useState<CatalogItem | null>(null);
+  const [renewing, setRenewing] = useState<{ row: AppRow; client: ConfiguredClient } | null>(null);
   const [editing, setEditing] = useState<{ row: AppRow; client: ConfiguredClient } | null>(null);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
   const [rowMsg, setRowMsg] = useState<Record<string, { tone: "ok" | "err"; text: string } | undefined>>({});
 
   const call: Call = async (payload) => {
     const r = await fetch("/api/reseller-portal/apps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_token: session, ...payload }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j?.ok) throw new Error(j?.error || "Falha na operação.");
+    return j;
+  };
+
+  const callOrder: Call = async (payload) => {
+    const r = await fetch("/api/reseller-portal/app-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_token: session, ...payload }),
@@ -286,10 +298,15 @@ export default function AppsSection({
                                   ? `Renovação libera em ${dateBR(a.renew.available_from)}.`
                                   : a.renew.kind === "free"
                                     ? "Renovação disponível (grátis)."
-                                    : `Renovação disponível${a.license_price ? ` · ${brl(a.license_price)}/ano` : ""} — pagamento pelo portal em breve.`}
+                                    : `Renovação disponível${a.license_price ? ` · ${brl(a.license_price)}/ano` : ""}.`}
                             </p>
                           )}
                           <div className="flex flex-wrap gap-2">
+                            {renewOpen && a.renew.kind === "paid" && (
+                              <RowBtn tone="emerald" onClick={() => setRenewing({ row: a, client: c })} disabled={anyBusy}>
+                                <Zap className="w-3.5 h-3.5 fill-current" /> Renovar
+                              </RowBtn>
+                            )}
                             {renewOpen && a.renew.kind === "free" && (
                               <RowBtn tone="emerald" onClick={() => void rowAction(a, "renew_free")} disabled={anyBusy} busy={busy("renew_free")}>
                                 Renovar grátis
@@ -409,11 +426,25 @@ export default function AppsSection({
         <ActivateModal
           app={activating}
           call={call}
+          callOrder={callOrder}
+          supportPhone={supportPhone}
           onBack={() => {
             setActivating(null);
             setPickerMode("activate");
           }}
           onClose={() => setActivating(null)}
+        />
+      )}
+      {renewing && (
+        <ActivateModal
+          app={{ ...renewing.row.app, license_price: renewing.row.license_price }}
+          row={renewing.row}
+          clientUsername={renewing.client.username}
+          call={call}
+          callOrder={callOrder}
+          supportPhone={supportPhone}
+          onClose={() => setRenewing(null)}
+          onPaidDone={() => void loadDashboard(false)}
         />
       )}
       {editing && (
@@ -709,12 +740,35 @@ function AddModal({
   );
 }
 
-/** Ativar: só os dados do aparelho → disponibilidade (motivo NA TELA). */
-function ActivateModal({ app, call, onBack, onClose }: { app: CatalogItem; call: Call; onBack: () => void; onClose: () => void }) {
+/** Ativar: dados do aparelho → disponibilidade (motivo NA TELA) → PIX → ativação.
+ * Com `row` (Renovar do card do cliente) usa os dados salvos do app — o
+ * servidor reconfere a disponibilidade antes de gerar o PIX. */
+function ActivateModal({
+  app,
+  row,
+  clientUsername,
+  call,
+  callOrder,
+  supportPhone,
+  onBack,
+  onClose,
+  onPaidDone,
+}: {
+  app: { id: string; name: string; icon_url?: string | null; license_price?: number | null; fields?: Field[] };
+  row?: AppRow;
+  clientUsername?: string;
+  call: Call;
+  callOrder: Call;
+  supportPhone: string | null;
+  onBack?: () => void;
+  onClose: () => void;
+  onPaidDone?: () => void;
+}) {
   const [vals, setVals] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [res, setRes] = useState<any>(null);
+  const [order, setOrder] = useState<any>(null);
   const fields = app.fields || [];
   const filled = fields.every((f) => (vals[f.id] || "").trim());
 
@@ -731,26 +785,103 @@ function ActivateModal({ app, call, onBack, onClose }: { app: CatalogItem; call:
     }
   }
 
+  async function pay(excludeGatewayType?: string) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const j = await callOrder({
+        action: "create",
+        app_id: app.id,
+        ...(row ? { client_app_id: row.id } : { field_values: vals }),
+        ...(excludeGatewayType ? { exclude_gateway_type: excludeGatewayType } : {}),
+      });
+      setOrder({ ...j, state: "waiting" });
+    } catch (e: any) {
+      setErr(e?.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // acompanha o pedido até ativar (webhook pode atrasar — o status reconsulta o gateway)
+  useEffect(() => {
+    if (!order?.order_id || order.state === "done" || order.state === "failed" || order.state === "expired") return;
+    const iv = setInterval(async () => {
+      try {
+        const j = await callOrder({ action: "status", order_id: order.order_id });
+        setOrder((o: any) => (o ? { ...o, state: j.state, new_expire_date: j.new_expire_date } : o));
+        if (j.state === "done") onPaidDone?.();
+      } catch {}
+    }, 4000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order?.order_id, order?.state]);
+
   const lifetime = res?.available_from === "9999-12-31" || /^9999/.test(String(res?.expire_date || ""));
+  const price = res?.price ?? app.license_price ?? null;
+  const subtitle = row ? `Renovar · cliente ${clientUsername || ""}` : `Ativação${app.license_price ? ` · ${brl(Number(app.license_price))}/ano` : ""}`;
+
+  if (order) {
+    return (
+      <ModalShell app={app} onClose={onClose} subtitle={subtitle}>
+        <PixPanel
+          order={order}
+          supportPhone={supportPhone}
+          onClose={onClose}
+          onRetryOther={order.has_alternate_gateway && order.state === "waiting" ? () => void pay(order.gateway_type) : undefined}
+        />
+      </ModalShell>
+    );
+  }
+
+  const payButton = (label: string) => (
+    <button
+      onClick={() => void pay()}
+      disabled={busy}
+      className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold disabled:opacity-60 inline-flex items-center justify-center gap-2"
+    >
+      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+      {busy ? "Gerando PIX..." : label}
+    </button>
+  );
+
   return (
-    <ModalShell app={app} onBack={onBack} onClose={onClose} subtitle={`Ativação${app.license_price ? ` · ${brl(Number(app.license_price))}/ano` : ""}`}>
-      <FieldInputs
-        fields={fields}
-        vals={vals}
-        setVals={(fn) => {
-          setRes(null);
-          setVals(fn);
-        }}
-        disabled={busy}
-      />
+    <ModalShell app={app} onBack={onBack} onClose={onClose} subtitle={subtitle}>
+      {row ? (
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          {row.fields.map((f) => (
+            <div key={f.id} className="rounded-lg bg-muted px-2 py-1.5 min-w-0">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{f.label}</div>
+              <div className="font-mono text-foreground truncate">{f.value || "—"}</div>
+            </div>
+          ))}
+          <div className="rounded-lg bg-muted px-2 py-1.5">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Vencimento atual</div>
+            <div className="font-semibold text-foreground">{dateBR(row.expire_date)}</div>
+          </div>
+        </div>
+      ) : (
+        <FieldInputs
+          fields={fields}
+          vals={vals}
+          setVals={(fn) => {
+            setRes(null);
+            setVals(fn);
+          }}
+          disabled={busy}
+        />
+      )}
 
       {err && (
         <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3 text-sm text-rose-600">
-          <b>Não foi possível verificar.</b> {err}
+          <b>{row || res ? "Não foi possível gerar o pagamento." : "Não foi possível verificar."}</b> {err}
         </div>
       )}
 
-      {res &&
+      {row && payButton(`Pagar ${price ? brl(Number(price)) : ""} e renovar`)}
+
+      {!row &&
+        res &&
         (res.available && !lifetime ? (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
             <p className="text-sm font-bold text-emerald-700">✅ Ativação disponível</p>
@@ -763,10 +894,7 @@ function ActivateModal({ app, call, onBack, onClose }: { app: CatalogItem; call:
                     : "O aparelho está sem licença ativa."
                 : "Não conseguimos consultar o vencimento desse aplicativo antes. Confira no app do cliente: se o aparelho já tiver licença ativa, a ativação é feita do mesmo jeito e o valor não é devolvido."}
             </p>
-            <button disabled className="w-full h-11 rounded-xl bg-emerald-600 text-white font-bold disabled:opacity-60">
-              Pagar {res.price ? brl(Number(res.price)) : ""} e ativar
-            </button>
-            <p className="text-[11px] text-muted-foreground text-center">O pagamento pelo portal entra na próxima atualização.</p>
+            {payButton(`Pagar ${price ? brl(Number(price)) : ""} e ativar`)}
           </div>
         ) : (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
@@ -779,7 +907,7 @@ function ActivateModal({ app, call, onBack, onClose }: { app: CatalogItem; call:
           </div>
         ))}
 
-      {!res && (
+      {!row && !res && (
         <button
           onClick={() => void check()}
           disabled={busy || !filled}
@@ -795,6 +923,112 @@ function ActivateModal({ app, call, onBack, onClose }: { app: CatalogItem; call:
         </button>
       )}
     </ModalShell>
+  );
+}
+
+/** PIX da ativação + acompanhamento (mesmo visual da compra de créditos). */
+function PixPanel({ order, supportPhone, onClose, onRetryOther }: { order: any; supportPhone: string | null; onClose: () => void; onRetryOther?: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  const left = Math.max(0, new Date(order.expires_at).getTime() - now);
+  const mm = String(Math.floor(left / 60000)).padStart(2, "0");
+  const ss = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
+  const digits = String(supportPhone || "").replace(/\D/g, "");
+
+  async function copy() {
+    if (!order.pix_qr_code) return;
+    try {
+      await navigator.clipboard.writeText(order.pix_qr_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {}
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="text-center text-sm text-muted-foreground">
+        {order.app_name} · <b className="text-foreground">{brl(Number(order.amount))}</b> · PIX
+      </div>
+      {order.state === "waiting" && (
+        <>
+          {order.pix_qr_code_base64 && (
+            <img
+              src={`data:image/png;base64,${order.pix_qr_code_base64}`}
+              alt="QR Code PIX"
+              className="w-56 h-56 mx-auto rounded-lg border border-border bg-white p-2"
+            />
+          )}
+          {order.pix_qr_code && (
+            <button onClick={copy} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors">
+              {copied ? "Código copiado ✓" : "Copiar código PIX (copia e cola)"}
+            </button>
+          )}
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+            Aguardando o pagamento {left > 0 ? `· expira em ${mm}:${ss}` : ""}
+          </div>
+          <p className="text-[11px] text-center text-muted-foreground">Assim que o PIX cair, a licença é ativada automaticamente — pode acompanhar por aqui.</p>
+          {onRetryOther && (
+            <button onClick={onRetryOther} className="w-full text-xs text-muted-foreground underline">
+              Problema com este PIX? Tentar outra forma de pagamento
+            </button>
+          )}
+        </>
+      )}
+      {order.state === "activating" && (
+        <div className="text-center py-6 space-y-2">
+          <div className="w-10 h-10 mx-auto rounded-full border-4 border-emerald-500/30 border-t-emerald-500 animate-spin" />
+          <p className="font-semibold text-foreground">Pagamento confirmado!</p>
+          <p className="text-sm text-muted-foreground">Ativando a licença no aplicativo… pode levar alguns minutos.</p>
+        </div>
+      )}
+      {order.state === "done" && (
+        <div className="text-center py-6 space-y-2">
+          <div className="text-4xl">✅</div>
+          <p className="font-bold text-foreground text-lg">Licença ativada!</p>
+          {order.new_expire_date && (
+            <p className="text-sm text-muted-foreground">
+              Novo vencimento: <span className="font-bold text-emerald-600">{dateBR(order.new_expire_date)}</span>
+            </p>
+          )}
+          <button onClick={onClose} className="mt-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
+            Fechar
+          </button>
+        </div>
+      )}
+      {order.state === "failed" && (
+        <div className="text-center py-6 space-y-2">
+          <div className="text-4xl">⏳</div>
+          <p className="font-bold text-foreground">Pagamento recebido</p>
+          <p className="text-sm text-muted-foreground">
+            A ativação automática não confirmou. O suporte já foi avisado e vai concluir manualmente — você não precisa pagar de novo.
+          </p>
+          {digits && (
+            <a
+              href={`https://wa.me/${digits}?text=${encodeURIComponent(`Olá! Paguei a ativação do ${order.app_name} no Portal da Revenda e preciso de ajuda.`)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block mt-1 px-5 py-2.5 rounded-xl bg-[#25D366] text-white font-bold"
+            >
+              Falar com o suporte
+            </a>
+          )}
+        </div>
+      )}
+      {order.state === "expired" && (
+        <div className="text-center py-6 space-y-2">
+          <p className="font-bold text-foreground">PIX expirado ou cancelado</p>
+          <p className="text-sm text-muted-foreground">Nenhum valor foi cobrado. Feche e gere um novo PIX.</p>
+          <button onClick={onClose} className="mt-1 px-6 py-2.5 rounded-xl border border-border text-foreground font-semibold">
+            Fechar
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -915,6 +1149,10 @@ function ActivateGuide() {
       <li>
         Toque em <strong className="text-foreground">Verificar disponibilidade</strong>: mostramos o vencimento atual e se a ativação já está liberada (vencido,
         ou faltando até 7 dias nos apps AtivaApp e 30 dias nos demais).
+      </li>
+      <li>
+        Disponível? Toque em <strong className="text-foreground">Pagar e ativar</strong>, pague o PIX e acompanhe: a licença é ativada sozinha e você recebe
+        a confirmação no WhatsApp.
       </li>
     </GuideShell>
   );

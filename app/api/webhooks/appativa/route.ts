@@ -36,6 +36,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { resolveAppativaAppRenewal, prodLog } from "@/lib/client-portal/fulfillment";
+import { handleResellerAppativaWebhook } from "@/lib/reseller-portal/app-orders";
 import { flagSuspiciousAccess } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +83,11 @@ export async function POST(req: NextRequest) {
     // ids ao acaso (achado 26/08/2026, revisão de segurança pedida pelo
     // Márcio).
     if (!payment) {
+      // ✅ 07/10/2026: ativação paga pelo Portal da Revenda (reseller_app_orders)
+      if (await handleResellerAppativaWebhook(supabaseAdmin, idCobranca)) {
+        prodLog("appativa_webhook.reseller_resolved", { id_cobranca_suffix: idCobranca.slice(-6) });
+        return NextResponse.json({ ok: true });
+      }
       flagSuspiciousAccess("appativa_webhook_id_desconhecido", {
         id_cobranca_suffix: idCobranca.slice(-6),
       });

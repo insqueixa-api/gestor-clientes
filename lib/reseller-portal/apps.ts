@@ -26,10 +26,36 @@ import {
   resolveIntegrationTypeByName,
 } from "@/lib/apps/panel";
 import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
+import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, type AppFieldType } from "@/lib/apps/field-types";
 import { rotatePrincipalM3u, rotateSecondaryM3u, type M3uList } from "@/lib/apps/m3u-lists";
 import type { AppFieldConfig, IntegrationHandler, PartnerApiResponse } from "@/lib/apps/types";
 
 export const DEFAULT_GERENCIAAPP_LIMIT = 10;
+
+const str = (v: unknown) => String(v ?? "").trim();
+
+/** Campos que a revenda preenche (sem data e sem Ambiente — Ambiente é coluna própria, opcional). */
+export function editableFields(app: any): { id: string; type: string; label: string }[] {
+  return (Array.isArray(app?.fields_config) ? app.fields_config : [])
+    .filter((f: any) => f && f.id && f.type !== "date" && f.type !== "obs" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType))
+    .map((f: any) => ({
+      id: String(f.id),
+      type: String(f.type || ""),
+      label: String(String(f.label || "").trim() || APP_FIELD_LABELS[f.type as AppFieldType] || f.id),
+    }));
+}
+
+/** Só os campos do app, todos obrigatórios. */
+export function readFieldValues(app: any, input: unknown): { values: Record<string, string> } | { error: string } {
+  const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
+  const values: Record<string, string> = {};
+  for (const f of editableFields(app)) {
+    const v = str(src[f.id]).slice(0, 200);
+    if (!v) return { error: `Preencha o ${f.label}.` };
+    values[f.id] = v;
+  }
+  return { values };
+}
 
 export function isGerenciaAppFamily(app: { integration_type?: string | null; name?: string | null }) {
   const t = String(app.integration_type || "").trim().toUpperCase() || resolveIntegrationTypeByName(String(app.name || ""));

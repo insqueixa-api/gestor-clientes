@@ -150,3 +150,11 @@ Substitui o fluxo solto (revenda informava qualquer M3U). Decisões do Márcio:
 - Lista de clientes configurados: usuário + apps (vencimento, Checar, Reconfigurar, Editar, Remover, Renovar grátis).
 
 **Etapa 2 (pendente):** pagamento da ativação (PIX → AtivaApp/DupleCast) e renovação paga pelo card; mensagem WhatsApp + histórico na página do revendedor (app, cliente, quando, novo vencimento); auditoria de fraude.
+
+### 07/10/2026 — etapa 2 pronta: pagamento da ativação
+- Tabela `reseller_app_orders` (docs/sql/reseller_app_orders.sql): valor do sistema, disponibilidade reconferida no servidor antes do PIX, valor pago conferido, trava pending→processing, índice "1 pago em aberto por aparelho".
+- PIX genérico em `lib/reseller-portal/pix.ts` (créditos continuam com o código deles, intocado). Motor em `lib/reseller-portal/app-orders.ts`; rota `/api/reseller-portal/app-order` (create/status).
+- Ativação: AtivaApp (fila → webhook dela, acompanhamento da tela e checagem 5s×1min) e DupleCast (1 código; fallback AtivaApp só se o 1º falhar na hora — nunca os dois, igual ao cliente).
+- Webhooks MP/FastDePix: pedido não achado em créditos → procura em ativação. Webhook AtivaApp: id que não é de cliente → procura em revenda.
+- Concluído: vencimento no card do cliente (se veio do Renovar), receita em "IPTV - Rendimentos", WhatsApp pra revenda (template com "ativa…revenda" no nome, senão texto padrão com {app_nome}/{cliente}/{app_vencimento}), Log do Portal ("Ativação (revenda)") e histórico na página do revendedor (⚡ Ativação de aplicativo).
+- Falta: teste com pagamento real (Márcio). O card do dashboard financeiro (view vw_dashboard_finance_cards) ainda não soma as ativações da revenda — só o lançamento "IPTV - Rendimentos".
