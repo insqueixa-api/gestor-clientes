@@ -135,7 +135,7 @@ reseller_end_user_apps  id, tenant_id, reseller_end_user_id, app_id,
 7. **Elite e Fast:** mandar a documentação (ou print) do endpoint de envio de crédito de cada um.
 
 ### 07/10/2026 — nome do cliente (pedido do Márcio)
-- No modal da revenda o campo "Ambiente" (tipo `obs`) não aparece: no lugar dele a revenda informa o **Nome do cliente** (obrigatório) → `reseller_client_apps.client_label`. O servidor ignora `obs` vindo da revenda.
+- No modal da revenda o campo "Ambiente" (tipo `obs`) não aparece; o **Nome do cliente** vem sempre no topo e TODOS os campos são obrigatórios (tela e servidor) → `reseller_client_apps.client_label`. O servidor ignora `obs` vindo da revenda.
 - **Etapa B (pagamento da licença) tem que usar esse nome:**
   - na mensagem de WhatsApp pra revenda (app, cliente, usuário do M3U, novo vencimento);
   - no histórico da página do revendedor (admin `/admin/revendedor/[id]`), junto das recargas: qual aplicativo, de qual cliente, quando foi ativado e o novo vencimento.

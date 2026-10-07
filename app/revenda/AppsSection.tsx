@@ -276,17 +276,14 @@ function AppActionModal({
     null,
   );
 
-  // ✅ 07/10/2026: "Ambiente" (obs) é do Márcio/cliente final — aqui, no mesmo
-  // lugar, a revenda informa o NOME DO CLIENTE dela (identificação no histórico
-  // e na mensagem). App sem campo Ambiente → o nome vai no topo.
-  const fields = app.fields || [];
-  const hasObs = fields.some((f) => f.type === "obs");
+  // ✅ 07/10/2026 (padronizado, pedido do Márcio): NOME DO CLIENTE sempre no
+  // topo, qualquer app; "Ambiente" (obs) é do Márcio/cliente final e não
+  // aparece pra revenda; TODOS os campos são obrigatórios.
+  const fields = (app.fields || []).filter((f) => f.type !== "obs");
   const filled =
     !!m3u.trim() &&
     !!clientLabel.trim() &&
-    fields
-      .filter((f) => f.type === "mac")
-      .every((f) => (vals[f.id] || "").trim());
+    fields.every((f) => (vals[f.id] || "").trim());
 
   async function submit() {
     setMsg(null);
@@ -426,11 +423,8 @@ function AppActionModal({
 
           {!row ? (
             <>
-              {!hasObs && clientNameInput}
-              {fields.map((f) =>
-                f.type === "obs" ? (
-                  <div key={f.id}>{clientNameInput}</div>
-                ) : (
+              {clientNameInput}
+              {fields.map((f) => (
                   <div key={f.id}>
                     <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                       {f.label}
@@ -444,8 +438,7 @@ function AppActionModal({
                       placeholder={f.type === "mac" ? "XX:XX:XX:XX:XX:XX" : ""}
                     />
                   </div>
-                ),
-              )}
+              ))}
               <div>
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
                   Link M3U do cliente

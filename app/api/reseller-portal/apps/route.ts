@@ -161,7 +161,12 @@ export async function POST(req: NextRequest) {
       // "Ambiente" (obs) é do Márcio/cliente final — na revenda vira o nome do cliente (client_label)
       for (const f of fields) if (f?.id && f.type !== "date" && f.type !== "obs" && input[f.id] != null) fieldValues[String(f.id)] = s(input[f.id]).slice(0, 200);
       const macField = fields.find((f: any) => String(f?.type || "").toLowerCase() === "mac");
-      if (macField && !fieldValues[String(macField.id)]) return jsonError(400, `Preencha o ${macField.label || "MAC"}.`);
+      // ✅ 07/10/2026: na revenda TODOS os campos são obrigatórios (nome do cliente + campos do app + M3U)
+      if (!clientLabel) return jsonError(400, "Informe o nome do cliente.");
+      const missing = fields.find(
+        (f: any) => f?.id && f.type !== "date" && f.type !== "obs" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType) && !fieldValues[String(f.id)],
+      );
+      if (missing) return jsonError(400, `Preencha o ${missing.label || APP_FIELD_LABELS[missing.type as AppFieldType] || "campo"}.`);
       const server = await detectServerForM3u(sb, ctx.tenant_id, ctx.reseller_id, m3u.host);
       // ✅ 07/10/2026: a revenda não tem mais lista de apps (só "ativar ou
       // configurar" na hora) — o registro fica só por dentro. Mesmo app +
