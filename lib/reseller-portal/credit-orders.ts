@@ -484,9 +484,13 @@ export async function fulfillCreditOrder(admin: SupabaseClient, orderId: string)
 
 /** Comprovante pro WhatsApp da revenda (template "Recarga Revenda", igual à Recarga rápida). */
 async function sendReceiptWhatsApp(admin: SupabaseClient, order: any) {
+  // resultado gravado no pedido → coluna WhatsApp do Log do Portal
+  const mark = async (st: "sent" | "error" | "na") => {
+    await admin.from("reseller_credit_orders").update({ whatsapp_status: st }).eq("id", order.id);
+  };
   try {
     const secret = String(process.env.INTERNAL_API_SECRET || "").trim();
-    if (!secret) return;
+    if (!secret) return await mark("error");
     const { data: tpl } = await admin
       .from("message_templates")
       .select("content")
@@ -494,8 +498,8 @@ async function sendReceiptWhatsApp(admin: SupabaseClient, order: any) {
       .ilike("name", "%recarga revenda%")
       .limit(1)
       .maybeSingle();
-    if (!tpl?.content) return;
-    await fetch(`${appOrigin()}/api/whatsapp/envio_agora`, {
+    if (!tpl?.content) return await mark("na");
+    const res = await fetch(`${appOrigin()}/api/whatsapp/envio_agora`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-internal-secret": secret },
       body: JSON.stringify({
@@ -508,8 +512,10 @@ async function sendReceiptWhatsApp(admin: SupabaseClient, order: any) {
       }),
       signal: AbortSignal.timeout(20000),
     });
+    await mark(res.ok ? "sent" : "error");
   } catch (e: any) {
     log("receipt_failed", { message: e?.message });
+    await mark("error").catch(() => {});
   }
 }
 

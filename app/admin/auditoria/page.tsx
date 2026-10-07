@@ -80,9 +80,14 @@ type LogRow = {
   app_alert_label?: string | null;
   // ✅ Pagamento avulso de licença de app (25/07/2026) — nunca mexe na
   // assinatura, precisa ficar bem distinto na tela pra você nunca confundir.
-  payment_type: "subscription" | "app_renewal";
+  // ✅ 06/10/2026: "reseller_credits" = compra de créditos pelo Portal da
+  // Revenda (reseller_credit_orders) — linha só de leitura aqui (nenhuma
+  // ação de cliente: Concluir/Reprocessar/Reenviar não se aplicam).
+  payment_type: "subscription" | "app_renewal" | "reseller_credits";
   app_name_snapshot: string | null;
   client_app_id: string | null;
+  reseller_id?: string | null;
+  reseller_credits?: number | null;
 };
 
 function fmtMoney(amount: number, currency: string = "BRL") {
@@ -862,7 +867,69 @@ function AuditoriaPageContent() {
           };
         });
 
-        setRows(mapped);
+        // 5. ✅ 06/10/2026, pedido do Márcio: compras de créditos do Portal da
+        // Revenda (reseller_credit_orders) entram no mesmo log, ordenadas por
+        // data junto com os pagamentos de cliente. Cupom não existe pra
+        // revenda → somem com o filtro "Com cupom".
+        let resellerRows: LogRow[] = [];
+        if (filterCoupon !== "Com cupom") {
+          const { data: orders } = await supabaseBrowser
+            .from("reseller_credit_orders")
+            .select(
+              "id, created_at, reseller_id, server_id, credits, amount_brl, gateway_type, gateway_payment_id, status, fulfillment_status, fulfillment_error, whatsapp_status, resellers(display_name), reseller_servers(server_username)",
+            )
+            .eq("tenant_id", tid)
+            .order("created_at", { ascending: false })
+            .limit(50);
+          const term = searchTerm.trim().toLowerCase();
+          resellerRows = (orders || [])
+            .map((o: any): LogRow => ({
+              id: o.id,
+              created_at: o.created_at,
+              client_id: "",
+              client_name: `${o.resellers?.display_name || "Revenda"} · revenda`,
+              technology: "IPTV",
+              server_username: o.reseller_servers?.server_username || "—",
+              server_name: serversMap[o.server_id] || "—",
+              server_logo_url: serversLogoMap[o.server_id] ?? null,
+              app_icon_url: null,
+              screens: 1,
+              payment_method: "online",
+              payment_status: o.status,
+              // "unknown" (envio sem confirmação) aparece como erro pra chamar atenção
+              fulfillment_status: o.fulfillment_status === "unknown" ? "error" : o.fulfillment_status || "",
+              fulfillment_error: o.fulfillment_error || null,
+              fulfilled_automatically: o.fulfillment_status === "done",
+              whatsapp_status: o.whatsapp_status || null,
+              price_amount: Number(o.amount_brl),
+              price_currency: "BRL",
+              period: "",
+              plan_label: null,
+              gateway_name: o.gateway_type,
+              mp_payment_id: o.gateway_payment_id || null,
+              coupon_code: null,
+              coupon_discount_amount: null,
+              pendencies: [],
+              payment_type: "reseller_credits",
+              app_name_snapshot: null,
+              client_app_id: null,
+              reseller_id: o.reseller_id,
+              reseller_credits: o.credits,
+            }))
+            .filter(
+              (r) =>
+                !term ||
+                r.client_name.toLowerCase().includes(term) ||
+                r.server_username.toLowerCase().includes(term) ||
+                String(r.gateway_name || "").toLowerCase().includes(term),
+            );
+        }
+
+        setRows(
+          [...mapped, ...resellerRows].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          ),
+        );
       }
     } catch (e: any) {
       addToast("error", "Erro ao carregar auditoria", e.message);
@@ -979,18 +1046,20 @@ function AuditoriaPageContent() {
   // whatsapp com erro, ou travada sem retorno).
   const iptvActionableCount = useMemo(
     () =>
-      rows.filter(
-        (r) =>
-          r.fulfillment_status === "manual_pending" ||
-          r.fulfillment_status === "awaiting_transfer" ||
-          (r.whatsapp_status === "error" &&
-            (r.fulfillment_status === "done" ||
-              r.fulfillment_status === "manual_done")) ||
-          isStuckFulfillment(
-            r.fulfillment_status,
-            r.payment_status,
-            r.created_at,
-          ),
+      rows.filter((r) =>
+        // ✅ compra de créditos da revenda: conta só se pagou e o envio não concluiu
+        r.payment_type === "reseller_credits"
+          ? r.payment_status === "approved" && r.fulfillment_status !== "done"
+          : r.fulfillment_status === "manual_pending" ||
+            r.fulfillment_status === "awaiting_transfer" ||
+            (r.whatsapp_status === "error" &&
+              (r.fulfillment_status === "done" ||
+                r.fulfillment_status === "manual_done")) ||
+            isStuckFulfillment(
+              r.fulfillment_status,
+              r.payment_status,
+              r.created_at,
+            ),
       ).length,
     [rows],
   );
@@ -2157,26 +2226,39 @@ function AuditoriaPageContent() {
                       visible.map((r) => {
                         const dateObj = new Date(r.created_at);
 
+                        // ✅ Compra de créditos da revenda: só leitura aqui —
+                        // nenhuma ação de cliente (resolve na página da revenda)
+                        const isReseller = r.payment_type === "reseller_credits";
+
                         // ✅ Separação clara dos estados
                         const isManualPending =
-                          r.fulfillment_status === "manual_pending";
+                          !isReseller && r.fulfillment_status === "manual_pending";
                         const isAwaitingTransfer =
-                          r.fulfillment_status === "awaiting_transfer";
+                          !isReseller && r.fulfillment_status === "awaiting_transfer";
                         const isWhatsappError =
+                          !isReseller &&
                           r.whatsapp_status === "error" &&
                           (r.fulfillment_status === "done" ||
                             r.fulfillment_status === "manual_done");
-                        const isStuck = isStuckFulfillment(
-                          r.fulfillment_status,
-                          r.payment_status,
-                          r.created_at,
-                        );
+                        const isStuck =
+                          !isReseller &&
+                          isStuckFulfillment(
+                            r.fulfillment_status,
+                            r.payment_status,
+                            r.created_at,
+                          );
+                        // revenda paga com envio falho/sem confirmação/travado → atalho pra revenda
+                        const resellerNeedsAttention =
+                          isReseller &&
+                          r.payment_status === "approved" &&
+                          r.fulfillment_status !== "done";
 
                         const canShowAction =
                           isManualPending ||
                           isAwaitingTransfer ||
                           isWhatsappError ||
-                          isStuck;
+                          isStuck ||
+                          resellerNeedsAttention;
 
                         return (
                           <tr
@@ -2248,7 +2330,16 @@ function AuditoriaPageContent() {
                                   );
                                 })()}
                                 
-                                {r.pending_display ? (
+                                {isReseller ? (
+                                  <div className="flex flex-col gap-0.5 items-start">
+                                    <span className="text-xs font-medium text-foreground/80">
+                                      Créditos (revenda)
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {r.reseller_credits} créditos
+                                    </span>
+                                  </div>
+                                ) : r.pending_display ? (
                                   <div className="flex flex-col gap-0.5 items-start">
                                     <span className="text-xs font-medium text-foreground/80">
                                       {r.pending_display.title}
@@ -2340,6 +2431,11 @@ function AuditoriaPageContent() {
                                 {r.app_alert_label && (
                                   <span className="text-[10px] text-muted-foreground font-medium">
                                     {r.app_alert_label}
+                                  </span>
+                                )}
+                                {isReseller && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    Compra de créditos · Portal da Revenda
                                   </span>
                                 )}
                               </div>
@@ -2544,6 +2640,16 @@ function AuditoriaPageContent() {
                                       <IconCheckCircle /> Resolvido
                                     </button>
                                   </>
+                                )}
+
+                                {resellerNeedsAttention && r.reseller_id && (
+                                  <a
+                                    href={`/admin/revendedor/${r.reseller_id}`}
+                                    className="gap-1 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 text-[10px] font-medium uppercase rounded-lg transition-colors border border-amber-500/30 shadow-sm flex items-center justify-center gap-1"
+                                    title="Abrir a revenda — Recarga rápida: Chegou / Não chegou, ou enviar manualmente"
+                                  >
+                                    Abrir revenda
+                                  </a>
                                 )}
 
                                 {!canShowAction && (

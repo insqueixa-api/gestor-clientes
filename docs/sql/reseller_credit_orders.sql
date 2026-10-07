@@ -59,3 +59,7 @@ drop trigger if exists trg_reseller_credit_orders_updated_at on public.reseller_
 create trigger trg_reseller_credit_orders_updated_at
   before update on public.reseller_credit_orders
   for each row execute function public.set_updated_at();
+
+-- 06/10/2026: status do comprovante no WhatsApp da revenda (coluna WhatsApp do Log do Portal)
+alter table public.reseller_credit_orders
+  add column if not exists whatsapp_status text check (whatsapp_status in ('sent', 'error', 'na'));
