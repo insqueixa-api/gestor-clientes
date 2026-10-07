@@ -13,13 +13,15 @@
 // Aplicativos dos clientes da revenda: próxima fase (docs/revenda-portal/PLANO.md).
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 type Server = {
   id: string;
   name: string;
   logo_url: string | null;
   username: string | null;
+  password: string | null;
+  telegram_url: string | null;
   stats: {
     credits: number;
     account_status?: string;
@@ -35,14 +37,11 @@ type Home = {
   reseller: { name: string; since: string | null };
   support_phone: string | null;
   servers: Server[];
-  purchases: { server: string; credits: number; total: number; at: string }[];
 };
 type Section = "menu" | "payment" | "apps";
 
 const KEY = "rp_session";
 const brl = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
-const dateBR = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 const dateTimeBR = (iso: string | null) =>
   iso
     ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -88,6 +87,7 @@ export default function RevendaPortalPage() {
   const [serverId, setServerId] = useState<string>("");
   const [qty, setQty] = useState<number>(0);
   const [syncing, setSyncing] = useState(false);
+  const [showPass, setShowPass] = useState(false);
 
   useEffect(() => {
     const s = readSession();
@@ -365,9 +365,43 @@ export default function RevendaPortalPage() {
               <div className="bg-muted/50 px-3 sm:px-4 py-2 sm:py-3 border-b border-border">
                 <h2 className="text-sm font-bold text-foreground flex items-center gap-2">📺 Dados de Acesso</h2>
               </div>
-              <div className="p-2.5 sm:p-4 grid grid-cols-2 gap-2 sm:gap-3">
-                <Field label="Usuário" mono value={server.username || "—"} />
-                <Field label="Servidor" value={server.name} />
+              <div className="p-2.5 sm:p-4 flex items-end gap-2 sm:gap-3">
+                {server.logo_url ? (
+                  <img src={server.logo_url} alt={server.name} title={server.name} className="w-[54px] h-[54px] rounded-lg object-cover border border-border shrink-0" />
+                ) : (
+                  <div className="w-[54px] h-[54px] rounded-lg border border-border flex items-center justify-center text-muted-foreground font-bold shrink-0">
+                    {server.name.charAt(0)}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 grid grid-cols-2 gap-2 sm:gap-3">
+                  <Field label="Usuário" mono value={server.username || "—"} />
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Senha</label>
+                    <div className="flex items-center gap-1 text-sm font-mono text-foreground bg-muted pl-2.5 pr-1 py-1 sm:pl-3 rounded-lg border border-border">
+                      <span className="flex-1 truncate">{server.password ? (showPass ? server.password : "••••••••") : "—"}</span>
+                      {server.password && (
+                        <button
+                          onClick={() => setShowPass((v) => !v)}
+                          className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background"
+                          title={showPass ? "Ocultar senha" : "Mostrar senha"}
+                        >
+                          {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {server.telegram_url && (
+                  <a
+                    href={server.telegram_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={`Abrir o Telegram do ${server.name}`}
+                    className="w-[38px] h-[38px] sm:w-[42px] sm:h-[42px] rounded-lg bg-[#229ED9] hover:bg-[#1c8cc2] text-white flex items-center justify-center shrink-0 transition-colors"
+                  >
+                    <IconTelegram />
+                  </a>
+                )}
               </div>
             </div>
 
@@ -427,29 +461,6 @@ export default function RevendaPortalPage() {
                         );
                       })}
                     </div>
-                    <div className="flex items-center gap-3">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">Quantidade</label>
-                      <div className="flex items-center rounded-lg border border-border overflow-hidden">
-                        <button onClick={() => setQty((q) => Math.max(5, q - 5))} className="w-9 h-9 text-lg text-muted-foreground hover:bg-muted">
-                          −
-                        </button>
-                        <input
-                          value={qty || ""}
-                          onChange={(e) => setQty(Number(e.target.value.replace(/\D/g, "")) || 0)}
-                          inputMode="numeric"
-                          className="w-16 h-9 text-center bg-transparent text-base font-bold text-foreground outline-none border-x border-border"
-                        />
-                        <button onClick={() => setQty((q) => q + 5)} className="w-9 h-9 text-lg text-muted-foreground hover:bg-muted">
-                          +
-                        </button>
-                      </div>
-                      {tier && (
-                        <span className="text-xs text-muted-foreground">
-                          {brl(tier.price)}/crédito
-                        </span>
-                      )}
-                    </div>
-                    {qty > 0 && qty < 5 && <p className="text-xs text-rose-500">O mínimo é 5 créditos.</p>}
                   </>
                 )}
               </div>
@@ -475,35 +486,6 @@ export default function RevendaPortalPage() {
                 Comprar {qty} créditos • {brl(total)}
               </a>
             )}
-            <p className="text-[11px] text-center text-muted-foreground -mt-1">
-              O pedido vai para o suporte no WhatsApp. Em breve o pagamento por PIX direto aqui.
-            </p>
-
-            {/* Histórico de compras */}
-            <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-              <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
-                <h2 className="text-sm font-bold text-foreground flex items-center gap-2">🧾 Suas Compras de Crédito</h2>
-              </div>
-              <div className="p-3 sm:p-4">
-                {data.purchases.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhuma compra registrada.</p>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {data.purchases.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between py-2 text-sm">
-                        <div>
-                          <div className="text-foreground font-medium">
-                            {p.credits} créditos · {p.server}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground">{dateBR(p.at)}</div>
-                        </div>
-                        <div className="text-foreground font-medium">{brl(p.total)}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
           </>
         )}
       </div>
@@ -528,6 +510,14 @@ function IconWhatsapp() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+    </svg>
+  );
+}
+
+function IconTelegram() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M9.78 15.27 9.6 19.3c.39 0 .56-.17.76-.37l1.83-1.75 3.79 2.78c.7.38 1.19.18 1.38-.65l2.5-11.73c.23-1.03-.37-1.43-1.05-1.18L3.92 12.04c-1 .39-.99.95-.17 1.2l3.76 1.17 8.73-5.5c.41-.27.79-.12.48.15" />
     </svg>
   );
 }

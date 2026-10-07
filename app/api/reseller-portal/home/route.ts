@@ -1,9 +1,11 @@
 // app/api/reseller-portal/home/route.ts
 // ✅ 06/10/2026: dados da tela inicial do Portal da Revenda (/revenda).
 // Sessão própria (lib/reseller-portal/session.ts). Só leitura e só o que é
-// DA revenda: nome, servidores vinculados (usuário do painel + último resumo
-// salvo pelo Sync), compras de crédito e a Tabela Revenda (preço por faixa).
-// Nunca devolve senha do painel nem dados de outra revenda/cliente.
+// DA revenda: nome, servidores vinculados (usuário e senha do painel DELA —
+// pedido do Márcio, aparece oculta com o olho —, Telegram do servidor, último
+// resumo do painel) e a Tabela Revenda (preço por faixa). Nunca devolve chave
+// de API nem dados de outra revenda/cliente. Histórico de compras saiu da
+// tela (pedido do Márcio, 06/10/2026).
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateResellerSession, endResellerSession } from "@/lib/reseller-portal/session";
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
       sb.from("resellers").select("display_name, created_at").eq("id", ctx.reseller_id).eq("tenant_id", ctx.tenant_id).maybeSingle(),
       sb
         .from("reseller_servers")
-        .select("id, server_id, server_username, panel_stats, panel_stats_at, servers(name, logo_url)")
+        .select("id, server_id, server_username, server_password, panel_stats, panel_stats_at, servers(name, logo_url, panel_telegram_group)")
         .eq("tenant_id", ctx.tenant_id)
         .eq("reseller_id", ctx.reseller_id),
     ]);
@@ -83,30 +85,24 @@ export async function POST(req: NextRequest) {
         supportPhone = p?.[0]?.whatsapp_username || null;
       }
     } catch {}
-    const linkIds = links.map((l) => l.id);
     const serverIds = links.map((l) => l.server_id);
 
-    const [salesRes, pkgRes] = await Promise.all([
-      linkIds.length
-        ? sb
-            .from("server_credit_sales")
-            .select("reseller_server_id, credits_sold, total_amount_brl, created_at")
-            .eq("tenant_id", ctx.tenant_id)
-            .in("reseller_server_id", linkIds)
-            .order("created_at", { ascending: false })
-            .limit(20)
-        : Promise.resolve({ data: [] as any[] }),
-      serverIds.length
-        ? sb
-            .from("reseller_credit_packages")
-            .select("server_id, position, credits, price_brl")
-            .eq("tenant_id", ctx.tenant_id)
-            .in("server_id", serverIds)
-            .order("position", { ascending: true })
-        : Promise.resolve({ data: [] as any[] }),
-    ]);
+    const pkgRes = serverIds.length
+      ? await sb
+          .from("reseller_credit_packages")
+          .select("server_id, position, credits, price_brl")
+          .eq("tenant_id", ctx.tenant_id)
+          .in("server_id", serverIds)
+          .order("position", { ascending: true })
+      : { data: [] as any[] };
 
-    const nameByLink = new Map(links.map((l) => [l.id, l.servers?.name || "Servidor"]));
+    // Telegram do painel do servidor (@usuario ou link) → link do t.me
+    const telegramUrl = (v: unknown) => {
+      const s = String(v || "").trim();
+      if (!s) return null;
+      return s.startsWith("http") ? s : `https://t.me/${s.replace(/^@/, "")}`;
+    };
+
     return NextResponse.json(
       {
         ok: true,
@@ -117,17 +113,14 @@ export async function POST(req: NextRequest) {
           name: l.servers?.name || "Servidor",
           logo_url: l.servers?.logo_url || null,
           username: l.server_username || null,
+          // senha do painel DELE (cadastro do vínculo) — só pra sessão da própria revenda
+          password: l.server_password || null,
+          telegram_url: telegramUrl(l.servers?.panel_telegram_group),
           stats: l.panel_stats || null,
           synced_at: l.panel_stats_at || null,
           prices: (pkgRes.data || [])
             .filter((p: any) => p.server_id === l.server_id && p.price_brl != null && Number(p.price_brl) > 0)
             .map((p: any) => ({ credits: Number(p.credits), price: Number(p.price_brl) })),
-        })),
-        purchases: (salesRes.data || []).map((s: any) => ({
-          server: nameByLink.get(s.reseller_server_id) || "Servidor",
-          credits: Number(s.credits_sold),
-          total: Number(s.total_amount_brl),
-          at: s.created_at,
         })),
       },
       { headers: NO_STORE },
