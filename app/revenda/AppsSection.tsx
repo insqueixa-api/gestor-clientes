@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Loader2, Plus, Search, Settings, Star, Zap } from "lucide-react";
 import AppPickerModal, { type AppPickerCatalogItem } from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
+import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
 import ToastNotifications, { type ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import { normalizeMacInput } from "@/lib/apps/field-types";
@@ -56,7 +57,7 @@ type Stats = {
   gerenciaapp_limit: number;
   synced_at: string | null;
 };
-type Dashboard = { stats: Stats; clients: EndClient[]; configured: ConfiguredClient[] };
+type Dashboard = { stats: Stats; clients: EndClient[]; configured: ConfiguredClient[]; can_add: boolean };
 type Call = (p: Record<string, unknown>) => Promise<any>;
 
 const brl = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -104,6 +105,7 @@ export default function AppsSection({
   const [renewing, setRenewing] = useState<{ row: AppRow; client: ConfiguredClient } | null>(null);
   const [editing, setEditing] = useState<{ row: AppRow; client: ConfiguredClient } | null>(null);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
+  const [showMaintenance, setShowMaintenance] = useState(false);
   // ✅ 07/10/2026: feedback em toast + confirmação do sistema (igual ao portal do cliente)
   const { confirm } = useConfirm();
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -137,7 +139,7 @@ export default function AppsSection({
     if (sync) setSyncing(true);
     try {
       const j = await call({ action: "dashboard", sync });
-      setDash({ stats: j.stats, clients: j.clients, configured: j.configured });
+      setDash({ stats: j.stats, clients: j.clients, configured: j.configured, can_add: j.can_add !== false });
       setDashErr(null);
     } catch (e: any) {
       setDashErr(e?.message || "Não foi possível carregar.");
@@ -152,6 +154,11 @@ export default function AppsSection({
   }, [session]);
 
   async function openPicker(mode: "add" | "activate") {
+    // chave "Portal" do admin desligada → aviso de manutenção (igual ao portal do cliente)
+    if (dash && !dash.can_add) {
+      setShowMaintenance(true);
+      return;
+    }
     setPickerMode(mode);
     if (catalogs[mode]) return;
     setCatalogLoading(true);
@@ -429,6 +436,33 @@ export default function AppsSection({
           >
             Falar com o suporte
           </a>
+        </div>
+      )}
+
+      {showMaintenance && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setShowMaintenance(false);
+          }}
+        >
+          <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
+            <p className="text-sm font-bold text-foreground">🛠️ Estamos em manutenção</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Adicionar e ativar aplicativos pelo portal está passando por uma atualização. Fale comigo no WhatsApp que eu resolvo pra você rapidinho.
+            </p>
+            <WhatsAppHelpLink
+              phone={supportPhone}
+              label="Falar no WhatsApp"
+              message={`Olá! Sou a revenda ${resellerName} e preciso adicionar/ativar um aplicativo pra um cliente.`}
+            />
+            <button
+              onClick={() => setShowMaintenance(false)}
+              className="h-10 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:bg-muted"
+            >
+              Fechar
+            </button>
+          </div>
         </div>
       )}
 

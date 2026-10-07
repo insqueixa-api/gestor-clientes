@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateResellerSession } from "@/lib/reseller-portal/session";
 import { confirmPaidAndFulfillApp, createAppOrder } from "@/lib/reseller-portal/app-orders";
+import { RESELLER_APPS_MAINTENANCE_MESSAGE, resellerCanAddApps } from "@/lib/reseller-portal/apps";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
     const action = String(body?.action || "");
 
     if (action === "create") {
+      // chave "Portal" do admin desligada → sem ativação nova (o "status" de pedido já pago segue normal)
+      if (!(await resellerCanAddApps(sb, ctx.tenant_id, ctx.reseller_id))) return jsonError(503, RESELLER_APPS_MAINTENANCE_MESSAGE);
       const appId = String(body?.app_id || "").trim();
       const rowId = String(body?.client_app_id || "").trim();
       if (!UUID_RE.test(appId)) return jsonError(400, "Aplicativo inválido.");

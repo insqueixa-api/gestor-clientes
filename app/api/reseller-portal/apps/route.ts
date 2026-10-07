@@ -44,6 +44,8 @@ import {
   editableFields,
   readFieldValues,
   resolveHandlerFor,
+  resellerCanAddApps,
+  RESELLER_APPS_MAINTENANCE_MESSAGE,
   type PartnerCtx,
 } from "@/lib/reseller-portal/apps";
 
@@ -194,7 +196,7 @@ export async function POST(req: NextRequest) {
       const links = (linksData || []) as any[];
       if (body?.sync === true) await syncResellerPanels(sb, ctx.tenant_id, links);
 
-      const [{ data: clients }, { data: rows }, ga] = await Promise.all([
+      const [{ data: clients }, { data: rows }, ga, canAdd] = await Promise.all([
         sb
           .from("reseller_end_clients")
           .select(CLIENT_COLS)
@@ -210,6 +212,7 @@ export async function POST(req: NextRequest) {
           .not("end_client_id", "is", null)
           .order("created_at", { ascending: true }),
         gerenciaAppUsage(sb, ctx.tenant_id, ctx.reseller_id),
+        resellerCanAddApps(sb, ctx.tenant_id, ctx.reseller_id),
       ]);
 
       const sum = (k: string) => links.reduce((acc, l) => acc + (Number(l.panel_stats?.[k]) || 0), 0);
@@ -249,6 +252,8 @@ export async function POST(req: NextRequest) {
         },
         clients: visible.map(shapeClient),
         configured,
+        // chave "Portal" do admin (Aplicativos): false = Adicionar/Ativar em manutenção
+        can_add: canAdd,
       });
     }
 
@@ -269,6 +274,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ---------------- Ativar: disponibilidade ----------------
+    if ((action === "activate_check" || action === "configure_new") && !(await resellerCanAddApps(sb, ctx.tenant_id, ctx.reseller_id))) {
+      return jsonError(503, RESELLER_APPS_MAINTENANCE_MESSAGE);
+    }
+
     if (action === "activate_check") {
       const app = await loadApp(s(body?.app_id));
       if (!app || !isActivatableApp(app)) return jsonError(400, "Esse aplicativo não tem ativação pelo portal.");

@@ -16,6 +16,7 @@
 //   - nome da lista: <usuario>_<Servidor>; Configurar só apaga a lista de
 //     mesmo nome exato (exact_only), nunca as outras.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getPortalAddAppAccess } from "@/lib/client-portal/add-app-access";
 import { getIntegrationHandler } from "@/lib/integrations";
 import {
   CHECK_VALIDITY_HANDLERS,
@@ -301,3 +302,16 @@ export async function renewGerenciaAppFree(
   if (!r?.ok) return { ok: false as const, error: "Falha ao renovar a licença. Tente mais uma vez — se continuar, fale com o suporte." };
   return { ok: true as const, expireDate: r.expireDate || null };
 }
+
+/**
+ * ✅ 07/10/2026 (pedido do Márcio): mesma chave "Portal" da página Aplicativos
+ * do admin (tenants.portal_add_app_enabled) que fecha o "Adicionar aplicativo"
+ * do cliente — desligada, a revenda também não adiciona nem ativa app (aviso de
+ * manutenção). WhatsApp da revenda na lista de teste (portal_app_testers) passa.
+ */
+export async function resellerCanAddApps(admin: SupabaseClient, tenantId: string, resellerId: string) {
+  const { data: r } = await admin.from("resellers").select("whatsapp_username").eq("id", resellerId).eq("tenant_id", tenantId).maybeSingle();
+  const access = await getPortalAddAppAccess(admin, tenantId, r?.whatsapp_username || null);
+  return access.canAdd;
+}
+export const RESELLER_APPS_MAINTENANCE_MESSAGE = "Adicionar e ativar aplicativos pelo portal está em manutenção. Fale com o suporte.";
