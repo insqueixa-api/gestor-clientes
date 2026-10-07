@@ -151,8 +151,10 @@ export async function POST(req: NextRequest) {
       const clientLabel = s(body?.client_label).slice(0, 80);
       const m3uUrl = s(body?.m3u_url);
       if (!UUID_RE.test(appId)) return jsonError(400, "Escolha o aplicativo.");
-      const m3u = parseM3u(m3uUrl);
-      if (!m3u || !m3u.username || !m3u.password) return jsonError(400, "Link M3U inválido — precisa ter username=… e password=….");
+      // ✅ 07/10/2026 (pedido do Márcio): M3U é OPCIONAL — só o Configurar
+      // precisa dele; pra pagar/ativar a licença não. Se vier, tem que ser válido.
+      const m3u = m3uUrl ? parseM3u(m3uUrl) : null;
+      if (m3uUrl && (!m3u || !m3u.username || !m3u.password)) return jsonError(400, "Link M3U inválido — precisa ter username=… e password=….");
       const { data: app } = await sb.from("apps").select(APP_COLS).eq("id", appId).eq("tenant_id", ctx.tenant_id).maybeSingle();
       if (!app || !isResellerCatalogApp(app)) return jsonError(400, "Esse aplicativo não está disponível.");
       const fields = Array.isArray((app as any).fields_config) ? (app as any).fields_config : [];
@@ -161,36 +163,36 @@ export async function POST(req: NextRequest) {
       // "Ambiente" (obs) é do Márcio/cliente final — na revenda vira o nome do cliente (client_label)
       for (const f of fields) if (f?.id && f.type !== "date" && f.type !== "obs" && input[f.id] != null) fieldValues[String(f.id)] = s(input[f.id]).slice(0, 200);
       const macField = fields.find((f: any) => String(f?.type || "").toLowerCase() === "mac");
-      // ✅ 07/10/2026: na revenda TODOS os campos são obrigatórios (nome do cliente + campos do app + M3U)
+      // ✅ 07/10/2026: na revenda o nome do cliente e TODOS os campos do app são obrigatórios
       if (!clientLabel) return jsonError(400, "Informe o nome do cliente.");
       const missing = fields.find(
         (f: any) => f?.id && f.type !== "date" && f.type !== "obs" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType) && !fieldValues[String(f.id)],
       );
       if (missing) return jsonError(400, `Preencha o ${missing.label || APP_FIELD_LABELS[missing.type as AppFieldType] || "campo"}.`);
-      const server = await detectServerForM3u(sb, ctx.tenant_id, ctx.reseller_id, m3u.host);
-      // ✅ 07/10/2026: a revenda não tem mais lista de apps (só "ativar ou
-      // configurar" na hora) — o registro fica só por dentro. Mesmo app +
-      // mesmo MAC + mesmo usuário do M3U → reaproveita a linha (licença paga
-      // e histórico não se perdem a cada vez que ele abre o seletor).
+      const server = m3u ? await detectServerForM3u(sb, ctx.tenant_id, ctx.reseller_id, m3u.host) : null;
+      // ✅ 07/10/2026: a revenda não tem lista de apps (só "ativar ou
+      // configurar" na hora) — o registro fica só por dentro, UM por aparelho:
+      // mesmo app + mesmo MAC → reaproveita a linha (a licença é do aparelho;
+      // paga uma vez, não se perde ao reabrir o seletor ou trocar o M3U).
+      // App sem campo MAC → chave é o usuário do M3U.
       const macNorm = (v: unknown) => s(v).toUpperCase().replace(/[^0-9A-Z]/g, "");
       const macKey = macField ? macNorm(fieldValues[String(macField.id)]) : "";
-      const { data: sameRows } = await sb
-        .from("reseller_client_apps")
-        .select("id, field_values")
-        .eq("tenant_id", ctx.tenant_id)
-        .eq("reseller_id", ctx.reseller_id)
-        .eq("app_id", appId)
-        .eq("m3u_username", m3u.username);
-      const same = (sameRows || []).find((r: any) => !macField || macNorm(r.field_values?.[String(macField.id)]) === macKey) as any;
+      let same: any = null;
+      if (macField || m3u) {
+        let q = sb.from("reseller_client_apps").select("id, field_values").eq("tenant_id", ctx.tenant_id).eq("reseller_id", ctx.reseller_id).eq("app_id", appId);
+        if (!macField) q = q.eq("m3u_username", m3u!.username);
+        const { data: sameRows } = await q.order("created_at", { ascending: false });
+        same = (sameRows || []).find((r: any) => !macField || macNorm(r.field_values?.[String(macField.id)]) === macKey) || null;
+      }
       if (same) {
         await sb
           .from("reseller_client_apps")
           .update({
-            ...(clientLabel ? { client_label: clientLabel } : {}),
+            client_label: clientLabel,
             device_type: s(body?.device_type) || null,
             field_values: { ...(same.field_values || {}), ...fieldValues },
-            m3u_url: m3uUrl,
-            server_id: server?.id || null,
+            // sem M3U agora (só pagar) → mantém o que já estava salvo
+            ...(m3u ? { m3u_url: m3uUrl, m3u_username: m3u.username, server_id: server?.id || null } : {}),
           })
           .eq("id", same.id);
         return NextResponse.json({ ok: true, id: same.id, row: await loadRow(same.id) }, { headers: NO_STORE });
@@ -200,12 +202,12 @@ export async function POST(req: NextRequest) {
         .insert({
           tenant_id: ctx.tenant_id,
           reseller_id: ctx.reseller_id,
-          client_label: clientLabel || m3u.username,
+          client_label: clientLabel,
           app_id: appId,
           device_type: s(body?.device_type) || null,
           field_values: fieldValues,
-          m3u_url: m3uUrl,
-          m3u_username: m3u.username,
+          m3u_url: m3u ? m3uUrl : "", // coluna NOT NULL: "" = não informado
+          m3u_username: m3u?.username || null,
           server_id: server?.id || null,
         })
         .select("id")

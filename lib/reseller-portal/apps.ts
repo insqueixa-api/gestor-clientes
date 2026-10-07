@@ -152,7 +152,7 @@ async function post(url: string, secret: string, body: Record<string, unknown>):
 export async function configureResellerApp(admin: SupabaseClient, ctx: PartnerCtx) {
   const s = await partnerSetup(admin, ctx);
   if (!s.macValue) return { ok: false as const, error: "Preencha o ID/MAC antes de configurar." };
-  if (!s.username) return { ok: false as const, error: "O link M3U precisa ter username=… e password=…" };
+  if (!s.username) return { ok: false as const, error: "Informe o link M3U do cliente (Editar dados) pra configurar." };
 
   if (s.handler.actionPrefix !== "DUPLEXTV") {
     try {
@@ -196,6 +196,9 @@ export async function checkResellerApp(admin: SupabaseClient, ctx: PartnerCtx) {
   const s = await partnerSetup(admin, ctx);
   if (!CHECK_VALIDITY_HANDLERS.has(s.handler.actionPrefix)) return { ok: false as const, error: "Verificação de validade não disponível para este aplicativo." };
   if (!s.macValue) return { ok: false as const, error: "Preencha o ID/MAC antes de verificar." };
+  // GerenciaApp consulta pelo nome da lista (<usuario>_<Servidor>) — sem M3U não dá
+  if (s.handler.actionPrefix === "GERENCIAAPP" && !s.username)
+    return { ok: false as const, error: "Informe o link M3U do cliente (Editar dados) pra verificar esse aplicativo." };
   const r = await post(s.url, s.secret, {
     action: "check",
     macValue: s.macValue,

@@ -280,10 +280,11 @@ function AppActionModal({
   // topo, qualquer app; "Ambiente" (obs) é do Márcio/cliente final e não
   // aparece pra revenda; TODOS os campos são obrigatórios.
   const fields = (app.fields || []).filter((f) => f.type !== "obs");
+  // ✅ 07/10/2026: M3U opcional (só o Configurar usa; pra pagar/ativar não) e
+  // nem aparece nos apps que não configuram pelo portal (SET IPTV, ClouDDy…)
+  const showM3u = !!app.has_integration;
   const filled =
-    !!m3u.trim() &&
-    !!clientLabel.trim() &&
-    fields.every((f) => (vals[f.id] || "").trim());
+    !!clientLabel.trim() && fields.every((f) => (vals[f.id] || "").trim());
 
   async function submit() {
     setMsg(null);
@@ -294,7 +295,7 @@ function AppActionModal({
         app_id: app.id,
         device_type: deviceType,
         client_label: clientLabel.trim(),
-        m3u_url: m3u.trim(),
+        m3u_url: showM3u ? m3u.trim() : "",
         field_values: vals,
       });
       setRow(j.row as Row);
@@ -425,35 +426,41 @@ function AppActionModal({
             <>
               {clientNameInput}
               {fields.map((f) => (
-                  <div key={f.id}>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                      {f.label}
-                    </label>
-                    <input
-                      value={vals[f.id] || ""}
-                      onChange={(e) =>
-                        setVals((v) => ({ ...v, [f.id]: e.target.value }))
-                      }
-                      className={`${input} font-mono`}
-                      placeholder={f.type === "mac" ? "XX:XX:XX:XX:XX:XX" : ""}
-                    />
-                  </div>
+                <div key={f.id}>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                    {f.label}
+                  </label>
+                  <input
+                    value={vals[f.id] || ""}
+                    onChange={(e) =>
+                      setVals((v) => ({ ...v, [f.id]: e.target.value }))
+                    }
+                    className={`${input} font-mono`}
+                    placeholder={f.type === "mac" ? "XX:XX:XX:XX:XX:XX" : ""}
+                  />
+                </div>
               ))}
-              <div>
-                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                  Link M3U do cliente
-                </label>
-                <input
-                  value={m3u}
-                  onChange={(e) => setM3u(e.target.value)}
-                  className={`${input} font-mono text-xs`}
-                  placeholder="http://…/get.php?username=…&password=…"
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  O usuário do link vira o nome da lista no aparelho (ex.:
-                  usuario_NaTV).
-                </p>
-              </div>
+              {showM3u && (
+                <div>
+                  <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                    Link M3U do cliente{" "}
+                    <span className="normal-case font-medium">
+                      (só pra configurar)
+                    </span>
+                  </label>
+                  <input
+                    value={m3u}
+                    onChange={(e) => setM3u(e.target.value)}
+                    className={`${input} font-mono text-xs`}
+                    placeholder="http://…/get.php?username=…&password=…"
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    O usuário do link vira o nome da lista no aparelho (ex.:
+                    usuario_NaTV). Só vai pagar a licença? Pode deixar em
+                    branco.
+                  </p>
+                </div>
+              )}
               <button
                 onClick={() => void submit()}
                 disabled={!!busy || !filled}
@@ -507,11 +514,20 @@ function AppActionModal({
                 </p>
               )}
 
+              {row.can_configure && !row.m3u_username && (
+                <p className="text-[11px] text-muted-foreground">
+                  Sem link M3U: pra configurar a lista, toque em{" "}
+                  <b>Editar dados</b> e informe o link do cliente.
+                </p>
+              )}
+
               {row.can_configure && (
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => void act("configure")}
-                    disabled={!!busy || row.configure_blocked}
+                    disabled={
+                      !!busy || row.configure_blocked || !row.m3u_username
+                    }
                     className="h-10 rounded-lg bg-sky-500 hover:bg-sky-600 text-white text-xs font-bold disabled:opacity-50"
                   >
                     {busy === "configure"
@@ -529,7 +545,7 @@ function AppActionModal({
                   </button>
                   <button
                     onClick={() => void act("remove")}
-                    disabled={!!busy}
+                    disabled={!!busy || !row.m3u_username}
                     className="h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-semibold hover:bg-rose-500/20 disabled:opacity-50"
                   >
                     {busy === "remove" ? "Removendo..." : "Remover m3u"}
