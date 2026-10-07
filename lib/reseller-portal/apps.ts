@@ -1,16 +1,20 @@
 // lib/reseller-portal/apps.ts
-// ✅ 07/10/2026: aplicativos dos clientes DA REVENDA (reseller_client_apps).
-// Mesmo motor das automações dos clientes (handlers de lib/integrations via
-// rotas internas /api/integrations/apps/*), mas o link M3U e o usuário vêm do
-// cadastro que a revenda faz — não de clients. Regras:
-//   - catálogo: apps com integração automática (useApi) + família GerenciaApp
-//     (menos "GPC Computador"); apps só-extensão (SET IPTV/ClouDDy) ficam de
-//     fora (dependem do Chrome do Márcio);
-//   - preço: GerenciaApp grátis → R$ 5,00/ano pra revenda; demais → preço do
-//     sistema (apps.license_price);
-//   - GerenciaApp só configura com licença paga (cobrança antes — etapa B);
-//   - nome da lista: <usuario do M3U>_<Servidor>; Configurar só apaga a lista
-//     de mesmo nome exato (exact_only), nunca as outras.
+// ✅ 07/10/2026 (redesenho, pedido do Márcio): "Gerenciar clientes e
+// aplicativos" do Portal da Revenda. Mesmo motor das automações dos clientes
+// (handlers de lib/integrations via rotas internas /api/integrations/apps/*).
+// Regras:
+//   - a revenda só configura app pra CLIENTE DELA num servidor seu
+//     (reseller_end_clients, espelho do painel). O M3U é montado AQUI no
+//     servidor com a regra principal/secundária (lib/apps/m3u-lists.ts) — a
+//     revenda nunca vê o link, a senha nem as DNS;
+//   - "Adicionar aplicativo": apps com configuração automática pelo servidor
+//     (família GerenciaApp sem "GPC Computador"); GerenciaApp é GRÁTIS mas
+//     limitado a resellers.gerenciaapp_limit aparelhos (padrão 10);
+//   - "Ativar aplicativo": apps com renovação automática paga (AtivaApp,
+//     DupleCast), preço do sistema; disponibilidade = mesma janela do portal
+//     do cliente (vencido, sem data ou faltando até 7 dias AtivaApp / 30 demais);
+//   - nome da lista: <usuario>_<Servidor>; Configurar só apaga a lista de
+//     mesmo nome exato (exact_only), nunca as outras.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getIntegrationHandler } from "@/lib/integrations";
 import {
@@ -21,9 +25,11 @@ import {
   internalAppUrl,
   resolveIntegrationTypeByName,
 } from "@/lib/apps/panel";
+import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
+import { rotatePrincipalM3u, rotateSecondaryM3u, type M3uList } from "@/lib/apps/m3u-lists";
 import type { AppFieldConfig, IntegrationHandler, PartnerApiResponse } from "@/lib/apps/types";
 
-export const RESELLER_GERENCIAAPP_FREE_PRICE = 5;
+export const DEFAULT_GERENCIAAPP_LIMIT = 10;
 
 export function isGerenciaAppFamily(app: { integration_type?: string | null; name?: string | null }) {
   const t = String(app.integration_type || "").trim().toUpperCase() || resolveIntegrationTypeByName(String(app.name || ""));
@@ -46,29 +52,63 @@ export function canConfigureResellerApp(app: any) {
   return !!h && !!h.useApi;
 }
 
-/** Entra no catálogo da revenda? Automação pelo servidor, família GerenciaApp
- * (menos "GPC Computador") OU licença pela AtivaApp (SET IPTV, ClouDDy,
- * SmartOne… — entram só pra licença; Configurar fica indisponível). */
-export function isResellerCatalogApp(app: any) {
-  if (app?.is_hidden) return false;
-  if (app?.cost_type === "partnership") return false; // preso a servidor/plano de cliente
+/** Consigo ler o vencimento do aparelho só com os campos (sem lista)? */
+export function canCheckByDevice(app: any) {
+  const h = resolveHandlerFor(app);
+  return !!h && CHECK_VALIDITY_HANDLERS.has(h.actionPrefix) && h.actionPrefix !== "GERENCIAAPP";
+}
+
+function baseCatalogOk(app: any) {
+  return !!app && !app.is_hidden && app.is_active !== false && app.cost_type !== "partnership";
+}
+
+/** "Adicionar aplicativo": configuração automática pelo servidor. */
+export function isAddableApp(app: any) {
+  if (!baseCatalogOk(app) || !canConfigureResellerApp(app)) return false;
   if (isGerenciaAppFamily(app)) return !/computador/i.test(String(app.name || ""));
-  // ✅ 07/10/2026: pago com renovação MANUAL também entra (o pagamento cai no
-  // admin e o Márcio renova por fora — etapa B)
-  const paid = app?.cost_type === "paid" && Number(app?.license_price) > 0;
-  return canConfigureResellerApp(app) || !!app?.appativa_app_id || paid;
+  return true;
 }
 
-/** Preço anual da licença pra revenda (BRL) — null = sem cobrança. */
+/** Preço anual da licença (BRL, preço do sistema) — null = sem cobrança. */
 export function resellerLicensePrice(app: any): number | null {
-  if (isGerenciaAppFamily(app) && app.cost_type === "free") return RESELLER_GERENCIAAPP_FREE_PRICE;
-  const p = Number(app.license_price);
-  return app.cost_type === "paid" && p > 0 ? p : null;
+  const p = Number(app?.license_price);
+  return app?.cost_type === "paid" && p > 0 ? p : null;
 }
 
-/** GerenciaApp: a revenda paga antes de configurar. */
-export function requiresPaymentBeforeConfigure(app: any) {
-  return isGerenciaAppFamily(app);
+/** "Ativar aplicativo": renovação automática PAGA (GerenciaApp é grátis → fora). */
+export function isActivatableApp(app: any) {
+  return baseCatalogOk(app) && hasAutoRenewal(app) && !isGerenciaAppFamily(app) && resellerLicensePrice(app) != null;
+}
+
+/** Mesma janela do Renovar do portal do cliente (RenewClient). */
+export function activationWindowDays(app: any) {
+  return app?.appativa_app_id ? 7 : 30;
+}
+
+/** null = disponível agora; senão a data (ISO) em que a ativação libera. */
+export function activationAvailableFrom(app: any, expireDate: string | null): string | null {
+  if (!expireDate) return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(expireDate);
+  if (!m) return null;
+  if (m[1] === "9999") return "9999-12-31";
+  const exp = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const from = exp - activationWindowDays(app) * 86400000;
+  return Date.now() >= from ? null : new Date(from).toISOString().slice(0, 10);
+}
+
+/** Monta o M3U do cliente da revenda (só no servidor — nunca vai pro navegador). */
+export async function buildResellerM3u(
+  admin: SupabaseClient,
+  endClient: { server_id: string; username: string; password: string | null },
+  list: M3uList,
+): Promise<{ url: string; serverName: string } | null> {
+  if (!endClient.password) return null;
+  const { data: server } = await admin.from("servers").select("name, dns").eq("id", endClient.server_id).maybeSingle();
+  if (!server) return null;
+  const dnsList = Array.isArray(server.dns) ? (server.dns as string[]) : [];
+  const params = { dnsList, username: endClient.username, password: endClient.password, serverName: server.name };
+  const url = list === "secundaria" ? rotateSecondaryM3u(params) : rotatePrincipalM3u(params);
+  return url ? { url, serverName: String(server.name || "Servidor") } : null;
 }
 
 export function parseM3u(url: string) {
@@ -84,26 +124,7 @@ export function parseM3u(url: string) {
   }
 }
 
-/** Servidor do link: pelo DNS dos servidores vinculados à revenda; senão o 1º vínculo. */
-export async function detectServerForM3u(admin: SupabaseClient, tenantId: string, resellerId: string, host: string) {
-  const { data: links } = await admin
-    .from("reseller_servers")
-    .select("server_id, servers(id, name, dns)")
-    .eq("tenant_id", tenantId)
-    .eq("reseller_id", resellerId);
-  const servers = (links || []).map((l: any) => l.servers).filter(Boolean) as { id: string; name: string; dns: string[] | null }[];
-  const hostOf = (d: string) => {
-    try {
-      return new URL(/^https?:\/\//i.test(d) ? d : `http://${d}`).hostname.toLowerCase();
-    } catch {
-      return String(d || "").toLowerCase();
-    }
-  };
-  const byDns = servers.find((s) => (Array.isArray(s.dns) ? s.dns : []).some((d) => hostOf(d) === host));
-  return byDns || servers[0] || null;
-}
-
-type PartnerCtx = {
+export type PartnerCtx = {
   app: { id: string; name: string; integration_type: string | null; fields_config: AppFieldConfig[] | null };
   fieldValues: Record<string, string>;
   m3uUrl: string;
@@ -234,3 +255,23 @@ export async function removeResellerAppFromPartner(admin: SupabaseClient, ctx: P
 }
 
 export { findFieldByType };
+
+/** GerenciaApp: renovação grátis da licença (mesma chamada do portal do cliente). */
+export async function renewGerenciaAppFree(
+  admin: SupabaseClient,
+  app: { name: string; integration_type: string | null; fields_config: AppFieldConfig[] | null },
+  fieldValues: Record<string, string>,
+) {
+  const handler = resolveHandlerFor(app);
+  if (!handler || handler.actionPrefix !== "GERENCIAAPP") return { ok: false as const, error: "Renovação grátis só existe pra família GerenciaApp." };
+  const macValue = extractFieldByType(Array.isArray(app.fields_config) ? app.fields_config : [], fieldValues, "mac");
+  if (!macValue) return { ok: false as const, error: "Preencha o ID/MAC antes de renovar." };
+  const { data: integ } = await admin.from("app_integrations").select("api_url").eq("app_name", "GERENCIAAPP").maybeSingle();
+  const r = await post(internalAppUrl(handler.apiEndpoint || ""), String(process.env.INTERNAL_API_SECRET || ""), {
+    action: "renew",
+    base_url: integ?.api_url || "",
+    macValue,
+  });
+  if (!r?.ok) return { ok: false as const, error: "Falha ao renovar a licença. Tente mais uma vez — se continuar, fale com o suporte." };
+  return { ok: true as const, expireDate: r.expireDate || null };
+}

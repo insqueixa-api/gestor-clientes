@@ -8,6 +8,8 @@
 //   unlink  → desvincula: link desativado + sessões derrubadas; mensagens
 //             com {link_pagamento} vêm sem link até vincular de novo
 //   relink  → vincula de novo (gera link novo no próximo uso)
+//   set_ga_limit → ✅ 07/10/2026: máximo de aparelhos GerenciaApp que a
+//             revenda configura pelo portal (resellers.gerenciaapp_limit)
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminTenant } from "@/lib/api/auth";
 import {
@@ -16,6 +18,7 @@ import {
   revokeResellerPortalAccess,
   startResellerSessionAsAdmin,
 } from "@/lib/reseller-portal/session";
+import { isGerenciaAppFamily } from "@/lib/reseller-portal/apps";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   const { data: reseller } = await sb
     .from("resellers")
-    .select("id, is_archived, portal_disabled_at")
+    .select("id, is_archived, portal_disabled_at, gerenciaapp_limit")
     .eq("id", resellerId)
     .eq("tenant_id", tenantId)
     .maybeSingle();
@@ -51,6 +54,8 @@ export async function POST(req: NextRequest) {
       archived: !!reseller.is_archived,
       has_link: !!tok,
       link_last_used_at: tok?.last_used_at || null,
+      gerenciaapp_limit: reseller.gerenciaapp_limit ?? 10,
+      gerenciaapp_used: await gerenciaAppUsed(sb, tenantId, resellerId),
     });
   }
 
@@ -84,5 +89,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, unlinked: action === "unlink" });
   }
 
+  if (action === "set_ga_limit") {
+    const limit = Number(body?.limit);
+    if (!Number.isInteger(limit) || limit < 0 || limit > 1000) {
+      return NextResponse.json({ ok: false, error: "Informe um número inteiro entre 0 e 1000." }, { status: 400 });
+    }
+    const { error } = await sb.from("resellers").update({ gerenciaapp_limit: limit }).eq("id", resellerId).eq("tenant_id", tenantId);
+    if (error) return NextResponse.json({ ok: false, error: "Falha ao salvar o limite." }, { status: 500 });
+    return NextResponse.json({ ok: true, gerenciaapp_limit: limit });
+  }
+
   return NextResponse.json({ ok: false, error: "action inválida" }, { status: 400 });
+}
+
+/** Aparelhos GerenciaApp configurados agora pelo portal (mesma conta da rota do portal). */
+async function gerenciaAppUsed(sb: any, tenantId: string, resellerId: string) {
+  const { data } = await sb
+    .from("reseller_client_apps")
+    .select("apps(name, integration_type)")
+    .eq("tenant_id", tenantId)
+    .eq("reseller_id", resellerId)
+    .not("configured_at", "is", null);
+  return (data || []).filter((r: any) => r.apps && isGerenciaAppFamily(r.apps)).length;
 }

@@ -139,3 +139,14 @@ reseller_end_user_apps  id, tenant_id, reseller_end_user_id, app_id,
 - **Etapa B (pagamento da licença) tem que usar esse nome:**
   - na mensagem de WhatsApp pra revenda (app, cliente, usuário do M3U, novo vencimento);
   - no histórico da página do revendedor (admin `/admin/revendedor/[id]`), junto das recargas: qual aplicativo, de qual cliente, quando foi ativado e o novo vencimento.
+
+### 07/10/2026 — redesenho: "Gerenciar clientes e aplicativos" (etapa 1 pronta)
+Substitui o fluxo solto (revenda informava qualquer M3U). Decisões do Márcio:
+- Só clientes da revenda **em servidores meus** (`reseller_end_clients`, espelho do `/report/allusers` do NaTV filtrado pela revenda dona; sincroniza ao abrir a tela, throttle 60s).
+- **Senha guardada no espelho** (servidor só): o `/user/search` do NaTV NÃO acha cliente de sub-revenda (testado). O M3U é montado no servidor com a regra principal/secundária; a revenda nunca vê link, senha nem DNS.
+- **Adicionar aplicativo**: seletor por aparelho → escolhe o cliente (busca; ativo ou vencido) → libera MAC/Key → Configurar (lista principal) → salva e lê o vencimento. Ambiente opcional. Reconfigurar alterna principal ↔ secundária.
+- **Ativar aplicativo**: todos os apps com renovação automática paga (sem GerenciaApp), separados por estrela, botão "Ativar" → dados do aparelho → disponibilidade na tela (mesma janela do portal do cliente: vencido/sem data/até 7 dias AtivaApp, 30 demais). SET IPTV, SmartOne, ClouDDy e Bay TV aparecem com aviso (AtivaApp não consulta vencimento).
+- **GerenciaApp grátis**, limite de aparelhos configurados ao mesmo tempo (`resellers.gerenciaapp_limit`, padrão 10, editável no menu Portal da página do revendedor). Remover libera a vaga. Renovação grátis pelo card dentro da janela.
+- Lista de clientes configurados: usuário + apps (vencimento, Checar, Reconfigurar, Editar, Remover, Renovar grátis).
+
+**Etapa 2 (pendente):** pagamento da ativação (PIX → AtivaApp/DupleCast) e renovação paga pelo card; mensagem WhatsApp + histórico na página do revendedor (app, cliente, quando, novo vencimento); auditoria de fraude.

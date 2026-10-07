@@ -157,6 +157,7 @@ export default function AppPickerModal({
   presetDeviceTypes,
   deviceIcons: deviceIconsProp,
   guide,
+  actionLabel,
 }: {
   open: boolean;
   onClose: () => void;
@@ -184,6 +185,8 @@ export default function AppPickerModal({
   /** ✅ 07/10/2026: guia rápido (portal da revenda) — botão "Ver instruções"
    * antes do X e a lista abre logo abaixo do cabeçalho. */
   guide?: React.ReactNode;
+  /** ✅ 07/10/2026: texto do botão do card (portal da revenda: "Ativar") */
+  actionLabel?: string;
 }) {
   const isPortal = variant === "portal";
   const tenantId = useTenantId();
@@ -423,7 +426,7 @@ export default function AppPickerModal({
         }`}
       >
         {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-        {busy ? "Adicionando..." : isPortal ? "Escolher" : "Adicionar"}
+        {busy ? "Adicionando..." : actionLabel || (isPortal ? "Escolher" : "Adicionar")}
       </button>
     );
   }

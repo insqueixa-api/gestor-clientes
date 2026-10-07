@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateResellerSession, endResellerSession } from "@/lib/reseller-portal/session";
-import { loadNatvTokenForServer, syncNatvResellerStats } from "@/lib/integrations/natv-reseller-stats";
+import { syncResellerPanels } from "@/lib/reseller-portal/sync";
 
 export const maxDuration = 60;
 
@@ -49,27 +49,7 @@ export async function POST(req: NextRequest) {
     // (abre na hora com o último resumo salvo), depois com sync:true e
     // atualiza os números. Dentro de 1 minuto do último Sync (limite do
     // relatório do NaTV) usa o salvo; se o NaTV falhar, fica o último salvo.
-    if (body?.sync === true) await Promise.all(
-      links.map(async (l) => {
-        try {
-          const username = String(l.server_username || "").trim();
-          if (!username) return;
-          const token = await loadNatvTokenForServer(sb, ctx.tenant_id, l.server_id);
-          if (!token) return;
-          const r = await syncNatvResellerStats(sb, {
-            resellerServerId: l.id,
-            token,
-            username,
-            lastSyncAt: l.panel_stats_at ?? null,
-            cached: l.panel_stats ?? null,
-          });
-          l.panel_stats = r.stats;
-          l.panel_stats_at = r.synced_at;
-        } catch (e: any) {
-          console.error("[reseller_portal:home:auto_sync]", { message: e?.message, kind: "reseller_portal_error" });
-        }
-      }),
-    );
+    if (body?.sync === true) await syncResellerPanels(sb, ctx.tenant_id, links);
 
     // WhatsApp do suporte (mesma regra do portal do cliente: o do admin)
     let supportPhone: string | null = null;

@@ -5,9 +5,10 @@
 // (app/api/integrations/natv/reseller-stats) e pelo Portal da Revenda, que
 // sincroniza sozinho ao abrir (app/api/reseller-portal/home).
 // Só leitura no NaTV; o relatório de clientes só aceita 1 chamada por minuto,
-// então dentro de 60s devolve o resumo salvo. Nunca guarda senha de cliente.
+// então dentro de 60s devolve o resumo salvo. A senha dos clientes só vai pro
+// espelho reseller_end_clients (servidor), nunca pro navegador.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { natvAllUsersReport, natvFindSubreseller } from "@/lib/integrations/natv-credits";
+import { natvAllUsersReport, natvFindSubreseller, type NatvReportUser } from "@/lib/integrations/natv-credits";
 
 export const MIN_SYNC_INTERVAL_MS = 60 * 1000;
 const SOON_MS = 2 * 24 * 60 * 60 * 1000;
@@ -66,6 +67,7 @@ export async function syncNatvResellerStats(
   };
   const synced_at = new Date().toISOString();
   await admin.from("reseller_servers").update({ panel_stats: stats, panel_stats_at: synced_at }).eq("id", params.resellerServerId);
+  await saveEndClients(admin, params.resellerServerId, mine, synced_at);
   return { stats, synced_at, throttled: false };
 }
 
@@ -82,4 +84,54 @@ export async function loadNatvTokenForServer(admin: SupabaseClient, tenantId: st
   if (!integ || String(integ.provider).toUpperCase() !== "NATV" || integ.is_active === false) return null;
   const token = String(integ.api_token || "").trim();
   return token || null;
+}
+
+/**
+ * ✅ 07/10/2026: espelho dos clientes da revenda (reseller_end_clients) pro
+ * "Gerenciar clientes e aplicativos" do portal. A senha fica só no servidor
+ * (monta o M3U na hora de configurar); as rotas do portal nunca a devolvem. Quem sumiu do
+ * painel fica marcado (missing_since) em vez de apagado — pode ter app
+ * configurado apontando pra ele. Fail-soft: nunca derruba o resumo.
+ */
+async function saveEndClients(admin: SupabaseClient, resellerServerId: string, mine: NatvReportUser[], syncedAt: string) {
+  try {
+    const { data: rs } = await admin
+      .from("reseller_servers")
+      .select("tenant_id, reseller_id, server_id")
+      .eq("id", resellerServerId)
+      .maybeSingle();
+    if (!rs) return;
+    const rows = mine
+      .filter((u) => u.username)
+      .map((u) => {
+        const t = parsePanelDate(u.expiresAt);
+        return {
+          tenant_id: rs.tenant_id,
+          reseller_id: rs.reseller_id,
+          reseller_server_id: resellerServerId,
+          server_id: rs.server_id,
+          username: u.username,
+          password: u.password || null,
+          panel_user_id: u.id,
+          expires_at: t ? new Date(t).toISOString() : null,
+          status: u.status || null,
+          blocked: u.blocked,
+          connections: u.connections || null,
+          missing_since: null,
+          synced_at: syncedAt,
+        };
+      });
+    for (let i = 0; i < rows.length; i += 500) {
+      await admin.from("reseller_end_clients").upsert(rows.slice(i, i + 500), { onConflict: "reseller_server_id,username" });
+    }
+    // quem não veio nesse relatório sumiu do painel
+    await admin
+      .from("reseller_end_clients")
+      .update({ missing_since: syncedAt })
+      .eq("reseller_server_id", resellerServerId)
+      .lt("synced_at", syncedAt)
+      .is("missing_since", null);
+  } catch (e: any) {
+    console.error("[natv:end_clients]", e?.message);
+  }
 }

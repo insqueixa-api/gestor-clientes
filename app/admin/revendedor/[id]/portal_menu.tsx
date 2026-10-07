@@ -4,11 +4,18 @@
 // cliente (app/admin/cliente/[id]/page.tsx): acessar, copiar link, trocar
 // link, desvincular/vincular. Rota: app/api/admin/resellers/portal-access.
 import { useEffect, useState } from "react";
-import { ChevronDown, Copy, ExternalLink, KeyRound, Link2, Link2Off, Loader2 } from "lucide-react";
+import { ChevronDown, Copy, ExternalLink, KeyRound, Link2, Link2Off, Loader2, Smartphone } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 
-type Info = { unlinked: boolean; archived: boolean; has_link: boolean; link_last_used_at: string | null };
+type Info = {
+  unlinked: boolean;
+  archived: boolean;
+  has_link: boolean;
+  link_last_used_at: string | null;
+  gerenciaapp_limit: number;
+  gerenciaapp_used: number;
+};
 
 export default function PortalRevendaMenu({
   resellerId,
@@ -21,6 +28,7 @@ export default function PortalRevendaMenu({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState<Info | null>(null);
+  const [gaLimit, setGaLimit] = useState("");
 
   async function call(payload: Record<string, unknown>) {
     const { data: sess } = await supabaseBrowser.auth.getSession();
@@ -36,7 +44,9 @@ export default function PortalRevendaMenu({
 
   async function refresh() {
     try {
-      setInfo((await call({ action: "info" })) as Info);
+      const i = (await call({ action: "info" })) as Info;
+      setInfo(i);
+      setGaLimit(String(i.gerenciaapp_limit ?? 10));
     } catch {}
   }
 
@@ -126,6 +136,25 @@ export default function PortalRevendaMenu({
     }
   }
 
+  // ✅ 07/10/2026: limite de aparelhos GerenciaApp configurados pelo portal
+  async function saveGaLimit() {
+    const n = Number(gaLimit);
+    if (!Number.isInteger(n) || n < 0) {
+      onToast("error", "Limite inválido", "Use um número inteiro (0 bloqueia).");
+      return;
+    }
+    setBusy(true);
+    try {
+      await call({ action: "set_ga_limit", limit: n });
+      onToast("success", "Limite do GerenciaApp salvo", `${n} aparelho(s) pelo portal`);
+      await refresh();
+    } catch (e: any) {
+      onToast("error", "Falha ao salvar o limite", e?.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const item = "w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-muted transition-colors disabled:opacity-50 disabled:hover:bg-transparent";
   const linkBlocked = !!info?.unlinked || !!info?.archived;
 
@@ -176,6 +205,32 @@ export default function PortalRevendaMenu({
             <KeyRound className="w-4 h-4 text-amber-500" />
             Trocar link mágico
           </button>
+
+          <div className="border-t border-border my-1" />
+          <div className="px-3 py-2">
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-emerald-500" />
+              <span>Aparelhos GerenciaApp</span>
+            </div>
+            <div className="mt-1.5 flex items-center gap-2 pl-6">
+              <span className="text-[11px] text-muted-foreground">Usando {info?.gerenciaapp_used ?? "—"} de</span>
+              <input
+                type="number"
+                min={0}
+                value={gaLimit}
+                onChange={(e) => setGaLimit(e.target.value)}
+                className="w-16 h-7 px-2 rounded-md border border-border bg-transparent text-xs text-foreground outline-none focus:border-emerald-500/60"
+              />
+              <button
+                type="button"
+                disabled={busy || !info || gaLimit === String(info.gerenciaapp_limit)}
+                onClick={() => void saveGaLimit()}
+                className="h-7 px-2.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold disabled:opacity-40"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
 
           <div className="border-t border-border my-1" />
           {info?.unlinked ? (

@@ -133,9 +133,14 @@ export async function natvTransferCredits(token: string, username: string, amoun
 // ---------------------------------------------------------------------------
 // Relatório de clientes (GET /report/allusers — 1 chamada por minuto).
 // Vem com TODOS os clientes da sua conta e das sub-revendas ("r" = revenda
-// dona). Traz senha ("p") — nunca guardar/repassar a linha crua.
+// dona). Traz senha ("p") — só o espelho reseller_end_clients guarda (pra
+// montar o M3U no servidor); nunca vai pro navegador. (/user/search NÃO acha
+// cliente de sub-revenda — testado 07/10/2026 — por isso a senha vem daqui.)
 export type NatvReportUser = {
+  id: string | null;
   username: string;
+  /** ✅ 07/10/2026: só pro espelho reseller_end_clients (servidor, nunca vai pro navegador) */
+  password: string;
   reseller: string;
   expiresAt: string | null; // texto do NaTV "AAAA-MM-DD HH:MM:SS"
   status: string; // "Ativo" | "Expirado" | …
@@ -158,7 +163,9 @@ export async function natvAllUsersReport(token: string): Promise<NatvReportUser[
     );
   }
   return (Array.isArray(body) ? body : []).map((u: any) => ({
+    id: u?.i != null ? String(u.i) : null,
     username: String(u?.u ?? ""),
+    password: String(u?.p ?? ""),
     reseller: String(u?.r ?? ""),
     expiresAt: u?.e ? String(u.e) : null,
     status: String(u?.t ?? ""),
@@ -166,3 +173,4 @@ export async function natvAllUsersReport(token: string): Promise<NatvReportUser[
     connections: Number(u?.c) || 0,
   }));
 }
+
