@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyFastDepixSignature } from "@/lib/webhook-signatures";
 import { getFastDepixTransaction, isFastDepixGatewayType } from "@/lib/fastdepix";
+import { handleResellerOrderWebhook } from "@/lib/reseller-portal/credit-orders";
 import {
   runFulfillment as runIptvFulfillment,
   markFulfillmentDone as markIptvDone,
@@ -62,7 +63,20 @@ export async function POST(req: NextRequest) {
       .eq("mp_payment_id", transactionId)
       .maybeSingle();
 
-    if (!iptvPayment) return NextResponse.json({ ok: true });
+    if (!iptvPayment) {
+      // ✅ 06/10/2026: compra de créditos do Portal da Revenda
+      // (reseller_credit_orders) — só quando NÃO é pagamento de cliente.
+      // Assinatura validada com o segredo do gateway do pedido; status e
+      // valor reconsultados na API antes de enviar qualquer crédito.
+      const resellerResult = await handleResellerOrderWebhook(supabaseAdmin, {
+        gatewayFamily: "fastdepix",
+        gatewayPaymentId: transactionId,
+        verify: (secret) =>
+          verifyFastDepixSignature({ signatureHeader: req.headers.get("x-webhook-signature") || "", rawBody, secret }),
+      });
+      if (resellerResult === "bad_signature") return NextResponse.json({ ok: false }, { status: 401 });
+      return NextResponse.json({ ok: true });
+    }
     if (iptvPayment.fulfillment_status === "done") return NextResponse.json({ ok: true });
     if (!isFastDepixGatewayType(iptvPayment.gateway_type)) return NextResponse.json({ ok: true });
 

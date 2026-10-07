@@ -18,12 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
-import {
-  natvFindSubreseller,
-  natvMinTransfer,
-  natvMyCredits,
-  natvTransferCredits,
-} from "@/lib/integrations/natv-credits";
+import { executeNatvCreditTransfer } from "@/lib/integrations/natv-transfer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,8 +28,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const CURRENCIES = ["BRL", "USD", "EUR"];
 // pending mais velho que isso = a função caiu no meio → tratado como 'unknown'
 const STALE_PENDING_MS = 2 * 60 * 1000;
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function jsonError(status: number, error: string, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ ok: false, error, ...extra }, { status });
@@ -142,14 +135,6 @@ export async function POST(req: NextRequest) {
       return { saleId, error: null as string | null };
     }
 
-    async function syncCallerCredits(integrationId: string, credits: number | null) {
-      if (credits === null || !Number.isFinite(credits)) return;
-      await admin
-        .from("server_integrations")
-        .update({ credits_last_known: credits, credits_last_sync_at: new Date().toISOString() })
-        .eq("id", integrationId);
-    }
-
     // ======================= open: transferência sem confirmação =======================
     if (action === "open") {
       const rs = await loadLink(resellerServerId);
@@ -194,8 +179,15 @@ export async function POST(req: NextRequest) {
       if (!upd) return jsonError(409, "Essa transferência já foi resolvida.");
       log("resolved", { transfer_id: t.id, outcome });
 
+      // ✅ envio de uma COMPRA do Portal da Revenda (id da transferência = id do
+      // pedido): o pedido acompanha a decisão do Márcio
+      const syncOrder = async (fields: Record<string, unknown>) => {
+        await admin.from("reseller_credit_orders").update(fields).eq("id", t.id).in("fulfillment_status", ["unknown", "processing"]);
+      };
+
       if (outcome === "arrived") {
         const sale = await registerSale(upd);
+        await syncOrder({ fulfillment_status: "done", fulfilled_at: now, sale_id: sale.saleId, fulfillment_error: null });
         return NextResponse.json({
           ok: true,
           transfer: publicTransfer({ ...upd, sale_id: sale.saleId }),
@@ -203,6 +195,7 @@ export async function POST(req: NextRequest) {
           sale_error: sale.error,
         });
       }
+      await syncOrder({ fulfillment_status: "error", fulfillment_error: "Márcio conferiu: créditos não chegaram — enviar manualmente." });
       return NextResponse.json({ ok: true, transfer: publicTransfer(upd) });
     }
 
@@ -227,10 +220,6 @@ export async function POST(req: NextRequest) {
     const recipient = String(rs.server_username || "").trim();
     if (!recipient) return jsonError(400, "A revenda não tem usuário do painel cadastrado nesse servidor.");
 
-    // mesmo transfer_id já processado → devolve o resultado, nunca chama de novo
-    const { data: existing } = await admin.from("reseller_credit_transfers").select("*").eq("id", transferId).maybeSingle();
-    if (existing) return repeatedResponse(existing);
-
     const { data: server } = await admin
       .from("servers")
       .select("panel_integration")
@@ -249,137 +238,38 @@ export async function POST(req: NextRequest) {
     const token = String(integ.api_token || "").trim();
     if (!token) return jsonError(400, "Chave da API do NaTV não cadastrada.");
 
-    // 1) TRAVA
-    const { data: lock, error: lockErr } = await admin
-      .from("reseller_credit_transfers")
-      .insert({
-        id: transferId,
-        tenant_id: rs.tenant_id,
-        reseller_server_id: rs.id,
-        server_id: rs.server_id,
-        server_integration_id: integ.id,
-        provider: "NATV",
-        recipient_username: recipient,
-        amount,
-        status: "pending",
-        sale_payload: sale,
-        created_by: userId,
-      })
-      .select("*")
-      .single();
-    if (lockErr || !lock) {
-      if ((lockErr as any)?.code === "23505") {
-        const { data: again } = await admin.from("reseller_credit_transfers").select("*").eq("id", transferId).maybeSingle();
-        if (again) return repeatedResponse(again);
-        const { data: open } = await admin
-          .from("reseller_credit_transfers")
-          .select("*")
-          .eq("reseller_server_id", rs.id)
-          .in("status", ["pending", "unknown"])
-          .maybeSingle();
-        return jsonError(409, "Já existe um envio de crédito pra essa revenda aguardando confirmação. Resolva ele antes de enviar outro.", {
-          open: publicTransfer(open),
-        });
-      }
-      return jsonError(500, "Falha ao registrar a trava do envio.");
-    }
-
-    const patch = async (p: Record<string, unknown>) => {
-      const { data } = await admin
-        .from("reseller_credit_transfers")
-        .update({ ...p, updated_at: new Date().toISOString() })
-        .eq("id", transferId)
-        .select("*")
-        .single();
-      return data;
-    };
-    const fail = async (msg: string, extra: Record<string, unknown> = {}) => {
-      const t = await patch({ status: "failed", error: msg, ...extra });
-      log("failed", { transfer_id: transferId, msg });
-      return jsonError(400, msg, { transfer: publicTransfer(t) });
-    };
-
-    // 2) CONFERÊNCIA ANTES (qualquer erro aqui = nada foi enviado)
-    let sub;
-    let callerBefore: number;
-    try {
-      sub = await natvFindSubreseller(token, recipient);
-      if (!sub) return await fail(`"${recipient}" não aparece como sub-revenda direta da sua conta no NaTV.`);
-      if (sub.status !== 1) return await fail(`A revenda "${recipient}" está bloqueada no NaTV.`);
-      const min = natvMinTransfer(sub.credits);
-      if (amount < min) return await fail(`O NaTV exige no mínimo ${min} créditos pra essa revenda.`);
-      callerBefore = await natvMyCredits(token);
-      if (callerBefore < amount) return await fail(`Seu saldo no NaTV (${callerBefore}) não cobre ${amount} créditos.`);
-    } catch (e: any) {
-      return await fail(`Não consegui conferir o NaTV antes do envio: ${e?.message || "erro"}. Nada foi enviado.`);
-    }
-    await patch({ recipient_credits_before: sub.credits, caller_credits_before: callerBefore });
-
-    // 3) ENVIO — uma chamada só
-    const result = await natvTransferCredits(token, recipient, amount);
-    log("api_result", { transfer_id: transferId, kind: result.kind, status: result.status });
-
-    if (result.kind === "rejected") {
-      return await fail(result.message, { api_status: result.status, api_response: result.body });
-    }
-
-    // 4) CONFERÊNCIA DEPOIS
-    await sleep(1500);
-    let subAfter: number | null = null;
-    let callerAfter: number | null = null;
-    try {
-      const s2 = await natvFindSubreseller(token, recipient);
-      subAfter = s2 ? s2.credits : null;
-    } catch {}
-    try {
-      callerAfter = await natvMyCredits(token);
-    } catch {}
-
-    const recipientGot = subAfter !== null && subAfter >= sub.credits + amount;
-    const callerPaid = callerAfter !== null && callerBefore - callerAfter >= amount;
-
-    let finalStatus: "done" | "unknown";
-    let note: string | null = null;
-    if (result.kind === "ok") {
-      finalStatus = "done";
-      const respRecipient = Number(result.body?.recipient_credits);
-      if (!recipientGot && !(Number.isFinite(respRecipient) && respRecipient >= sub.credits + amount)) {
-        note = `NaTV confirmou o envio, mas o saldo da revenda conferido depois foi ${subAfter ?? "?"} (antes ${sub.credits}).`;
-      }
-    } else {
-      // sem resposta clara: só o saldo decide; na dúvida, trava pra conferência manual
-      finalStatus = recipientGot || callerPaid ? "done" : "unknown";
-      note =
-        finalStatus === "done"
-          ? `${result.message} Confirmado pelo saldo depois do envio.`
-          : `${result.message} O saldo não confirmou o envio — confira no painel do NaTV antes de qualquer nova recarga.`;
-    }
-
-    const callerFinal =
-      result.kind === "ok" && Number.isFinite(Number(result.body?.caller_credits)) ? Number(result.body.caller_credits) : callerAfter;
-    const t = await patch({
-      status: finalStatus,
-      api_status: result.status,
-      api_response: result.body,
-      recipient_credits_after: subAfter ?? (Number.isFinite(Number(result.body?.recipient_credits)) ? Number(result.body.recipient_credits) : null),
-      caller_credits_after: callerFinal,
-      error: note,
+    // ✅ trava + conferências + envio único: lib/integrations/natv-transfer.ts
+    // (mesma lógica usada pela compra de créditos do Portal da Revenda)
+    const out = await executeNatvCreditTransfer(admin, {
+      transferId,
+      tenantId: rs.tenant_id,
+      resellerServerId: rs.id,
+      serverId: rs.server_id,
+      integrationId: integ.id,
+      token,
+      recipient,
+      amount,
+      salePayload: sale,
+      createdBy: userId,
     });
-    await syncCallerCredits(integ.id, callerFinal);
 
-    if (finalStatus === "unknown") {
-      log("unknown", { transfer_id: transferId });
-      return NextResponse.json(
-        { ok: false, unknown: true, error: note, transfer: publicTransfer(t) },
-        { status: 202 },
-      );
+    if (out.kind === "repeated") return repeatedResponse(out.transfer);
+    if (out.kind === "open_conflict") {
+      return jsonError(409, "Já existe um envio de crédito pra essa revenda aguardando confirmação. Resolva ele antes de enviar outro.", {
+        open: publicTransfer(out.open),
+      });
+    }
+    if (out.kind === "lock_error") return jsonError(500, "Falha ao registrar a trava do envio.");
+    if (out.kind === "failed") return jsonError(400, out.message, { transfer: publicTransfer(out.transfer) });
+    if (out.kind === "unknown") {
+      return NextResponse.json({ ok: false, unknown: true, error: out.note, transfer: publicTransfer(out.transfer) }, { status: 202 });
     }
 
-    // 5) crédito confirmado → registra a venda (Financeiro etc.)
-    const saleRes = await registerSale(t);
+    // crédito confirmado → registra a venda (Financeiro etc.)
+    const saleRes = await registerSale(out.transfer);
     return NextResponse.json({
       ok: true,
-      transfer: publicTransfer({ ...t, sale_id: saleRes.saleId }),
+      transfer: publicTransfer({ ...out.transfer, sale_id: saleRes.saleId }),
       sale_registered: !!saleRes.saleId,
       sale_error: saleRes.error,
     });

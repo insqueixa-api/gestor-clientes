@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyMercadoPagoSignature } from "@/lib/webhook-signatures";
+import { handleResellerOrderWebhook } from "@/lib/reseller-portal/credit-orders";
 
 // ── IMPORTS IPTV ──────────────────────────────────────────────
 import {
@@ -151,6 +152,19 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({ ok: true });
     }
+
+    // =========================================================================
+    // 2) ✅ 06/10/2026: COMPRA DE CRÉDITOS DO PORTAL DA REVENDA
+    //    (reseller_credit_orders — só olha aqui quando NÃO é pagamento de
+    //    cliente). Assinatura validada com o segredo do gateway do pedido,
+    //    status e valor reconsultados no MP antes de enviar qualquer crédito.
+    // =========================================================================
+    const resellerResult = await handleResellerOrderWebhook(supabaseAdmin, {
+      gatewayFamily: "mercadopago",
+      gatewayPaymentId: paymentId,
+      verify: (secret) => verifyMpWebhook(req, paymentId, secret),
+    });
+    if (resellerResult === "bad_signature") return NextResponse.json({ ok: false }, { status: 401 });
 
     // Se o pagamento não existir, devolve OK silencioso.
     return NextResponse.json({ ok: true });

@@ -39,6 +39,19 @@ type Home = {
   servers: Server[];
 };
 type Section = "menu" | "payment" | "apps";
+type OrderView = {
+  order_id: string;
+  gateway_type: string;
+  gateway_name: string;
+  has_alternate_gateway: boolean;
+  credits: number;
+  amount: number;
+  pix_qr_code: string | null;
+  pix_qr_code_base64: string | null;
+  expires_at: string;
+  state: "waiting" | "sending" | "done" | "failed" | "expired";
+  new_balance?: number | null;
+};
 
 const KEY = "rp_session";
 const brl = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -144,6 +157,94 @@ export default function RevendaPortalPage() {
   }, [serverId, firstPackageCredits]);
   const tier = server ? tierPrice(server.prices, qty) : null;
   const total = tier ? qty * tier.price : 0;
+
+  // ✅ compra de créditos por PIX (app/api/reseller-portal/credit-order)
+  const [creating, setCreating] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
+  const [order, setOrder] = useState<OrderView | null>(null);
+
+  async function startPurchase(excludeGatewayType?: string) {
+    if (!server || creating) return;
+    setCreating(true);
+    setBuyError(null);
+    try {
+      const r = await fetch("/api/reseller-portal/credit-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          session_token: session,
+          reseller_server_id: server.id,
+          credits: qty,
+          exclude_gateway_type: excludeGatewayType,
+        }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 401) {
+        setState("expired");
+        return;
+      }
+      if (!r.ok || !j?.ok) {
+        setBuyError(j?.error || "Não foi possível gerar o PIX. Tente de novo.");
+        return;
+      }
+      setOrder({ ...(j as OrderView), state: "waiting" });
+    } catch {
+      setBuyError("Não foi possível gerar o PIX. Tente de novo.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function closeOrder() {
+    setOrder(null);
+  }
+
+  // acompanhamento do pedido: pago → enviando → concluído
+  useEffect(() => {
+    if (!order || order.state === "done" || order.state === "failed" || order.state === "expired") return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const r = await fetch("/api/reseller-portal/credit-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "status", session_token: session, order_id: order.order_id }),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!alive || !r.ok || !j?.ok) return;
+        let next: OrderView["state"] = order.state;
+        if (j.status === "cancelled" || j.status === "rejected") next = "expired";
+        else if (j.status === "pending" && j.expires_at && new Date(j.expires_at).getTime() < Date.now()) next = "expired";
+        else if (j.status === "approved") {
+          if (j.fulfillment_status === "done") next = "done";
+          else if (j.fulfillment_status === "error" || j.fulfillment_status === "unknown") next = "failed";
+          else next = "sending";
+        }
+        if (next !== order.state) {
+          setOrder((o) => (o ? { ...o, state: next, new_balance: j.new_balance ?? o.new_balance } : o));
+          if (next === "done" && typeof j.new_balance === "number") {
+            // saldo novo já na tela
+            setData((d) =>
+              d
+                ? {
+                    ...d,
+                    servers: d.servers.map((s) =>
+                      s.id === serverId && s.stats ? { ...s, stats: { ...s.stats, credits: j.new_balance } } : s,
+                    ),
+                  }
+                : d,
+            );
+          }
+        }
+      } catch {}
+    };
+    const iv = setInterval(tick, order.state === "sending" ? 3000 : 5000);
+    return () => {
+      alive = false;
+      clearInterval(iv);
+    };
+  }, [order?.order_id, order?.state]);
 
   async function logout() {
     try {
@@ -452,7 +553,7 @@ export default function RevendaPortalPage() {
                               active ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:border-emerald-500/40"
                             }`}
                           >
-                            <div className="text-[10px] font-semibold text-emerald-600">a partir de {p.credits} cr</div>
+                            <div className="text-[11px] font-semibold text-emerald-600">{p.credits} Créditos</div>
                             <div className="text-sm sm:text-base font-bold text-foreground">
                               {brl(p.price)}
                               <span className="text-[10px] text-muted-foreground font-normal">/cr</span>
@@ -467,24 +568,25 @@ export default function RevendaPortalPage() {
             </div>
 
             {sortedPrices.length > 0 && (
-              <a
-                href={
-                  qty >= 5 && supportDigits
-                    ? waLink(
-                        `Olá! Quero comprar ${qty} créditos no ${server.name} (usuário ${server.username || "—"}) — ${brl(total)}.`,
-                      )
-                    : undefined
-                }
-                target="_blank"
-                rel="noreferrer"
-                aria-disabled={qty < 5 || !supportDigits}
-                className={`w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-base sm:text-lg ${
-                  qty < 5 || !supportDigits ? "opacity-50 pointer-events-none" : ""
-                }`}
+              <button
+                onClick={() => void startPurchase()}
+                disabled={qty < 5 || creating}
+                className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-base sm:text-lg disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <CheckCircle2 className="w-5 h-5 shrink-0" />
-                Comprar {qty} créditos • {brl(total)}
-              </a>
+                {creating ? "Gerando PIX..." : `Comprar ${qty} créditos • ${brl(total)}`}
+              </button>
+            )}
+            {buyError && <p className="text-sm text-center text-rose-500 -mt-1">{buyError}</p>}
+
+            {order && (
+              <PixModal
+                order={order}
+                serverName={server.name}
+                onClose={closeOrder}
+                onRetryOther={order.has_alternate_gateway && order.state === "waiting" ? () => void startPurchase(order.gateway_type) : undefined}
+                supportLink={supportDigits ? waLink(`Olá! Paguei ${order.credits} créditos no Portal da Revenda e preciso de ajuda.`) : null}
+              />
             )}
           </>
         )}
@@ -492,6 +594,144 @@ export default function RevendaPortalPage() {
     </div>
   );
 }
+
+function PixModal({
+  order,
+  serverName,
+  onClose,
+  onRetryOther,
+  supportLink,
+}: {
+  order: OrderView;
+  serverName: string;
+  onClose: () => void;
+  onRetryOther?: () => void;
+  supportLink: string | null;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, []);
+  const left = Math.max(0, new Date(order.expires_at).getTime() - now);
+  const mm = String(Math.floor(left / 60000)).padStart(2, "0");
+  const ss = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
+
+  async function copy() {
+    if (!order.pix_qr_code) return;
+    try {
+      await navigator.clipboard.writeText(order.pix_qr_code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {}
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div
+        className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl max-h-[92dvh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div>
+            <div className="text-sm font-bold text-foreground">
+              {order.credits} créditos · {serverName}
+            </div>
+            <div className="text-xs text-muted-foreground">{brlFmt(order.amount)} · PIX</div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted text-muted-foreground text-lg" title="Fechar">
+            ×
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          {order.state === "waiting" && (
+            <>
+              {order.pix_qr_code_base64 && (
+                <img
+                  src={`data:image/png;base64,${order.pix_qr_code_base64}`}
+                  alt="QR Code PIX"
+                  className="w-56 h-56 mx-auto rounded-lg border border-border bg-white p-2"
+                />
+              )}
+              {order.pix_qr_code && (
+                <button
+                  onClick={copy}
+                  className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors"
+                >
+                  {copied ? "Código copiado ✓" : "Copiar código PIX (copia e cola)"}
+                </button>
+              )}
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                Aguardando o pagamento {left > 0 ? `· expira em ${mm}:${ss}` : ""}
+              </div>
+              <p className="text-[11px] text-center text-muted-foreground">
+                Assim que o PIX cair, os créditos são enviados automaticamente para a sua conta — pode acompanhar por aqui.
+              </p>
+              {onRetryOther && (
+                <button onClick={onRetryOther} className="w-full text-xs text-muted-foreground underline">
+                  Problema com este PIX? Tentar outra forma de pagamento
+                </button>
+              )}
+            </>
+          )}
+
+          {order.state === "sending" && (
+            <div className="text-center py-6 space-y-2">
+              <div className="w-10 h-10 mx-auto rounded-full border-4 border-emerald-500/30 border-t-emerald-500 animate-spin" />
+              <p className="font-semibold text-foreground">Pagamento confirmado!</p>
+              <p className="text-sm text-muted-foreground">Enviando os créditos para a sua conta…</p>
+            </div>
+          )}
+
+          {order.state === "done" && (
+            <div className="text-center py-6 space-y-2">
+              <div className="text-4xl">✅</div>
+              <p className="font-bold text-foreground text-lg">{order.credits} créditos enviados!</p>
+              {typeof order.new_balance === "number" && (
+                <p className="text-sm text-muted-foreground">
+                  Seu saldo agora: <span className="font-bold text-emerald-600">{order.new_balance} créditos</span>
+                </p>
+              )}
+              <button onClick={onClose} className="mt-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
+                Fechar
+              </button>
+            </div>
+          )}
+
+          {order.state === "failed" && (
+            <div className="text-center py-6 space-y-2">
+              <div className="text-4xl">⏳</div>
+              <p className="font-bold text-foreground">Pagamento recebido</p>
+              <p className="text-sm text-muted-foreground">
+                O envio automático dos créditos não confirmou. O suporte já foi avisado e vai concluir manualmente — você não precisa pagar de novo.
+              </p>
+              {supportLink && (
+                <a href={supportLink} target="_blank" rel="noreferrer" className="inline-block mt-1 px-5 py-2.5 rounded-xl bg-[#25D366] text-white font-bold">
+                  Falar com o suporte
+                </a>
+              )}
+            </div>
+          )}
+
+          {order.state === "expired" && (
+            <div className="text-center py-6 space-y-2">
+              <p className="font-bold text-foreground">PIX expirado ou cancelado</p>
+              <p className="text-sm text-muted-foreground">Nenhum valor foi cobrado. Feche e gere um novo PIX.</p>
+              <button onClick={onClose} className="mt-1 px-6 py-2.5 rounded-xl border border-border text-foreground font-semibold">
+                Fechar
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const brlFmt = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
 
 function Field({ label, value, mono, bold, tone }: { label: string; value: string; mono?: boolean; bold?: boolean; tone?: string }) {
   return (
