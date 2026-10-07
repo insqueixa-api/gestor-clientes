@@ -3,11 +3,12 @@
 // pagamento ainda). Ações:
 //   catalog   → apps que a revenda pode adicionar (mesmo formato do catálogo
 //               do portal do cliente → mesmo AppPickerModal)
-//   list      → aparelhos cadastrados pela revenda
-//   add       → cadastra (cliente, app, aparelho, campos, link M3U)
+//   list      → aparelhos cadastrados pela revenda (a tela não usa mais)
+//   add       → cadastra/reaproveita (app, aparelho, campos, link M3U) e
+//               devolve a linha pronta pro modal de ativar/configurar
 //   configure → envia a lista pro parceiro (GerenciaApp só com licença paga)
 //   check     → consulta o vencimento no parceiro
-//   remove    → tira a lista do parceiro (só nome exato) e apaga o cadastro
+//   remove    → tira a lista do parceiro (só nome exato); o cadastro fica
 // Sessão própria da revenda; cada linha precisa ser DELA.
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -44,6 +45,37 @@ function jsonError(status: number, error: string) {
   return NextResponse.json({ ok: false, error }, { status, headers: NO_STORE });
 }
 const s = (v: unknown) => String(v ?? "").trim();
+const ROW_COLS =
+  "id, client_label, app_id, device_type, field_values, m3u_url, m3u_username, list_name, configured_at, license_paid_until, created_at, servers(name), apps(" + APP_COLS + ")";
+
+function shapeRow(r: any) {
+  const a = r.apps || {};
+  const fields = Array.isArray(a.fields_config) ? a.fields_config : [];
+  const dateField = findFieldByType(fields, "date");
+  const price = resellerLicensePrice(a);
+  const paid = !!r.license_paid_until && new Date(`${r.license_paid_until}T23:59:59`).getTime() > Date.now();
+  return {
+    id: r.id,
+    client_label: r.client_label,
+    app: { id: a.id, name: a.name, icon_url: effectiveIcon({ icon_url: a.icon_url, appativa_app_id: a.appativa_app_id, appativa_meta: a.appativa_meta }) },
+    device_type: r.device_type,
+    fields: fields
+      .filter((f: any) => f && f.id && f.type !== "date" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType))
+      .map((f: any) => ({ id: String(f.id), type: String(f.type), label: String(f.label || APP_FIELD_LABELS[f.type as AppFieldType] || f.id), value: s(r.field_values?.[f.id]) })),
+    expire_date: dateField ? s(r.field_values?.[String(dateField.id || dateField.label)]) || null : null,
+    m3u_username: r.m3u_username,
+    server_name: r.servers?.name || null,
+    list_name: r.list_name,
+    configured_at: r.configured_at,
+    license_price: price,
+    license_paid_until: r.license_paid_until,
+    // GerenciaApp: configurar só com licença paga
+    configure_blocked: requiresPaymentBeforeConfigure(a) && !paid,
+    can_check: canConfigureResellerApp(a),
+    // SET IPTV/ClouDDy/SmartOne…: só licença (AtivaApp) — lista não é pelo portal
+    can_configure: canConfigureResellerApp(a),
+  };
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -101,48 +133,24 @@ export async function POST(req: NextRequest) {
     if (action === "list") {
       const { data: rows } = await sb
         .from("reseller_client_apps")
-        .select("id, client_label, app_id, device_type, field_values, m3u_url, m3u_username, list_name, configured_at, license_paid_until, created_at, servers(name), apps(" + APP_COLS + ")")
+        .select(ROW_COLS)
         .eq("tenant_id", ctx.tenant_id)
         .eq("reseller_id", ctx.reseller_id)
         .order("created_at", { ascending: false });
-      const data = (rows || []).map((r: any) => {
-        const a = r.apps || {};
-        const fields = Array.isArray(a.fields_config) ? a.fields_config : [];
-        const dateField = findFieldByType(fields, "date");
-        const price = resellerLicensePrice(a);
-        const paid = !!r.license_paid_until && new Date(`${r.license_paid_until}T23:59:59`).getTime() > Date.now();
-        return {
-          id: r.id,
-          client_label: r.client_label,
-          app: { id: a.id, name: a.name, icon_url: effectiveIcon({ icon_url: a.icon_url, appativa_app_id: a.appativa_app_id, appativa_meta: a.appativa_meta }) },
-          device_type: r.device_type,
-          fields: fields
-            .filter((f: any) => f && f.id && f.type !== "date" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType))
-            .map((f: any) => ({ id: String(f.id), type: String(f.type), label: String(f.label || APP_FIELD_LABELS[f.type as AppFieldType] || f.id), value: s(r.field_values?.[f.id]) })),
-          expire_date: dateField ? s(r.field_values?.[String(dateField.id || dateField.label)]) || null : null,
-          m3u_username: r.m3u_username,
-          server_name: r.servers?.name || null,
-          list_name: r.list_name,
-          configured_at: r.configured_at,
-          license_price: price,
-          license_paid_until: r.license_paid_until,
-          // GerenciaApp: configurar só com licença paga
-          configure_blocked: requiresPaymentBeforeConfigure(a) && !paid,
-          can_check: canConfigureResellerApp(a),
-          // SET IPTV/ClouDDy/SmartOne…: só licença (AtivaApp) — lista não é pelo portal
-          can_configure: canConfigureResellerApp(a),
-        };
-      });
+      const data = (rows || []).map(shapeRow);
       return NextResponse.json({ ok: true, data }, { headers: NO_STORE });
     }
 
     // ---------------- adicionar ----------------
     if (action === "add") {
+      const loadRow = async (id: string) => {
+        const { data } = await sb.from("reseller_client_apps").select(ROW_COLS).eq("id", id).maybeSingle();
+        return data ? shapeRow(data) : null;
+      };
       const appId = s(body?.app_id);
       const clientLabel = s(body?.client_label).slice(0, 80);
       const m3uUrl = s(body?.m3u_url);
       if (!UUID_RE.test(appId)) return jsonError(400, "Escolha o aplicativo.");
-      if (!clientLabel) return jsonError(400, "Informe o nome do cliente.");
       const m3u = parseM3u(m3uUrl);
       if (!m3u || !m3u.username || !m3u.password) return jsonError(400, "Link M3U inválido — precisa ter username=… e password=….");
       const { data: app } = await sb.from("apps").select(APP_COLS).eq("id", appId).eq("tenant_id", ctx.tenant_id).maybeSingle();
@@ -154,12 +162,39 @@ export async function POST(req: NextRequest) {
       const macField = fields.find((f: any) => String(f?.type || "").toLowerCase() === "mac");
       if (macField && !fieldValues[String(macField.id)]) return jsonError(400, `Preencha o ${macField.label || "MAC"}.`);
       const server = await detectServerForM3u(sb, ctx.tenant_id, ctx.reseller_id, m3u.host);
+      // ✅ 07/10/2026: a revenda não tem mais lista de apps (só "ativar ou
+      // configurar" na hora) — o registro fica só por dentro. Mesmo app +
+      // mesmo MAC + mesmo usuário do M3U → reaproveita a linha (licença paga
+      // e histórico não se perdem a cada vez que ele abre o seletor).
+      const macNorm = (v: unknown) => s(v).toUpperCase().replace(/[^0-9A-Z]/g, "");
+      const macKey = macField ? macNorm(fieldValues[String(macField.id)]) : "";
+      const { data: sameRows } = await sb
+        .from("reseller_client_apps")
+        .select("id, field_values")
+        .eq("tenant_id", ctx.tenant_id)
+        .eq("reseller_id", ctx.reseller_id)
+        .eq("app_id", appId)
+        .eq("m3u_username", m3u.username);
+      const same = (sameRows || []).find((r: any) => !macField || macNorm(r.field_values?.[String(macField.id)]) === macKey) as any;
+      if (same) {
+        await sb
+          .from("reseller_client_apps")
+          .update({
+            ...(clientLabel ? { client_label: clientLabel } : {}),
+            device_type: s(body?.device_type) || null,
+            field_values: { ...(same.field_values || {}), ...fieldValues },
+            m3u_url: m3uUrl,
+            server_id: server?.id || null,
+          })
+          .eq("id", same.id);
+        return NextResponse.json({ ok: true, id: same.id, row: await loadRow(same.id) }, { headers: NO_STORE });
+      }
       const { data: ins, error } = await sb
         .from("reseller_client_apps")
         .insert({
           tenant_id: ctx.tenant_id,
           reseller_id: ctx.reseller_id,
-          client_label: clientLabel,
+          client_label: clientLabel || m3u.username,
           app_id: appId,
           device_type: s(body?.device_type) || null,
           field_values: fieldValues,
@@ -170,7 +205,7 @@ export async function POST(req: NextRequest) {
         .select("id")
         .single();
       if (error || !ins) return jsonError(500, "Não foi possível salvar.");
-      return NextResponse.json({ ok: true, id: ins.id }, { headers: NO_STORE });
+      return NextResponse.json({ ok: true, id: ins.id, row: await loadRow(ins.id) }, { headers: NO_STORE });
     }
 
     // ---------------- ações sobre uma linha ----------------
@@ -233,7 +268,8 @@ export async function POST(req: NextRequest) {
         const r = await removeResellerAppFromPartner(sb, partnerCtx);
         if (!r.ok) return jsonError(400, r.error);
       }
-      await sb.from("reseller_client_apps").delete().eq("id", row.id);
+      // não apaga a linha: a licença paga (license_paid_until) continua valendo
+      await sb.from("reseller_client_apps").update({ list_name: null, configured_at: null }).eq("id", row.id);
       return NextResponse.json({ ok: true }, { headers: NO_STORE });
     }
 

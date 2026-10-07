@@ -365,13 +365,13 @@ export default function RevendaPortalPage() {
               <div className="h-full flex flex-col items-center justify-center text-center gap-2.5 sm:items-start sm:justify-start sm:text-left sm:gap-3">
                 <div className="w-14 h-14 rounded-2xl bg-amber-500/15 flex items-center justify-center shrink-0 border border-amber-500/20 text-3xl sm:w-16 sm:h-16 sm:text-4xl">📱</div>
                 <div className="min-w-0 sm:flex-1">
-                  <p className="text-xl font-bold text-foreground sm:text-2xl">Meus Aplicativos</p>
+                  <p className="text-xl font-bold text-foreground sm:text-2xl">Ativar ou configurar aplicativos</p>
                   <p className="text-sm text-muted-foreground mt-1 line-clamp-3 sm:text-base sm:mt-2 sm:leading-relaxed">
-                    Cadastre os aplicativos dos seus clientes, configure a lista com um toque e pague ativações sem sair daqui.
+                    Escolha o aparelho e o aplicativo do seu cliente e configure a lista com um toque, sem sair daqui.
                   </p>
                 </div>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-sm font-semibold px-4 py-1.5 sm:text-base sm:px-5 sm:py-2 group-hover:bg-amber-500/25 transition-colors">
-                  Ver aplicativos
+                  Escolher aplicativo
                   <span className="group-hover:translate-x-0.5 transition-transform">→</span>
                 </span>
               </div>
@@ -382,14 +382,14 @@ export default function RevendaPortalPage() {
     );
   }
 
-  // ================= APLICATIVOS (próxima fase) =================
+  // ================= ATIVAR OU CONFIGURAR APLICATIVOS =================
   if (section === "apps") {
     return (
       <div className="min-h-screen bg-background">
         {topBar}
         <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6">
-          {/* ✅ 07/10/2026: mesmo seletor de apps do portal do cliente (AppPickerModal) */}
-          <AppsSection session={session} supportPhone={data.support_phone} />
+          {/* ✅ 07/10/2026: abre direto no seletor de aparelho (AppPickerModal do portal do cliente) */}
+          <AppsSection session={session} supportPhone={data.support_phone} resellerName={data.reseller.name} />
         </div>
       </div>
     );

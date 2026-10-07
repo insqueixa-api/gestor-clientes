@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  Settings,
   Star,
 } from "lucide-react";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
@@ -5233,8 +5234,9 @@ export default function RenewClient() {
                       </li>
                       <li>
                         <strong className="text-foreground">Recomendados:</strong> os com{" "}
-                        <span className="inline-flex items-center rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-bold text-amber-600">
-                          ⚡ Configuração automática
+                        {/* ✅ 07/10/2026: ⚙️ = configuração automática (⚡ virou renovação automática) */}
+                        <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-600">
+                          <Settings className="w-3 h-3" /> Configuração automática
                         </span>{" "}
                         e, quanto mais{" "}
                         <Star className="inline w-3.5 h-3.5 fill-amber-400 text-amber-400 -mt-0.5" strokeWidth={1.5} />, melhor. Mas todos funcionam normalmente.
@@ -6102,8 +6104,8 @@ export default function RenewClient() {
                           Detalhes — {instrApp?.name}
                         </p>
                         {instrApp?.has_integration && (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 shrink-0">
-                            ⚡ Configuração automática
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 shrink-0">
+                            <Settings className="w-3.5 h-3.5" /> Configuração automática
                           </span>
                         )}
                       </div>

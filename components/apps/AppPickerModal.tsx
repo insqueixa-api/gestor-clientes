@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search, Settings, Zap } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Pencil, Plus, Search, Settings, Zap } from "lucide-react";
 import FloatingPanel from "@/components/ui/FloatingPanel";
 import TierStars from "@/components/apps/TierStars";
 import DeviceBadges from "@/components/apps/DeviceBadges";
@@ -156,6 +156,7 @@ export default function AppPickerModal({
   clientServerId,
   presetDeviceTypes,
   deviceIcons: deviceIconsProp,
+  guide,
 }: {
   open: boolean;
   onClose: () => void;
@@ -180,12 +181,16 @@ export default function AppPickerModal({
   /** Logo de cada aparelho (portal: vem da rota do catálogo). No admin,
    * se não vier, o próprio modal carrega e deixa editar (lápis). */
   deviceIcons?: Record<string, string>;
+  /** ✅ 07/10/2026: guia rápido (portal da revenda) — botão "Ver instruções"
+   * antes do X e a lista abre logo abaixo do cabeçalho. */
+  guide?: React.ReactNode;
 }) {
   const isPortal = variant === "portal";
   const tenantId = useTenantId();
   const canEditIcons = !isPortal && !!tenantId;
 
   const [deviceType, setDeviceType] = useState<string | null>(null);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [search, setSearch] = useState("");
   // ✅ 02/10/2026: "Detalhes" do app (descrição, estrelas, aparelhos)
   const [detailsAppId, setDetailsAppId] = useState<string | null>(null);
@@ -539,6 +544,16 @@ export default function AppPickerModal({
             )}
           </div>
           {showSearch && searchInput("hidden sm:flex w-64 shrink-0")}
+          {guide && !detailsApp && (
+            <button
+              onClick={() => setGuideOpen((v) => !v)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 py-1.5 text-xs font-bold text-sky-500 transition-colors hover:bg-sky-500/20"
+            >
+              <span className="hidden sm:inline">{guideOpen ? "Ocultar instruções" : "Ver instruções"}</span>
+              <span className="sm:hidden">Instruções</span>
+              {guideOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+          )}
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -547,6 +562,10 @@ export default function AppPickerModal({
             ✕
           </button>
         </div>
+
+        {guide && guideOpen && !detailsApp && (
+          <div className="rounded-2xl border border-border bg-muted/40 p-3 sm:p-4">{guide}</div>
+        )}
 
         {showSearch && searchInput("sm:hidden w-full")}
 
