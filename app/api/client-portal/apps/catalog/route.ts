@@ -12,6 +12,7 @@ import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
 import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { withoutLegacyDevices } from "@/lib/apps/device-types";
 import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
+import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +132,8 @@ export async function POST(req: NextRequest) {
             license_price_display_currency: licensePriceBRL == null ? null : clientCurrency,
             license_period: cost_type === "paid" ? license_period || null : null,
             has_integration: !!handler && (handler as any).useApi,
+            // ✅ 07/10/2026: ⚡ = licença renova sozinha (AtivaApp/DupleCast/GerenciaApp)
+            has_auto_renewal: hasAutoRenewal({ appativa_app_id, name: rest.name, integration_type }),
             // ✅ 04/10/2026: campos que o cliente preenche ao ADICIONAR (o app
             // só nasce no banco depois de salvar e conferir) — mesmo filtro do
             // extractEditableFields de list/route.ts.

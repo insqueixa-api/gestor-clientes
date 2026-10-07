@@ -17,6 +17,7 @@ import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
 import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { withoutLegacyDevices } from "@/lib/apps/device-types";
 import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
+import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
 import {
   canConfigureResellerApp,
   checkResellerApp,
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
             license_period: price ? "annual" : null,
             is_active: true,
             has_integration: canConfigureResellerApp(a),
+            has_auto_renewal: hasAutoRenewal(a),
             fields: (Array.isArray(a.fields_config) ? a.fields_config : [])
               .filter((f: any) => f && f.id && f.type !== "date" && !HIDDEN_CLIENT_FIELD_TYPES.includes(f.type as AppFieldType))
               .map((f: any) => ({

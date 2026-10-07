@@ -51,8 +51,12 @@ export function canConfigureResellerApp(app: any) {
  * SmartOne… — entram só pra licença; Configurar fica indisponível). */
 export function isResellerCatalogApp(app: any) {
   if (app?.is_hidden) return false;
+  if (app?.cost_type === "partnership") return false; // preso a servidor/plano de cliente
   if (isGerenciaAppFamily(app)) return !/computador/i.test(String(app.name || ""));
-  return canConfigureResellerApp(app) || !!app?.appativa_app_id;
+  // ✅ 07/10/2026: pago com renovação MANUAL também entra (o pagamento cai no
+  // admin e o Márcio renova por fora — etapa B)
+  const paid = app?.cost_type === "paid" && Number(app?.license_price) > 0;
+  return canConfigureResellerApp(app) || !!app?.appativa_app_id || paid;
 }
 
 /** Preço anual da licença pra revenda (BRL) — null = sem cobrança. */

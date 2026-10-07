@@ -20,6 +20,7 @@ import {
   extractDateOnly,
 } from "@/lib/apps/panel";
 import { dispatchClouddyAction, dispatchSetIptvAction, type SetIptvResult } from "@/lib/apps/clouddy-extension";
+import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
 import { runAppativaAutoPoll } from "@/lib/apps/appativa-client-poll";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
@@ -7006,6 +7007,8 @@ export default function NovoCliente({
                       app.integration_type &&
                       app.integration_type !== "SEM_INTEGRACAO",
                     ),
+                    // ✅ 07/10/2026: ⚡ = licença renova sozinha (AtivaApp/DupleCast/GerenciaApp)
+                    has_auto_renewal: hasAutoRenewal(app as any),
                   }))}
                   // ✅ Trava de parceria (só app do servidor parceiro certo,
                   // mesma regra de app/api/client-portal/apps/catalog/route.ts)

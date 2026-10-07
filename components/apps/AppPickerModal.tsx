@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search, Zap } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Search, Settings, Zap } from "lucide-react";
 import FloatingPanel from "@/components/ui/FloatingPanel";
 import TierStars from "@/components/apps/TierStars";
 import DeviceBadges from "@/components/apps/DeviceBadges";
@@ -37,6 +37,9 @@ export type AppPickerCatalogItem = {
   is_active?: boolean;
   discontinued_replacement_name?: string | null;
   has_integration?: boolean;
+  /** ✅ 07/10/2026: licença renova sozinha (AtivaApp/DupleCast/GerenciaApp) — ⚡.
+   * has_integration (configuração automática da lista) virou ⚙️. */
+  has_auto_renewal?: boolean;
   /** estrelas (apps.tier, ou a nota da AtivaApp) — null = sem classificação */
   tier?: number | null;
   /** instruções do app com {licenca} preenchida — mostrada no "Detalhes" */
@@ -510,12 +513,20 @@ export default function AppPickerModal({
               {detailsApp ? (
                 detailsApp.name
               ) : q || quickFilter || deviceType || hasPresetDeviceTypes ? (
-                <span className="inline-flex items-center gap-1">
-                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-400 text-white">
-                    <Zap className="w-2.5 h-2.5 fill-current" />
+                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-sky-500 text-white">
+                      <Settings className="w-2.5 h-2.5" />
+                    </span>
+                    configuração automática
                   </span>
-                  Aplicativos com raio têm configuração automática
-                  {(q || quickFilter) && !specificDevice ? " · todos os aparelhos" : ""}
+                  <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-400 text-white">
+                      <Zap className="w-2.5 h-2.5 fill-current" />
+                    </span>
+                    renovação automática
+                  </span>
+                  {(q || quickFilter) && !specificDevice ? <span>· todos os aparelhos</span> : null}
                 </span>
               ) : (
                 subtitle
@@ -673,8 +684,13 @@ export default function AppPickerModal({
                 <p className="text-lg font-bold text-foreground flex items-center gap-2">
                   {detailsApp.name}
                   {detailsApp.has_integration && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500 text-white text-[10px] font-bold">
+                      <Settings className="w-3 h-3" /> Configuração automática
+                    </span>
+                  )}
+                  {detailsApp.has_auto_renewal && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400 text-white text-[10px] font-bold">
-                      <Zap className="w-3 h-3 fill-current" /> Configuração automática
+                      <Zap className="w-3 h-3 fill-current" /> Renovação automática
                     </span>
                   )}
                 </p>
@@ -740,12 +756,24 @@ export default function AppPickerModal({
                             quickFilter ? "w-full" : "snap-start shrink-0 w-40 sm:w-44"
                           }`}
                         >
-                          {app.has_integration && (
-                            <span
-                              className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-amber-400 text-white shadow-md ring-2 ring-amber-200 dark:ring-amber-500/30"
-                              title="Configuração automática"
-                            >
-                              <Zap className="w-4 h-4 fill-current" />
+                          {(app.has_integration || app.has_auto_renewal) && (
+                            <span className="absolute top-2 right-2 flex flex-col gap-1">
+                              {app.has_integration && (
+                                <span
+                                  className="w-7 h-7 flex items-center justify-center rounded-full bg-sky-500 text-white shadow-md ring-2 ring-sky-200 dark:ring-sky-500/30"
+                                  title="Configuração automática"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                </span>
+                              )}
+                              {app.has_auto_renewal && (
+                                <span
+                                  className="w-7 h-7 flex items-center justify-center rounded-full bg-amber-400 text-white shadow-md ring-2 ring-amber-200 dark:ring-amber-500/30"
+                                  title="Renovação automática"
+                                >
+                                  <Zap className="w-4 h-4 fill-current" />
+                                </span>
+                              )}
                             </span>
                           )}
                           {app.icon_url ? (
