@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
+import AppsSection from "./AppsSection";
 
 type Server = {
   id: string;
@@ -386,30 +387,9 @@ export default function RevendaPortalPage() {
     return (
       <div className="min-h-screen bg-background">
         {topBar}
-        <div className="max-w-6xl mx-auto space-y-3 sm:space-y-4 px-0 sm:px-4 py-4 sm:py-6">
-          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-            <div className="bg-muted/50 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-border">
-              <h2 className="text-sm font-bold text-foreground flex items-center gap-2">📱 Meus Aplicativos</h2>
-            </div>
-            <div className="p-4 sm:p-6 text-center space-y-3">
-              <div className="text-4xl">🚧</div>
-              <p className="text-base font-semibold text-foreground">Em breve por aqui</p>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Você vai cadastrar os aparelhos dos seus clientes (ID/MAC, Device Key e lista M3U), configurar a lista com um toque e pagar a
-                ativação do aplicativo — com aviso no seu WhatsApp quando ficar pronto.
-              </p>
-              {supportDigits && (
-                <a
-                  href={waLink("Olá! Sou revenda e preciso de ajuda com um aplicativo de cliente.")}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#25D366] text-white font-bold rounded-xl hover:bg-[#20BA5A] transition-colors"
-                >
-                  <IconWhatsapp /> Precisa agora? Fale com o suporte
-                </a>
-              )}
-            </div>
-          </div>
+        <div className="max-w-6xl mx-auto px-0 sm:px-4 py-4 sm:py-6">
+          {/* ✅ 07/10/2026: mesmo seletor de apps do portal do cliente (AppPickerModal) */}
+          <AppsSection session={session} supportPhone={data.support_phone} />
         </div>
       </div>
     );
