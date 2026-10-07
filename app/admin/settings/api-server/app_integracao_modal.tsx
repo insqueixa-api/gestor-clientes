@@ -79,6 +79,8 @@ export default function AppIntegracaoModal({
   const inorain = INORAIN_FAMILY[appName];
   const isDuplexTv = appName === "DUPLEXTV";
   const isClouddy = appName === "CLOUDDY";
+  // ✅ 07/10/2026: SET IPTV — via extensão, só MAC (sem login/senha/PIN)
+  const isSetIptv = appName === "SETIPTV";
   const isNinjaPlus = appName === "NINJAPLUS";
   const isCapPlayer = appName === "CAPPLAYER";
   // ✅ 03/10/2026: IBO Smarters Player — login mac+device_key por cliente, sem PIN
@@ -108,6 +110,7 @@ export default function AppIntegracaoModal({
     isInorain ||
     isDuplexTv ||
     isClouddy ||
+    isSetIptv ||
     isNinjaPlus || // ✅ NINJAPLUS: login é por mac+device_key POR CLIENTE
     isIboSmarters || // ✅ IBO Smarters: idem
     isCortex || // ✅ Cortex: idem (DEVICE + MAC)
@@ -248,6 +251,7 @@ export default function AppIntegracaoModal({
                 <option value="IBOPLAYER">IBO Player</option>
                 <option value="DUPLEXTV">Duplex TV</option>
                 <option value="CLOUDDY">ClouDDy</option>
+                <option value="SETIPTV">SET IPTV (extensão)</option>
                 <option value="NINJAPLUS">Ninja Plus</option>
                 <option value="CAPPLAYER">CAP Player</option>
                 <option value="IBOSMARTERS">IBO Smarters Player</option>

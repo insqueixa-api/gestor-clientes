@@ -139,6 +139,7 @@ const INTEGRATION_OPTIONS: { value: string; label: string }[] = [
   { value: "IPTVPLAYERIO", label: "IPTV Playerio" },
   { value: "DUPLEXTV", label: "Duplex TV" },
   { value: "CLOUDDY", label: "ClouDDy" },
+  { value: "SETIPTV", label: "SET IPTV (extensão)" },
   { value: "NINJAPLUS", label: "Ninja Plus" },
   { value: "CAPPLAYER", label: "CAP Player" },
   { value: "IBOSMARTERS", label: "IBO Smarters Player" },

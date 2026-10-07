@@ -6518,6 +6518,12 @@ export default function NovoCliente({
                       .trim()
                       .toUpperCase();
                     const hasInteg = Boolean(integrationType);
+                    // ✅ 07/10/2026: SET IPTV ligado à integração "SETIPTV" é só
+                    // via extensão (botões próprios abaixo) — nunca mostra os
+                    // botões de API (não existe rota de servidor pra ele).
+                    const isSetIptv =
+                      integrationType === "SETIPTV" ||
+                      String(catApp?.name || "").trim().toLowerCase() === "set iptv";
                     const canAutoDelete = true;
                     // ✅ "Verificar vencimento" — divide o botão "Painel" em
                     // dois ícones quando o handler suporta check (server-side,
@@ -6778,7 +6784,7 @@ export default function NovoCliente({
                             {/* ✅ 07/10/2026: SET IPTV — playlists pela extensão
                                 (só MAC). A ativação da licença continua no bloco
                                 da Appativa logo abaixo. */}
-                            {String(catApp?.name || "").trim().toLowerCase() === "set iptv" && (
+                            {isSetIptv && (
                               <div className="mb-3 mt-2">
                                 <AppIntegrationActions
                                   isClouddy
@@ -6810,7 +6816,7 @@ export default function NovoCliente({
                                 {isEditing ? (
                                   <AppIntegrationActions
                                     isClouddy={false}
-                                    hasApiIntegration={hasInteg}
+                                    hasApiIntegration={hasInteg && !isSetIptv}
                                     appLabel={appLabel}
                                     panelUrl={
                                       appIntegrations.find(
