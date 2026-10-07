@@ -3445,7 +3445,11 @@ export default function NovoCliente({
       addToast(
         result.removed === "none" ? "warning" : "success",
         result.removed === "none" ? "Nada pra remover" : "SET IPTV removido",
-        result.removed === "none" ? "Não havia playlist deste cliente no aparelho." : `Playlist(s) ${names.join(" / ")} removida(s).`,
+        result.removed === "none"
+          ? "Não havia playlist deste cliente no aparelho."
+          : result.removed === "all"
+            ? "Todas as playlists do aparelho foram removidas."
+            : `Playlist(s) ${names.join(" / ")} removida(s).`,
       );
     } finally {
       setLoading(false);

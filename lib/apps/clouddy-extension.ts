@@ -20,7 +20,8 @@ export type SetIptvResult = {
   ok: boolean;
   error?: string;
   mode?: "updated" | "added" | "added_without_load";
-  removed?: "one" | "none";
+  // "all" = o Márcio clicou direto em "Remover as playlists da TV" (apaga todas)
+  removed?: "one" | "none" | "all";
   message?: string;
   // action=check do site: paid=true → licença vitalícia (vencimento 31/12/9999)
   check?: { http?: number; paid?: boolean | null; raw?: string; error?: string } | null;
