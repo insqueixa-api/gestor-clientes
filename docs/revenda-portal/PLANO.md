@@ -133,3 +133,9 @@ reseller_end_user_apps  id, tenant_id, reseller_end_user_id, app_id,
 5. **Sessão de WhatsApp** que manda a mensagem para a revenda: a padrão ou a do servidor?
 6. **Crédito:** fase 1 só pelo seu botão de recarga, ou já planejar a revenda comprando crédito sozinha pelo portal (fase 5)?
 7. **Elite e Fast:** mandar a documentação (ou print) do endpoint de envio de crédito de cada um.
+
+### 07/10/2026 — nome do cliente (pedido do Márcio)
+- No modal da revenda o campo "Ambiente" (tipo `obs`) não aparece: no lugar dele a revenda informa o **Nome do cliente** (obrigatório) → `reseller_client_apps.client_label`. O servidor ignora `obs` vindo da revenda.
+- **Etapa B (pagamento da licença) tem que usar esse nome:**
+  - na mensagem de WhatsApp pra revenda (app, cliente, usuário do M3U, novo vencimento);
+  - no histórico da página do revendedor (admin `/admin/revendedor/[id]`), junto das recargas: qual aplicativo, de qual cliente, quando foi ativado e o novo vencimento.

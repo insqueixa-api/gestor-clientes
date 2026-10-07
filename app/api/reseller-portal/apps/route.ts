@@ -158,7 +158,8 @@ export async function POST(req: NextRequest) {
       const fields = Array.isArray((app as any).fields_config) ? (app as any).fields_config : [];
       const input = (body?.field_values || {}) as Record<string, unknown>;
       const fieldValues: Record<string, string> = {};
-      for (const f of fields) if (f?.id && f.type !== "date" && input[f.id] != null) fieldValues[String(f.id)] = s(input[f.id]).slice(0, 200);
+      // "Ambiente" (obs) é do Márcio/cliente final — na revenda vira o nome do cliente (client_label)
+      for (const f of fields) if (f?.id && f.type !== "date" && f.type !== "obs" && input[f.id] != null) fieldValues[String(f.id)] = s(input[f.id]).slice(0, 200);
       const macField = fields.find((f: any) => String(f?.type || "").toLowerCase() === "mac");
       if (macField && !fieldValues[String(macField.id)]) return jsonError(400, `Preencha o ${macField.label || "MAC"}.`);
       const server = await detectServerForM3u(sb, ctx.tenant_id, ctx.reseller_id, m3u.host);
