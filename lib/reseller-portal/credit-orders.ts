@@ -332,6 +332,28 @@ export async function confirmPaidAndFulfill(admin: SupabaseClient, orderId: stri
   const { data: order } = await admin.from("reseller_credit_orders").select("*").eq("id", orderId).maybeSingle();
   if (!order || !order.gateway_payment_id) return;
 
+  // ✅ 07/10/2026: PIX substituído por um novo (marcado cancelado aqui) mas pago
+  // mesmo assim — no FastDePix o QR antigo continua pagável até expirar. Nunca
+  // envia sozinho (o novo também pode ter sido pago): avisa pra conferir.
+  if (order.status === "cancelled") {
+    const chk = await checkAtGateway(admin, order);
+    if (chk?.state !== "paid") return;
+    const { data: flipped } = await admin
+      .from("reseller_credit_orders")
+      .update({
+        status: "approved",
+        paid_at: new Date().toISOString(),
+        fulfillment_status: "error",
+        fulfillment_error: `PIX substituído por um novo, mas pago (${brl(chk.paidAmount)}) — créditos NÃO enviados; conferir se o outro PIX também foi pago.`,
+      })
+      .eq("id", order.id)
+      .eq("status", "cancelled")
+      .select("id")
+      .maybeSingle();
+    if (flipped) await notifyAdmin(admin, order, "PIX antigo de créditos foi pago", `A revenda pagou um PIX de ${order.credits} créditos que já tinha sido substituído. Confira e envie manualmente se for o caso.`);
+    return;
+  }
+
   if (order.status === "pending") {
     const chk = await checkAtGateway(admin, order);
     if (!chk || chk.state === "pending") return;

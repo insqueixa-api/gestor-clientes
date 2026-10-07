@@ -267,6 +267,28 @@ export async function confirmPaidAndFulfillApp(admin: SupabaseClient, orderId: s
   const { data: order } = await admin.from("reseller_app_orders").select("*").eq("id", orderId).maybeSingle();
   if (!order || !order.gateway_payment_id) return;
 
+  // ✅ PIX substituído por um novo (marcado cancelado aqui) mas pago mesmo assim
+  // — no FastDePix o QR antigo continua pagável até expirar. Nunca ativa
+  // sozinho (o novo também pode ter sido pago): avisa pra conferir.
+  if (order.status === "cancelled") {
+    const chk = await checkPix(admin, order.tenant_id, order.gateway_type, order.gateway_payment_id);
+    if (chk?.state !== "paid") return;
+    const { data: flipped } = await admin
+      .from("reseller_app_orders")
+      .update({
+        status: "approved",
+        paid_at: new Date().toISOString(),
+        fulfillment_status: "error",
+        fulfillment_error: `PIX substituído por um novo, mas pago (${brl(chk.paidAmount)}) — ativação NÃO feita; conferir se o outro PIX também foi pago.`,
+      })
+      .eq("id", order.id)
+      .eq("status", "cancelled")
+      .select("id")
+      .maybeSingle();
+    if (flipped) await notifyAdmin(order, "PIX antigo de ativação foi pago", `${order.app_name}: a revenda pagou um PIX que já tinha sido substituído. Confira e ative manualmente se for o caso.`);
+    return;
+  }
+
   if (order.status === "pending") {
     const chk = await checkPix(admin, order.tenant_id, order.gateway_type, order.gateway_payment_id);
     if (!chk || chk.state === "pending") return;
@@ -294,6 +316,10 @@ export async function confirmPaidAndFulfillApp(admin: SupabaseClient, orderId: s
       .update({ status: "approved", paid_at: new Date().toISOString(), fulfillment_status: "pending" })
       .eq("id", order.id)
       .eq("status", "pending");
+    if (error && (error as any).code !== "23505") {
+      log("approve_failed", { order: String(order.id).slice(0, 8), message: error.message });
+      return; // tenta de novo no próximo webhook/acompanhamento
+    }
     if (error) {
       // índice "1 pago em aberto por aparelho": outro pedido pago do mesmo aparelho ainda ativando
       await admin
@@ -453,8 +479,22 @@ async function completeOrder(admin: SupabaseClient, orderId: string, newExpire: 
     .maybeSingle();
   if (!order) return; // já concluído por outro caminho
   log("done", { order: String(order.id).slice(0, 8), app: order.app_name });
-  if (order.reseller_client_app_id && newExpire) {
-    await admin.from("reseller_client_apps").update({ expire_date: newExpire }).eq("id", order.reseller_client_app_id);
+  if (newExpire) {
+    if (order.reseller_client_app_id) {
+      await admin.from("reseller_client_apps").update({ expire_date: newExpire }).eq("id", order.reseller_client_app_id);
+    } else {
+      // veio do "Ativar aplicativo": atualiza o card do cliente que usa o MESMO aparelho
+      const { data: app } = await admin.from("apps").select("fields_config").eq("id", order.app_id).maybeSingle();
+      const fc = Array.isArray(app?.fields_config) ? app!.fields_config : [];
+      const { data: rows } = await admin
+        .from("reseller_client_apps")
+        .select("id, field_values")
+        .eq("tenant_id", order.tenant_id)
+        .eq("reseller_id", order.reseller_id)
+        .eq("app_id", order.app_id);
+      const same = (rows || []).filter((r: any) => deviceKeyOf(fc, r.field_values || {}) === order.device_key).map((r: any) => r.id);
+      if (same.length) await admin.from("reseller_client_apps").update({ expire_date: newExpire }).in("id", same);
+    }
   }
   try {
     await syncIptvRendimentos(admin, order.tenant_id);
