@@ -461,6 +461,10 @@ export default function AppIntegrationActions({
         )}
       </div>
 
+      {/* ✅ 07/10/2026: apps via extensão (SET IPTV / ClouDDy) usam este mesmo
+          layout — só ganham a explicação embaixo */}
+      {extensionNote && <p className="text-[10px] text-muted-foreground mt-1">{extensionNote}</p>}
+
       <ReconfigureModeModal
         open={showReconfigure}
         onClose={() => setShowReconfigure(false)}

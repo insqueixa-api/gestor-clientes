@@ -6524,6 +6524,15 @@ export default function NovoCliente({
                     const isSetIptv =
                       integrationType === "SETIPTV" ||
                       String(catApp?.name || "").trim().toLowerCase() === "set iptv";
+                    const isClouddyApp = catApp?.name === "ClouDDy" || integrationType === "CLOUDDY";
+                    // apps "integrados pela extensão": mesmo layout de botões dos
+                    // outros, mas cada botão chama a extensão do Chrome
+                    const isExtensionApp = isSetIptv || isClouddyApp;
+                    const extPanelUrl = isSetIptv
+                      ? appIntegrations.find((a) => a.app_name.toUpperCase() === "SETIPTV")?.api_url ||
+                        "https://cms.manage-setiptv.com/set.app?lang=pt"
+                      : appIntegrations.find((a) => a.app_name.toUpperCase() === "CLOUDDY")?.api_url ||
+                        "https://console.clouddy.online";
                     const canAutoDelete = true;
                     // ✅ "Verificar vencimento" — divide o botão "Painel" em
                     // dois ícones quando o handler suporta check (server-side,
@@ -6741,69 +6750,6 @@ export default function NovoCliente({
                                 de Configurar/Verificar/Remover pelo sistema.
                                 ClouDDy é por CONTA (email+senha, sem MAC) —
                                 aparece independente de isEditing. */}
-                            {catApp?.name === "ClouDDy" && (
-                              <div className="mb-3 mt-2">
-                                <AppIntegrationActions
-                                  isClouddy
-                                  hasApiIntegration={false}
-                                  appLabel={appLabel}
-                                  panelUrl={
-                                    appIntegrations.find(
-                                      (a) =>
-                                        a.app_name.toUpperCase() === "CLOUDDY",
-                                    )?.api_url ||
-                                    "https://console.clouddy.online"
-                                  }
-                                  canCheckVencimento={false}
-                                  loading={loading}
-                                  onOpenPanel={() => {
-                                    const url =
-                                      appIntegrations.find(
-                                        (a) =>
-                                          a.app_name.toUpperCase() ===
-                                          "CLOUDDY",
-                                      )?.api_url ||
-                                      "https://console.clouddy.online";
-                                    window.open(url, "_blank");
-                                  }}
-                                  onConfigure={() => {}}
-                                  onCheck={() => {}}
-                                  onClouddyConfigure={(mode) =>
-                                    handleClouddyConfigure(app.instanceId, mode)
-                                  }
-                                  onClouddyCheck={() =>
-                                    handleClouddyCheck(app.instanceId)
-                                  }
-                                  onClouddyDelete={() =>
-                                    handleClouddyDelete(app.instanceId)
-                                  }
-                                />
-                              </div>
-                            )}
-
-                            {/* ✅ 07/10/2026: SET IPTV — playlists pela extensão
-                                (só MAC). A ativação da licença continua no bloco
-                                da Appativa logo abaixo. */}
-                            {isSetIptv && (
-                              <div className="mb-3 mt-2">
-                                <AppIntegrationActions
-                                  isClouddy
-                                  hasApiIntegration={false}
-                                  appLabel="SET IPTV"
-                                  panelUrl="https://cms.manage-setiptv.com/set.app?lang=pt"
-                                  canCheckVencimento={false}
-                                  loading={loading}
-                                  extensionNote="Cada clique abre o site do SET IPTV numa aba do seu Chrome e usa os botões do próprio site: carrega as playlists do MAC e mexe só na deste cliente. Se o site pedir algo (aceitar cookies, código), resolva na aba — a extensão espera."
-                                  onOpenPanel={() => window.open("https://cms.manage-setiptv.com/set.app?lang=pt", "_blank")}
-                                  onConfigure={() => {}}
-                                  onCheck={() => {}}
-                                  onClouddyConfigure={(mode) => handleSetIptvConfigure(app.instanceId, mode)}
-                                  onClouddyCheck={() => handleSetIptvCheck(app.instanceId)}
-                                  onClouddyDelete={() => handleSetIptvDelete(app.instanceId)}
-                                />
-                              </div>
-                            )}
-
                             {/* ✅ Achado 26/08/2026 (pedido do Márcio: "ativar via
                                 Appativa" pela tela do cliente) — antes só
                                 renderizava com hasInteg (app com painel próprio
@@ -6811,21 +6757,30 @@ export default function NovoCliente({
                                 mapeados na Appativa (ex: SmartOne,
                                 integration_type null) também precisam aparecer
                                 aqui, mesmo sem nenhum painel automatizado. */}
-                            {(hasInteg || catApp?.appativa_app_id) && catApp?.name !== "ClouDDy" && (
+                            {(hasInteg || catApp?.appativa_app_id || isExtensionApp) && (
                               <div className="bg-transparent border-0 mb-3 mt-2">
-                                {isEditing ? (
+                                {isEditing || isExtensionApp ? (
                                   <AppIntegrationActions
                                     isClouddy={false}
-                                    hasApiIntegration={hasInteg && !isSetIptv}
+                                    hasApiIntegration={hasInteg || isExtensionApp}
                                     appLabel={appLabel}
                                     panelUrl={
-                                      appIntegrations.find(
-                                        (a) =>
-                                          a.app_name.toUpperCase() ===
-                                          integrationType,
-                                      )?.api_url || ""
+                                      isExtensionApp
+                                        ? extPanelUrl
+                                        : appIntegrations.find(
+                                            (a) =>
+                                              a.app_name.toUpperCase() ===
+                                              integrationType,
+                                          )?.api_url || ""
                                     }
-                                    canCheckVencimento={canCheckVencimento}
+                                    canCheckVencimento={canCheckVencimento || isExtensionApp}
+                                    extensionNote={
+                                      isSetIptv
+                                        ? "Pela extensão do Chrome: abre o site do SET IPTV numa aba, carrega as playlists do MAC e mexe só na deste cliente. Se o site pedir algo (cookies, código), resolva na aba — a extensão espera."
+                                        : isClouddyApp
+                                          ? "Pela extensão do Chrome: abre o ClouDDy numa aba, loga com o email/senha deste cliente, faz a ação e fecha a sessão. Se aparecer o captcha do Cloudflare, resolva na aba."
+                                          : undefined
+                                    }
                                     showRemoveButton={canAutoDelete}
                                     loading={loading}
                                     hasLicense={!!getExpirationDateFromApp(app) && !app.isTrial}
@@ -6869,6 +6824,10 @@ export default function NovoCliente({
                                         : undefined
                                     }
                                     onOpenPanel={() => {
+                                      if (isExtensionApp) {
+                                        window.open(extPanelUrl, "_blank");
+                                        return;
+                                      }
                                       const url =
                                         appIntegrations.find(
                                           (a) =>
@@ -6884,21 +6843,35 @@ export default function NovoCliente({
                                         );
                                     }}
                                     onConfigure={(mode) =>
-                                      handleConfigApp(app.instanceId, mode)
+                                      isSetIptv
+                                        ? handleSetIptvConfigure(app.instanceId, mode)
+                                        : isClouddyApp
+                                          ? handleClouddyConfigure(app.instanceId, mode)
+                                          : handleConfigApp(app.instanceId, mode)
                                     }
                                     onCheck={() =>
-                                      handleCheckApp(app.instanceId)
+                                      isSetIptv
+                                        ? handleSetIptvCheck(app.instanceId)
+                                        : isClouddyApp
+                                          ? handleClouddyCheck(app.instanceId)
+                                          : handleCheckApp(app.instanceId)
                                     }
                                     onRemove={async () => {
                                       const ok = await confirm({
-                                        title: `Remover do ${appLabel}?`,
-                                        subtitle: `Isso apagará o MAC do painel oficial.`,
+                                        title: `Remover do ${isSetIptv ? "SET IPTV" : appLabel}?`,
+                                        subtitle: isSetIptv
+                                          ? "Remove só as playlists deste cliente do aparelho (as outras ficam)."
+                                          : isClouddyApp
+                                            ? "Remove TV + VOD da conta ClouDDy deste cliente."
+                                            : `Isso apagará o MAC do painel oficial.`,
                                         tone: "rose",
                                         confirmText: "Sim, remover",
                                         cancelText: "Cancelar",
                                       });
-                                      if (ok)
-                                        await handleDeleteApp(app.instanceId);
+                                      if (!ok) return;
+                                      if (isSetIptv) await handleSetIptvDelete(app.instanceId);
+                                      else if (isClouddyApp) await handleClouddyDelete(app.instanceId);
+                                      else await handleDeleteApp(app.instanceId);
                                     }}
                                     onClouddyConfigure={() => {}}
                                     onClouddyCheck={() => {}}
