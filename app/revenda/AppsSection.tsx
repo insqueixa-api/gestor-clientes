@@ -18,6 +18,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Loader2, Plus, Search, Settings, Star, Zap } from "lucide-react";
 import AppPickerModal, { type AppPickerCatalogItem } from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
+import ToastNotifications, { type ToastMessage } from "@/hooks/ToastNotifications";
+import { useConfirm } from "@/hooks/useConfirm";
 import { normalizeMacInput } from "@/lib/apps/field-types";
 import { capitalizeFirst, focusNextWhenMacComplete } from "@/lib/dom-focus";
 
@@ -102,7 +104,12 @@ export default function AppsSection({
   const [renewing, setRenewing] = useState<{ row: AppRow; client: ConfiguredClient } | null>(null);
   const [editing, setEditing] = useState<{ row: AppRow; client: ConfiguredClient } | null>(null);
   const [rowBusy, setRowBusy] = useState<string | null>(null);
-  const [rowMsg, setRowMsg] = useState<Record<string, { tone: "ok" | "err"; text: string } | undefined>>({});
+  // ✅ 07/10/2026: feedback em toast + confirmação do sistema (igual ao portal do cliente)
+  const { confirm } = useConfirm();
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const addToast = (type: ToastMessage["type"], title: string, message?: string) =>
+    setToasts((prev) => [...prev, { id: Date.now() + Math.random(), type, title, message }]);
+  const removeToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const call: Call = async (payload) => {
     const r = await fetch("/api/reseller-portal/apps", {
@@ -164,27 +171,32 @@ export default function AppsSection({
   const allDevices = useMemo(() => [...new Set(activateCatalog.flatMap((a) => a.device_types || []))], [activateCatalog]) as any[];
 
   async function rowAction(row: AppRow, action: "check" | "configure" | "remove" | "renew_free") {
-    if (action === "remove" && !window.confirm(`Excluir o ${row.app.name} desse cliente? A lista dele sai do aparelho (só a dele).`)) return;
+    if (action === "remove") {
+      const ok = await confirm({
+        title: `Excluir o ${row.app.name}?`,
+        subtitle: "A lista desse cliente sai do aparelho (só a dele — as outras continuam).",
+        tone: "rose",
+        confirmText: "Excluir",
+        cancelText: "Voltar",
+      });
+      if (!ok) return;
+    }
     setRowBusy(`${row.id}:${action}`);
-    setRowMsg((m) => ({ ...m, [row.id]: undefined }));
     try {
       const j = await call({ action, id: row.id });
-      const text =
-        action === "remove"
-          ? ""
-          : action === "configure"
-            ? `Reconfigurado (lista ${j.m3u_list === "secundaria" ? "secundária" : "principal"})${j.expire_date ? ` · vence ${dateBR(j.expire_date)}` : ""}.`
-            : action === "renew_free"
-              ? `Renovado${j.expire_date ? ` até ${dateBR(j.expire_date)}` : ""}.`
-              : j.expire_date
-                ? `Vencimento: ${dateBR(j.expire_date)}.`
-                : j.is_trial
-                  ? "Aparelho em modo de avaliação (sem licença ativa)."
-                  : "O parceiro não informou vencimento.";
-      if (text) setRowMsg((m) => ({ ...m, [row.id]: { tone: "ok", text } }));
+      if (action === "remove") addToast("success", "Aplicativo excluído", `${row.app.name} saiu do aparelho do cliente.`);
+      else if (action === "configure")
+        addToast("success", "Configurado", `${row.app.name}: lista ${j.m3u_list === "secundaria" ? "secundária" : "principal"} enviada ao aparelho.`);
+      else if (action === "renew_free") addToast("success", "Licença renovada", j.expire_date ? `Nova validade: ${dateBR(j.expire_date)}.` : undefined);
+      else
+        addToast(
+          j.expire_date ? "success" : "warning",
+          "Vencimento conferido",
+          j.expire_date ? `Validade: ${dateBR(j.expire_date)}.` : j.is_trial ? "Aparelho em modo de avaliação (sem licença ativa)." : "O parceiro não informou vencimento.",
+        );
       await loadDashboard(false);
     } catch (e: any) {
-      setRowMsg((m) => ({ ...m, [row.id]: { tone: "err", text: e?.message } }));
+      addToast("error", "Não foi possível concluir", e?.message);
     } finally {
       setRowBusy(null);
     }
@@ -196,6 +208,7 @@ export default function AppsSection({
 
   return (
     <div className="space-y-3 sm:space-y-4 px-3 sm:px-0">
+      <ToastNotifications toasts={toasts} removeToast={removeToast} />
       {/* topo: título + 2 botões */}
       <div className="flex flex-col sm:flex-row sm:items-end gap-3">
         <div className="min-w-0 flex-1">
@@ -276,7 +289,6 @@ export default function AppsSection({
                     {c.apps.map((a) => {
                       const busy = (k: string) => rowBusy === `${a.id}:${k}`;
                       const anyBusy = !!rowBusy;
-                      const msg = rowMsg[a.id];
                       // Renovar só aparece quando a renovação já está liberada (sem texto de "libera em")
                       const renewOpen = !!a.renew.kind && !a.renew.available_from;
                       const days = daysUntil(a.expire_date);
@@ -352,12 +364,6 @@ export default function AppsSection({
                               {a.fields.filter((f) => f.value).map((f) => (
                                 <CopyChip key={f.id} label={f.label} value={f.value} />
                               ))}
-                            </div>
-                          )}
-
-                          {msg && (
-                            <div className={`text-xs rounded-lg px-2.5 py-1.5 ${msg.tone === "ok" ? "bg-emerald-500/10 text-emerald-700" : "bg-rose-500/10 text-rose-600"}`}>
-                              {msg.text}
                             </div>
                           )}
 
@@ -614,9 +620,9 @@ function ModalShell({
   subtitle: string;
 }) {
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl max-h-[92dvh] overflow-y-auto"
+        className="w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl max-h-[90dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border">

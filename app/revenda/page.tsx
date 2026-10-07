@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import AppsSection from "./AppsSection";
+import { ConfirmProvider } from "@/hooks/useConfirm";
 
 type Server = {
   id: string;
@@ -93,7 +94,16 @@ function readSession() {
   }
 }
 
+// ✅ 07/10/2026: confirmação do sistema (useConfirm) disponível no portal da revenda
 export default function RevendaPortalPage() {
+  return (
+    <ConfirmProvider>
+      <RevendaPortal />
+    </ConfirmProvider>
+  );
+}
+
+function RevendaPortal() {
   const [session, setSession] = useState("");
   const [data, setData] = useState<Home | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "expired" | "error">("loading");
@@ -608,9 +618,9 @@ function PixModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="w-full sm:max-w-md bg-card rounded-t-2xl sm:rounded-2xl border border-border shadow-2xl max-h-[92dvh] overflow-y-auto"
+        className="w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl max-h-[90dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
