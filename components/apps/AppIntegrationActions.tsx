@@ -152,6 +152,9 @@ export type AppIntegrationActionsProps = {
   onClouddyConfigure: (mode: ReconfigureMode) => void | Promise<void>;
   onClouddyCheck: () => void | Promise<void>;
   onClouddyDelete: () => void | Promise<void>;
+  /** ✅ 07/10/2026: o modo "via extensão" (isClouddy) também serve ao SET
+   * IPTV — este texto substitui a explicação do ClouDDy embaixo dos botões. */
+  extensionNote?: string;
 };
 
 export default function AppIntegrationActions({
@@ -177,6 +180,7 @@ export default function AppIntegrationActions({
   onClouddyConfigure,
   onClouddyCheck,
   onClouddyDelete,
+  extensionNote,
 }: AppIntegrationActionsProps) {
   const [showReconfigure, setShowReconfigure] = useState(false);
 
@@ -226,8 +230,8 @@ export default function AppIntegrationActions({
           </button>
         </div>
         <p className="text-[10px] text-muted-foreground mt-1">
-          Cada clique abre uma aba de verdade no seu Chrome, loga com o email/senha desse cliente, faz a ação e fecha
-          a sessão. Se aparecer o captcha do Cloudflare, resolve manualmente na aba — o resto continua sozinho.
+          {extensionNote ||
+            "Cada clique abre uma aba de verdade no seu Chrome, loga com o email/senha desse cliente, faz a ação e fecha a sessão. Se aparecer o captcha do Cloudflare, resolve manualmente na aba — o resto continua sozinho."}
         </p>
         <ReconfigureModeModal
           open={showReconfigure}

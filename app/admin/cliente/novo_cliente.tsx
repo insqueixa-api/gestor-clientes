@@ -19,7 +19,7 @@ import {
   resolveIntegrationTypeByName,
   extractDateOnly,
 } from "@/lib/apps/panel";
-import { dispatchClouddyAction } from "@/lib/apps/clouddy-extension";
+import { dispatchClouddyAction, dispatchSetIptvAction, type SetIptvResult } from "@/lib/apps/clouddy-extension";
 import { runAppativaAutoPoll } from "@/lib/apps/appativa-client-poll";
 import type { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import { buildWhatsAppSessionLabel } from "@/lib/admin/whatsapp-modal-data";
@@ -3319,6 +3319,140 @@ export default function NovoCliente({
       setLoadingStep("");
     }
   }
+  // ✅ 07/10/2026: SET IPTV (cms.manage-setiptv.com) — via extensão, igual o
+  // ClouDDy: formulário com reCAPTCHA v3, roda na aba real do Chrome usando
+  // os próprios botões do site. Só MAC (não tem Device Key). Configurar
+  // carrega as playlists atuais e mexe SÓ na de nome exato
+  // (<usuario>_<Servidor>, secundária _2) — nunca apaga outra lista.
+  // Licença é vitalícia: aparelho pago → vencimento 31/12/9999.
+  function setIptvListName(mode: ReconfigureMode) {
+    const srv = String(servers.find((s) => s.id === serverId)?.name || "Servidor").replace(/\s+/g, "");
+    const base = `${String(username || "").trim()}_${srv}`;
+    return mode === "secundaria" ? `${base}_2` : base;
+  }
+
+  async function applySetIptvPaid(currentApp: any, check: SetIptvResult["check"]) {
+    if (check?.paid === true) await persistClouddyExpireDate(currentApp, "9999-12-31");
+  }
+
+  async function handleSetIptvConfigure(instanceId: string, mode: ReconfigureMode = "principal") {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+    const mac = getMacFromApp(currentApp);
+    if (!mac) {
+      addToast("error", "MAC obrigatório", "Preencha o MAC do SET IPTV antes de configurar.");
+      return;
+    }
+    if (!String(username || "").trim()) {
+      addToast("error", "Usuário obrigatório", "Preencha o usuário do cliente antes de configurar.");
+      return;
+    }
+
+    // mesma regra das automações: 1ª vez usa a lista salva; Reconfigurar
+    // (já configurado antes pelo sistema) rotaciona a escolhida
+    const isReconfigure = !!currentApp.m3uListAt;
+    let m3uToSend = mode === "secundaria" ? m3uUrlSecondary.trim() : m3uUrl.trim();
+    if (isReconfigure || !m3uToSend) {
+      m3uToSend = mode === "secundaria" ? buildM3uUrlSecondary() : rotatePrincipalLocal() || buildM3uUrlSilent();
+      if (!m3uToSend) {
+        addToast("warning", "Sem Domínio", "Não foi possível gerar o link M3U. Verifique se o servidor possui DNS configurado.");
+        return;
+      }
+      if (mode === "secundaria") setM3uUrlSecondary(m3uToSend);
+      else setM3uUrl(m3uToSend);
+      if (clientToEdit?.id) {
+        await supabaseBrowser
+          .from("clients")
+          .update(mode === "secundaria" ? { m3u_url_secondary: m3uToSend } : { m3u_url: m3uToSend })
+          .eq("id", clientToEdit.id);
+      }
+    }
+
+    const listName = setIptvListName(mode);
+    setLoading(true);
+    setLoadingStep("Abrindo SET IPTV na extensão...");
+    try {
+      const result = await dispatchSetIptvAction("SETIPTV_CONFIGURE", { mac, listName, m3uUrl: m3uToSend });
+      if (result.ok) {
+        await applySetIptvPaid(currentApp, result.check);
+        const listAt = new Date().toISOString();
+        if (currentApp.client_app_id) {
+          await supabaseBrowser.from("client_apps").update({ m3u_list: mode, m3u_list_at: listAt }).eq("id", currentApp.client_app_id);
+        }
+        setSelectedApps((prev) => prev.map((a) => (a.instanceId === instanceId ? { ...a, m3uList: mode, m3uListAt: listAt } : a)));
+        addToast(
+          "success",
+          "SET IPTV configurado",
+          `${result.mode === "updated" ? "Playlist atualizada" : "Playlist adicionada"}: ${listName}.${
+            result.check?.paid === true ? " Licença vitalícia ativa." : ""
+          }`,
+        );
+      } else {
+        addToast("error", "Falha ao configurar", result.error || "Não foi possível configurar o SET IPTV.");
+      }
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  async function handleSetIptvCheck(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+    const mac = getMacFromApp(currentApp);
+    if (!mac) {
+      addToast("error", "MAC obrigatório", "Preencha o MAC do SET IPTV antes de verificar.");
+      return;
+    }
+    setLoading(true);
+    setLoadingStep("Abrindo SET IPTV na extensão...");
+    try {
+      const result = await dispatchSetIptvAction("SETIPTV_CHECK", { mac });
+      if (!result.ok) {
+        addToast("error", "Não foi possível verificar", result.error || "Falha desconhecida.");
+      } else if (result.check?.paid === true) {
+        await applySetIptvPaid(currentApp, result.check);
+        addToast("success", "Licença vitalícia", "Aparelho pago no SET IPTV — vencimento 31/12/9999.");
+      } else if (result.check?.paid === false) {
+        addToast("warning", "Sem licença", "O SET IPTV não mostra licença paga para esse MAC (teste ou não ativado).");
+      } else {
+        addToast("warning", "Resposta inesperada", `O site respondeu: ${String(result.check?.raw || result.check?.error || "—").slice(0, 160)}`);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
+  async function handleSetIptvDelete(instanceId: string) {
+    const currentApp = selectedApps.find((a) => a.instanceId === instanceId);
+    if (!currentApp) return;
+    const mac = getMacFromApp(currentApp);
+    if (!mac) {
+      addToast("error", "MAC obrigatório", "Preencha o MAC do SET IPTV antes de remover.");
+      return;
+    }
+    const names = [setIptvListName("principal"), setIptvListName("secundaria")];
+    setLoading(true);
+    setLoadingStep("Abrindo SET IPTV na extensão...");
+    try {
+      // só as playlists de nome EXATO deste cliente (principal e secundária), numa aba só
+      const result = await dispatchSetIptvAction("SETIPTV_DELETE", { mac, listNames: names });
+      if (!result.ok) {
+        addToast("error", "Falha ao remover", result.error || "Não foi possível remover no SET IPTV.");
+        return;
+      }
+      addToast(
+        result.removed === "none" ? "warning" : "success",
+        result.removed === "none" ? "Nada pra remover" : "SET IPTV removido",
+        result.removed === "none" ? "Não havia playlist deste cliente no aparelho." : `Playlist(s) ${names.join(" / ")} removida(s).`,
+      );
+    } finally {
+      setLoading(false);
+      setLoadingStep("");
+    }
+  }
+
   // ✅ Trava de scroll do fundo + reposicionamento do input focado quando o
   // teclado mobile abre: eram implementadas aqui antes, agora vêm de graça
   // do <Modal> (components/ui/Modal.tsx) que envolve esse componente — tinha
@@ -6637,6 +6771,29 @@ export default function NovoCliente({
                                   onClouddyDelete={() =>
                                     handleClouddyDelete(app.instanceId)
                                   }
+                                />
+                              </div>
+                            )}
+
+                            {/* ✅ 07/10/2026: SET IPTV — playlists pela extensão
+                                (só MAC). A ativação da licença continua no bloco
+                                da Appativa logo abaixo. */}
+                            {String(catApp?.name || "").trim().toLowerCase() === "set iptv" && (
+                              <div className="mb-3 mt-2">
+                                <AppIntegrationActions
+                                  isClouddy
+                                  hasApiIntegration={false}
+                                  appLabel="SET IPTV"
+                                  panelUrl="https://cms.manage-setiptv.com/set.app?lang=pt"
+                                  canCheckVencimento={false}
+                                  loading={loading}
+                                  extensionNote="Cada clique abre o site do SET IPTV numa aba do seu Chrome e usa os botões do próprio site: carrega as playlists do MAC e mexe só na deste cliente. Se o site pedir algo (aceitar cookies, código), resolva na aba — a extensão espera."
+                                  onOpenPanel={() => window.open("https://cms.manage-setiptv.com/set.app?lang=pt", "_blank")}
+                                  onConfigure={() => {}}
+                                  onCheck={() => {}}
+                                  onClouddyConfigure={(mode) => handleSetIptvConfigure(app.instanceId, mode)}
+                                  onClouddyCheck={() => handleSetIptvCheck(app.instanceId)}
+                                  onClouddyDelete={() => handleSetIptvDelete(app.instanceId)}
                                 />
                               </div>
                             )}
