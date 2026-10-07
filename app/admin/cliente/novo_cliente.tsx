@@ -6776,7 +6776,7 @@ export default function NovoCliente({
                                     canCheckVencimento={canCheckVencimento || isExtensionApp}
                                     extensionNote={
                                       isSetIptv
-                                        ? "Pela extensão do Chrome: abre o site do SET IPTV numa aba, carrega as playlists do MAC e mexe só na deste cliente. Se o site pedir algo (cookies, código), resolva na aba — a extensão espera."
+                                        ? "Pela extensão do Chrome: abre o SET IPTV numa aba e preenche tudo — você clica em “Carregar a configuração atual” e depois em “Enviar para a minha TV” (a faixa no topo da aba mostra cada passo). Mexe só nas playlists deste cliente."
                                         : isClouddyApp
                                           ? "Pela extensão do Chrome: abre o ClouDDy numa aba, loga com o email/senha deste cliente, faz a ação e fecha a sessão. Se aparecer o captcha do Cloudflare, resolva na aba."
                                           : undefined

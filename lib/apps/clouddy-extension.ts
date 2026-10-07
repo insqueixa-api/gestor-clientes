@@ -66,8 +66,9 @@ export function dispatchSetIptvAction(action: SetIptvAction, payload: Record<str
   return dispatchExtensionAction<SetIptvResult>(
     action,
     payload,
-    // carregar (até 45s) + envio (até 2,5 min, se o site pedir algo à pessoa)
-    240000,
-    "Sem resposta em 4 min — confira a aba do SET IPTV (pode estar esperando você aceitar os cookies ou digitar o código).",
+    // ✅ 07/10/2026: a extensão preenche e ESPERA o Márcio clicar nos botões do
+    // site (Carregar → Enviar) — até 10 min por clique; margem aqui
+    25 * 60 * 1000,
+    "Sem resposta em 25 min — confira a aba do SET IPTV (a extensão espera você clicar em “Carregar” e depois em “Enviar”).",
   );
 }
