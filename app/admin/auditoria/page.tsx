@@ -876,7 +876,7 @@ function AuditoriaPageContent() {
           const { data: orders } = await supabaseBrowser
             .from("reseller_credit_orders")
             .select(
-              "id, created_at, reseller_id, server_id, credits, amount_brl, gateway_type, gateway_payment_id, status, fulfillment_status, fulfillment_error, whatsapp_status, resellers(display_name), reseller_servers(server_username)",
+              "id, created_at, reseller_id, server_id, credits, amount_brl, gateway_type, gateway_payment_id, status, expires_at, fulfillment_status, fulfillment_error, whatsapp_status, resellers(display_name), reseller_servers(server_username)",
             )
             .eq("tenant_id", tid)
             .order("created_at", { ascending: false })
@@ -895,7 +895,11 @@ function AuditoriaPageContent() {
               app_icon_url: null,
               screens: 1,
               payment_method: "online",
-              payment_status: o.status,
+              // PIX nunca pago que já passou da validade = cancelado (não "Pendente" pra sempre)
+              payment_status:
+                o.status === "pending" && o.expires_at && new Date(o.expires_at).getTime() < Date.now()
+                  ? "cancelled"
+                  : o.status,
               // "unknown" (envio sem confirmação) aparece como erro pra chamar atenção
               fulfillment_status: o.fulfillment_status === "unknown" ? "error" : o.fulfillment_status || "",
               fulfillment_error: o.fulfillment_error || null,
