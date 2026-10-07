@@ -159,6 +159,10 @@ type HistoryRow = {
 
   // auxiliar pro render
   server_name?: string | null;
+  // ✅ 06/10/2026: portal = revenda comprou por PIX no Portal; auto = Recarga
+  // rápida com envio automático no painel; manual = só registro
+  origin?: "portal" | "auto" | "manual";
+  origin_gateway?: string | null;
 };
 
 type EditLinkState = {
@@ -361,6 +365,20 @@ export default function ResellerDetailPage() {
         const serverNameMap = new Map<string, string>();
         for (const l of links) serverNameMap.set(l.server_id, l.server_name);
 
+        // ✅ 06/10/2026: origem de cada compra — Portal (PIX, pedido da
+        // revenda), Recarga rápida com envio automático no painel, ou manual
+        const saleIds = (historyRes.data || []).map((h: any) => h.id);
+        const [ordersRes, transfersRes] = saleIds.length
+          ? await Promise.all([
+              supabaseBrowser.from("reseller_credit_orders").select("sale_id, gateway_type").in("sale_id", saleIds),
+              supabaseBrowser.from("reseller_credit_transfers").select("sale_id").in("sale_id", saleIds),
+            ])
+          : [{ data: [] as any[] }, { data: [] as any[] }];
+        const portalSale = new Map<string, string>(
+          (ordersRes.data || []).map((o: any) => [String(o.sale_id), String(o.gateway_type || "")]),
+        );
+        const autoSale = new Set<string>((transfersRes.data || []).map((t: any) => String(t.sale_id)));
+
         const mappedHistory: HistoryRow[] = (historyRes.data || []).map(
           (h: any) => ({
             id: String(h.id),
@@ -383,6 +401,12 @@ export default function ResellerDetailPage() {
             created_at: String(h.created_at),
 
             server_name: serverNameMap.get(String(h.server_id)) ?? null,
+            origin: portalSale.has(String(h.id))
+              ? "portal"
+              : autoSale.has(String(h.id))
+                ? "auto"
+                : "manual",
+            origin_gateway: portalSale.get(String(h.id)) || null,
           }),
         );
 
@@ -854,8 +878,21 @@ export default function ResellerDetailPage() {
                       <div className="flex justify-between items-start gap-2 bg-muted/30 p-2 rounded-xl border border-transparent hover:border-border transition-all">
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
-                          <div className="text-sm font-medium text-foreground tracking-tight">
+                          <div className="text-sm font-medium text-foreground tracking-tight flex flex-wrap items-center gap-2">
                             💳 Compra de Créditos
+                            {h.origin === "portal" ? (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-violet-500/10 text-violet-500 border border-violet-500/20">
+                                Portal da Revenda · PIX{h.origin_gateway ? ` (${h.origin_gateway === "mercadopago" ? "Mercado Pago" : h.origin_gateway})` : ""}
+                              </span>
+                            ) : h.origin === "auto" ? (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-sky-500/10 text-sky-500 border border-sky-500/20">
+                                Recarga rápida · envio automático
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+                                Recarga manual
+                              </span>
+                            )}
                           </div>
 
                           <div
