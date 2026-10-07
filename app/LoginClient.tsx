@@ -80,6 +80,22 @@ function removeParamFromUrl(param: string) {
   } catch {}
 }
 
+/** Link do Portal da Revenda? (só chamado quando o RPC do cliente não reconheceu) */
+async function resolveResellerToken(token: string): Promise<string | null> {
+  try {
+    const res = await fetch("/api/reseller-portal/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    if (!res.ok) return null;
+    const j = await res.json().catch(() => null);
+    return j?.ok && j.whatsapp_username ? String(j.whatsapp_username) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function LoginClient() {
   const router = useRouter();
   const sp = useSearchParams();
@@ -191,15 +207,16 @@ export default function LoginClient() {
 
         if (cancelled) return;
 
-        if (error) {
-          clearStored(KEY_LOGIN_TOKEN);
-          setWhatsapp("");
-          setLinkDead(true);
-          return;
-        }
-
-        const row = Array.isArray(data) ? data[0] : null;
+        const row = !error && Array.isArray(data) ? data[0] : null;
         if (!row?.whatsapp_username) {
+          // ✅ 07/10/2026: o RPC só conhece link de CLIENTE — antes de dar o
+          // link como morto, confere se é link do Portal da Revenda.
+          const resellerIdentity = await resolveResellerToken(token);
+          if (cancelled) return;
+          if (resellerIdentity) {
+            setWhatsapp(resellerIdentity);
+            return;
+          }
           clearStored(KEY_LOGIN_TOKEN);
           setWhatsapp("");
           setLinkDead(true);

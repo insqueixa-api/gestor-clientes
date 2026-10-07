@@ -150,6 +150,7 @@ function catalogItem(a: any, logos: any, mode: "add" | "activate") {
     is_active: true,
     has_integration: canConfigureResellerApp(a),
     has_auto_renewal: hasAutoRenewal(a),
+    is_gerenciaapp: isGerenciaAppFamily(a),
     // "Ativar": SET IPTV, SmartOne… (só AtivaApp) não têm consulta de vencimento
     ...(mode === "activate" ? { can_check_expiry: canCheckByDevice(a), window_days: activationWindowDays(a) } : {}),
     fields: editableFields(a),
@@ -319,16 +320,17 @@ export async function POST(req: NextRequest) {
       // mesmo app + mesmo MAC já salvo → é o mesmo aparelho (atualiza)
       const macField = editableFields(app).find((f) => f.type === "mac");
       const macNorm = (v: unknown) => s(v).toUpperCase().replace(/[^0-9A-Z]/g, "");
-      let existingId: string | undefined;
+      let existing: { id: string; end_client_id: string | null; field_values: any; m3u_list: string | null } | undefined;
       if (macField) {
         const { data: same } = await sb
           .from("reseller_client_apps")
-          .select("id, field_values")
+          .select("id, end_client_id, field_values, m3u_list")
           .eq("tenant_id", ctx.tenant_id)
           .eq("reseller_id", ctx.reseller_id)
           .eq("app_id", app.id);
-        existingId = (same || []).find((r: any) => macNorm(r.field_values?.[macField.id]) === macNorm(fv.values[macField.id]))?.id;
+        existing = (same || []).find((r: any) => macNorm(r.field_values?.[macField.id]) === macNorm(fv.values[macField.id])) as any;
       }
+      const existingId = existing?.id;
 
       if (isGerenciaAppFamily(app)) {
         const ga = await gerenciaAppUsage(sb, ctx.tenant_id, ctx.reseller_id, existingId);
@@ -342,6 +344,20 @@ export async function POST(req: NextRequest) {
 
       const m3u = await buildResellerM3u(sb, client, "principal");
       if (!m3u) return jsonError(400, "Não foi possível montar a lista desse cliente agora. Fale com o suporte.");
+      // o aparelho estava com OUTRO cliente dela → tira a lista antiga (só a de nome exato)
+      if (existing?.end_client_id && existing.end_client_id !== client.id) {
+        const old = await loadClient(existing.end_client_id);
+        const oldM3u = old ? await buildResellerM3u(sb, old, existing.m3u_list === "secundaria" ? "secundaria" : "principal") : null;
+        if (oldM3u) {
+          await removeResellerAppFromPartner(sb, {
+            app: partnerApp(app),
+            fieldValues: existing.field_values || {},
+            m3uUrl: oldM3u.url,
+            serverName: oldM3u.serverName,
+            serverId: old.server_id,
+          }).catch(() => null);
+        }
+      }
       const pctx: PartnerCtx = { app: partnerApp(app), fieldValues: fv.values, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: client.server_id };
       const r = await configureResellerApp(sb, pctx);
       if (!r.ok) return jsonError(400, r.error);
@@ -462,10 +478,9 @@ export async function POST(req: NextRequest) {
 
     if (action === "remove") {
       const pctx = await ctxFor(currentList, row.field_values || {});
-      if (pctx) {
-        const r = await removeResellerAppFromPartner(sb, pctx);
-        if (!r.ok) return jsonError(400, r.error);
-      }
+      if (!pctx) return jsonError(400, "Não foi possível tirar a lista do aparelho agora. Fale com o suporte.");
+      const r = await removeResellerAppFromPartner(sb, pctx);
+      if (!r.ok) return jsonError(400, r.error);
       await sb.from("reseller_client_apps").delete().eq("id", row.id);
       return ok({});
     }

@@ -19,7 +19,7 @@ import { Loader2, Pencil, Plus, RefreshCw, Search, Settings, Star, Trash2, Zap }
 import AppPickerModal, { type AppPickerCatalogItem } from "@/components/apps/AppPickerModal";
 
 type Field = { id: string; type: string; label: string };
-type CatalogItem = AppPickerCatalogItem & { fields?: Field[]; can_check_expiry?: boolean; window_days?: number };
+type CatalogItem = AppPickerCatalogItem & { fields?: Field[]; can_check_expiry?: boolean; window_days?: number; is_gerenciaapp?: boolean };
 type EndClient = { id: string; username: string; server_name: string | null; expires_at: string | null; status: string | null; blocked: boolean };
 type Renew = { kind: "free" | "paid" | null; available_from: string | null };
 type AppRow = {
@@ -395,7 +395,7 @@ export default function AppsSection({
           app={adding.app}
           deviceType={adding.deviceType}
           clients={dash.clients}
-          gaFull={gaFull && /gerencia|gpc/i.test(adding.app.name) ? st! : null}
+          gaFull={gaFull && adding.app.is_gerenciaapp ? st! : null}
           call={call}
           onBack={() => {
             setAdding(null);
