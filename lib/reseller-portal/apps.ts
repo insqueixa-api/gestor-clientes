@@ -26,7 +26,7 @@ import {
   resolveIntegrationTypeByName,
 } from "@/lib/apps/panel";
 import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
-import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, type AppFieldType } from "@/lib/apps/field-types";
+import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, normalizeMacInput, type AppFieldType } from "@/lib/apps/field-types";
 import { rotatePrincipalM3u, rotateSecondaryM3u, type M3uList } from "@/lib/apps/m3u-lists";
 import type { AppFieldConfig, IntegrationHandler, PartnerApiResponse } from "@/lib/apps/types";
 
@@ -50,7 +50,7 @@ export function readFieldValues(app: any, input: unknown): { values: Record<stri
   const src = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const values: Record<string, string> = {};
   for (const f of editableFields(app)) {
-    const v = str(src[f.id]).slice(0, 200);
+    const v = f.type === "mac" ? normalizeMacInput(str(src[f.id])) : str(src[f.id]).slice(0, 200);
     if (!v) return { error: `Preencha o ${f.label}.` };
     values[f.id] = v;
   }

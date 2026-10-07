@@ -15,8 +15,11 @@
 //     checar, reconfigurar, remover, renovar GerenciaApp grátis).
 // Rotas: /api/reseller-portal/apps.
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Loader2, Pencil, Plus, RefreshCw, Search, Settings, Star, Trash2, Zap } from "lucide-react";
+import { ChevronDown, Loader2, Plus, Search, Settings, Star, Zap } from "lucide-react";
 import AppPickerModal, { type AppPickerCatalogItem } from "@/components/apps/AppPickerModal";
+import TierStars from "@/components/apps/TierStars";
+import { normalizeMacInput } from "@/lib/apps/field-types";
+import { capitalizeFirst, focusNextWhenMacComplete } from "@/lib/dom-focus";
 
 type Field = { id: string; type: string; label: string };
 type CatalogItem = AppPickerCatalogItem & { fields?: Field[]; can_check_expiry?: boolean; window_days?: number; is_gerenciaapp?: boolean };
@@ -35,6 +38,7 @@ type AppRow = {
   configured_at: string | null;
   can_check: boolean;
   license_price: number | null;
+  tier: number | null;
   renew: Renew;
 };
 type ConfiguredClient = EndClient & { missing?: boolean; apps: AppRow[] };
@@ -60,8 +64,19 @@ const dateBR = (d: string | null | undefined) => {
   return m[1] === "9999" ? "Vitalício" : `${m[3]}/${m[2]}/${m[1]}`;
 };
 // expires_at do painel vem em UTC (timestamptz) → data no horário de SP
-const tsDateBR = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }) : "—");
 const isExpiredTs = (iso: string | null) => !!iso && new Date(iso).getTime() < Date.now();
+// vencimento do painel com hora (pedido do Márcio: "a hora importa e muito")
+const tsDateTimeBR = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "—";
+const daysUntil = (d: string | null) => {
+  const m = d ? /^(\d{4})-(\d{2})-(\d{2})/.exec(d) : null;
+  if (!m) return null;
+  return Math.floor((Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.now()) / 86400000) + 1;
+};
+const cardBtn =
+  "flex-1 inline-flex items-center justify-center gap-1.5 h-9 px-2.5 rounded-lg border text-xs font-bold whitespace-nowrap transition-colors disabled:opacity-50";
 const input =
   "w-full h-10 px-3 rounded-lg border border-border bg-transparent text-sm text-foreground outline-none focus:border-emerald-500/60 disabled:opacity-50 disabled:cursor-not-allowed";
 const labelCls = "text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1";
@@ -149,7 +164,7 @@ export default function AppsSection({
   const allDevices = useMemo(() => [...new Set(activateCatalog.flatMap((a) => a.device_types || []))], [activateCatalog]) as any[];
 
   async function rowAction(row: AppRow, action: "check" | "configure" | "remove" | "renew_free") {
-    if (action === "remove" && !window.confirm(`Remover o ${row.app.name} desse cliente? A lista dele sai do aparelho (só a dele).`)) return;
+    if (action === "remove" && !window.confirm(`Excluir o ${row.app.name} desse cliente? A lista dele sai do aparelho (só a dele).`)) return;
     setRowBusy(`${row.id}:${action}`);
     setRowMsg((m) => ({ ...m, [row.id]: undefined }));
     try {
@@ -246,86 +261,131 @@ export default function AppsSection({
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               {dash.configured.map((c) => (
-                <div key={c.id} className="rounded-xl border border-border overflow-hidden">
-                  <div className="px-3 py-2 bg-muted/40 flex items-center justify-between gap-2">
+                <div key={c.id} className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
+                  <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="font-mono font-semibold text-foreground truncate">{c.username}</div>
+                      <div className="font-mono font-bold text-foreground truncate">{c.username}</div>
                       <div className="text-[11px] text-muted-foreground">
-                        {c.server_name || "—"}
+                        Vencimento {c.server_name || "painel"}: <span className="font-semibold text-foreground">{tsDateTimeBR(c.expires_at)}</span>
                         {c.missing ? " · não aparece mais no painel" : ""}
                       </div>
                     </div>
-                    <ClientBadge c={c} />
+                    <ClientStatus c={c} />
                   </div>
                   <div className="divide-y divide-border">
                     {c.apps.map((a) => {
                       const busy = (k: string) => rowBusy === `${a.id}:${k}`;
                       const anyBusy = !!rowBusy;
                       const msg = rowMsg[a.id];
+                      // Renovar só aparece quando a renovação já está liberada (sem texto de "libera em")
                       const renewOpen = !!a.renew.kind && !a.renew.available_from;
+                      const days = daysUntil(a.expire_date);
+                      const lifetime = /^9999/.test(String(a.expire_date || ""));
+                      const expired = days !== null && days < 0 && !lifetime;
+                      // amarelo = mesma janela do Renovar (7 dias AtivaApp / 30 demais), igual ao portal do cliente
+                      const expiring = !expired && !lifetime && days !== null && (a.renew.kind ? renewOpen : days <= 30);
                       return (
-                        <div key={a.id} className="p-3 space-y-2">
-                          <div className="flex items-center gap-3">
+                        <div key={a.id} className="p-4 flex flex-col gap-3">
+                          {/* cabeçalho: logo | nome (ambiente) + validade + checar | estrelas + renovar */}
+                          <div className="flex items-start gap-3">
                             {a.app.icon_url ? (
-                              <img src={a.app.icon_url} alt="" className="w-9 h-9 rounded-lg object-cover border border-border" />
+                              <img src={a.app.icon_url} alt={a.app.name} className="w-12 h-12 rounded-lg object-cover border border-border shrink-0" />
                             ) : (
-                              <div className="w-9 h-9 rounded-lg border border-border flex items-center justify-center">📱</div>
+                              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-xl shrink-0">📱</div>
                             )}
-                            <div className="min-w-0 flex-1">
-                              <div className="text-sm font-semibold text-foreground truncate">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-foreground truncate pt-0.5">
                                 {a.app.name}
                                 {a.obs ? <span className="font-normal text-muted-foreground"> ({a.obs})</span> : null}
-                              </div>
-                              <div className="text-[11px] text-muted-foreground truncate font-mono">
-                                {a.fields.map((f) => f.value).filter(Boolean).join(" · ") || "—"}
+                              </p>
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                <p
+                                  className={`text-xs ${
+                                    expired ? "text-rose-500 font-bold" : expiring ? "text-amber-500 font-bold" : "text-muted-foreground"
+                                  }`}
+                                >
+                                  {a.expire_date
+                                    ? lifetime
+                                      ? "Validade: Vitalícia"
+                                      : `${expired ? "Vencido" : expiring ? "Vencendo" : "Validade"}: ${dateBR(a.expire_date)}`
+                                    : "Validade: —"}
+                                </p>
+                                {a.can_check && (
+                                  <button
+                                    disabled={anyBusy}
+                                    onClick={() => void rowAction(a, "check")}
+                                    className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {busy("check") && <Loader2 className="w-3 h-3 animate-spin" />}
+                                    Checar vencimento
+                                  </button>
+                                )}
                               </div>
                             </div>
-                            <div className="text-right shrink-0">
-                              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Vencimento</div>
-                              <div className="text-sm font-semibold text-foreground">{dateBR(a.expire_date)}</div>
+                            <div className="shrink-0 flex flex-col items-end gap-2 pt-1">
+                              {a.tier ? <TierStars value={a.tier} size={14} /> : null}
+                              {renewOpen && a.renew.kind === "paid" && (
+                                <button
+                                  disabled={anyBusy}
+                                  onClick={() => setRenewing({ row: a, client: c })}
+                                  className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold whitespace-nowrap transition-colors disabled:opacity-50"
+                                >
+                                  Renovar{a.license_price ? ` · ${brl(a.license_price)}/ano` : ""}
+                                </button>
+                              )}
+                              {renewOpen && a.renew.kind === "free" && (
+                                <button
+                                  disabled={anyBusy}
+                                  onClick={() => void rowAction(a, "renew_free")}
+                                  className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold whitespace-nowrap transition-colors disabled:opacity-50"
+                                >
+                                  {busy("renew_free") && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                                  {busy("renew_free") ? "Renovando..." : "Renovar — Grátis"}
+                                </button>
+                              )}
                             </div>
                           </div>
+
+                          {/* dados do app com copiar rápido */}
+                          {a.fields.some((f) => f.value) && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {a.fields.filter((f) => f.value).map((f) => (
+                                <CopyChip key={f.id} label={f.label} value={f.value} />
+                              ))}
+                            </div>
+                          )}
+
                           {msg && (
                             <div className={`text-xs rounded-lg px-2.5 py-1.5 ${msg.tone === "ok" ? "bg-emerald-500/10 text-emerald-700" : "bg-rose-500/10 text-rose-600"}`}>
                               {msg.text}
                             </div>
                           )}
-                          {a.renew.kind && (
-                            <p className="text-[11px] text-muted-foreground">
-                              {a.renew.available_from === "9999-12-31"
-                                ? "Licença vitalícia."
-                                : a.renew.available_from
-                                  ? `Renovação libera em ${dateBR(a.renew.available_from)}.`
-                                  : a.renew.kind === "free"
-                                    ? "Renovação disponível (grátis)."
-                                    : `Renovação disponível${a.license_price ? ` · ${brl(a.license_price)}/ano` : ""}.`}
-                            </p>
-                          )}
-                          <div className="flex flex-wrap gap-2">
-                            {renewOpen && a.renew.kind === "paid" && (
-                              <RowBtn tone="emerald" onClick={() => setRenewing({ row: a, client: c })} disabled={anyBusy}>
-                                <Zap className="w-3.5 h-3.5 fill-current" /> Renovar
-                              </RowBtn>
-                            )}
-                            {renewOpen && a.renew.kind === "free" && (
-                              <RowBtn tone="emerald" onClick={() => void rowAction(a, "renew_free")} disabled={anyBusy} busy={busy("renew_free")}>
-                                Renovar grátis
-                              </RowBtn>
-                            )}
-                            {a.can_check && (
-                              <RowBtn tone="outline" onClick={() => void rowAction(a, "check")} disabled={anyBusy} busy={busy("check")}>
-                                <RefreshCw className="w-3.5 h-3.5" /> Checar
-                              </RowBtn>
-                            )}
-                            <RowBtn tone="sky" onClick={() => void rowAction(a, "configure")} disabled={anyBusy || !!c.missing} busy={busy("configure")}>
-                              Reconfigurar
-                            </RowBtn>
-                            <RowBtn tone="outline" onClick={() => setEditing({ row: a, client: c })} disabled={anyBusy || !!c.missing}>
-                              <Pencil className="w-3.5 h-3.5" /> Editar
-                            </RowBtn>
-                            <RowBtn tone="rose" onClick={() => void rowAction(a, "remove")} disabled={anyBusy} busy={busy("remove")}>
-                              <Trash2 className="w-3.5 h-3.5" /> Remover
-                            </RowBtn>
+
+                          {/* botões escritos, dividem a largura (igual ao portal do cliente) */}
+                          <div className="flex gap-2">
+                            <button
+                              disabled={anyBusy || !!c.missing}
+                              onClick={() => setEditing({ row: a, client: c })}
+                              className={`${cardBtn} bg-muted/60 border-border text-foreground hover:bg-muted`}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              disabled={anyBusy || !!c.missing}
+                              onClick={() => void rowAction(a, "configure")}
+                              className={`${cardBtn} bg-sky-500/10 border-sky-500/30 text-sky-600 hover:bg-sky-500/20`}
+                            >
+                              {busy("configure") && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              {busy("configure") ? "Configurando..." : "Configurar"}
+                            </button>
+                            <button
+                              disabled={anyBusy}
+                              onClick={() => void rowAction(a, "remove")}
+                              className={`${cardBtn} bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20`}
+                            >
+                              {busy("remove") && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                              {busy("remove") ? "Excluindo..." : "Excluir"}
+                            </button>
                           </div>
                         </div>
                       );
@@ -492,39 +552,51 @@ function ClientBadge({ c }: { c: EndClient }) {
       >
         {c.blocked ? "Bloqueado" : expired ? "Vencido" : "Ativo"}
       </span>
-      <div className="text-[10px] text-muted-foreground mt-0.5">vence {tsDateBR(c.expires_at)}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">vence {tsDateTimeBR(c.expires_at)}</div>
     </div>
   );
 }
 
-function RowBtn({
-  children,
-  onClick,
-  disabled,
-  busy,
-  tone,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  busy?: boolean;
-  tone: "sky" | "outline" | "rose" | "emerald";
-}) {
-  const tones = {
-    sky: "bg-sky-500 hover:bg-sky-600 text-white border-transparent",
-    emerald: "bg-emerald-600 hover:bg-emerald-500 text-white border-transparent",
-    outline: "border-border text-foreground hover:bg-muted",
-    rose: "bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20",
-  };
+function ClientStatus({ c }: { c: EndClient }) {
+  const expired = c.status ? c.status.toLowerCase() !== "ativo" : isExpiredTs(c.expires_at);
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`h-8 px-3 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50 ${tones[tone]}`}
+    <span
+      className={`shrink-0 inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
+        c.blocked ? "bg-slate-500/15 text-slate-500" : expired ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-600"
+      }`}
     >
-      {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-      {children}
-    </button>
+      {c.blocked ? "Bloqueado" : expired ? "Vencido" : "Ativo"}
+    </span>
+  );
+}
+
+/** Dado do app com copiar rápido (mesmo selo do portal do cliente). */
+function CopyChip({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="inline-flex items-center gap-1.5 max-w-full h-7 px-2 bg-muted/60 border border-border rounded-md text-[11px]">
+      <span className="font-semibold text-muted-foreground shrink-0">{label}</span>
+      <span className="font-mono text-foreground truncate">{value}</span>
+      <button
+        type="button"
+        onClick={() => {
+          navigator.clipboard?.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        }}
+        className="shrink-0 p-1 -m-1 text-muted-foreground hover:text-sky-500 transition-colors"
+        title="Copiar"
+      >
+        {copied ? (
+          <span className="text-[10px] font-bold text-emerald-600">✓</span>
+        ) : (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        )}
+      </button>
+    </span>
   );
 }
 
@@ -587,7 +659,14 @@ function FieldInputs({
           <input
             value={vals[f.id] || ""}
             disabled={disabled}
-            onChange={(e) => setVals((v) => ({ ...v, [f.id]: e.target.value }))}
+            onChange={(e) => {
+              const raw = e.target.value;
+              const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
+              if (f.type === "mac") focusNextWhenMacComplete(e.currentTarget, vals[f.id] || "", next);
+              setVals((v) => ({ ...v, [f.id]: next }));
+            }}
+            autoCapitalize={f.type === "mac" ? "characters" : "none"}
+            spellCheck={false}
             className={`${input} font-mono`}
             placeholder={f.type === "mac" ? "XX:XX:XX:XX:XX:XX" : ""}
           />
@@ -676,7 +755,7 @@ function AddModal({
                 <div className="min-w-0 flex-1">
                   <div className="font-mono font-semibold text-sm text-foreground truncate">{client.username}</div>
                   <div className="text-[11px] text-muted-foreground">
-                    {client.server_name} · vence {tsDateBR(client.expires_at)}
+                    {client.server_name} · vence {tsDateTimeBR(client.expires_at)}
                   </div>
                 </div>
                 <button
@@ -748,7 +827,7 @@ function AddModal({
             <label className={labelCls}>
               Ambiente <span className="normal-case font-medium">(opcional)</span>
             </label>
-            <input value={obs} onChange={(e) => setObs(e.target.value)} maxLength={120} disabled={!client || busy} className={input} placeholder="Ex.: TV da sala" />
+            <input value={obs} onChange={(e) => setObs(capitalizeFirst(e.target.value))} maxLength={120} disabled={!client || busy} className={input} placeholder="Ex.: TV da sala" />
           </div>
           <button
             onClick={() => void configure()}
@@ -1104,7 +1183,7 @@ function EditModal({
         <label className={labelCls}>
           Ambiente <span className="normal-case font-medium">(opcional)</span>
         </label>
-        <input value={obs} onChange={(e) => setObs(e.target.value)} maxLength={120} disabled={busy} className={input} placeholder="Ex.: TV da sala" />
+        <input value={obs} onChange={(e) => setObs(capitalizeFirst(e.target.value))} maxLength={120} disabled={busy} className={input} placeholder="Ex.: TV da sala" />
       </div>
       <button
         onClick={() => void save()}

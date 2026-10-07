@@ -94,6 +94,7 @@ function shapeRow(r: any) {
     configured_at: r.configured_at,
     can_check: !!h && CHECK_VALIDITY_HANDLERS.has(h.actionPrefix),
     license_price: resellerLicensePrice(a),
+    tier: effectiveTier({ tier: a.tier, appativa_app_id: a.appativa_app_id, appativa_meta: a.appativa_meta }).value,
     renew: renewInfo(a, expire),
   };
 }
