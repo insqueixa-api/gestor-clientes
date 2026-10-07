@@ -15,7 +15,7 @@
 //     checar, reconfigurar, remover, renovar GerenciaApp grátis).
 // Rotas: /api/reseller-portal/apps.
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Pencil, Plus, RefreshCw, Search, Settings, Star, Trash2, Zap } from "lucide-react";
+import { ChevronDown, Loader2, Pencil, Plus, RefreshCw, Search, Settings, Star, Trash2, Zap } from "lucide-react";
 import AppPickerModal, { type AppPickerCatalogItem } from "@/components/apps/AppPickerModal";
 
 type Field = { id: string; type: string; label: string };
@@ -618,6 +618,8 @@ function AddModal({
   onDone: () => void;
 }) {
   const [q, setQ] = useState("");
+  // ✅ 07/10/2026 (pedido do Márcio): lista só abre ao digitar ou na seta
+  const [listOpen, setListOpen] = useState(false);
   const [client, setClient] = useState<EndClient | null>(null);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [obs, setObs] = useState("");
@@ -628,7 +630,7 @@ function AddModal({
   const fields = app.fields || [];
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return (t ? clients.filter((c) => c.username.toLowerCase().includes(t)) : clients).slice(0, 50);
+    return (t ? clients.filter((c) => c.username.toLowerCase().includes(t)) : clients).slice(0, 300);
   }, [q, clients]);
   const filled = !!client && fields.every((f) => (vals[f.id] || "").trim());
 
@@ -677,36 +679,65 @@ function AddModal({
                     {client.server_name} · vence {tsDateBR(client.expires_at)}
                   </div>
                 </div>
-                <button onClick={() => setClient(null)} disabled={busy} className="text-xs font-semibold text-sky-600 hover:underline">
+                <button
+                  onClick={() => {
+                    setClient(null);
+                    setQ("");
+                    setListOpen(true);
+                  }}
+                  disabled={busy}
+                  className="text-xs font-semibold text-sky-600 hover:underline"
+                >
                   Trocar
                 </button>
               </div>
             ) : (
-              <div className="rounded-lg border border-border">
-                <div className="relative border-b border-border">
-                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <div className="relative">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     autoFocus
                     value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    className="w-full h-10 pl-9 pr-3 bg-transparent text-sm text-foreground outline-none"
+                    onChange={(e) => {
+                      setQ(e.target.value);
+                      setListOpen(true);
+                    }}
+                    onKeyDown={(e) => e.key === "Escape" && setListOpen(false)}
+                    className="w-full h-10 pl-9 pr-11 rounded-lg border border-border bg-transparent text-sm text-foreground outline-none focus:border-emerald-500/60"
                     placeholder="Buscar pelo usuário do cliente"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setListOpen((o) => !o)}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground"
+                    title={listOpen ? "Fechar lista" : "Ver todos os clientes"}
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform ${listOpen ? "rotate-180" : ""}`} />
+                  </button>
                 </div>
-                <div className="max-h-52 overflow-y-auto divide-y divide-border">
-                  {filtered.length === 0 ? (
-                    <p className="text-xs text-muted-foreground px-3 py-3">
-                      {clients.length === 0 ? "Nenhum cliente encontrado no seu painel." : "Nenhum cliente com esse usuário."}
-                    </p>
-                  ) : (
-                    filtered.map((c) => (
-                      <button key={c.id} onClick={() => setClient(c)} className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted">
-                        <span className="font-mono text-sm text-foreground truncate">{c.username}</span>
-                        <ClientBadge c={c} />
-                      </button>
-                    ))
-                  )}
-                </div>
+                {listOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-20 rounded-lg border border-border bg-card shadow-xl max-h-60 overflow-y-auto divide-y divide-border">
+                    {filtered.length === 0 ? (
+                      <p className="text-xs text-muted-foreground px-3 py-3">
+                        {clients.length === 0 ? "Nenhum cliente encontrado no seu painel." : "Nenhum cliente com esse usuário."}
+                      </p>
+                    ) : (
+                      filtered.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setClient(c);
+                            setListOpen(false);
+                          }}
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-muted"
+                        >
+                          <span className="font-mono text-sm text-foreground truncate">{c.username}</span>
+                          <ClientBadge c={c} />
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
