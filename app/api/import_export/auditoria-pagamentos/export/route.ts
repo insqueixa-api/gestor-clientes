@@ -110,7 +110,7 @@ export async function GET(req: Request) {
   // em 2 passos (payments → clients → servers) em vez de embed.
   const { data: rows, error } = await supabase
     .from("client_portal_payments")
-    .select("created_at, client_id, plan_label, app_name_snapshot, price_amount, price_currency, gateway_type, mp_payment_id")
+    .select("created_at, client_id, plan_label, app_name_snapshot, price_amount, price_currency, gateway_type, mp_payment_id, server_id, server_username, server_name")
     .eq("tenant_id", tenant_id)
     .in("status", ["approved", "manual_approved"])
     .gte("created_at", startISO)
@@ -144,12 +144,16 @@ export async function GET(req: Request) {
       ? `${MESES_PT[Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", month: "numeric" }).format(d)) - 1]}/${year}`
       : "";
     const cliente = r.client_id ? clientsMap.get(r.client_id) : null;
-    const servidorNome = cliente?.server_id ? serversMap.get(cliente.server_id) || "" : "";
+    // ✅ 08/10/2026: servidor carimbado no pagamento (onde foi pago); sem
+    // carimbo (cliente apagado antes disso) cai pro da conta, como antes.
+    const r2: any = r;
+    const servidorNome =
+      r2.server_name || (cliente?.server_id ? serversMap.get(cliente.server_id) || "" : "");
     return [
       formatDataHoraBR(r.created_at),
       mesNome,
       cliente?.display_name || "",
-      cliente?.server_username || "",
+      r2.server_username || cliente?.server_username || "",
       servidorNome,
       r.plan_label || r.app_name_snapshot || "",
       cliente?.screens ?? "",

@@ -2001,8 +2001,22 @@ export default function ClientDetailsPage() {
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50 p-2 rounded-xl border border-transparent hover:border-border transition-all">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-foreground tracking-tight">
-                        {EVENT_LABELS[item.event_type] ?? item.event_type}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-foreground tracking-tight">
+                          {EVENT_LABELS[item.event_type] ?? item.event_type}
+                        </span>
+                        {/* ✅ 08/10/2026: servidor onde o evento aconteceu (carimbo
+                            em meta, docs/sql/server_snapshot_history.sql) — se o
+                            cliente migrar, cada evento continua no servidor dele. */}
+                        {item.meta?.server_name && (
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-card border border-border text-muted-foreground"
+                            title={item.meta?.server_username ? `Login: ${item.meta.server_username}` : undefined}
+                          >
+                            {item.meta.server_name}
+                            {item.meta?.server_username ? ` · ${item.meta.server_username}` : ""}
+                          </span>
+                        )}
                       </div>
                       <div
                         className={`text-xs text-muted-foreground mt-1.5 leading-relaxed transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}

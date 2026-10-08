@@ -563,7 +563,7 @@ function AuditoriaPageContent() {
         let query = supabaseBrowser
           .from("client_portal_payments")
           .select(
-            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, fulfilled_automatically, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id, payer_whatsapp_username, parent_payment_id",
+            "id, created_at, client_id, payment_method, status, fulfillment_status, fulfillment_error, fulfilled_automatically, price_amount, price_currency, period, plan_label, gateway_type, mp_payment_id, whatsapp_status, coupon_code, coupon_discount_amount, settled_alert_ids, payment_type, app_name_snapshot, client_app_id, payer_whatsapp_username, parent_payment_id, server_id, server_username, server_name",
           ) // ✅ Adicionado whatsapp_status, coupon_code/coupon_discount_amount, settled_alert_ids (resumo do valor); payer_whatsapp_username (17/09/2026, ver abaixo)
           .eq("tenant_id", tid)
           .order("created_at", { ascending: false })
@@ -752,7 +752,12 @@ function AuditoriaPageContent() {
         // 4. Junta tudo na linha da tabela
         const mapped: LogRow[] = (paymentsData || []).map((r: any) => {
           const cInfo = clientsMap[r.client_id] || {};
-          const serverName = serversMap[cInfo.server_id] || "—";
+          // ✅ 08/10/2026: servidor CARIMBADO no pagamento (onde foi pago), não
+          // o servidor atual da conta — se o cliente migrar, o histórico fica
+          // no servidor antigo. Sem carimbo (cliente apagado antes de 08/10) →
+          // cai pro da conta, como antes.
+          const paidServerId = r.server_id || cInfo.server_id;
+          const serverName = r.server_name || serversMap[paidServerId] || "—";
           // ✅ 17/09/2026, pedido do Márcio: cada cliente (titular OU
           // secundário) tem seu próprio link mágico pro Portal e pode pagar
           // por lá — mas o log sempre mostrava o nome do TITULAR, mesmo
@@ -822,9 +827,9 @@ function AuditoriaPageContent() {
             client_id: r.client_id,
             client_name: effectiveClientName || "Cliente Excluído",
             technology: cInfo.technology || "IPTV",
-            server_username: cInfo.server_username || "—",
+            server_username: r.server_username || cInfo.server_username || "—",
             server_name: serverName,
-            server_logo_url: serversLogoMap[cInfo.server_id] ?? null, // ✅ NOVO
+            server_logo_url: serversLogoMap[paidServerId] ?? null, // ✅ NOVO
             app_icon_url:
               r.payment_type === "app_renewal" && r.app_name_snapshot
                 ? appsIconMap[String(r.app_name_snapshot).trim().toLowerCase()] ??
