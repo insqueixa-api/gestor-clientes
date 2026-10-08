@@ -14,7 +14,12 @@
 --   • manual, quem chama escolhe a principal (p_keep) e a antiga (p_remove);
 --   • cupom usado pelas DUAS contas → bloqueia (1 uso por conta; apagar um
 --     dos usos liberaria o cupom de novo);
---   • tudo numa transação: ou mescla inteiro, ou nada.
+--   • tudo numa transação: ou mescla inteiro, ou nada;
+--   • NÃO chama painel/app nem mexe em lista M3U: quando o Márcio mescla, a
+--     conta nova já está configurada e funcionando;
+--   • plano, valor e telas: ficam os da principal (o servidor novo pode ter
+--     outro preço). Da antiga, a principal só herda a data de cadastro mais
+--     antiga, o histórico e os apps que ela ainda não tem (regra no passo 4).
 
 create or replace function public._merge_accounts_check(p_tenant_id uuid, p_keep uuid, p_remove uuid)
 returns void
@@ -42,6 +47,49 @@ begin
   end if;
 end $$;
 
+-- App da conta antiga já existe na principal? Mesmo app + mesmo Device ID
+-- (MAC, normalizado); sem MAC, pela Device Key; sem os dois, só se os
+-- campos forem idênticos. Devolve o client_apps.id da principal ou null.
+create or replace function public._merge_app_match(p_keep uuid, p_old_app_id uuid)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  a record; v_mac text; v_key text; v_val text; v_id uuid;
+begin
+  select ca.*, ap.fields_config into a from client_apps ca join apps ap on ap.id = ca.app_id where ca.id = p_old_app_id;
+  if a.id is null then return null; end if;
+  select f->>'id' into v_mac from jsonb_array_elements(coalesce(a.fields_config, '[]'::jsonb)) f where f->>'type' = 'mac' limit 1;
+  select f->>'id' into v_key from jsonb_array_elements(coalesce(a.fields_config, '[]'::jsonb)) f where f->>'type' = 'device_key' limit 1;
+
+  v_val := upper(regexp_replace(coalesce(a.field_values->>v_mac, ''), '[^0-9A-Za-z]', '', 'g'));
+  if v_mac is not null and v_val <> '' then
+    select b.id into v_id from client_apps b
+     where b.client_id = p_keep and b.app_id = a.app_id
+       and upper(regexp_replace(coalesce(b.field_values->>v_mac, ''), '[^0-9A-Za-z]', '', 'g')) = v_val
+     limit 1;
+    return v_id;
+  end if;
+
+  v_val := trim(coalesce(a.field_values->>v_key, ''));
+  if v_key is not null and v_val <> '' then
+    select b.id into v_id from client_apps b
+     where b.client_id = p_keep and b.app_id = a.app_id and trim(coalesce(b.field_values->>v_key, '')) = v_val
+     limit 1;
+    return v_id;
+  end if;
+
+  select b.id into v_id from client_apps b
+   where b.client_id = p_keep and b.app_id = a.app_id
+     and coalesce(b.field_values, '{}'::jsonb) - '_config_cost' - '_config_partner'
+       = coalesce(a.field_values, '{}'::jsonb) - '_config_cost' - '_config_partner'
+   limit 1;
+  return v_id;
+end $$;
+
 -- Prévia: o que vai ser movido (pra tela de confirmação). Não altera nada.
 create or replace function public.merge_client_accounts_preview(p_tenant_id uuid, p_keep uuid, p_remove uuid)
 returns jsonb
@@ -58,6 +106,8 @@ begin
     'alerts', (select count(*) from client_alerts where client_id = p_remove),
     'open_alerts', (select count(*) from client_alerts where client_id = p_remove and status = 'OPEN'),
     'apps', (select count(*) from client_apps where client_id = p_remove),
+    'apps_new', (select count(*) from client_apps where client_id = p_remove and _merge_app_match(p_keep, id) is null),
+    'apps_existing', (select count(*) from client_apps where client_id = p_remove and _merge_app_match(p_keep, id) is not null),
     'message_jobs', (select count(*) from client_message_jobs where client_id = p_remove),
     'pending_jobs', (select count(*) from client_message_jobs where client_id = p_remove and status in ('SCHEDULED','QUEUED','PAUSED','SENDING')),
     'revenue_by_server', coalesce((
@@ -80,6 +130,10 @@ declare
   k record; r record;
   n jsonb := '{}'::jsonb;
   c int;
+  a_row record;
+  v_match uuid;
+  v_apps_added int := 0;
+  v_apps_merged int := 0;
 begin
   perform _merge_accounts_check(p_tenant_id, p_keep, p_remove);
 
@@ -131,15 +185,38 @@ begin
      and exists (select 1 from fin_previsao_snapshot b where b.client_id = p_keep and b.tenant_id = a.tenant_id and b.ano_mes = a.ano_mes);
   update fin_previsao_snapshot set client_id = p_keep where client_id = p_remove;
 
-  -- 4) apps: licença é da pessoa → vem pra principal (sem a lista M3U do
-  -- servidor antigo); app idêntico ao que a principal já tem não duplica
-  delete from client_apps a
-   where a.client_id = p_remove
-     and exists (select 1 from client_apps b where b.client_id = p_keep and b.app_id = a.app_id
-                   and coalesce(b.field_values, '{}'::jsonb) - '_config_cost' - '_config_partner'
-                     = coalesce(a.field_values, '{}'::jsonb) - '_config_cost' - '_config_partner');
-  update client_apps set client_id = p_keep, m3u_list = null, m3u_list_at = null where client_id = p_remove;
-  get diagnostics c = row_count; n := n || jsonb_build_object('apps', c);
+  -- 4) apps (regra do Márcio, 08/10/2026 — NADA de reconfigurar/apagar
+  -- lista: até aqui ele já configurou a conta nova e está funcionando):
+  --   • a principal já tem o app (mesmo app + Device ID) → só COMPLETA o que
+  --     estiver vazio nela (vencimento, key, ambiente...); o que ela já tem
+  --     fica; referências ao app antigo passam pro dela; o antigo sai;
+  --   • não tem → o app vem como está (vencimento incluso).
+  for a_row in select id from client_apps where client_id = p_remove loop
+    v_match := _merge_app_match(p_keep, a_row.id);
+    if v_match is null then
+      update client_apps set client_id = p_keep where id = a_row.id;
+      v_apps_added := v_apps_added + 1;
+    else
+      update client_apps b
+         set field_values = coalesce(b.field_values, '{}'::jsonb) || coalesce((
+               select jsonb_object_agg(e.key, e.value)
+                 from client_apps o, jsonb_each(coalesce(o.field_values, '{}'::jsonb)) e
+                where o.id = a_row.id
+                  and coalesce(e.value #>> '{}', '') <> ''
+                  and coalesce(b.field_values ->> e.key, '') = ''), '{}'::jsonb),
+             license_paid_until = coalesce(b.license_paid_until, (select license_paid_until from client_apps where id = a_row.id)),
+             device_type = coalesce(b.device_type, (select device_type from client_apps where id = a_row.id))
+       where b.id = v_match;
+      update client_alerts set client_app_id = v_match where client_app_id = a_row.id;
+      update client_portal_payments set client_app_id = v_match where client_app_id = a_row.id;
+      update client_app_requests set client_app_id = v_match where client_app_id = a_row.id;
+      update client_app_activity_log set client_app_id = v_match where client_app_id = a_row.id;
+      update gpc_roku_activations set client_app_id = v_match where client_app_id = a_row.id;
+      delete from client_apps where id = a_row.id;
+      v_apps_merged := v_apps_merged + 1;
+    end if;
+  end loop;
+  n := n || jsonb_build_object('apps_added', v_apps_added, 'apps_already_there', v_apps_merged);
 
   -- 5) operacionais da antiga: somem com ela (travas de disparo e guarda anti-abuso)
   delete from billing_dispatch_locks where client_id = p_remove;
@@ -162,7 +239,8 @@ begin
   return n;
 end $$;
 
-revoke all on function public._merge_accounts_check(uuid, uuid, uuid) from public, anon;
+revoke all on function public._merge_accounts_check(uuid, uuid, uuid) from public, anon, authenticated;
+revoke all on function public._merge_app_match(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.merge_client_accounts_preview(uuid, uuid, uuid) from public, anon;
 revoke all on function public.merge_client_accounts(uuid, uuid, uuid) from public, anon;
 grant execute on function public.merge_client_accounts_preview(uuid, uuid, uuid) to authenticated;

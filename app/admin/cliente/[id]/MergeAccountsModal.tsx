@@ -29,6 +29,8 @@ type Preview = {
   alerts: number;
   open_alerts: number;
   apps: number;
+  apps_new: number;
+  apps_existing: number;
   message_jobs: number;
   pending_jobs: number;
   revenue_by_server: Record<string, number>;
@@ -125,7 +127,8 @@ export default function MergeAccountsModal({
       details: [
         `${preview.renewals} renovação(ões) · ${preview.portal_payments} pagamento(s) no Log do Portal`,
         `${preview.events} evento(s) da Linha do Tempo · ${preview.alerts} sino(s)`,
-        `${preview.apps} aplicativo(s) (sem a lista M3U do servidor antigo)`,
+        `Apps: ${preview.apps_new} novo(s) entram com vencimento · ${preview.apps_existing} já existe(m) (só completa o que estiver vazio)`,
+        "Plano, valor, telas, servidor e listas da conta que fica não mudam.",
         preview.pending_jobs > 0 ? `${preview.pending_jobs} mensagem(ns) agendada(s) pra conta antiga serão canceladas` : "",
       ].filter(Boolean),
       confirmText: "Mesclar e excluir",
@@ -158,7 +161,8 @@ export default function MergeAccountsModal({
         <p className="text-xs text-muted-foreground leading-relaxed">
           Pra quando o cliente trocou de servidor e a conta antiga já foi apagada no painel. O histórico da
           conta antiga vem pra principal — <strong className="text-foreground">cada registro continua no servidor onde aconteceu</strong> — e a
-          antiga é excluída. Contas paralelas ativas (uma por servidor) não devem ser mescladas.
+          antiga é excluída. Plano, valor, telas, servidor e listas da conta que fica <strong className="text-foreground">não mudam</strong>, e
+          nada é reconfigurado. Contas paralelas ativas (uma por servidor) não devem ser mescladas.
         </p>
 
         <div className="space-y-1.5">
@@ -215,7 +219,11 @@ export default function MergeAccountsModal({
             <p className="font-bold text-foreground">Vem da conta {removeLabel}:</p>
             <p>
               {preview.renewals} renovação(ões) · {preview.portal_payments} pagamento(s) · {preview.events} evento(s) ·{" "}
-              {preview.alerts} sino(s){preview.open_alerts > 0 ? ` (${preview.open_alerts} em aberto)` : ""} · {preview.apps} app(s)
+              {preview.alerts} sino(s){preview.open_alerts > 0 ? ` (${preview.open_alerts} em aberto)` : ""}
+            </p>
+            <p>
+              Apps: {preview.apps_new} novo(s) entram no cadastro com vencimento · {preview.apps_existing} já existe(m) na
+              conta que fica (mesmo Device ID — só completa o que estiver vazio)
             </p>
             {revenue.length > 0 && (
               <p>
