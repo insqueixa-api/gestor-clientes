@@ -2023,13 +2023,13 @@ export default function RenewClient() {
       const refreshed = await refreshInstalledApps();
       const newId = result.data?.id as string | undefined;
       // ✅ 08/10/2026: a conferência falhou do NOSSO lado (ex: leitor do
-      // captcha fora do ar) — o app foi salvo e o suporte já recebeu um
-      // pedido de configuração. Sem detalhe técnico pro cliente.
+      // captcha fora do ar) — o app foi salvo; o cliente avisa o suporte e o
+      // Márcio confere na Auditoria. Sem detalhe técnico pro cliente.
       if (result.data?.not_verified) {
         addToast(
           "warning",
           "Aplicativo salvo!",
-          "Não conseguimos configurar automaticamente agora. O suporte já foi avisado — se preferir, fale com a gente pelo WhatsApp.",
+          "Não conseguimos configurar automaticamente agora. Fale com o suporte pelo WhatsApp que a gente resolve.",
         );
         return;
       }
