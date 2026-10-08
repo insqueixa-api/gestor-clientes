@@ -11,7 +11,6 @@
 import { useEffect, useState } from "react";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { supabaseBrowser } from "@/lib/supabase/browser";
-import { formatDateBR } from "@/lib/date-br";
 
 type Sibling = {
   id: string;
@@ -123,13 +122,11 @@ export default function MergeAccountsModal({
     const ok = await confirm({
       tone: "rose",
       title: "Mesclar e excluir a conta antiga?",
-      subtitle: `A conta ${removeLabel} será EXCLUÍDA. Todo o histórico dela vem pra ${keepLabel}, cada registro no servidor onde aconteceu. Não dá pra desfazer.`,
+      subtitle: `${removeLabel} será excluída e o histórico vai pra ${keepLabel}. Não dá pra desfazer.`,
       details: [
-        `${preview.renewals} renovação(ões) · ${preview.portal_payments} pagamento(s) no Log do Portal`,
-        `${preview.events} evento(s) da Linha do Tempo · ${preview.alerts} sino(s)`,
-        `Apps: ${preview.apps_new} novo(s) entram com vencimento · ${preview.apps_existing} já existe(m) (só completa o que estiver vazio)`,
-        "Plano, valor, telas, servidor e listas da conta que fica não mudam.",
-        preview.pending_jobs > 0 ? `${preview.pending_jobs} mensagem(ns) agendada(s) pra conta antiga serão canceladas` : "",
+        `${plural(preview.renewals, "renovação", "renovações")} · ${plural(preview.portal_payments, "pagamento", "pagamentos")} · ${plural(preview.events, "evento", "eventos")}`,
+        `${plural(preview.apps_new, "app novo", "apps novos")} · ${plural(preview.apps_existing, "app que já existe", "apps que já existem")}`,
+        preview.pending_jobs > 0 ? `${plural(preview.pending_jobs, "mensagem agendada cancelada", "mensagens agendadas canceladas")}` : "",
       ].filter(Boolean),
       confirmText: "Mesclar e excluir",
       cancelText: "Voltar",
@@ -151,93 +148,99 @@ export default function MergeAccountsModal({
   }
 
   const revenue = preview ? Object.entries(preview.revenue_by_server || {}) : [];
+  const keepAcc = keepCurrent
+    ? { user: current.username, server: current.server_name, hint: "esta página" }
+    : { user: other?.server_username || "—", server: other?.server_name || "—", hint: other?.status || "" };
+  const removeAcc = keepCurrent
+    ? { user: other?.server_username || "—", server: other?.server_name || "—", hint: other?.status || "" }
+    : { user: current.username, server: current.server_name, hint: "esta página" };
 
   return (
-    <Modal onClose={onClose} maxWidth="max-w-lg">
+    <Modal onClose={onClose}>
       <ModalHeader onClose={onClose}>
         <h3 className="font-medium text-lg text-foreground">Mesclar contas</h3>
       </ModalHeader>
-      <ModalBody className="space-y-4">
-        <p className="text-xs text-muted-foreground leading-relaxed">
-          Pra quando o cliente trocou de servidor e a conta antiga já foi apagada no painel. O histórico da
-          conta antiga vem pra principal — <strong className="text-foreground">cada registro continua no servidor onde aconteceu</strong> — e a
-          antiga é excluída. Plano, valor, telas, servidor e listas da conta que fica <strong className="text-foreground">não mudam</strong>, e
-          nada é reconfigurado. Contas paralelas ativas (uma por servidor) não devem ser mescladas.
-        </p>
-
-        <div className="space-y-1.5">
-          <p className="text-xs font-bold text-foreground">Outra conta com o mesmo WhatsApp</p>
-          {siblings.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setOtherId(s.id)}
-              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${
-                otherId === s.id ? "border-emerald-500 bg-emerald-500/10" : "border-border bg-card hover:bg-muted"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-bold text-foreground truncate">
-                  {s.server_username || "—"} <span className="font-medium text-muted-foreground">· {s.server_name}</span>
-                </span>
-                <span className="text-[11px] text-muted-foreground shrink-0">{s.status}</span>
-              </div>
-              {s.vencimento && (
-                <div className="text-[11px] text-muted-foreground mt-0.5">Vencimento {formatDateBR(s.vencimento, "")}</div>
-              )}
-            </button>
-          ))}
-        </div>
+      <ModalBody className="space-y-5">
+        {/* Mais de uma conta irmã: escolhe qual entra na mesclagem */}
+        {siblings.length > 1 && (
+          <div className="flex flex-wrap gap-2">
+            {siblings.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setOtherId(s.id)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  otherId === s.id ? "border-emerald-500 bg-emerald-500/10 text-foreground" : "border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {s.server_username || "—"} · {s.server_name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {otherId && (
-          <div className="space-y-1.5">
-            <p className="text-xs font-bold text-foreground">Qual conta fica?</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { v: true, label: `${current.username} · ${current.server_name}`, hint: "esta página" },
-                { v: false, label: `${other?.server_username || "—"} · ${other?.server_name || "—"}`, hint: "a selecionada" },
-              ].map((o) => (
-                <button
-                  key={String(o.v)}
-                  type="button"
-                  onClick={() => setKeepCurrent(o.v)}
-                  className={`text-left rounded-lg border px-3 py-2 transition-colors ${
-                    keepCurrent === o.v ? "border-emerald-500 bg-emerald-500/10" : "border-border bg-card hover:bg-muted"
-                  }`}
-                >
-                  <div className="text-xs font-bold text-foreground truncate">{o.label}</div>
-                  <div className="text-[10px] text-muted-foreground">{o.hint}</div>
-                </button>
-              ))}
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-stretch gap-3">
+            <div className="rounded-xl border-2 border-emerald-500/40 bg-emerald-500/5 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Principal (manter)</p>
+              <p className="mt-1 text-sm font-bold text-foreground truncate">{keepAcc.user}</p>
+              <p className="text-xs text-muted-foreground">
+                {keepAcc.server}
+                {keepAcc.hint ? ` · ${keepAcc.hint}` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setKeepCurrent((v) => !v)}
+              className="self-center justify-self-center h-9 w-9 rounded-full border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              title="Trocar qual conta fica"
+            >
+              ⇄
+            </button>
+            <div className="rounded-xl border-2 border-rose-500/30 bg-rose-500/5 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500">Antiga (excluir)</p>
+              <p className="mt-1 text-sm font-bold text-foreground truncate">{removeAcc.user}</p>
+              <p className="text-xs text-muted-foreground">
+                {removeAcc.server}
+                {removeAcc.hint ? ` · ${removeAcc.hint}` : ""}
+              </p>
             </div>
           </div>
         )}
 
         {loadingPreview && <p className="text-xs text-muted-foreground">Conferindo o que será movido...</p>}
+
         {preview && (
-          <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-1 text-xs text-muted-foreground">
-            <p className="font-bold text-foreground">Vem da conta {removeLabel}:</p>
-            <p>
-              {preview.renewals} renovação(ões) · {preview.portal_payments} pagamento(s) · {preview.events} evento(s) ·{" "}
-              {preview.alerts} sino(s){preview.open_alerts > 0 ? ` (${preview.open_alerts} em aberto)` : ""}
-            </p>
-            <p>
-              Apps: {preview.apps_new} novo(s) entram no cadastro com vencimento · {preview.apps_existing} já existe(m) na
-              conta que fica (mesmo Device ID — só completa o que estiver vazio)
-            </p>
-            {revenue.length > 0 && (
-              <p>
-                Renovações por servidor (continuam onde foram feitas):{" "}
-                {revenue.map(([srv, v]) => `${srv} R$ ${Number(v).toFixed(2).replace(".", ",")}`).join(" · ")}
-              </p>
-            )}
+          <div className="rounded-xl border border-border divide-y divide-border text-sm">
+            <Section title="Histórico (vai pra principal)">
+              <Row
+                label="Renovações"
+                value={
+                  preview.renewals > 0 && revenue.length > 0
+                    ? `${preview.renewals} · ${revenue.map(([srv, v]) => `${srv} ${brl(Number(v))}`).join(" · ")}`
+                    : String(preview.renewals)
+                }
+              />
+              <Row label="Pagamentos no Log do Portal" value={String(preview.portal_payments)} />
+              <Row label="Eventos da Linha do Tempo" value={String(preview.events)} />
+              <Row
+                label="Sinos"
+                value={preview.open_alerts > 0 ? `${preview.alerts} (${preview.open_alerts} em aberto)` : String(preview.alerts)}
+              />
+            </Section>
+            <Section title="Aplicativos">
+              <Row label="Novos (entram com vencimento)" value={String(preview.apps_new)} />
+              <Row label="Já existem (completa só o que faltar)" value={String(preview.apps_existing)} />
+            </Section>
             {preview.pending_jobs > 0 && (
-              <p className="text-amber-600">{preview.pending_jobs} mensagem(ns) agendada(s) pra ela serão canceladas.</p>
+              <Section title="Fila do WhatsApp">
+                <Row label="Mensagens agendadas pra antiga (canceladas)" value={String(preview.pending_jobs)} tone="amber" />
+              </Section>
             )}
             {preview.coupon_conflicts > 0 && (
-              <p className="text-rose-500 font-medium">
+              <div className="px-4 py-3 text-xs font-medium text-rose-500">
                 As duas contas usaram o mesmo cupom — mesclar liberaria o cupom de novo. Resolva o cupom antes.
-              </p>
+              </div>
             )}
           </div>
         )}
@@ -258,5 +261,31 @@ export default function MergeAccountsModal({
         </button>
       </ModalFooter>
     </Modal>
+  );
+}
+
+function plural(n: number, one: string, many: string) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+function brl(v: number) {
+  return `R$ ${v.toFixed(2).replace(".", ",")}`;
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="px-4 py-3">
+      <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{title}</p>
+      <div className="space-y-1.5">{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, value, tone }: { label: string; value: string; tone?: "amber" }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <span className="text-foreground/80">{label}</span>
+      <span className={`font-semibold tabular-nums text-right ${tone === "amber" ? "text-amber-600" : "text-foreground"}`}>{value}</span>
+    </div>
   );
 }
