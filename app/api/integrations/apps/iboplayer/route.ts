@@ -12,7 +12,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { Resvg } from "@resvg/resvg-js";
-import { callGemini } from "@/lib/whatsapp/gemini-client";
+import { callGemini, CAPTCHA_GEMINI_MODELS } from "@/lib/whatsapp/gemini-client";
 import { isInternalRequest, hasBadInternalHeader } from "@/lib/internal-auth";
 import { pickPlaylistsToDelete, setPlaylistDeleteExactOnly } from "@/lib/integrations/playlist-match";
 import { extractDateOnly } from "@/lib/apps/panel";
@@ -102,7 +102,10 @@ async function solveCaptcha(siteRoot: string, geminiKey: string): Promise<{ toke
     // maior, texto de verdade) passava dos 15s e abortava sempre. 25s dá
     // folga real sem deixar a rota pendurada pra sempre — maxDuration=60 no
     // topo do arquivo garante que a função da Vercel não mata antes disso.
-    25_000,
+    // ✅ 08/10/2026: modelos rápidos sem "pensar" (~1s) — 8s por tentativa,
+    // percorrendo modelo × chave (ver CAPTCHA_GEMINI_MODELS).
+    8_000,
+    { models: CAPTCHA_GEMINI_MODELS, noThinking: true, preferPaid: true },
   );
   const answer = geminiRes?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
   if (!answer) throw new Error("Não foi possível ler o captcha do IBO Player.");

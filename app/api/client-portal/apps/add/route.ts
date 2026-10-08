@@ -10,6 +10,7 @@ import { logAppActivity, findFieldByType } from "@/lib/apps/panel";
 import { loadClientAppDraft, checkClientAppValidity } from "@/lib/apps/orchestration";
 import { HIDDEN_CLIENT_FIELD_TYPES, type AppFieldType } from "@/lib/apps/field-types";
 import { getPortalAddAppAccess } from "@/lib/client-portal/add-app-access";
+import { fileAppSetupRequest } from "@/lib/apps/portal-app-requests";
 
 export const dynamic = "force-dynamic";
 
@@ -134,6 +135,8 @@ export async function POST(req: NextRequest) {
       _config_partner: app.partner_server_id || "",
     };
     const sent = body?.field_values && typeof body.field_values === "object" ? body.field_values : null;
+    // Preenchido quando a conferência falhou do NOSSO lado (ver abaixo).
+    let verifyFailedOnOurSide: string | null = null;
     const cfg: any[] = Array.isArray((app as any).fields_config) ? (app as any).fields_config : [];
     if (sent) {
       for (const f of cfg) {
@@ -174,19 +177,34 @@ export async function POST(req: NextRequest) {
         if (check && !check.ok) {
           const err = String((check as { error?: string }).error || "");
           const cannotCheck = /não disponível|não tem vencimento próprio/i.test(err);
-          if (!cannotCheck) {
+          // ✅ 08/10/2026, pedido do Márcio (caso AlessandroNaTV: o portal
+          // mostrou "Gemini 503 (fallback pago também falhou)..." pro
+          // cliente): falha NOSSA (Gemini/captcha, painel do parceiro fora do
+          // ar, tempo esgotado) não pode barrar o cliente nem aparecer pra
+          // ele. Só "o parceiro recusou o login" conta como dado errado.
+          const partnerRejected =
+            /falha no login|inválid|invalid|incorret|incorrect|not found|não encontrad/i.test(err) &&
+            !/gemini|captcha n|abort|timeout|tempo|fetch failed|econn|enotfound|status 5\d\d|status 429/i.test(err);
+          if (!cannotCheck && partnerRejected) {
             await logAppActivity(supabaseAdmin, {
               tenantId: ctx.tenant_id,
               clientId: client_id,
               clientAppId: null,
               appName: app.name || "Aplicativo",
               event: "check_validity_failed",
-              detail: { source: "portal_add" },
+              detail: { source: "portal_add", error: err.slice(0, 300) },
             });
             return jsonError(
-              `Não conseguimos confirmar esses dados no ${app.name}. Confira o que foi preenchido e tente de novo. (${err})`,
+              `Não encontramos esse aparelho no ${app.name} com esses dados. Confira o que foi preenchido e tente de novo — se continuar, fale com o suporte.`,
               422,
             );
+          }
+          if (!cannotCheck) {
+            // Falha nossa: salva o app mesmo assim (sem vencimento) e abre um
+            // pedido de configuração pro admin, igual o Configurar faz na 2ª
+            // falha (lib/apps/portal-app-requests.ts). O motivo real fica só
+            // no log de atividade (Auditoria → Aplicativos).
+            verifyFailedOnOurSide = err;
           }
         } else if (check?.ok) {
           const dateField = findFieldByType(cfg, "date");
@@ -222,6 +240,39 @@ export async function POST(req: NextRequest) {
         event: "added",
       }),
     );
+
+    // ✅ 08/10/2026: conferência falhou do nosso lado → app salvo, motivo
+    // real só no log (source "portal_add_system" — não conta no limite de
+    // tentativas erradas acima, que filtra source "portal_add") e pedido de
+    // configuração aberto pro admin resolver.
+    if (verifyFailedOnOurSide) {
+      const reason = verifyFailedOnOurSide;
+      after(async () => {
+        await logAppActivity(supabaseAdmin, {
+          tenantId: ctx.tenant_id,
+          clientId: client_id,
+          clientAppId: inserted.id,
+          appName: app.name || "Aplicativo",
+          event: "check_validity_failed",
+          detail: { source: "portal_add_system", error: reason.slice(0, 300) },
+        });
+        try {
+          await fileAppSetupRequest(supabaseAdmin, {
+            tenantId: ctx.tenant_id,
+            clientId: client_id,
+            clientAppId: inserted.id,
+            appName: app.name || "Aplicativo",
+            fieldValues,
+          });
+        } catch {
+          // best-effort: o app já está salvo e o motivo já foi pro log
+        }
+      });
+      return NextResponse.json(
+        { ok: true, data: { id: inserted.id, not_verified: true } },
+        { status: 200, headers: NO_STORE_HEADERS },
+      );
+    }
 
     return NextResponse.json({ ok: true, data: { id: inserted.id } }, { status: 200, headers: NO_STORE_HEADERS });
   } catch {
