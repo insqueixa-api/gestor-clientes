@@ -2097,7 +2097,7 @@ export default function ClientDetailsPage() {
       {showMerge && client && tenantId && (
         <MergeAccountsModal
           tenantId={tenantId}
-          current={{ id: clientIdSafe, username: client.username, server_name: client.server_name }}
+          current={{ id: clientIdSafe, username: client.username, server_name: client.server_name, server_logo_url: client.server_logo_url }}
           siblings={mergeSiblings}
           onClose={() => setShowMerge(false)}
           confirm={confirm}

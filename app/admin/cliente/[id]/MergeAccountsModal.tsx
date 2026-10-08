@@ -17,6 +17,7 @@ type Sibling = {
   display_name: string | null;
   server_username: string | null;
   server_name: string;
+  server_logo_url: string | null;
   status: string;
   vencimento: string | null;
 };
@@ -44,7 +45,7 @@ export async function loadMergeSiblings(
   if (!whatsapp) return [];
   const { data } = await supabaseBrowser
     .from("clients")
-    .select("id, display_name, server_username, is_trial, is_archived, deep_archived_at, vencimento, servers(name)")
+    .select("id, display_name, server_username, is_trial, is_archived, deep_archived_at, vencimento, servers(name, logo_url)")
     .eq("tenant_id", tenantId)
     .eq("whatsapp_username", whatsapp)
     .neq("id", clientId);
@@ -53,6 +54,7 @@ export async function loadMergeSiblings(
     display_name: c.display_name,
     server_username: c.server_username,
     server_name: c.servers?.name || "sem servidor",
+    server_logo_url: c.servers?.logo_url || null,
     status: c.deep_archived_at ? "Arquivado" : c.is_archived ? "Na lixeira" : c.is_trial ? "Teste" : "Ativo",
     vencimento: c.vencimento,
   }));
@@ -68,7 +70,7 @@ export default function MergeAccountsModal({
   addToast,
 }: {
   tenantId: string;
-  current: { id: string; username: string; server_name: string };
+  current: { id: string; username: string; server_name: string; server_logo_url?: string | null };
   siblings: Sibling[];
   onClose: () => void;
   onMerged: (keepId: string) => void;
@@ -149,18 +151,18 @@ export default function MergeAccountsModal({
 
   const revenue = preview ? Object.entries(preview.revenue_by_server || {}) : [];
   const keepAcc = keepCurrent
-    ? { user: current.username, server: current.server_name, hint: "esta página" }
-    : { user: other?.server_username || "—", server: other?.server_name || "—", hint: other?.status || "" };
+    ? { user: current.username, server: current.server_name, logo: current.server_logo_url || null, hint: "esta página" }
+    : { user: other?.server_username || "—", server: other?.server_name || "—", logo: other?.server_logo_url || null, hint: other?.status || "" };
   const removeAcc = keepCurrent
-    ? { user: other?.server_username || "—", server: other?.server_name || "—", hint: other?.status || "" }
-    : { user: current.username, server: current.server_name, hint: "esta página" };
+    ? { user: other?.server_username || "—", server: other?.server_name || "—", logo: other?.server_logo_url || null, hint: other?.status || "" }
+    : { user: current.username, server: current.server_name, logo: current.server_logo_url || null, hint: "esta página" };
 
   return (
     <Modal onClose={onClose}>
       <ModalHeader onClose={onClose}>
         <h3 className="font-medium text-lg text-foreground">Mesclar contas</h3>
       </ModalHeader>
-      <ModalBody className="space-y-5">
+      <ModalBody>
         {/* Mais de uma conta irmã: escolhe qual entra na mesclagem */}
         {siblings.length > 1 && (
           <div className="flex flex-wrap gap-2">
@@ -183,11 +185,7 @@ export default function MergeAccountsModal({
           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] items-stretch gap-3">
             <div className="rounded-xl border-2 border-emerald-500/40 bg-emerald-500/5 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Principal (manter)</p>
-              <p className="mt-1 text-sm font-bold text-foreground truncate">{keepAcc.user}</p>
-              <p className="text-xs text-muted-foreground">
-                {keepAcc.server}
-                {keepAcc.hint ? ` · ${keepAcc.hint}` : ""}
-              </p>
+              <AccountLine acc={keepAcc} />
             </div>
             <button
               type="button"
@@ -199,11 +197,7 @@ export default function MergeAccountsModal({
             </button>
             <div className="rounded-xl border-2 border-rose-500/30 bg-rose-500/5 p-3">
               <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500">Antiga (excluir)</p>
-              <p className="mt-1 text-sm font-bold text-foreground truncate">{removeAcc.user}</p>
-              <p className="text-xs text-muted-foreground">
-                {removeAcc.server}
-                {removeAcc.hint ? ` · ${removeAcc.hint}` : ""}
-              </p>
+              <AccountLine acc={removeAcc} />
             </div>
           </div>
         )}
@@ -286,6 +280,29 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: "amb
     <div className="flex items-baseline justify-between gap-4">
       <span className="text-foreground/80">{label}</span>
       <span className={`font-semibold tabular-nums text-right ${tone === "amber" ? "text-amber-600" : "text-foreground"}`}>{value}</span>
+    </div>
+  );
+}
+
+// ✅ Logo do servidor em cada lado — reduz o risco de manter/excluir a conta errada.
+function AccountLine({ acc }: { acc: { user: string; server: string; logo: string | null; hint: string } }) {
+  return (
+    <div className="mt-2 flex items-center gap-3 min-w-0">
+      {acc.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={acc.logo} alt={acc.server} className="h-10 w-10 shrink-0 rounded-lg object-cover border border-border bg-card" />
+      ) : (
+        <div className="h-10 w-10 shrink-0 rounded-lg border border-border bg-card flex items-center justify-center text-xs font-bold text-muted-foreground">
+          {acc.server.slice(0, 2).toUpperCase()}
+        </div>
+      )}
+      <div className="min-w-0">
+        <p className="text-sm font-bold text-foreground truncate">{acc.user}</p>
+        <p className="text-xs text-muted-foreground truncate">
+          {acc.server}
+          {acc.hint ? ` · ${acc.hint}` : ""}
+        </p>
+      </div>
     </div>
   );
 }
