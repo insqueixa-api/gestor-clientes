@@ -8,7 +8,6 @@
 // Autenticação: mesmo segredo compartilhado da session-alert
 // (UNIGESTOR_WA_TOKEN no app = API_TOKEN na VM).
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
@@ -58,13 +57,28 @@ export async function POST(req: NextRequest) {
 
   if (items.length === 0) return NextResponse.json({ ok: true, applied: 0 });
 
-  const sb = createAdminClient(
-    String(process.env.NEXT_PUBLIC_SUPABASE_URL || ""),
-    String(process.env.SUPABASE_SERVICE_ROLE_KEY || ""),
-  );
-  const { error } = await sb.rpc("whatsapp_receipt_apply", { p_items: items });
-  if (error) {
-    console.error("[WA][receipts] falha ao gravar recibos", error.message);
+  // ✅ 08/10/2026: chamada direta ao PostgREST (sem carregar o supabase-js) —
+  // a rota quase sempre roda "fria" (recibos chegam espaçados), e o tempo
+  // dela era quase todo inicialização; o banco leva ~25ms.
+  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "");
+  const serviceKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "");
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/whatsapp_receipt_apply`, {
+      method: "POST",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_items: items }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.error("[WA][receipts] falha ao gravar recibos", res.status, (await res.text()).slice(0, 300));
+      return NextResponse.json({ ok: false, error: "Falha ao gravar" }, { status: 500 });
+    }
+  } catch (e: any) {
+    console.error("[WA][receipts] falha ao gravar recibos", e?.message);
     return NextResponse.json({ ok: false, error: "Falha ao gravar" }, { status: 500 });
   }
   return NextResponse.json({ ok: true, applied: items.length });

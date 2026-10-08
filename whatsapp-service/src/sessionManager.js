@@ -87,7 +87,12 @@ async function reportSessionAlert(kind, sessionKey, detail, extra = {}) {
 // e vai junto no próximo.
 const pendingReceipts = new Map(); // id → { delivered, read, retries, error }
 let receiptFlushTimer = null;
-const RECEIPT_FLUSH_DELAY_MS = 3000;
+// ✅ 08/10/2026: 3s → 60s. Recibo não é urgente, e cada chamada à Vercel
+// costumava pegar a função "fria" (~2s só pra acordar; o banco leva ~25ms).
+// Lote grande (200+) sai na hora, sem esperar.
+const RECEIPT_FLUSH_DELAY_MS = 60_000;
+const RECEIPT_FLUSH_NOW_AT = 200;
+const RECEIPT_RETRY_DELAY_MS = 2 * 60_000;
 const RECEIPT_QUEUE_MAX = 5000;
 // Reenvio forçado (forceResendAfterGiveUp) manda com id NOVO — o recibo
 // desse id novo conta pra mensagem original (é a que está ligada ao job).
@@ -121,7 +126,20 @@ function queueReceipt(messageId, patch) {
   if (patch.retries) cur.retries += patch.retries;
   if (patch.error && !cur.error) cur.error = patch.error;
   pendingReceipts.set(id, cur);
-  if (!receiptFlushTimer) receiptFlushTimer = setTimeout(flushReceipts, RECEIPT_FLUSH_DELAY_MS);
+  if (pendingReceipts.size >= RECEIPT_FLUSH_NOW_AT) {
+    if (receiptFlushTimer) clearTimeout(receiptFlushTimer);
+    receiptFlushTimer = setTimeout(flushReceipts, 0);
+  } else if (!receiptFlushTimer) {
+    receiptFlushTimer = setTimeout(flushReceipts, RECEIPT_FLUSH_DELAY_MS);
+  }
+}
+
+// Desligamento (SIGTERM, ver index.js): manda o que estiver no lote antes de
+// sair — com o lote de 60s, um restart perderia até 1 min de recibos.
+async function flushReceiptsNow() {
+  if (receiptFlushTimer) clearTimeout(receiptFlushTimer);
+  receiptFlushTimer = null;
+  if (pendingReceipts.size > 0) await flushReceipts();
 }
 
 async function flushReceipts() {
@@ -158,7 +176,7 @@ async function flushReceipts() {
     }
   }
   if (pendingReceipts.size > 0 && !receiptFlushTimer) {
-    receiptFlushTimer = setTimeout(flushReceipts, RECEIPT_FLUSH_DELAY_MS * 10);
+    receiptFlushTimer = setTimeout(flushReceipts, RECEIPT_RETRY_DELAY_MS);
   }
 }
 
@@ -1825,5 +1843,5 @@ export {
   createSession, disconnectSession, reconnectSession, hardResetSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, renderRejectMessage, getContactProfilePicture,
-  getAndResetSessionHealth,
+  getAndResetSessionHealth, flushReceiptsNow,
 };

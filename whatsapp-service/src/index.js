@@ -9,7 +9,7 @@ import {
   createSession, disconnectSession, hardResetSession, sendMessage, validateNumber,
   getSession, getAllSessions, restoreExistingSessions, qrCallbacks,
   getSessionConfig, updateSessionConfig, getContactProfilePicture,
-  getAndResetSessionHealth,
+  getAndResetSessionHealth, flushReceiptsNow,
 } from "./sessionManager.js";
 import { runDuplecastAction } from "./duplecastClient.js";
 import { checkDowndetectorStatus } from "./downdetectorClient.js";
@@ -563,7 +563,10 @@ app.listen(PORT, async () => {
 });
 
 // Graceful shutdown
-process.on("SIGTERM", () => {
+process.on("SIGTERM", async () => {
   console.log("[WA] SIGTERM recebido — encerrando...");
+  // ✅ 08/10/2026: manda os recibos ✓✓ do lote (até 60s acumulados) antes de
+  // sair; no máximo 5s pra não estourar os 10s do docker stop.
+  await Promise.race([flushReceiptsNow().catch(() => {}), new Promise((r) => setTimeout(r, 5000))]);
   process.exit(0);
 });
