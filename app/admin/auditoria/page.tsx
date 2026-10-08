@@ -2344,11 +2344,11 @@ function AuditoriaPageContent() {
                             <td className="px-4 py-3">
                               <div className="flex flex-col min-w-0">
                                 {/* ✅ 08/10/2026, pedido do Márcio: nome abre a página
-                                    do cliente, igual à Lista de Clientes. Revenda
-                                    (client_id vazio) e cliente excluído ficam sem link. */}
-                                {r.client_id && r.client_name !== "Cliente Excluído" ? (
+                                    do cliente (ou da revenda, nas linhas de revenda),
+                                    igual às listas. Cliente excluído fica sem link. */}
+                                {(r.client_id && r.client_name !== "Cliente Excluído") || (!r.client_id && r.reseller_id) ? (
                                   <Link
-                                    href={`/admin/cliente/${r.client_id}`}
+                                    href={r.client_id ? `/admin/cliente/${r.client_id}` : `/admin/revendedor/${r.reseller_id}`}
                                     prefetch={false}
                                     className="font-medium text-foreground truncate max-w-[200px] hover:text-emerald-500 hover:underline decoration-emerald-500/30 underline-offset-2 transition-colors"
                                   >
