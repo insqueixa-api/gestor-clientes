@@ -9,7 +9,7 @@ type SupabaseLike = {
   from: (table: string) => any;
 };
 
-async function getFxRateToBRL(
+export async function getFxRateToBRL(
   supabase: SupabaseLike,
   tenantId: string,
   currency: SupportedCurrency,

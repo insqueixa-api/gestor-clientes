@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateResellerSession, endResellerSession } from "@/lib/reseller-portal/session";
 import { syncResellerPanels } from "@/lib/reseller-portal/sync";
-import { resellerCurrency, toResellerCurrency } from "@/lib/reseller-portal/app-orders";
+import { creditUnitInCurrency, resellerCurrency } from "@/lib/reseller-portal/app-orders";
 
 export const maxDuration = 60;
 
@@ -77,14 +77,13 @@ export async function POST(req: NextRequest) {
           .order("position", { ascending: true })
       : { data: [] as any[] };
 
-    // ✅ 08/10/2026: moeda da revenda — pacotes exibidos já convertidos pelo
-    // câmbio salvo (mesma conta da cobrança: total do pacote arredondado pra cima)
+    // ✅ 08/10/2026: moeda da revenda — preço do crédito convertido pelo câmbio
+    // salvo e arredondado pra cima de 0,50 em 0,50 (mesma conta da cobrança)
     const currency = await resellerCurrency(sb, ctx.tenant_id, ctx.reseller_id);
-    const pkgDisplay = new Map<string, number>();
+    const unitDisplay = new Map<string, number>();
     await Promise.all(
       (pkgRes.data || []).map(async (p: any) => {
-        const total = Number(p.credits) * Number(p.price_brl);
-        if (total > 0) pkgDisplay.set(`${p.server_id}:${p.credits}`, await toResellerCurrency(sb, ctx.tenant_id, total, currency));
+        if (Number(p.price_brl) > 0) unitDisplay.set(`${p.server_id}:${p.credits}`, await creditUnitInCurrency(sb, ctx.tenant_id, Number(p.price_brl), currency));
       }),
     );
 
@@ -114,9 +113,9 @@ export async function POST(req: NextRequest) {
           prices: (pkgRes.data || [])
             .filter((p: any) => p.server_id === l.server_id && p.price_brl != null && Number(p.price_brl) > 0)
             .map((p: any) => {
-              const total = pkgDisplay.get(`${p.server_id}:${p.credits}`) ?? Number(p.credits) * Number(p.price_brl);
+              const unit = unitDisplay.get(`${p.server_id}:${p.credits}`) ?? Number(p.price_brl);
               // price = por crédito NA MOEDA da revenda; total = valor exato cobrado pelo pacote
-              return { credits: Number(p.credits), price: Number((total / Number(p.credits)).toFixed(2)), total };
+              return { credits: Number(p.credits), price: unit, total: Number((unit * Number(p.credits)).toFixed(2)) };
             }),
         })),
       },

@@ -17,7 +17,7 @@ import { createFastDepixTransaction, fetchQrCodeAsBase64, getFastDepixTransactio
 import { executeNatvCreditTransfer } from "@/lib/integrations/natv-transfer";
 import { notify } from "@/lib/notifications/notify";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
-import { handleResellerAppOrderWebhook, resellerCurrency, toResellerCurrency } from "@/lib/reseller-portal/app-orders";
+import { creditUnitInCurrency, handleResellerAppOrderWebhook, resellerCurrency } from "@/lib/reseller-portal/app-orders";
 import { cancelPix, checkPix, createPix, reopenPix as reopenGenericPix, usablePixGateways, type ChargeCurrency } from "@/lib/reseller-portal/pix";
 
 const ORDER_TTL_MS = 30 * 60 * 1000;
@@ -85,7 +85,8 @@ export async function createCreditOrder(
   // ✅ 08/10/2026: moeda da revenda — registro em BRL (amount_brl), cobrança convertida
   // pelo câmbio salvo; fora do BRL o pagamento é no Stripe (cartão)
   const currency = await resellerCurrency(admin, tenantId, resellerId);
-  const charge = await toResellerCurrency(admin, tenantId, amount, currency);
+  // crédito: preço por crédito sobe de 0,50 em 0,50; total = preço × quantidade
+  const charge = Number(((await creditUnitInCurrency(admin, tenantId, unitPrice, currency)) * credits).toFixed(2));
   if (!(charge > 0)) return { ok: false, status: 500, error: "Câmbio não configurado — fale com o suporte." };
 
   // envio anterior sem confirmação trava novas compras (mesma trava do admin)

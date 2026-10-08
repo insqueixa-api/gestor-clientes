@@ -40,7 +40,7 @@ import {
   resellerLicensePrice,
 } from "@/lib/reseller-portal/apps";
 import { appOrigin, cancelPix, checkPix, createPix, reopenPix, usablePixGateways, type ChargeCurrency } from "@/lib/reseller-portal/pix";
-import { convertAmount } from "@/lib/fx";
+import { convertAmount, getFxRateToBRL } from "@/lib/fx";
 
 const APP_COLS = "id, name, cost_type, license_price, is_active, is_hidden, integration_type, appativa_app_id, renewal_source, fields_config";
 const APPATIVA_OK = new Set(["ativado", "aprovado"]);
@@ -89,6 +89,20 @@ export async function resellerCurrency(admin: SupabaseClient, tenantId: string, 
   const { data } = await admin.from("resellers").select("price_currency").eq("id", resellerId).eq("tenant_id", tenantId).maybeSingle();
   const c = String(data?.price_currency || "BRL").toUpperCase();
   return c === "USD" || c === "EUR" ? c : "BRL";
+}
+
+/**
+ * ✅ 08/10/2026 (pedido do Márcio): PREÇO DO CRÉDITO fora do BRL sobe de 0,50
+ * em 0,50 (7,01 → 7,50; 7,51 → 8,00). O total do pacote = esse preço × a
+ * quantidade (sempre bate com o que a tela mostra). Fora do crédito, tudo
+ * sobe pro inteiro (toResellerCurrency).
+ */
+export async function creditUnitInCurrency(admin: SupabaseClient, tenantId: string, unitBrl: number, currency: ChargeCurrency) {
+  if (currency === "BRL") return Number(unitBrl.toFixed(2));
+  const rate = await getFxRateToBRL(admin, tenantId, currency);
+  const raw = unitBrl / rate;
+  // -1e-9: imprecisão de ponto flutuante (7,0000000001 não pode virar 7,50)
+  return Math.ceil(raw * 2 - 1e-9) / 2;
 }
 
 /** Valor em BRL do sistema → moeda da revenda (mesma conta do portal do cliente). */
