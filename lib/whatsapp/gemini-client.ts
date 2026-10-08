@@ -8,6 +8,8 @@
 // arquivo foram removidas junto com o bot (lib/whatsapp/bot-engine.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { getGeminiRuntimeConfig } from "@/lib/ai/gemini-config";
+
 const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
@@ -42,80 +44,90 @@ async function requestGemini(apiKey: string, payload: any, timeoutMs: number, mo
   }
 }
 
-// 429 = cota do nível gratuito estourada, 503 = "high demand" (sobrecarga
-// momentânea do lado do Google) — os dois são transitórios/de capacidade,
-// não erro de prompt/payload, então valem fallback pra chave paga. Outros
-// status (400 payload inválido, 403 chave errada) não valem — trocar de
-// chave não resolve.
-//
-// ⚠️ Achado 26/08/2026 (Márcio: "configurar M3U do IBO Player deu timeout,
-// acho que foi o Gemini grátis que não respondeu"): um timeout (o
-// AbortController de requestGemini estourando o `timeoutMs`) NUNCA caía
-// aqui — a chamada nem chega a devolver um HTTP status pra virar
-// GeminiHttpError, só um AbortError/DOMException genérico, que a checagem
-// original (`err instanceof GeminiHttpError`) descartava de cara. Resultado:
-// a chave grátis simplesmente não responder dentro do prazo NUNCA acionava
-// o fallback pra paga — exatamente o caso mais comum de "grátis
-// sobrecarregada", só que sem devolver um 429/503 explícito. Timeout entra
-// no mesmo balde de "transitório, vale tentar a paga".
-function isRetryableGeminiError(err: unknown): boolean {
-  if (err instanceof GeminiHttpError) {
-    if (err.status === 429 || err.status === 503) return true;
-    return /RESOURCE_EXHAUSTED|UNAVAILABLE/i.test(err.bodyText);
-  }
-  if (err instanceof Error && err.name === "AbortError") return true;
-  return false;
-}
 
 // ✅ 08/10/2026, achado ao vivo (Márcio: configurar IBO Player do
 // AlessandroNaTV deu "Gemini 503 (fallback pago também falhou)"): o 503
 // "high demand" é do MODELO, não da chave — as duas chaves chamavam o mesmo
-// gemini-flash-latest, então caíam juntas. Testado na hora com captchas
-// reais do IBO: flash-latest 503/30s travado nas duas chaves, enquanto
-// gemini-3.5-flash e gemini-3.1-flash-lite responderam em ~1s e leram o
-// MESMO texto nos 3 captchas. Agora cada chamada percorre uma lista de
-// modelos (chave grátis → paga em cada um) antes de desistir.
-const DEFAULT_MODELS = [GEMINI_MODEL, "gemini-3.5-flash"];
-// Captcha: texto curto, sem raciocínio — modelos rápidos primeiro, sem
-// "pensar" (o flash-latest pensando levava 15-25s por captcha).
-export const CAPTCHA_GEMINI_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash", GEMINI_MODEL];
-
+// gemini-flash-latest, então caíam juntas. Testado com captchas reais do
+// IBO: flash-latest 503/30s travado nas duas chaves; gemini-3.5-flash e
+// gemini-3.1-flash-lite em ~1s, lendo o MESMO texto. Agora cada chamada
+// percorre uma lista de modelos (e as duas chaves em cada um).
+//
+// ✅ 08/10/2026 (2ª parte): chaves e listas de modelos vêm do painel
+// (Configurações → API de Integrações → Parceiros → Gemini, tabela
+// gemini_config — lib/ai/gemini-config.ts), 2 cards: "Gemini Paga"
+// (principal, decisão do Márcio) e "Gemini Gratuita" (reserva), cada uma
+// com a sua ordem de modelos. Tenta: paga × modelos dela, depois gratuita ×
+// modelos dela. Sem nada salvo, cai nas env vars e na lista padrão.
 export async function callGemini(
   apiKey: string,
   payload: any,
   timeoutMs = 55_000,
-  opts: { models?: string[]; noThinking?: boolean; preferPaid?: boolean } = {},
+  opts: { purpose?: "text" | "captcha" } = {},
 ): Promise<any> {
-  // ✅ GEMINI_API_KEY é o nível gratuito (sem faturamento, ver comentário
-  // em .env.local) — tem cota baixa e volta e meia devolve 429/503 sob
-  // demanda alta. GEMINI_API_KEY_PAID (projeto com faturamento) entra
-  // automaticamente quando o erro é desse tipo — pedido do Márcio
-  // (23/08/2026) depois de bater um 503 gerando treino.
-  const paidKey = String(process.env.GEMINI_API_KEY_PAID || "").trim();
-  const keys = [apiKey, ...(paidKey && paidKey !== apiKey ? [paidKey] : [])].filter(Boolean);
-  // Captcha: a grátis variou de 0,9s a 14s no teste de 08/10/2026; a paga
-  // ficou estável em ~1s e cada captcha custa fração de centavo — paga
-  // primeiro, grátis de reserva.
-  if (opts.preferPaid && keys.length > 1) keys.reverse();
-  const models = opts.models?.length ? opts.models : DEFAULT_MODELS;
-  const body = opts.noThinking
+  const cfg = await getGeminiRuntimeConfig();
+  const attempts: { key: string; model: string; label: string }[] = [];
+  const seen = new Set<string>();
+  const add = (key: string, models: string[], label: string) => {
+    const k = String(key || "").trim();
+    if (!k) return;
+    for (const model of models) {
+      if (seen.has(k + "|" + model)) continue;
+      seen.add(k + "|" + model);
+      attempts.push({ key: k, model, label });
+    }
+  };
+  add(cfg.paidKey, cfg.paidModels, "paga");
+  add(cfg.freeKey, cfg.freeModels, "grátis");
+  add(apiKey, cfg.freeModels, "grátis"); // chave passada pelo chamador, se for outra
+  if (!attempts.length) throw new Error("Gemini sem chave configurada");
+  const isCaptcha = opts.purpose === "captcha";
+  // Captcha: texto curto, sem raciocínio — sem "pensar" (o flash-latest
+  // pensando levava 15-25s por captcha).
+  const body = isCaptcha
     ? { ...payload, generationConfig: { ...(payload?.generationConfig || {}), thinkingConfig: { thinkingBudget: 0 } } }
     : payload;
 
+  // Qualquer falha (sobrecarga, tempo, modelo aposentado) → próxima
+  // combinação da fila.
   const failures: string[] = [];
-  for (const model of models) {
-    for (let k = 0; k < keys.length; k++) {
-      try {
-        return await requestGemini(keys[k], body, timeoutMs, model);
-      } catch (err: any) {
-        const status = err instanceof GeminiHttpError ? err.status : err?.name === "AbortError" ? "timeout" : "?";
-        failures.push(`${model}/${keys[k] === paidKey ? "paga" : "grátis"}: ${status}`);
-        // Erro de capacidade (429/503/timeout) → vale a outra chave no mesmo
-        // modelo. Qualquer outro (modelo aposentado, argumento não aceito
-        // por esse modelo) → pula direto pro próximo modelo.
-        if (!isRetryableGeminiError(err)) break;
-      }
+  for (const a of attempts) {
+    try {
+      return await requestGemini(a.key, body, timeoutMs, a.model);
+    } catch (err: any) {
+      const status = err instanceof GeminiHttpError ? err.status : err?.name === "AbortError" ? "timeout" : "?";
+      failures.push(`${a.model}/${a.label}: ${status}`);
     }
   }
   throw new Error(`Gemini indisponível (${failures.join(", ")})`);
+}
+
+// Usado pelo botão "Testar" do painel: 1 chamada curta, sem fallback,
+// devolvendo status e tempo de cada combinação chave × modelo.
+export async function testGeminiModel(
+  key: string,
+  model: string,
+  timeoutMs = 15_000,
+): Promise<{ ok: boolean; ms: number; status: string; text?: string }> {
+  const t0 = Date.now();
+  try {
+    const res = await requestGemini(
+      key,
+      {
+        contents: [{ parts: [{ text: "Responda apenas: OK" }] }],
+        generationConfig: { maxOutputTokens: 10, thinkingConfig: { thinkingBudget: 0 } },
+      },
+      timeoutMs,
+      model,
+    );
+    const text = String(res?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+    return { ok: true, ms: Date.now() - t0, status: "200", text };
+  } catch (err: any) {
+    const status = err instanceof GeminiHttpError ? String(err.status) : err?.name === "AbortError" ? "timeout" : "erro";
+    let msg = "";
+    if (err instanceof GeminiHttpError) {
+      try { msg = JSON.parse(err.bodyText)?.error?.message || ""; } catch { msg = err.bodyText; }
+    }
+    return { ok: false, ms: Date.now() - t0, status, text: String(msg || err?.message || "").slice(0, 160) };
+  }
 }

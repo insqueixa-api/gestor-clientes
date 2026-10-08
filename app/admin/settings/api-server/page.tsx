@@ -11,6 +11,7 @@ import { supabaseBrowser } from "@/lib/supabase/browser";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import { uploadToR2, releaseR2Files } from "@/lib/r2-upload";
+import GeminiCards from "./GeminiCards";
 const NovaIntegracaoModal = dynamic(() => import("./nova_integracao_modal"), {
   ssr: false,
 });
@@ -177,6 +178,8 @@ export default function ApiServerPage() {
   const appShown = appListSemParceiros.filter((r) => matchesSearch(r.label, r.app_name, r.api_url));
   const gerenciaAppShown = !!gerenciaAppRow && matchesSearch(gerenciaAppRow.label, gerenciaAppRow.app_name, "gerenciaapp");
   const proxyShown = matchesSearch("ProxyBR", "proxy");
+  // ✅ 08/10/2026: 2 cards do Gemini (Paga / Gratuita) — ver GeminiCards.tsx
+  const geminiShown = matchesSearch("Gemini Paga Gratuita", "gemini google ia");
   // ✅ 03/10/2026 (pedido do Márcio): Parceiros em 2 por linha, nessa ordem —
   // DupleCast, GerenciaApp / ProxyBR, AtivaApp (demais depois).
   const partnerOrder = (provider: string) => {
@@ -1187,7 +1190,7 @@ export default function ApiServerPage() {
       <CollapsibleSection
         icon="🤝"
         label="Parceiros"
-        count={partnerShown.length + (gerenciaAppShown ? 1 : 0) + (proxyShown ? 1 : 0)}
+        count={partnerShown.length + (gerenciaAppShown ? 1 : 0) + (proxyShown ? 1 : 0) + (geminiShown ? 2 : 0)}
         collapsed={!!collapsedGroups.parceiros}
         onToggle={() => toggleGroup("parceiros")}
       >
@@ -1747,6 +1750,8 @@ export default function ApiServerPage() {
                   </div>
                 );
               })()}
+
+              <GeminiCards shown={geminiShown} onToast={(type, title, msg) => addToast(type, title, msg)} />
             </div>
           )}
         </>
