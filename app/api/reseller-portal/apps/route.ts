@@ -25,6 +25,7 @@ import { withoutLegacyDevices } from "@/lib/apps/device-types";
 import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
 import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
 import { CHECK_VALIDITY_HANDLERS } from "@/lib/apps/panel";
+import { resellerCurrency, toResellerCurrency } from "@/lib/reseller-portal/app-orders";
 import type { M3uList } from "@/lib/apps/m3u-lists";
 import {
   DEFAULT_GERENCIAAPP_LIMIT,
@@ -78,7 +79,7 @@ function renewInfo(app: any, expireDate: string | null) {
   return { kind: isGerenciaAppFamily(app) ? "free" : "paid", available_from: activationAvailableFrom(app, expireDate) };
 }
 
-function shapeRow(r: any) {
+function shapeRow(r: any, priceIn: (brl: number | null) => number | null = (v) => v) {
   const a = r.apps || {};
   const fv = r.field_values || {};
   const expire = isoDate(r.expire_date);
@@ -95,7 +96,7 @@ function shapeRow(r: any) {
     m3u_list: r.m3u_list,
     configured_at: r.configured_at,
     can_check: !!h && CHECK_VALIDITY_HANDLERS.has(h.actionPrefix),
-    license_price: resellerLicensePrice(a),
+    license_price: priceIn(resellerLicensePrice(a)),
     tier: effectiveTier({ tier: a.tier, appativa_app_id: a.appativa_app_id, appativa_meta: a.appativa_meta }).value,
     renew: renewInfo(a, expire),
   };
@@ -112,7 +113,7 @@ function shapeClient(c: any) {
   };
 }
 
-function catalogItem(a: any, logos: any, mode: "add" | "activate") {
+function catalogItem(a: any, logos: any, mode: "add" | "activate", display: { amount: number | null; currency: string }) {
   const price = resellerLicensePrice(a);
   const devices = withoutLegacyDevices(a.device_types);
   return {
@@ -121,12 +122,12 @@ function catalogItem(a: any, logos: any, mode: "add" | "activate") {
     icon_url: effectiveIcon({ icon_url: a.icon_url, appativa_app_id: a.appativa_app_id, appativa_meta: a.appativa_meta }),
     device_types: devices,
     tier: effectiveTier({ tier: a.tier, appativa_app_id: a.appativa_app_id, appativa_meta: a.appativa_meta }).value,
-    description: renderAppDescription(a.portal_setup_instructions, formatLicenca(price, "BRL", price ? "annual" : null)),
+    description: renderAppDescription(a.portal_setup_instructions, formatLicenca(display.amount, display.currency, price ? "annual" : null)),
     downloads: Object.fromEntries(devices.map((dt: string) => [dt, withDownloadLogo(resolveDownloadHint(a, dt), logos)])),
     cost_type: price ? "paid" : a.cost_type || null,
     license_price: price,
-    license_price_display: price,
-    license_price_display_currency: price ? "BRL" : null,
+    license_price_display: display.amount,
+    license_price_display_currency: price ? display.currency : null,
     license_period: price ? "annual" : null,
     is_active: true,
     has_integration: canConfigureResellerApp(a),
@@ -219,10 +220,17 @@ export async function POST(req: NextRequest) {
       const expiring = links.reduce((acc, l) => acc + (Array.isArray(l.panel_stats?.expiring_2d) ? l.panel_stats.expiring_2d.length : 0), 0);
       const synced = links.map((l) => l.panel_stats_at).filter(Boolean).sort().pop() || null;
 
+      // ✅ 08/10/2026: preço da renovação no card na moeda da revenda
+      const currency = await resellerCurrency(sb, ctx.tenant_id, ctx.reseller_id);
+      const brlPrices = [...new Set(((rows || []) as any[]).map((r) => resellerLicensePrice(r.apps)).filter((v): v is number => !!v))];
+      const converted = new Map<number, number>();
+      await Promise.all(brlPrices.map(async (v) => converted.set(v, await toResellerCurrency(sb, ctx.tenant_id, v, currency))));
+      const priceIn = (v: number | null) => (v ? converted.get(v) ?? v : null);
+
       const byClient = new Map<string, any[]>();
       for (const r of (rows || []) as any[]) {
         const list = byClient.get(r.end_client_id) || [];
-        list.push(shapeRow(r));
+        list.push(shapeRow(r, priceIn));
         byClient.set(r.end_client_id, list);
       }
       // cliente com app mas que sumiu do painel continua aparecendo (marcado)
@@ -252,6 +260,7 @@ export async function POST(req: NextRequest) {
         },
         clients: visible.map(shapeClient),
         configured,
+        currency,
         // chave "Portal" do admin (Aplicativos): false = Adicionar/Ativar em manutenção
         can_add: canAdd,
       });
@@ -265,12 +274,19 @@ export async function POST(req: NextRequest) {
         sb.from("app_download_logos").select("pc_logo_url, downloader_logo_url, ios_logo_url").eq("tenant_id", ctx.tenant_id).maybeSingle(),
         sb.from("app_device_types").select("device_key, icon_url").eq("tenant_id", ctx.tenant_id),
       ]);
-      const data = (apps || [])
-        .filter((a: any) => (mode === "activate" ? isActivatableApp(a) : isAddableApp(a)))
-        .map((a: any) => catalogItem(a, logos, mode));
+      const data = (apps || []).filter((a: any) => (mode === "activate" ? isActivatableApp(a) : isAddableApp(a)));
+      // ✅ 08/10/2026: preço na moeda da revenda (câmbio salvo, igual ao portal do cliente)
+      const currency = await resellerCurrency(sb, ctx.tenant_id, ctx.reseller_id);
+      const items = await Promise.all(
+        data.map(async (a: any) => {
+          const price = resellerLicensePrice(a);
+          const amount = price ? await toResellerCurrency(sb, ctx.tenant_id, price, currency) : null;
+          return catalogItem(a, logos, mode, { amount, currency });
+        }),
+      );
       const device_icons: Record<string, string> = {};
       for (const r of deviceRows || []) if (r.icon_url) device_icons[r.device_key] = r.icon_url;
-      return ok({ data, device_icons });
+      return ok({ data: items, device_icons, currency });
     }
 
     // ---------------- Ativar: disponibilidade ----------------
@@ -283,17 +299,19 @@ export async function POST(req: NextRequest) {
       if (!app || !isActivatableApp(app)) return jsonError(400, "Esse aplicativo não tem ativação pelo portal.");
       const fv = readFieldValues(app, body?.field_values);
       if ("error" in fv) return jsonError(400, fv.error);
-      const price = resellerLicensePrice(app);
+      const currency = await resellerCurrency(sb, ctx.tenant_id, ctx.reseller_id);
+      const priceBrl = resellerLicensePrice(app);
+      const price = priceBrl ? await toResellerCurrency(sb, ctx.tenant_id, priceBrl, currency) : null;
       const window_days = activationWindowDays(app);
       if (!canCheckByDevice(app)) {
         // SET IPTV, SmartOne, ClouDDy, Bay TV: a AtivaApp não consulta vencimento
-        return ok({ available: true, checked: false, expire_date: null, available_from: null, price, window_days });
+        return ok({ available: true, checked: false, expire_date: null, available_from: null, price, currency, window_days });
       }
       const r = await checkResellerApp(sb, { app: partnerApp(app), fieldValues: fv.values, m3uUrl: "", serverName: "", serverId: null });
       if (!r.ok) return jsonError(400, r.error);
       const expire = isoDate(r.expireDate);
       const from = activationAvailableFrom(app, expire);
-      return ok({ available: !from, checked: true, expire_date: expire, is_trial: r.isTrial, available_from: from, price, window_days });
+      return ok({ available: !from, checked: true, expire_date: expire, is_trial: r.isTrial, available_from: from, price, currency, window_days });
     }
 
     // ---------------- Adicionar: cliente + app → configura e salva ----------------

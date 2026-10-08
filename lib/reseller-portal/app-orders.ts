@@ -39,7 +39,8 @@ import {
   readFieldValues,
   resellerLicensePrice,
 } from "@/lib/reseller-portal/apps";
-import { appOrigin, cancelPix, checkPix, createPix, reopenPix, usablePixGateways } from "@/lib/reseller-portal/pix";
+import { appOrigin, cancelPix, checkPix, createPix, reopenPix, usablePixGateways, type ChargeCurrency } from "@/lib/reseller-portal/pix";
+import { convertAmount } from "@/lib/fx";
 
 const APP_COLS = "id, name, cost_type, license_price, is_active, is_hidden, integration_type, appativa_app_id, renewal_source, fields_config";
 const APPATIVA_OK = new Set(["ativado", "aprovado"]);
@@ -71,12 +72,29 @@ export type AppOrderPix = {
   gateway_type: string;
   gateway_name: string;
   has_alternate_gateway: boolean;
+  /** valor COBRADO, na moeda da revenda */
   amount: number;
+  currency: ChargeCurrency;
+  payment_method: "pix" | "stripe";
   app_name: string;
   pix_qr_code: string | null;
   pix_qr_code_base64: string | null;
+  client_secret?: string | null;
+  publishable_key?: string | null;
   expires_at: string;
 };
+
+/** Moeda da revenda (cadastro) — fora do BRL cobra no Stripe com o valor convertido. */
+export async function resellerCurrency(admin: SupabaseClient, tenantId: string, resellerId: string): Promise<ChargeCurrency> {
+  const { data } = await admin.from("resellers").select("price_currency").eq("id", resellerId).eq("tenant_id", tenantId).maybeSingle();
+  const c = String(data?.price_currency || "BRL").toUpperCase();
+  return c === "USD" || c === "EUR" ? c : "BRL";
+}
+
+/** Valor em BRL do sistema → moeda da revenda (mesma conta do portal do cliente). */
+export async function toResellerCurrency(admin: SupabaseClient, tenantId: string, amountBrl: number, currency: ChargeCurrency) {
+  return currency === "BRL" ? Number(amountBrl.toFixed(2)) : convertAmount(admin, tenantId, amountBrl, "BRL", currency);
+}
 
 // ---------------------------------------------------------------------------
 // 1) CRIAR
@@ -134,6 +152,10 @@ export async function createAppOrder(
 
   const amount = resellerLicensePrice(app);
   if (!amount) return { ok: false, status: 400, error: "Esse aplicativo está sem preço de licença." };
+  // ✅ 08/10/2026: moeda da revenda — registro em BRL (amount_brl), cobrança convertida
+  const currency = await resellerCurrency(admin, p.tenantId, p.resellerId);
+  const charge = await toResellerCurrency(admin, p.tenantId, amount, currency);
+  if (!(charge > 0)) return { ok: false, status: 500, error: "Câmbio não configurado — fale com o suporte." };
 
   // pagamento já feito pra esse aparelho e ainda ativando → não deixa pagar por cima
   const { data: paidOpen } = await admin
@@ -148,7 +170,7 @@ export async function createAppOrder(
     .maybeSingle();
   if (paidOpen) return { ok: false, status: 409, error: "Já existe um pagamento desse aparelho sendo ativado. Aguarde a confirmação." };
 
-  const usable = await usablePixGateways(admin, p.tenantId);
+  const usable = await usablePixGateways(admin, p.tenantId, currency);
   if (!usable.length) return { ok: false, status: 503, error: "Pagamento indisponível no momento — fale com o suporte." };
   const gateway = p.excludeGatewayType ? usable.find((g: any) => g.type !== p.excludeGatewayType) : usable[0];
   if (!gateway) return { ok: false, status: 503, error: "Não há outra forma de pagamento disponível." };
@@ -165,7 +187,8 @@ export async function createAppOrder(
     .order("created_at", { ascending: false })
     .limit(5);
   for (const old of pending || []) {
-    const same = Math.abs(Number(old.amount_brl) - amount) < 0.01 && old.gateway_type === gateway.type;
+    const same =
+      Math.abs(Number(old.charge_amount ?? old.amount_brl) - charge) < 0.01 && old.charge_currency === currency && old.gateway_type === gateway.type;
     const alive = old.expires_at && new Date(old.expires_at).getTime() > Date.now() + 60 * 1000;
     if (same && alive && old.gateway_payment_id) {
       const re = await reopenPix(gateway, old.gateway_type, old.gateway_payment_id, old.expires_at);
@@ -177,10 +200,14 @@ export async function createAppOrder(
             gateway_type: old.gateway_type,
             gateway_name: gateway.name,
             has_alternate_gateway: usable.length > 1,
-            amount,
+            amount: charge,
+            currency,
+            payment_method: gateway.type === "stripe" ? "stripe" : "pix",
             app_name: (app as any).name,
             pix_qr_code: re.pix_qr_code,
             pix_qr_code_base64: re.pix_qr_code_base64,
+            client_secret: re.client_secret || null,
+            publishable_key: re.publishable_key || null,
             expires_at: re.expires_at,
           },
         };
@@ -197,16 +224,17 @@ export async function createAppOrder(
   const bucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
   const pix = await createPix(gateway, {
     externalRef: orderId,
-    amount,
+    amount: charge,
+    currency,
     description,
-    idempotencyKey: `resapp-${p.resellerId}-${(app as any).id}-${deviceKey}-${amount.toFixed(2)}-${bucket10m}`,
+    idempotencyKey: `resapp-${p.resellerId}-${(app as any).id}-${deviceKey}-${currency}${charge.toFixed(2)}-${bucket10m}`,
     payerName: resellerName,
     payerEmail: `revenda-${p.resellerId.slice(0, 8)}@unigestor.net.br`,
     metadata: { payment_type: "reseller_app_activation", tenant_id: p.tenantId, reseller_id: p.resellerId, app_id: (app as any).id },
   });
   if (!pix) {
     log("pix_create_failed", { gateway: gateway.type });
-    return { ok: false, status: 502, error: "Falha ao gerar o PIX. Tente de novo." };
+    return { ok: false, status: 502, error: "Falha ao gerar o pagamento. Tente de novo." };
   }
 
   const { error: insErr } = await admin.from("reseller_app_orders").insert({
@@ -221,6 +249,8 @@ export async function createAppOrder(
     device_key: deviceKey,
     prev_expire_date: prevExpire,
     amount_brl: amount,
+    charge_currency: currency,
+    charge_amount: charge,
     gateway_id: gateway.id,
     gateway_type: gateway.type,
     gateway_payment_id: pix.gateway_payment_id,
@@ -240,10 +270,14 @@ export async function createAppOrder(
       gateway_type: gateway.type,
       gateway_name: gateway.name,
       has_alternate_gateway: usable.length > 1,
-      amount,
+      amount: charge,
+      currency,
+      payment_method: gateway.type === "stripe" ? "stripe" : "pix",
       app_name: (app as any).name,
       pix_qr_code: pix.pix_qr_code,
       pix_qr_code_base64: pix.pix_qr_code_base64,
+      client_secret: pix.client_secret || null,
+      publishable_key: pix.publishable_key || null,
       expires_at: pix.expires_at,
     },
   };
@@ -297,14 +331,16 @@ export async function confirmPaidAndFulfillApp(admin: SupabaseClient, orderId: s
       return;
     }
     // ✅ confere o VALOR pago (nunca ativa por um PIX de valor menor)
-    if (!(chk.paidAmount >= Number(order.amount_brl) - 0.01)) {
+    const expected = Number(order.charge_amount ?? order.amount_brl);
+    const fmt = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: order.charge_currency || "BRL" }).format(n);
+    if (!(chk.paidAmount >= expected - 0.01)) {
       await admin
         .from("reseller_app_orders")
         .update({
           status: "approved",
           paid_at: new Date().toISOString(),
           fulfillment_status: "error",
-          fulfillment_error: `Valor pago (${brl(chk.paidAmount)}) diferente do pedido (${brl(Number(order.amount_brl))}) — ativação NÃO feita.`,
+          fulfillment_error: `Valor pago (${fmt(chk.paidAmount)}) diferente do pedido (${fmt(expected)}) — ativação NÃO feita.`,
         })
         .eq("id", order.id)
         .eq("status", "pending");
@@ -540,11 +576,12 @@ async function sendActivationWhatsApp(admin: SupabaseClient, order: any) {
 /** MP / FastDePix: pagamento que não é de cliente nem de crédito. Assinatura conferida com o segredo do gateway do tenant. */
 export async function handleResellerAppOrderWebhook(
   admin: SupabaseClient,
-  params: { gatewayFamily: "mercadopago" | "fastdepix"; gatewayPaymentId: string; verify: (secret: string) => boolean },
+  params: { gatewayFamily: "mercadopago" | "fastdepix" | "stripe"; gatewayPaymentId: string; verify: (secret: string) => boolean },
   gatewayConfigFor: (tenantId: string, type: string) => Promise<Record<string, any>>,
 ): Promise<"not_found" | "bad_signature" | "ok"> {
   let q = admin.from("reseller_app_orders").select("id, tenant_id, gateway_type").eq("gateway_payment_id", params.gatewayPaymentId);
-  q = params.gatewayFamily === "mercadopago" ? q.eq("gateway_type", "mercadopago") : q.in("gateway_type", ["fastpay", "fastflow"]);
+  q =
+    params.gatewayFamily === "fastdepix" ? q.in("gateway_type", ["fastpay", "fastflow"]) : q.eq("gateway_type", params.gatewayFamily);
   const { data: order } = await q.maybeSingle();
   if (!order) return "not_found";
   const cfg = await gatewayConfigFor(order.tenant_id, order.gateway_type);

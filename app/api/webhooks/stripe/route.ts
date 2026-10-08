@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyStripeWebhookSignature } from "@/lib/webhook-signatures";
+import { handleResellerOrderWebhook } from "@/lib/reseller-portal/credit-orders";
 
 // ── IMPORTS IPTV ──────────────────────────────────────────────
 import {
@@ -135,6 +136,17 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({ ok: true });
     }
+
+    // ✅ 08/10/2026: Portal da Revenda em USD/EUR (créditos e ativação de app)
+    // — só quando NÃO é pagamento de cliente. Assinatura conferida com o
+    // segredo do Stripe do tenant do pedido; status e valor reconsultados na
+    // API do Stripe antes de enviar crédito/ativar.
+    const resellerResult = await handleResellerOrderWebhook(supabaseAdmin, {
+      gatewayFamily: "stripe",
+      gatewayPaymentId: paymentIntentId,
+      verify: (secret) => verifyStripeSignature(rawBody, sig, secret),
+    });
+    if (resellerResult === "bad_signature") return NextResponse.json({ ok: false }, { status: 401 });
 
     // Se o pagamento não existir, devolve OK silencioso.
     return NextResponse.json({ ok: true });

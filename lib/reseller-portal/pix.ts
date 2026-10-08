@@ -1,6 +1,7 @@
 // lib/reseller-portal/pix.ts
 // ✅ 07/10/2026: PIX genérico do Portal da Revenda (Mercado Pago / FastFlow /
-// FastPay — DePix fica de fora, exige CPF do pagador). Mesma lógica já
+// FastPay — DePix fica de fora, exige CPF do pagador). ✅ 08/10/2026: + Stripe
+// (cartão) pra revenda em USD/EUR — mesmo PaymentIntent do portal do cliente. Mesma lógica já
 // validada em lib/reseller-portal/credit-orders.ts (que continua com a cópia
 // dela, de propósito, pra não mexer no fluxo de créditos que já funciona);
 // usado pelos pedidos de ativação de app (lib/reseller-portal/app-orders.ts).
@@ -18,18 +19,30 @@ export function appOrigin() {
   return String(process.env.UNIGESTOR_APP_URL || process.env.APP_URL || "https://unigestor.net.br").replace(/\/+$/, "");
 }
 
-export type PixData = { gateway_payment_id: string; pix_qr_code: string | null; pix_qr_code_base64: string | null; expires_at: string };
+export type PixData = {
+  gateway_payment_id: string;
+  pix_qr_code: string | null;
+  pix_qr_code_base64: string | null;
+  expires_at: string;
+  /** ✅ 08/10/2026: Stripe (revenda USD/EUR) — cartão na tela */
+  client_secret?: string | null;
+  publishable_key?: string | null;
+};
 
-/** Gateways BRL ativos que geram PIX aqui, por prioridade. */
-export async function usablePixGateways(admin: SupabaseClient, tenantId: string) {
+export type ChargeCurrency = "BRL" | "USD" | "EUR";
+
+/** Gateways ativos que cobram aqui, por prioridade. BRL → PIX (MP/FastFlow/FastPay);
+ * USD/EUR → Stripe (cartão), mesma regra do portal do cliente. */
+export async function usablePixGateways(admin: SupabaseClient, tenantId: string, currency: ChargeCurrency = "BRL") {
   const { data } = await admin
     .from("payment_gateways")
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
     .eq("is_online", true)
-    .contains("currency", ["BRL"])
+    .contains("currency", [currency])
     .order("priority", { ascending: true });
+  if (currency !== "BRL") return (data || []).filter((g: any) => g.type === "stripe");
   return (data || []).filter((g: any) => g.type === "mercadopago" || (isFastDepixGatewayType(g.type) && g.type !== "depix"));
 }
 
@@ -55,9 +68,29 @@ export async function createPix(
     payerName: string;
     payerEmail: string;
     metadata: Record<string, unknown>;
+    currency?: ChargeCurrency;
   },
 ): Promise<PixData | null> {
   const expiresAt = new Date(Date.now() + PIX_TTL_MS).toISOString();
+  if (gateway.type === "stripe") {
+    const secretKey = String(gateway?.config?.secret_key || "").trim();
+    const publishableKey = String(gateway?.config?.publishable_key || "").trim();
+    if (!secretKey || !publishableKey) return null;
+    const params = new URLSearchParams();
+    params.append("amount", String(Math.round(p.amount * 100)));
+    params.append("currency", String(p.currency || "EUR").toLowerCase());
+    params.append("payment_method_types[]", "card");
+    params.append("description", p.description);
+    for (const [k, v] of Object.entries({ ...p.metadata, external_ref: p.externalRef })) params.append(`metadata[${k}]`, String(v ?? ""));
+    const res = await fetch("https://api.stripe.com/v1/payment_intents", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": p.idempotencyKey },
+      body: params,
+    });
+    const d = await res.json().catch(() => ({} as any));
+    if (!res.ok || !d?.id || !d?.client_secret) return null;
+    return { gateway_payment_id: String(d.id), pix_qr_code: null, pix_qr_code_base64: null, expires_at: expiresAt, client_secret: d.client_secret, publishable_key: publishableKey };
+  }
   if (gateway.type === "mercadopago") {
     const token = String(gateway?.config?.access_token || "").trim();
     if (!token) return null;
@@ -110,6 +143,21 @@ export async function createPix(
 
 export async function reopenPix(gateway: any, gatewayType: string, gatewayPaymentId: string, fallbackExpires: string): Promise<PixData | null> {
   try {
+    if (gatewayType === "stripe") {
+      const r = await fetch(`https://api.stripe.com/v1/payment_intents/${gatewayPaymentId}`, {
+        headers: { Authorization: `Bearer ${String(gateway?.config?.secret_key || "")}` },
+      });
+      const d = await r.json().catch(() => ({} as any));
+      if (!r.ok || !["requires_payment_method", "requires_confirmation", "requires_action"].includes(String(d?.status))) return null;
+      return {
+        gateway_payment_id: gatewayPaymentId,
+        pix_qr_code: null,
+        pix_qr_code_base64: null,
+        expires_at: fallbackExpires,
+        client_secret: d.client_secret,
+        publishable_key: String(gateway?.config?.publishable_key || "") || null,
+      };
+    }
     if (gatewayType === "mercadopago") {
       const token = String(gateway?.config?.access_token || "").trim();
       const r = await fetch(`https://api.mercadopago.com/v1/payments/${gatewayPaymentId}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -136,6 +184,16 @@ export async function reopenPix(gateway: any, gatewayType: string, gatewayPaymen
 }
 
 export async function cancelPix(admin: SupabaseClient, tenantId: string, gatewayType: string, gatewayPaymentId: string) {
+  if (gatewayType === "stripe") {
+    try {
+      const cfg = await gatewayConfig(admin, tenantId, "stripe");
+      await fetch(`https://api.stripe.com/v1/payment_intents/${gatewayPaymentId}/cancel`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${String(cfg.secret_key || "")}` },
+      });
+    } catch {}
+    return;
+  }
   if (gatewayType !== "mercadopago") return; // FastDePix expira sozinho
   try {
     const cfg = await gatewayConfig(admin, tenantId, "mercadopago");
@@ -152,6 +210,18 @@ export type PixCheck = { state: "paid"; paidAmount: number } | { state: "pending
 export async function checkPix(admin: SupabaseClient, tenantId: string, gatewayType: string, gatewayPaymentId: string): Promise<PixCheck | null> {
   try {
     const cfg = await gatewayConfig(admin, tenantId, gatewayType);
+    if (gatewayType === "stripe") {
+      const r = await fetch(`https://api.stripe.com/v1/payment_intents/${gatewayPaymentId}`, {
+        headers: { Authorization: `Bearer ${String(cfg.secret_key || "")}` },
+      });
+      const d = await r.json().catch(() => ({} as any));
+      if (!r.ok) return null;
+      const st = String(d?.status || "").toLowerCase();
+      // valor recebido na moeda da cobrança (centavos → unidade)
+      if (st === "succeeded") return { state: "paid", paidAmount: Number(d.amount_received ?? d.amount) / 100 };
+      if (st === "canceled") return { state: "dead", status: "cancelled" };
+      return { state: "pending" };
+    }
     if (gatewayType === "mercadopago") {
       const r = await fetch(`https://api.mercadopago.com/v1/payments/${gatewayPaymentId}`, {
         headers: { Authorization: `Bearer ${String(cfg.access_token || "")}` },

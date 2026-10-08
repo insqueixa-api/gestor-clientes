@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { validateResellerSession, endResellerSession } from "@/lib/reseller-portal/session";
 import { syncResellerPanels } from "@/lib/reseller-portal/sync";
+import { resellerCurrency, toResellerCurrency } from "@/lib/reseller-portal/app-orders";
 
 export const maxDuration = 60;
 
@@ -76,6 +77,17 @@ export async function POST(req: NextRequest) {
           .order("position", { ascending: true })
       : { data: [] as any[] };
 
+    // ✅ 08/10/2026: moeda da revenda — pacotes exibidos já convertidos pelo
+    // câmbio salvo (mesma conta da cobrança: total do pacote arredondado pra cima)
+    const currency = await resellerCurrency(sb, ctx.tenant_id, ctx.reseller_id);
+    const pkgDisplay = new Map<string, number>();
+    await Promise.all(
+      (pkgRes.data || []).map(async (p: any) => {
+        const total = Number(p.credits) * Number(p.price_brl);
+        if (total > 0) pkgDisplay.set(`${p.server_id}:${p.credits}`, await toResellerCurrency(sb, ctx.tenant_id, total, currency));
+      }),
+    );
+
     // Telegram do painel do servidor (@usuario ou link) → link do t.me
     const telegramUrl = (v: unknown) => {
       const s = String(v || "").trim();
@@ -88,6 +100,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         reseller: { name: resRes.data?.display_name || "Revenda", since: resRes.data?.created_at || null },
         support_phone: supportPhone,
+        currency,
         servers: links.map((l) => ({
           id: l.id,
           name: l.servers?.name || "Servidor",
@@ -100,7 +113,11 @@ export async function POST(req: NextRequest) {
           synced_at: l.panel_stats_at || null,
           prices: (pkgRes.data || [])
             .filter((p: any) => p.server_id === l.server_id && p.price_brl != null && Number(p.price_brl) > 0)
-            .map((p: any) => ({ credits: Number(p.credits), price: Number(p.price_brl) })),
+            .map((p: any) => {
+              const total = pkgDisplay.get(`${p.server_id}:${p.credits}`) ?? Number(p.credits) * Number(p.price_brl);
+              // price = por crédito NA MOEDA da revenda; total = valor exato cobrado pelo pacote
+              return { credits: Number(p.credits), price: Number((total / Number(p.credits)).toFixed(2)), total };
+            }),
         })),
       },
       { headers: NO_STORE },

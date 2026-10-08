@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import AppsSection from "./AppsSection";
+import StripeCardForm from "./StripeCardForm";
 import { ConfirmProvider } from "@/hooks/useConfirm";
 import { BRAND_LOGO_MOBILE_URL, BRAND_LOGO_URL } from "@/lib/brand";
 
@@ -33,11 +34,13 @@ type Server = {
     expiring_2d: { username: string; expires_at: string | null }[];
   } | null;
   synced_at: string | null;
-  prices: { credits: number; price: number }[];
+  // ✅ 08/10/2026: já na moeda da revenda (price = por crédito; total = valor do pacote)
+  prices: { credits: number; price: number; total?: number }[];
 };
 type Home = {
   reseller: { name: string; since: string | null };
   support_phone: string | null;
+  currency?: "BRL" | "USD" | "EUR";
   servers: Server[];
 };
 type Section = "menu" | "payment" | "apps";
@@ -50,13 +53,18 @@ type OrderView = {
   amount: number;
   pix_qr_code: string | null;
   pix_qr_code_base64: string | null;
+  // ✅ 08/10/2026: revenda USD/EUR paga no Stripe (cartão)
+  currency?: "BRL" | "USD" | "EUR";
+  payment_method?: "pix" | "stripe";
+  client_secret?: string | null;
+  publishable_key?: string | null;
   expires_at: string;
   state: "waiting" | "sending" | "done" | "failed" | "expired";
   new_balance?: number | null;
 };
 
 const KEY = "rp_session";
-const brl = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+const money = (n: number, currency = "BRL") => new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(n);
 const dateTimeBR = (iso: string | null) =>
   iso
     ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -167,7 +175,9 @@ function RevendaPortal() {
     setQty(firstPackageCredits);
   }, [serverId, firstPackageCredits]);
   const tier = server ? tierPrice(server.prices, qty) : null;
-  const total = tier ? qty * tier.price : 0;
+  const cur = data?.currency || "BRL";
+  const pkgTotal = sortedPrices.find((p) => p.credits === qty)?.total;
+  const total = typeof pkgTotal === "number" ? pkgTotal : tier ? qty * tier.price : 0;
 
   // ✅ compra de créditos por PIX (app/api/reseller-portal/credit-order)
   const [creating, setCreating] = useState(false);
@@ -545,7 +555,7 @@ function RevendaPortal() {
                           >
                             <div className="text-[11px] font-semibold text-emerald-600">{p.credits} Créditos</div>
                             <div className="text-sm sm:text-base font-bold text-foreground">
-                              {brl(p.price)}
+                              {money(p.price, cur)}
                               <span className="text-[10px] text-muted-foreground font-normal">/cr</span>
                             </div>
                           </button>
@@ -564,7 +574,7 @@ function RevendaPortal() {
                 className="w-full bg-[#25D366] hover:bg-[#20BA5A] text-white font-bold py-3 sm:py-4 rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 text-base sm:text-lg disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <CheckCircle2 className="w-5 h-5 shrink-0" />
-                {creating ? "Gerando PIX..." : `Comprar ${qty} créditos • ${brl(total)}`}
+                {creating ? "Gerando pagamento..." : `Comprar ${qty} créditos • ${money(total, cur)}`}
               </button>
             )}
             {buyError && <p className="text-sm text-center text-rose-500 -mt-1">{buyError}</p>}
@@ -575,6 +585,7 @@ function RevendaPortal() {
                 serverName={server.name}
                 onClose={closeOrder}
                 onRetryOther={order.has_alternate_gateway && order.state === "waiting" ? () => void startPurchase(order.gateway_type) : undefined}
+                onStripePaid={() => setOrder((o) => (o ? { ...o, state: "sending" } : o))}
                 supportLink={supportDigits ? waLink(`Olá! Paguei ${order.credits} créditos no Portal da Revenda e preciso de ajuda.`) : null}
               />
             )}
@@ -591,12 +602,14 @@ function PixModal({
   onClose,
   onRetryOther,
   supportLink,
+  onStripePaid,
 }: {
   order: OrderView;
   serverName: string;
   onClose: () => void;
   onRetryOther?: () => void;
   supportLink: string | null;
+  onStripePaid?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -628,7 +641,9 @@ function PixModal({
             <div className="text-sm font-bold text-foreground">
               {order.credits} créditos · {serverName}
             </div>
-            <div className="text-xs text-muted-foreground">{brlFmt(order.amount)} · PIX</div>
+            <div className="text-xs text-muted-foreground">
+              {money(order.amount, order.currency || "BRL")} · {order.payment_method === "stripe" ? "Cartão" : "PIX"}
+            </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted text-muted-foreground text-lg" title="Fechar">
             ×
@@ -636,7 +651,15 @@ function PixModal({
         </div>
 
         <div className="p-4 space-y-3">
-          {order.state === "waiting" && (
+          {order.state === "waiting" && order.payment_method === "stripe" && order.client_secret && order.publishable_key && (
+            <StripeCardForm
+              clientSecret={order.client_secret}
+              publishableKey={order.publishable_key}
+              amountLabel={money(order.amount, order.currency || "BRL")}
+              onPaid={onStripePaid || (() => {})}
+            />
+          )}
+          {order.state === "waiting" && order.payment_method !== "stripe" && (
             <>
               {order.pix_qr_code_base64 && (
                 <img
@@ -721,7 +744,6 @@ function PixModal({
   );
 }
 
-const brlFmt = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
 
 function Field({ label, value, mono, bold, tone }: { label: string; value: string; mono?: boolean; bold?: boolean; tone?: string }) {
   return (

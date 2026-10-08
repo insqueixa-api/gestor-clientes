@@ -253,6 +253,9 @@ export default function ResellerFormModal({
   const [whatsappUsername, setWhatsappUsername] = useState("");
   const [whatsUserTouched, setWhatsUserTouched] = useState(false); // ✅ Trava anti-bumerangue adicionada
   const [whatsappOptIn, setWhatsappOptIn] = useState(true);
+  // ✅ 08/10/2026: moeda da revenda — fora do BRL ela vê os preços convertidos
+  // (câmbio salvo) e paga por cartão no Stripe; o registro continua em BRL
+  const [priceCurrency, setPriceCurrency] = useState<"BRL" | "USD" | "EUR">("BRL");
   const [dontMessageUntil, setDontMessageUntil] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -337,6 +340,20 @@ export default function ResellerFormModal({
 
         // Se undefined, assume true (opt-in padrão)
         setWhatsappOptIn(resellerToEdit.whatsapp_opt_in !== false);
+
+        // moeda: a lista pode não trazer a coluna — lê direto da revenda
+        setPriceCurrency("BRL");
+        if (resellerToEdit.id) {
+          supabaseBrowser
+            .from("resellers")
+            .select("price_currency")
+            .eq("id", resellerToEdit.id)
+            .maybeSingle()
+            .then(({ data }) => {
+              const c = String(data?.price_currency || "BRL").toUpperCase();
+              setPriceCurrency(c === "USD" || c === "EUR" ? c : "BRL");
+            });
+        }
 
         setDontMessageUntil(
           toDatetimeLocalValue(
@@ -597,6 +614,14 @@ export default function ResellerFormModal({
         }
       }
 
+      // moeda da revenda (coluna própria, fora das RPCs)
+      const { error: curErr } = await supabaseBrowser
+        .from("resellers")
+        .update({ price_currency: priceCurrency })
+        .eq("id", resellerId)
+        .eq("tenant_id", tenantId);
+      if (curErr) throw new Error(curErr.message);
+
       // =======================
       // TELEFONES (sempre)
       // =======================
@@ -781,6 +806,29 @@ export default function ResellerFormModal({
                 onChange={(e) => setDontMessageUntil(e.target.value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Moeda da revenda</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["BRL", "USD", "EUR"] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setPriceCurrency(c)}
+                  className={`h-10 rounded-lg border text-sm font-semibold transition ${
+                    priceCurrency === c
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-600"
+                      : "border-border text-foreground/80 hover:bg-muted"
+                  }`}
+                >
+                  {c === "BRL" ? "BRL (R$) · PIX" : c === "USD" ? "USD ($) · Cartão" : "EUR (€) · Cartão"}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Fora do BRL, a revenda vê todos os preços convertidos pelo câmbio salvo e paga por cartão (Stripe). O registro continua em BRL.
+            </p>
           </div>
 
           <div>

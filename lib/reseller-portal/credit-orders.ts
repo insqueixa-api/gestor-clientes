@@ -17,7 +17,8 @@ import { createFastDepixTransaction, fetchQrCodeAsBase64, getFastDepixTransactio
 import { executeNatvCreditTransfer } from "@/lib/integrations/natv-transfer";
 import { notify } from "@/lib/notifications/notify";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
-import { handleResellerAppOrderWebhook } from "@/lib/reseller-portal/app-orders";
+import { handleResellerAppOrderWebhook, resellerCurrency, toResellerCurrency } from "@/lib/reseller-portal/app-orders";
+import { cancelPix, checkPix, createPix, reopenPix as reopenGenericPix, usablePixGateways, type ChargeCurrency } from "@/lib/reseller-portal/pix";
 
 const ORDER_TTL_MS = 30 * 60 * 1000;
 
@@ -36,9 +37,14 @@ export type CreditOrderPix = {
   gateway_name: string;
   has_alternate_gateway: boolean;
   credits: number;
+  /** valor COBRADO, na moeda da revenda */
   amount: number;
+  currency?: ChargeCurrency;
+  payment_method?: "pix" | "stripe";
   pix_qr_code: string | null;
   pix_qr_code_base64: string | null;
+  client_secret?: string | null;
+  publishable_key?: string | null;
   expires_at: string;
 };
 
@@ -76,6 +82,11 @@ export async function createCreditOrder(
   const unitPrice = Number(pkg?.price_brl);
   if (!pkg || !(unitPrice > 0)) return { ok: false, status: 400, error: "Esse pacote não está disponível." };
   const amount = Number((credits * unitPrice).toFixed(2));
+  // ✅ 08/10/2026: moeda da revenda — registro em BRL (amount_brl), cobrança convertida
+  // pelo câmbio salvo; fora do BRL o pagamento é no Stripe (cartão)
+  const currency = await resellerCurrency(admin, tenantId, resellerId);
+  const charge = await toResellerCurrency(admin, tenantId, amount, currency);
+  if (!(charge > 0)) return { ok: false, status: 500, error: "Câmbio não configurado — fale com o suporte." };
 
   // envio anterior sem confirmação trava novas compras (mesma trava do admin)
   const { data: openTransfer } = await admin
@@ -102,16 +113,8 @@ export async function createCreditOrder(
     return { ok: false, status: 409, error: "Você tem uma compra paga aguardando o envio dos créditos. O suporte já foi avisado." };
   }
 
-  const { data: gateways } = await admin
-    .from("payment_gateways")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .eq("is_active", true)
-    .eq("is_online", true)
-    .contains("currency", ["BRL"])
-    .order("priority", { ascending: true });
-  // só gateways que geram PIX aqui (DePix exige CPF do pagador — fora)
-  const usable = (gateways || []).filter((g: any) => g.type === "mercadopago" || (isFastDepixGatewayType(g.type) && g.type !== "depix"));
+  // BRL: PIX (MP/FastFlow/FastPay — DePix exige CPF, fora); USD/EUR: Stripe
+  const usable = await usablePixGateways(admin, tenantId, currency);
   if (!usable.length) return { ok: false, status: 503, error: "Pagamento indisponível no momento — fale com o suporte." };
   const gateway = params.excludeGatewayType ? usable.find((g: any) => g.type !== params.excludeGatewayType) : usable[0];
   if (!gateway) return { ok: false, status: 503, error: "Não há outra forma de pagamento disponível." };
@@ -125,11 +128,15 @@ export async function createCreditOrder(
     .order("created_at", { ascending: false })
     .limit(5);
   for (const old of pending || []) {
-    const sameOrder = old.credits === credits && Math.abs(Number(old.amount_brl) - amount) < 0.01 && old.gateway_type === gateway.type;
+    const sameOrder =
+      old.credits === credits &&
+      Math.abs(Number(old.charge_amount ?? old.amount_brl) - charge) < 0.01 &&
+      (old.charge_currency || "BRL") === currency &&
+      old.gateway_type === gateway.type;
     const alive = old.expires_at && new Date(old.expires_at).getTime() > Date.now() + 60 * 1000;
     if (sameOrder && alive && old.gateway_payment_id) {
       const re = await reopenPix(gateway, old);
-      if (re) return { ok: true, pix: { ...re, has_alternate_gateway: usable.length > 1, gateway_name: gateway.name } };
+      if (re) return { ok: true, pix: { ...re, has_alternate_gateway: usable.length > 1, gateway_name: gateway.name, currency, payment_method: gateway.type === "stripe" ? "stripe" : "pix" } };
     }
     // outro pacote/gateway ainda pagável: cancela antes de gerar o novo (nunca 2 PIX pagáveis)
     if (old.gateway_payment_id) await cancelAtGateway(admin, tenantId, old);
@@ -143,8 +150,28 @@ export async function createCreditOrder(
   let qrText: string | null = null;
   let qrBase64: string | null = null;
   let expires = expiresAt;
+  let clientSecret: string | null = null;
+  let publishableKey: string | null = null;
 
-  if (gateway.type === "mercadopago") {
+  if (gateway.type === "stripe") {
+    const st = await createPix(gateway, {
+      externalRef: orderId,
+      amount: charge,
+      currency,
+      description,
+      idempotencyKey: `rescredit-${link.id}-${credits}-${currency}${charge.toFixed(2)}-${Math.floor(Date.now() / (10 * 60 * 1000))}`,
+      payerName: username,
+      payerEmail: `revenda-${link.id.slice(0, 8)}@unigestor.net.br`,
+      metadata: { payment_type: "reseller_credits", tenant_id: tenantId, reseller_server_id: link.id, credits },
+    });
+    if (!st) {
+      log("stripe_create_failed", {});
+      return { ok: false, status: 502, error: "Falha ao gerar o pagamento. Tente de novo." };
+    }
+    gatewayPaymentId = st.gateway_payment_id;
+    clientSecret = st.client_secret || null;
+    publishableKey = st.publishable_key || null;
+  } else if (gateway.type === "mercadopago") {
     const token = String(gateway?.config?.access_token || "").trim();
     if (!token) return { ok: false, status: 500, error: "Pagamento indisponível no momento." };
     const bucket10m = Math.floor(Date.now() / (10 * 60 * 1000));
@@ -209,6 +236,8 @@ export async function createCreditOrder(
     credits,
     unit_price: unitPrice,
     amount_brl: amount,
+    charge_currency: currency,
+    charge_amount: charge,
     gateway_id: gateway.id,
     gateway_type: gateway.type,
     gateway_payment_id: gatewayPaymentId,
@@ -228,9 +257,13 @@ export async function createCreditOrder(
       gateway_name: gateway.name,
       has_alternate_gateway: usable.length > 1,
       credits,
-      amount,
+      amount: charge,
+      currency,
+      payment_method: gateway.type === "stripe" ? "stripe" : "pix",
       pix_qr_code: qrText,
       pix_qr_code_base64: qrBase64,
+      client_secret: clientSecret,
+      publishable_key: publishableKey,
       expires_at: expires,
     },
   };
@@ -238,6 +271,21 @@ export async function createCreditOrder(
 
 async function reopenPix(gateway: any, order: any): Promise<Omit<CreditOrderPix, "has_alternate_gateway" | "gateway_name"> | null> {
   try {
+    if (order.gateway_type === "stripe") {
+      const re = await reopenGenericPix(gateway, "stripe", order.gateway_payment_id, order.expires_at);
+      if (!re) return null;
+      return {
+        order_id: order.id,
+        gateway_type: "stripe",
+        credits: order.credits,
+        amount: Number(order.charge_amount ?? order.amount_brl),
+        pix_qr_code: null,
+        pix_qr_code_base64: null,
+        client_secret: re.client_secret || null,
+        publishable_key: re.publishable_key || null,
+        expires_at: re.expires_at,
+      };
+    }
     if (order.gateway_type === "mercadopago") {
       const token = String(gateway?.config?.access_token || "").trim();
       const r = await fetch(`https://api.mercadopago.com/v1/payments/${order.gateway_payment_id}`, { headers: { Authorization: `Bearer ${token}` } });
@@ -282,6 +330,7 @@ async function gatewayConfig(admin: SupabaseClient, tenantId: string, type: stri
 }
 
 async function cancelAtGateway(admin: SupabaseClient, tenantId: string, order: any) {
+  if (order.gateway_type === "stripe") return cancelPix(admin, tenantId, "stripe", order.gateway_payment_id);
   if (order.gateway_type !== "mercadopago") return; // FastDePix expira sozinho
   try {
     const cfg = await gatewayConfig(admin, tenantId, "mercadopago");
@@ -299,6 +348,7 @@ async function cancelAtGateway(admin: SupabaseClient, tenantId: string, order: a
 type GatewayCheck = { state: "paid"; paidAmount: number } | { state: "pending" } | { state: "dead"; status: "cancelled" | "rejected" };
 
 async function checkAtGateway(admin: SupabaseClient, order: any): Promise<GatewayCheck | null> {
+  if (order.gateway_type === "stripe") return checkPix(admin, order.tenant_id, "stripe", order.gateway_payment_id);
   try {
     const cfg = await gatewayConfig(admin, order.tenant_id, order.gateway_type);
     if (order.gateway_type === "mercadopago") {
@@ -361,15 +411,17 @@ export async function confirmPaidAndFulfill(admin: SupabaseClient, orderId: stri
       await admin.from("reseller_credit_orders").update({ status: chk.status }).eq("id", order.id).eq("status", "pending");
       return;
     }
-    // ✅ confere o VALOR pago (nunca envia crédito por um PIX de valor menor)
-    if (!(chk.paidAmount >= Number(order.amount_brl) - 0.01)) {
+    // ✅ confere o VALOR pago na moeda cobrada (nunca envia crédito por um pagamento menor)
+    const expected = Number(order.charge_amount ?? order.amount_brl);
+    const fmt = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: order.charge_currency || "BRL" }).format(n);
+    if (!(chk.paidAmount >= expected - 0.01)) {
       await admin
         .from("reseller_credit_orders")
         .update({
           status: "approved",
           paid_at: new Date().toISOString(),
           fulfillment_status: "error",
-          fulfillment_error: `Valor pago (${brl(chk.paidAmount)}) diferente do pedido (${brl(Number(order.amount_brl))}) — créditos NÃO enviados.`,
+          fulfillment_error: `Valor pago (${fmt(chk.paidAmount)}) diferente do pedido (${fmt(expected)}) — créditos NÃO enviados.`,
         })
         .eq("id", order.id)
         .eq("status", "pending");
@@ -549,10 +601,10 @@ async function sendReceiptWhatsApp(admin: SupabaseClient, order: any) {
 // ---------------------------------------------------------------------------
 export async function handleResellerOrderWebhook(
   admin: SupabaseClient,
-  params: { gatewayFamily: "mercadopago" | "fastdepix"; gatewayPaymentId: string; verify: (secret: string) => boolean },
+  params: { gatewayFamily: "mercadopago" | "fastdepix" | "stripe"; gatewayPaymentId: string; verify: (secret: string) => boolean },
 ): Promise<"not_found" | "bad_signature" | "ok"> {
   let q = admin.from("reseller_credit_orders").select("id, tenant_id, gateway_type").eq("gateway_payment_id", params.gatewayPaymentId);
-  q = params.gatewayFamily === "mercadopago" ? q.eq("gateway_type", "mercadopago") : q.in("gateway_type", ["fastpay", "fastflow"]);
+  q = params.gatewayFamily === "fastdepix" ? q.in("gateway_type", ["fastpay", "fastflow"]) : q.eq("gateway_type", params.gatewayFamily);
   const { data: order } = await q.maybeSingle();
   // ✅ 07/10/2026: não é compra de créditos → pode ser ativação de app da revenda
   if (!order) return handleResellerAppOrderWebhook(admin, params, (t, type) => gatewayConfig(admin, t, type));

@@ -19,6 +19,7 @@ import { ChevronDown, Loader2, Plus, Search, Settings, Star, Zap } from "lucide-
 import AppPickerModal, { type AppPickerCatalogItem } from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
+import StripeCardForm from "./StripeCardForm";
 import ToastNotifications, { type ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import { normalizeMacInput } from "@/lib/apps/field-types";
@@ -57,10 +58,11 @@ type Stats = {
   gerenciaapp_limit: number;
   synced_at: string | null;
 };
-type Dashboard = { stats: Stats; clients: EndClient[]; configured: ConfiguredClient[]; can_add: boolean };
+type Dashboard = { stats: Stats; clients: EndClient[]; configured: ConfiguredClient[]; can_add: boolean; currency: string };
 type Call = (p: Record<string, unknown>) => Promise<any>;
 
-const brl = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
+// ✅ 08/10/2026: valores na moeda da revenda (BRL/USD/EUR, câmbio salvo)
+const money = (n: number, currency = "BRL") => new Intl.NumberFormat("pt-BR", { style: "currency", currency }).format(n);
 const dateBR = (d: string | null | undefined) => {
   const m = d ? /^(\d{4})-(\d{2})-(\d{2})/.exec(d) : null;
   if (!m) return "—";
@@ -139,7 +141,7 @@ export default function AppsSection({
     if (sync) setSyncing(true);
     try {
       const j = await call({ action: "dashboard", sync });
-      setDash({ stats: j.stats, clients: j.clients, configured: j.configured, can_add: j.can_add !== false });
+      setDash({ stats: j.stats, clients: j.clients, configured: j.configured, can_add: j.can_add !== false, currency: j.currency || "BRL" });
       setDashErr(null);
     } catch (e: any) {
       setDashErr(e?.message || "Não foi possível carregar.");
@@ -349,7 +351,7 @@ export default function AppsSection({
                                   onClick={() => setRenewing({ row: a, client: c })}
                                   className="inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold whitespace-nowrap transition-colors disabled:opacity-50"
                                 >
-                                  Renovar{a.license_price ? ` · ${brl(a.license_price)}/ano` : ""}
+                                  Renovar{a.license_price ? ` · ${money(a.license_price, dash.currency)}/ano` : ""}
                                 </button>
                               )}
                               {renewOpen && a.renew.kind === "free" && (
@@ -524,7 +526,8 @@ export default function AppsSection({
       )}
       {activating && (
         <ActivateModal
-          app={activating}
+          app={{ ...activating, license_price: activating.license_price_display ?? activating.license_price }}
+          currency={(activating.license_price_display_currency as string) || dash?.currency || "BRL"}
           call={call}
           callOrder={callOrder}
           supportPhone={supportPhone}
@@ -538,6 +541,7 @@ export default function AppsSection({
       {renewing && (
         <ActivateModal
           app={{ ...renewing.row.app, license_price: renewing.row.license_price }}
+          currency={dash?.currency || "BRL"}
           row={renewing.row}
           clientUsername={renewing.client.username}
           call={call}
@@ -895,6 +899,7 @@ function AddModal({
  * servidor reconfere a disponibilidade antes de gerar o PIX. */
 function ActivateModal({
   app,
+  currency,
   row,
   clientUsername,
   call,
@@ -905,6 +910,7 @@ function ActivateModal({
   onPaidDone,
 }: {
   app: { id: string; name: string; icon_url?: string | null; license_price?: number | null; fields?: Field[] };
+  currency: string;
   row?: AppRow;
   clientUsername?: string;
   call: Call;
@@ -969,7 +975,7 @@ function ActivateModal({
 
   const lifetime = res?.available_from === "9999-12-31" || /^9999/.test(String(res?.expire_date || ""));
   const price = res?.price ?? app.license_price ?? null;
-  const subtitle = row ? `Renovar · cliente ${clientUsername || ""}` : `Ativação${app.license_price ? ` · ${brl(Number(app.license_price))}/ano` : ""}`;
+  const subtitle = row ? `Renovar · cliente ${clientUsername || ""}` : `Ativação${app.license_price ? ` · ${money(Number(app.license_price), currency)}/ano` : ""}`;
 
   if (order) {
     return (
@@ -978,6 +984,7 @@ function ActivateModal({
           order={order}
           supportPhone={supportPhone}
           onClose={onClose}
+          onStripePaid={() => setOrder((o: any) => (o ? { ...o, state: "activating" } : o))}
           onRetryOther={order.has_alternate_gateway && order.state === "waiting" ? () => void pay(order.gateway_type) : undefined}
         />
       </ModalShell>
@@ -1028,7 +1035,7 @@ function ActivateModal({
         </div>
       )}
 
-      {row && payButton(`Pagar ${price ? brl(Number(price)) : ""} e renovar`)}
+      {row && payButton(`Pagar ${price ? money(Number(price), currency) : ""} e renovar`)}
 
       {!row &&
         res &&
@@ -1044,7 +1051,7 @@ function ActivateModal({
                     : "O aparelho está sem licença ativa."
                 : "Não conseguimos consultar o vencimento desse aplicativo antes. Confira no app do cliente: se o aparelho já tiver licença ativa, a ativação é feita do mesmo jeito e o valor não é devolvido."}
             </p>
-            {payButton(`Pagar ${price ? brl(Number(price)) : ""} e ativar`)}
+            {payButton(`Pagar ${price ? money(Number(price), res?.currency || currency) : ""} e ativar`)}
           </div>
         ) : (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
@@ -1077,7 +1084,19 @@ function ActivateModal({
 }
 
 /** PIX da ativação + acompanhamento (mesmo visual da compra de créditos). */
-function PixPanel({ order, supportPhone, onClose, onRetryOther }: { order: any; supportPhone: string | null; onClose: () => void; onRetryOther?: () => void }) {
+function PixPanel({
+  order,
+  supportPhone,
+  onClose,
+  onRetryOther,
+  onStripePaid,
+}: {
+  order: any;
+  supportPhone: string | null;
+  onClose: () => void;
+  onRetryOther?: () => void;
+  onStripePaid?: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -1101,9 +1120,18 @@ function PixPanel({ order, supportPhone, onClose, onRetryOther }: { order: any; 
   return (
     <div className="space-y-3">
       <div className="text-center text-sm text-muted-foreground">
-        {order.app_name} · <b className="text-foreground">{brl(Number(order.amount))}</b> · PIX
+        {order.app_name} · <b className="text-foreground">{money(Number(order.amount), order.currency || "BRL")}</b> ·{" "}
+        {order.payment_method === "stripe" ? "Cartão" : "PIX"}
       </div>
-      {order.state === "waiting" && (
+      {order.state === "waiting" && order.payment_method === "stripe" && order.client_secret && order.publishable_key && (
+        <StripeCardForm
+          clientSecret={order.client_secret}
+          publishableKey={order.publishable_key}
+          amountLabel={money(Number(order.amount), order.currency || "BRL")}
+          onPaid={onStripePaid || (() => {})}
+        />
+      )}
+      {order.state === "waiting" && order.payment_method !== "stripe" && (
         <>
           {order.pix_qr_code_base64 && (
             <img

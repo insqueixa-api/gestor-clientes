@@ -878,7 +878,7 @@ function AuditoriaPageContent() {
           const { data: orders } = await supabaseBrowser
             .from("reseller_credit_orders")
             .select(
-              "id, created_at, reseller_id, server_id, credits, amount_brl, gateway_type, gateway_payment_id, status, expires_at, fulfillment_status, fulfillment_error, whatsapp_status, resellers(display_name), reseller_servers(server_username)",
+              "id, created_at, reseller_id, server_id, credits, amount_brl, gateway_type, gateway_payment_id, status, expires_at, fulfillment_status, fulfillment_error, whatsapp_status, charge_amount, charge_currency, resellers(display_name), reseller_servers(server_username)",
             )
             .eq("tenant_id", tid)
             .order("created_at", { ascending: false })
@@ -886,7 +886,7 @@ function AuditoriaPageContent() {
           const { data: appOrders } = await supabaseBrowser
             .from("reseller_app_orders")
             .select(
-              "id, created_at, reseller_id, app_name, end_client_username, amount_brl, gateway_type, gateway_payment_id, status, expires_at, fulfillment_status, fulfillment_error, whatsapp_status, new_expire_date, resellers(display_name)",
+              "id, created_at, reseller_id, app_name, end_client_username, amount_brl, gateway_type, gateway_payment_id, status, expires_at, fulfillment_status, fulfillment_error, whatsapp_status, new_expire_date, charge_amount, charge_currency, resellers(display_name)",
             )
             .eq("tenant_id", tid)
             .order("created_at", { ascending: false })
@@ -913,8 +913,9 @@ function AuditoriaPageContent() {
               fulfillment_error: o.fulfillment_error || null,
               fulfilled_automatically: o.fulfillment_status === "done",
               whatsapp_status: o.whatsapp_status || null,
-              price_amount: Number(o.amount_brl),
-              price_currency: "BRL",
+              // ✅ 08/10/2026: valor COBRADO na moeda da revenda (registro interno segue em BRL)
+              price_amount: Number(o.charge_amount ?? o.amount_brl),
+              price_currency: o.charge_currency || "BRL",
               period: "",
               plan_label: null,
               gateway_name: o.gateway_type,
@@ -953,8 +954,9 @@ function AuditoriaPageContent() {
               fulfillment_error: o.fulfillment_error || null,
               fulfilled_automatically: o.fulfillment_status === "done",
               whatsapp_status: o.whatsapp_status || null,
-              price_amount: Number(o.amount_brl),
-              price_currency: "BRL",
+              // ✅ 08/10/2026: valor COBRADO na moeda da revenda (registro interno segue em BRL)
+              price_amount: Number(o.charge_amount ?? o.amount_brl),
+              price_currency: o.charge_currency || "BRL",
               period: "",
               plan_label: null,
               gateway_name: o.gateway_type,
