@@ -158,3 +158,9 @@ Substitui o fluxo solto (revenda informava qualquer M3U). Decisões do Márcio:
 - Webhooks MP/FastDePix: pedido não achado em créditos → procura em ativação. Webhook AtivaApp: id que não é de cliente → procura em revenda.
 - Concluído: vencimento no card do cliente (se veio do Renovar), receita em "IPTV - Rendimentos", WhatsApp pra revenda (template com "ativa…revenda" no nome, senão texto padrão com {app_nome}/{cliente}/{app_vencimento}), Log do Portal ("Ativação (revenda)") e histórico na página do revendedor (⚡ Ativação de aplicativo).
 - Falta: teste com pagamento real (Márcio). O card do dashboard financeiro (view vw_dashboard_finance_cards) ainda não soma as ativações da revenda — só o lançamento "IPTV - Rendimentos".
+
+### 08/10/2026 — moeda da revenda + validação ponta a ponta
+- `resellers.price_currency` (BRL/USD/EUR, no "Editar Revenda"). Fora do BRL: preços convertidos pelo câmbio salvo — **crédito** sobe de 0,50 em 0,50 (total = preço × quantidade), **apps** sobem pro inteiro (igual ao portal do cliente); pagamento por cartão no Stripe (PaymentIntent + `app/revenda/StripeCardForm.tsx`). Registro em BRL (`amount_brl`) + `charge_amount`/`charge_currency`; Log do Portal mostra o valor cobrado na moeda.
+- Webhook do Stripe reconhece pedidos da revenda (créditos e ativação) só quando não é de cliente; assinatura e valor conferidos.
+- Validação (simulação com chamadas externas interceptadas, código real): créditos BRL e EUR, 3 webhooks simultâneos = 1 envio, valor menor, assinatura inválida (inclusive nas rotas HTTP reais de MP e Stripe), PIX substituído pago, AtivaApp ok/recusa/webhook, DupleCast ok/fallback, pagamento em dobro do mesmo aparelho, Stripe na ativação, Log do Portal, sino, receita e WhatsApp — tudo ok.
+- Falta: pagamento real (PIX e cartão) feito pelo Márcio.
