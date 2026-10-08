@@ -20,6 +20,7 @@ import {
 } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 const AppRequestModal = dynamic(() => import("@/components/apps/AppRequestModal"), { ssr: false });
 import type { ConfirmDialogProps } from "@/components/ui/ConfirmDialog";
 import Pagination from "@/components/ui/Pagination";
@@ -57,6 +58,7 @@ type ActivityEvent =
 
 type ActivityRow = {
   id: string;
+  client_id: string;
   client_name: string;
   client_whatsapp: string;
   server_username: string;
@@ -172,7 +174,7 @@ function AplicativosLog(
     setActivityLoading(true);
     const { data, error } = await supabaseBrowser
       .from("client_app_activity_log")
-      .select("id, app_name, event, detail, created_at, clients(display_name, whatsapp_username, server_username, servers(name))")
+      .select("id, client_id, app_name, event, detail, created_at, clients(display_name, whatsapp_username, server_username, servers(name))")
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -181,6 +183,7 @@ function AplicativosLog(
       setActivityRows(
         data.map((r: any) => ({
           id: r.id,
+          client_id: r.clients ? r.client_id || "" : "", // sem cliente (excluído) = sem link
           client_name: r.clients?.display_name || "Cliente",
           client_whatsapp: r.clients?.whatsapp_username || "",
           server_username: r.clients?.server_username || "",
@@ -428,7 +431,17 @@ function AplicativosLog(
                         <tr key={r.id} className="hover:bg-muted/50 transition-colors">
                           <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">há {timeAgo(r.created_at)}</td>
                           <td className="px-4 py-3">
-                            <div className="font-medium text-foreground">{r.client_name}</div>
+                            {r.client_id ? (
+                              <Link
+                                href={`/admin/cliente/${r.client_id}`}
+                                prefetch={false}
+                                className="font-medium text-foreground hover:text-emerald-500 hover:underline decoration-emerald-500/30 underline-offset-2 transition-colors"
+                              >
+                                {r.client_name}
+                              </Link>
+                            ) : (
+                              <div className="font-medium text-foreground">{r.client_name}</div>
+                            )}
                             {r.client_whatsapp && <div className="text-[11px] text-muted-foreground">{r.client_whatsapp}</div>}
                           </td>
                           <td className="px-4 py-3 text-xs text-foreground/80 whitespace-nowrap">

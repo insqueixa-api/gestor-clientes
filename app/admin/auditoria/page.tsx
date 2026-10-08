@@ -4,6 +4,7 @@ import { X, Download, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import type { AplicativosLogHandle } from "./AplicativosLog";
 import { useTenantId } from "@/lib/tenant-context";
@@ -2342,9 +2343,22 @@ function AuditoriaPageContent() {
                             {/* Cliente / Login / Servidor */}
                             <td className="px-4 py-3">
                               <div className="flex flex-col min-w-0">
-                                <span className="font-medium text-foreground truncate max-w-[200px]">
-                                  {r.client_name}
-                                </span>
+                                {/* ✅ 08/10/2026, pedido do Márcio: nome abre a página
+                                    do cliente, igual à Lista de Clientes. Revenda
+                                    (client_id vazio) e cliente excluído ficam sem link. */}
+                                {r.client_id && r.client_name !== "Cliente Excluído" ? (
+                                  <Link
+                                    href={`/admin/cliente/${r.client_id}`}
+                                    prefetch={false}
+                                    className="font-medium text-foreground truncate max-w-[200px] hover:text-emerald-500 hover:underline decoration-emerald-500/30 underline-offset-2 transition-colors"
+                                  >
+                                    {r.client_name}
+                                  </Link>
+                                ) : (
+                                  <span className="font-medium text-foreground truncate max-w-[200px]">
+                                    {r.client_name}
+                                  </span>
+                                )}
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                   <span className="text-xs text-muted-foreground">
                                     {r.server_username}
