@@ -1145,6 +1145,14 @@ export default function ClientDetailsPage() {
     CLIENT_RESTORED: "♻️ Restaurado",
     TRIAL_CONVERTED: "✨ Convertido",
     RENEWAL_DEBIT: "🔄 Débito de renovação",
+    RENEWAL_MANUAL: "💰 Renovação manual",
+    // ✅ 08/10/2026: gravados pelo gatilho de client_alerts
+    // (docs/sql/client_alerts_timeline_events.sql)
+    TRUST_RENEWAL: "🤝 Renovação em confiança",
+    APP_ACTIVATION: "📱 Ativação de aplicativo",
+    PENDING_SETTLED: "✅ Pendência quitada",
+    PENDING_DISMISSED: "🗑️ Pendência encerrada",
+    renewal_trust_adjusted: "🤝 Virou renovação em confiança",
   };
 
   if (loading)
