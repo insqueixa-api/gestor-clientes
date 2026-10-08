@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
+import { BRAND_LOGO_FULL_LIGHT_URL } from "@/lib/brand";
 
 // ✅ Code-split o widget do Cloudflare pra fora do bundle principal — ele só
 // é montado depois que o link mágico é confirmado válido (ver `whatsapp` mais
@@ -328,7 +329,7 @@ export default function LoginClient() {
           <div className="px-5 sm:px-6 pt-5 sm:pt-6 pb-3 sm:pb-4 text-center">
             <div className="flex items-center justify-center">
               <img
-                src="/brand/logo-full-light.png"
+                src={BRAND_LOGO_FULL_LIGHT_URL}
                 alt="UniGestor"
                 className="h-9 sm:h-10 w-auto select-none"
                 draggable={false}

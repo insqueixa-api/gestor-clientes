@@ -5,6 +5,7 @@ import { useMemo, useState, useActionState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { loginAction, requestPasswordResetAction, type LoginState } from "./actions";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import { BRAND_LOGO_FULL_LIGHT_URL } from "@/lib/brand";
 
 function isLikelyEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
@@ -123,7 +124,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-center">
               {/* ✅ Logo levemente menor no mobile (h-9) */}
               <img
-                src="/brand/logo-full-light.png"
+                src={BRAND_LOGO_FULL_LIGHT_URL}
                 alt="UniGestor"
                 className="h-9 sm:h-10 w-auto select-none"
                 draggable={false}

@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { supabaseBrowser as supabase } from "@/lib/supabase/browser";
+import { BRAND_LOGO_FULL_LIGHT_URL } from "@/lib/brand";
 
 // ✅ Usa o MESMO client (supabaseBrowser, @supabase/ssr) que a tela de login
 // usa pra pedir o reset (resetPasswordForEmail). Antes esta página criava um
@@ -266,7 +267,7 @@ export default function ResetPasswordPage() {
           <div className="px-5 sm:px-8 pt-5 sm:pt-8 pb-3 sm:pb-6 text-center">
             <div className="flex items-center justify-center">
               <img
-                src="/brand/logo-full-light.png"
+                src={BRAND_LOGO_FULL_LIGHT_URL}
                 alt="UniGestor"
                 className="h-9 sm:h-10 w-auto select-none"
                 draggable={false}

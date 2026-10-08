@@ -12,10 +12,10 @@
 // o pedido pronto (PIX automático é a próxima etapa do plano).
 // Aplicativos dos clientes da revenda: próxima fase (docs/revenda-portal/PLANO.md).
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import AppsSection from "./AppsSection";
 import { ConfirmProvider } from "@/hooks/useConfirm";
+import { BRAND_LOGO_MOBILE_URL, BRAND_LOGO_URL } from "@/lib/brand";
 
 type Server = {
   id: string;
@@ -304,8 +304,8 @@ function RevendaPortal() {
               <span className="text-lg leading-none mt-[-2px]">←</span>
             </button>
           )}
-          <Image src="/brand/logo-gestor-celular.png" alt="Gestor" width={44} height={44} className="h-10 w-10 select-none object-contain sm:hidden" draggable={false} priority />
-          <Image src="/brand/logo-gestor.png" alt="Gestor" width={160} height={40} className="hidden sm:block h-10 w-auto select-none object-contain" draggable={false} priority />
+          <img src={BRAND_LOGO_MOBILE_URL} alt="Gestor" width={44} height={44} className="h-10 w-10 select-none object-contain sm:hidden" draggable={false} />
+          <img src={BRAND_LOGO_URL} alt="Gestor" width={160} height={40} className="hidden sm:block h-10 w-auto select-none object-contain" draggable={false} />
           <div className="min-w-0 flex flex-col justify-center">
             <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">Revenda</div>
             <div className="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-66 tracking-tight uppercase">{data.reseller.name}</div>

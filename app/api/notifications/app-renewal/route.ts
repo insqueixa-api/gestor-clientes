@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { isInternalRequest } from "@/lib/internal-auth";
+import { BRAND_ICON_CHROME_URL, BRAND_ICON_KIWI_URL, BRAND_LOGO_URL } from "@/lib/brand";
 
 export async function POST(req: Request) {
   try {
@@ -93,13 +94,13 @@ export async function POST(req: Request) {
             <tr>
               <td align="center" width="50%" style="padding: 0 5px;">
                 <a href="${auditUrl}" style="background-color: #a855f7; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(168, 85, 247, 0.2);">
-                  <img src="${baseUrl}/brand/icon-chrome.png" alt="Chrome" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 7px; border: 0;">
+                  <img src="${BRAND_ICON_CHROME_URL}" alt="Chrome" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 7px; border: 0;">
                   <span style="vertical-align: middle;">Abrir Chrome</span>
                 </a>
               </td>
               <td align="center" width="50%" style="padding: 0 5px;">
                 <a href="${kiwiRedirectUrl}" style="background-color: #1c457d; color: white; text-decoration: none; padding: 12px 10px; border-radius: 6px; font-weight: bold; display: block; font-size: 13px; text-align: center; box-shadow: 0 4px 6px -1px rgba(30, 41, 59, 0.2);">
-                  <img src="${baseUrl}/brand/icon-kiwi.png" alt="Kiwi" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 7px; border: 0; border-radius: 4px;">
+                  <img src="${BRAND_ICON_KIWI_URL}" alt="Kiwi" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 7px; border: 0; border-radius: 4px;">
                   <span style="vertical-align: middle;">Abrir Kiwi</span>
                 </a>
               </td>
@@ -109,7 +110,7 @@ export async function POST(req: Request) {
         </div>
 
         <div style="background-color: #0f141a; text-align: center; padding: 25px 15px; font-size: 11px; color: #eaeaea; border-top: 1px solid #1e293b;">
-          <img src="${baseUrl}/brand/logo-gestor.png" alt="UniGestor" style="max-height: 42px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; border: none; outline: none;" />
+          <img src="${BRAND_LOGO_URL}" alt="UniGestor" style="max-height: 42px; margin-bottom: 12px; display: block; margin-left: auto; margin-right: auto; border: none; outline: none;" />
           Este é um e-mail automático emitido pelo core do sistema UniGestor.<br/>
           Por favor, não responda diretamente a esta mensagem.
         </div>

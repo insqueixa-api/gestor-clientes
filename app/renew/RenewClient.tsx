@@ -3,7 +3,6 @@
 
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
 import { Fragment, useState, useEffect, useMemo, useRef, type ReactNode } from "react";
-import Image from "next/image";
 import { useConfirm } from "@/hooks/useConfirm";
 import {
   CheckCircle2,
@@ -32,6 +31,7 @@ import { formatDateBR } from "@/lib/date-br";
 import DownloadHintCard from "@/components/apps/DownloadHintCard";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
 import { adaptSetupText, type DownloadHint } from "@/lib/apps/download-info";
+import { BRAND_LOGO_MOBILE_URL, BRAND_LOGO_URL } from "@/lib/brand";
 
 // ✅ Polling progressivo do status de pagamento (payment-status): a primeira
 // consulta espera mais (a pessoa ainda precisa abrir o banco e pagar),
@@ -4352,23 +4352,21 @@ export default function RenewClient() {
           <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-2">
             {/* Logo Responsiva */}
             <div className="flex items-center gap-3 min-w-0 cursor-pointer group">
-              <Image
-                src="/brand/logo-gestor-celular.png"
+              <img
+                src={BRAND_LOGO_MOBILE_URL}
                 alt="Gestor"
                 width={44}
                 height={44}
                 className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
                 draggable={false}
-                priority
               />
-              <Image
-                src="/brand/logo-gestor.png"
+              <img
+                src={BRAND_LOGO_URL}
                 alt="Gestor"
                 width={160}
                 height={40}
                 className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
                 draggable={false}
-                priority
               />
               {/* Usuário Logado */}
               <div className="min-w-0 flex flex-col justify-center">
@@ -4557,23 +4555,21 @@ export default function RenewClient() {
               </button>
             )}
 
-            <Image
-              src="/brand/logo-gestor-celular.png"
+            <img
+              src={BRAND_LOGO_MOBILE_URL}
               alt="Gestor"
               width={44}
               height={44}
               className="h-10 w-10 select-none object-contain sm:hidden"
               draggable={false}
-              priority
             />
-            <Image
-              src="/brand/logo-gestor.png"
+            <img
+              src={BRAND_LOGO_URL}
               alt="Gestor"
               width={160}
               height={40}
               className="hidden sm:block h-10 w-auto select-none object-contain"
               draggable={false}
-              priority
             />
 
             <div className="min-w-0 flex flex-col justify-center">
@@ -6236,23 +6232,21 @@ export default function RenewClient() {
               <span className="text-lg leading-none mt-[-2px]">←</span>
             </button>
 
-            <Image
-              src="/brand/logo-gestor-celular.png"
+            <img
+              src={BRAND_LOGO_MOBILE_URL}
               alt="Gestor"
               width={44}
               height={44}
               className="h-10 w-10 select-none object-contain sm:hidden"
               draggable={false}
-              priority
             />
-            <Image
-              src="/brand/logo-gestor.png"
+            <img
+              src={BRAND_LOGO_URL}
               alt="Gestor"
               width={160}
               height={40}
               className="hidden sm:block h-10 w-auto select-none object-contain"
               draggable={false}
-              priority
             />
             <div className="min-w-0 flex flex-col justify-center">
               <div className="text-[10px] uppercase tracking-wider text-white/40 font-bold leading-none mb-0.5">

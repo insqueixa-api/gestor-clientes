@@ -1,5 +1,6 @@
 // components/legal/LegalLayout.tsx
 import Link from "next/link";
+import { BRAND_LOGO_URL } from "@/lib/brand";
 
 export default function LegalLayout({
   title,
@@ -26,7 +27,7 @@ export default function LegalLayout({
 
         <div className="relative z-10 mx-auto max-w-3xl px-5 sm:px-6 pt-8 pb-10 sm:pt-10 sm:pb-12">
           <img
-            src="/brand/logo-gestor.png"
+            src={BRAND_LOGO_URL}
             alt="UniGestor"
             className="h-8 sm:h-9 w-auto select-none"
             draggable={false}

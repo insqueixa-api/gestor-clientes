@@ -2,7 +2,6 @@
 // app/admin/AdminShell.tsx
 
 import Link from "next/link";
-import Image from "next/image";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -41,6 +40,7 @@ import {
   Building2,
   ChevronDown,
 } from "lucide-react";
+import { BRAND_LOGO_MOBILE_URL, BRAND_LOGO_URL } from "@/lib/brand";
 
 const PAGE_NAMES: Record<string, string> = {
   "/admin": "Dashboard",
@@ -80,23 +80,21 @@ function getPageName(path: string): string {
 function BrandUser({ userLabel }: { userLabel: string }) {
   return (
     <div className="flex items-center gap-3 min-w-0 text-white cursor-pointer group">
-      <Image
-        src="/brand/logo-gestor-celular.png"
+      <img
+        src={BRAND_LOGO_MOBILE_URL}
         alt="Gestor"
         width={44}
         height={44}
         className="h-10 w-10 select-none object-contain sm:hidden transition-transform group-hover:scale-105"
         draggable={false}
-        priority
       />
-      <Image
-        src="/brand/logo-gestor.png"
+      <img
+        src={BRAND_LOGO_URL}
         alt="Gestor"
         width={160}
         height={40}
         className="hidden sm:block h-10 w-auto select-none object-contain transition-transform group-hover:scale-105"
         draggable={false}
-        priority
       />
       <div className="min-w-0 flex flex-col justify-center">
         <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium leading-none mb-0.5 group-hover:text-white/60 transition-colors">
