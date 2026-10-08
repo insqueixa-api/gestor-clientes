@@ -19,6 +19,7 @@ import {
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -1817,8 +1818,12 @@ export default function TrialsPage() {
                       <Td>
                         <div className="flex flex-col max-w-[180px] sm:max-w-none">
                           <div className="flex items-center gap-2 whitespace-nowrap">
-                            <span
-                              className="font-semibold text-foreground/90 truncate"
+                            {/* ✅ 08/10/2026, pedido do Márcio: teste é um cliente
+                                com is_trial — abre a mesma página do cliente. */}
+                            <Link
+                              href={`/admin/cliente/${r.id}`}
+                              prefetch={false}
+                              className="font-semibold text-foreground/90 truncate hover:text-emerald-500 hover:underline decoration-emerald-500/30 underline-offset-2 transition-colors"
                               title={r.name}
                             >
                               {r.name.split(" ")[0]}
@@ -1828,7 +1833,7 @@ export default function TrialsPage() {
                                   {r.secondary_display_name.split(" ")[0]}
                                 </span>
                               )}
-                            </span>
+                            </Link>
 
                             <div className="flex items-center gap-1 shrink-0">
                               {(scheduledMap[r.id]?.length || 0) > 0 && (
