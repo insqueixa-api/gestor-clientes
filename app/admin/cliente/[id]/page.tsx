@@ -27,6 +27,7 @@ import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import ClientAlertBell from "@/components/alerts/ClientAlertBell";
 import { Modal } from "@/components/ui/Modal";
+import MergeAccountsModal, { loadMergeSiblings } from "./MergeAccountsModal";
 
 // Componentes (CORRIGIDO: PascalCase) — carregamento sob demanda (14/08/2026),
 // mesmo motivo de app/admin/cliente/page.tsx.
@@ -320,8 +321,25 @@ export default function ClientDetailsPage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<ClientDetail | null>(null);
+  // ✅ 08/10/2026: outras contas com o mesmo WhatsApp (Mesclar contas)
+  const [mergeSiblings, setMergeSiblings] = useState<Awaited<ReturnType<typeof loadMergeSiblings>>>([]);
+  const [showMerge, setShowMerge] = useState(false);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
   const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
+  // ✅ 08/10/2026: carrega as outras contas com o mesmo WhatsApp (Mesclar)
+  useEffect(() => {
+    const tid = tenantId;
+    if (!tid || !client?.whatsapp_username || !clientIdSafe) {
+      setMergeSiblings([]);
+      return;
+    }
+    let cancelled = false;
+    loadMergeSiblings(tid, clientIdSafe, client.whatsapp_username)
+      .then((list) => { if (!cancelled) setMergeSiblings(list); })
+      .catch(() => { if (!cancelled) setMergeSiblings([]); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, clientIdSafe, tenantId]);
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRenewModal, setShowRenewModal] = useState(false);
@@ -1153,6 +1171,7 @@ export default function ClientDetailsPage() {
     PENDING_SETTLED: "✅ Pendência quitada",
     PENDING_DISMISSED: "🗑️ Pendência encerrada",
     renewal_trust_adjusted: "🤝 Virou renovação em confiança",
+    ACCOUNTS_MERGED: "🔀 Contas mescladas",
   };
 
   if (loading)
@@ -1437,6 +1456,19 @@ export default function ClientDetailsPage() {
             {isEditingLoading ? <IconLoading /> : <IconEdit />}
             <span className="hidden sm:inline">Editar</span>
           </button>
+
+          {/* ✅ 08/10/2026: Mesclar contas — só aparece se existir outra conta
+              com o mesmo WhatsApp (cliente que trocou de servidor). */}
+          {mergeSiblings.length > 0 && (
+            <button
+              onClick={() => setShowMerge(true)}
+              className="h-9 sm:h-9 px-3 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 font-medium text-xs hover:bg-violet-500/20 transition-all shadow-sm inline-flex items-center gap-2 justify-center"
+              title="Trazer o histórico de outra conta deste cliente e excluir a antiga"
+            >
+              <span aria-hidden>🔀</span>
+              <span className="hidden sm:inline">Mesclar</span>
+            </button>
+          )}
 
           {/* ✅ Botão Teste Rápido */}
           <button
@@ -2062,6 +2094,24 @@ export default function ClientDetailsPage() {
       </div>
       {/* --- MODAIS --- */}
       {ConfirmUI} {/* ✅ AQUI ESTÁ ELE! Agora o modal vai aparecer */}
+      {showMerge && client && tenantId && (
+        <MergeAccountsModal
+          tenantId={tenantId}
+          current={{ id: clientIdSafe, username: client.username, server_name: client.server_name }}
+          siblings={mergeSiblings}
+          onClose={() => setShowMerge(false)}
+          confirm={confirm}
+          addToast={(type, title, msg) => addToast(type, title, msg)}
+          onMerged={(keepId) => {
+            setShowMerge(false);
+            if (keepId === clientIdSafe) {
+              loadData(); // recarrega o cliente → a lista de contas irmãs se atualiza
+            } else {
+              window.location.assign(`/admin/cliente/${keepId}`);
+            }
+          }}
+        />
+      )}
       {/* ✅ MODAL DE AVISO DE ALERTA */}
       {showRenewWarning && client && (
         <Modal onClose={() => setShowRenewWarning(false)} maxWidth="max-w-md">
