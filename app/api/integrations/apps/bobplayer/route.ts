@@ -285,9 +285,8 @@ export async function POST(req: Request) {
     }
 
     const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
-    if (!geminiKey) {
-      return NextResponse.json({ ok: false, error: "GEMINI_API_KEY não configurada no servidor." }, { status: 500 });
-    }
+    // ✅ 08/10/2026: chave principal vem do painel (Parceiros → Gemini, lib/ai/gemini-config.ts);
+    // a env var é só reserva — sem trava aqui, callGemini avisa se não houver chave nenhuma.
 
     const { data: integ, error: integErr } = await supabase
       .from("app_integrations")

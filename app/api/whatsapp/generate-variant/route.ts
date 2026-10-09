@@ -74,9 +74,8 @@ ${original}
 
 export async function POST(req: Request) {
   const geminiKey = String(process.env.GEMINI_API_KEY || "").trim();
-  if (!geminiKey) {
-    return NextResponse.json({ error: "Server misconfigured" }, { status: 500 });
-  }
+  // ✅ 08/10/2026: chave principal vem do painel (Parceiros → Gemini, lib/ai/gemini-config.ts);
+  // a env var é só reserva — sem trava aqui, callGemini avisa se não houver chave nenhuma.
 
   const auth = await requireAdminTenant(req);
   if (!auth.ok) return auth.res;
