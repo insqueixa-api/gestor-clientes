@@ -8,7 +8,7 @@
 // dela (lib/whatsapp/gemini-client.ts::callGemini). Se o Google aposentar
 // ou sobrecarregar um modelo, troca aqui sem deploy.
 import { useEffect, useState } from "react";
-import { FlaskConical, Loader2, Pencil, RefreshCcw } from "lucide-react";
+import { Loader2, Pencil, RefreshCcw } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Side = { masked_key: string; source: string; models: string[] };
@@ -197,7 +197,7 @@ function GeminiCard({
         <div className="flex gap-2 shrink-0">
           <button type="button" title="Testar cada modelo com esta chave" onClick={runTest} disabled={testing || !side?.masked_key}
             className={`${btn} text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20`}>
-            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
+            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <IconPlay />}
           </button>
           <button type="button" title="Buscar modelos disponíveis no Google" onClick={syncModels} disabled={syncing}
             className={`${btn} text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20`}>
@@ -323,5 +323,14 @@ function GeminiCard({
         )}
       </div>
     </div>
+  );
+}
+
+// Mesmo desenho do IconPlay de page.tsx (padrão da página).
+function IconPlay() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
   );
 }
