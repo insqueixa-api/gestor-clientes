@@ -20,6 +20,7 @@ type Sibling = {
   server_logo_url: string | null;
   status: string;
   vencimento: string | null;
+  created_at: string | null;
 };
 
 type Preview = {
@@ -45,7 +46,7 @@ export async function loadMergeSiblings(
   if (!whatsapp) return [];
   const { data } = await supabaseBrowser
     .from("clients")
-    .select("id, display_name, server_username, is_trial, is_archived, deep_archived_at, vencimento, servers(name, logo_url)")
+    .select("id, display_name, server_username, is_trial, is_archived, deep_archived_at, vencimento, created_at, servers(name, logo_url)")
     .eq("tenant_id", tenantId)
     .eq("whatsapp_username", whatsapp)
     .neq("id", clientId);
@@ -57,6 +58,7 @@ export async function loadMergeSiblings(
     server_logo_url: c.servers?.logo_url || null,
     status: c.deep_archived_at ? "Arquivado" : c.is_archived ? "Na lixeira" : c.is_trial ? "Teste" : "Ativo",
     vencimento: c.vencimento,
+    created_at: c.created_at || null,
   }));
 }
 
@@ -70,7 +72,7 @@ export default function MergeAccountsModal({
   addToast,
 }: {
   tenantId: string;
-  current: { id: string; username: string; server_name: string; server_logo_url?: string | null };
+  current: { id: string; username: string; server_name: string; server_logo_url?: string | null; created_at?: string | null };
   siblings: Sibling[];
   onClose: () => void;
   onMerged: (keepId: string) => void;
@@ -150,12 +152,13 @@ export default function MergeAccountsModal({
   }
 
   const revenue = preview ? Object.entries(preview.revenue_by_server || {}) : [];
-  const keepAcc = keepCurrent
-    ? { user: current.username, server: current.server_name, logo: current.server_logo_url || null, hint: "esta página" }
-    : { user: other?.server_username || "—", server: other?.server_name || "—", logo: other?.server_logo_url || null, hint: other?.status || "" };
-  const removeAcc = keepCurrent
-    ? { user: other?.server_username || "—", server: other?.server_name || "—", logo: other?.server_logo_url || null, hint: other?.status || "" }
-    : { user: current.username, server: current.server_name, logo: current.server_logo_url || null, hint: "esta página" };
+  const curAcc = { user: current.username, server: current.server_name, logo: current.server_logo_url || null, hint: "esta página", since: current.created_at || null };
+  const othAcc = { user: other?.server_username || "—", server: other?.server_name || "—", logo: other?.server_logo_url || null, hint: other?.status || "", since: other?.created_at || null };
+  const keepAcc = keepCurrent ? curAcc : othAcc;
+  const removeAcc = keepCurrent ? othAcc : curAcc;
+  // A conta que fica herda a data de cadastro MAIS ANTIGA das duas, seja
+  // ela a que recebe ou a que envia (merge_client_accounts, passo 6).
+  const oldestSince = [curAcc.since, othAcc.since].filter(Boolean).sort()[0] || null;
 
   return (
     <Modal onClose={onClose}>
@@ -206,6 +209,9 @@ export default function MergeAccountsModal({
 
         {preview && (
           <div className="rounded-xl border border-border divide-y divide-border text-sm">
+            <Section title="Cadastro">
+              <Row label="Data do cadastro (fica a mais antiga)" value={fmtDate(oldestSince)} />
+            </Section>
             <Section title="Histórico (vai pra principal)">
               <Row
                 label="Renovações"
@@ -285,7 +291,12 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: "amb
 }
 
 // ✅ Logo do servidor em cada lado — reduz o risco de manter/excluir a conta errada.
-function AccountLine({ acc }: { acc: { user: string; server: string; logo: string | null; hint: string } }) {
+function fmtDate(iso: string | null | undefined) {
+  if (!iso) return "--";
+  return new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+}
+
+function AccountLine({ acc }: { acc: { user: string; server: string; logo: string | null; hint: string; since: string | null } }) {
   return (
     <div className="mt-2 flex items-center gap-3 min-w-0">
       {acc.logo ? (
@@ -302,6 +313,7 @@ function AccountLine({ acc }: { acc: { user: string; server: string; logo: strin
           {acc.server}
           {acc.hint ? ` · ${acc.hint}` : ""}
         </p>
+        {acc.since && <p className="text-[11px] text-muted-foreground">Cliente desde {fmtDate(acc.since)}</p>}
       </div>
     </div>
   );
