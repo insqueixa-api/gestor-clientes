@@ -232,27 +232,28 @@ export async function executeEliteCreditTransfer(admin: SupabaseClient, p: Elite
 }
 
 /**
- * Envio que ficou 'unknown': repete o MESMO pedido (mesma URL, corpo e chave)
- * — pela documentação do Elite isso só consulta o comprovante, nunca reenvia.
- * 200 → marca done. Qualquer outra resposta → continua 'unknown' (Chegou/Não chegou).
+ * Envio que ficou 'unknown': confere SÓ LENDO (GET credit-batches da revenda)
+ * se existe o envio com o motivo único deste pedido ("UniGestor · envio xxxx").
+ * ⚠️ Nunca repete o POST aqui: se o pedido original nem chegou ao Elite, o POST
+ * com a mesma chave viraria um envio NOVO — e o Márcio pode já ter mandado à
+ * mão depois de conferir o painel (crédito em dobro). Achou → done; senão
+ * continua 'unknown' (Chegou / Não chegou).
  */
 export async function eliteRecheckTransfer(admin: SupabaseClient, transfer: any, integ: EliteIntegration): Promise<"done" | "unknown"> {
   if (transfer?.provider !== "ELITE" || transfer.status !== "unknown") return "unknown";
   try {
     const sub = await eliteFindSubreseller(integ, String(transfer.recipient_username));
     if (!sub) return "unknown";
-    const r = await eliteRequest(integ, "POST", `/resellers/${sub.id}/credits/send`, {
-      body: { amount: Number(transfer.amount), reason: `UniGestor · envio ${String(transfer.id).slice(0, 8)}` },
-      idempotencyKey: eliteTransferKey(String(transfer.id)),
-    });
-    if (r.status !== 200) return "unknown";
+    const tag = `UniGestor · envio ${String(transfer.id).slice(0, 8)}`;
+    const { data } = await eliteRequest(integ, "GET", `/resellers/${sub.id}/credit-batches`);
+    const batch = eliteList(data).find((b: any) => JSON.stringify(b).includes(tag));
+    if (!batch) return "unknown";
     const { data: upd } = await admin
       .from("reseller_credit_transfers")
       .update({
         status: "done",
-        api_status: 200,
-        api_response: r.data,
-        error: "Confirmado pelo comprovante do Elite (mesma chave do envio).",
+        api_response: batch,
+        error: "Confirmado pelo envio encontrado no Elite (motivo do pedido).",
         updated_at: new Date().toISOString(),
       })
       .eq("id", transfer.id)

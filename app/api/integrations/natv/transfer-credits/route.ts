@@ -17,7 +17,7 @@
 // confirmado.
 // ✅ 09/10/2026: atende também o ELITE (lib/integrations/elite-transfer.ts —
 // mínimo 20, Idempotency-Key fixa por envio; 'unknown' do Elite é reconsultado
-// sozinho no "open" repetindo o mesmo pedido, o que só consulta o comprovante).
+// sozinho no "open" SÓ LENDO os envios da revenda (nunca repete o POST).
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
