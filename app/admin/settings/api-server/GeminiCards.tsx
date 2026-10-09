@@ -8,7 +8,7 @@
 // dela (lib/whatsapp/gemini-client.ts::callGemini). Se o Google aposentar
 // ou sobrecarregar um modelo, troca aqui sem deploy.
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { FlaskConical, Loader2, Pencil, RefreshCcw } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 type Side = { masked_key: string; source: string; models: string[] };
@@ -173,6 +173,7 @@ function GeminiCard({
     });
 
   const ordinal = (i: number) => `${i + 1}º`;
+  // Mesmo botão/ícones dos outros cards de Parceiros (IconActionBtn em page.tsx)
   const btn = "p-1.5 rounded-lg border transition-all disabled:opacity-50 disabled:cursor-not-allowed";
 
   return (
@@ -196,15 +197,15 @@ function GeminiCard({
         <div className="flex gap-2 shrink-0">
           <button type="button" title="Testar cada modelo com esta chave" onClick={runTest} disabled={testing || !side?.masked_key}
             className={`${btn} text-emerald-500 bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20`}>
-            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-xs font-bold px-0.5">▶</span>}
+            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FlaskConical className="w-4 h-4" />}
           </button>
           <button type="button" title="Buscar modelos disponíveis no Google" onClick={syncModels} disabled={syncing}
             className={`${btn} text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20`}>
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <span className="text-xs font-bold px-0.5">⟳</span>}
+            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
           </button>
           <button type="button" title="Editar chave e modelos" onClick={startEdit}
             className={`${btn} text-amber-500 bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20`}>
-            <span className="text-xs font-bold px-0.5">✎</span>
+            <Pencil className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -256,12 +257,21 @@ function GeminiCard({
           <div className="space-y-3">
             <div className="space-y-1">
               <label className="block text-[10px] uppercase font-medium text-muted-foreground">Nova chave (vazio = mantém a atual)</label>
+              {/* ✅ type="text" com os caracteres escondidos por CSS, NÃO
+                  type="password": campo de senha faz o Chrome preencher o
+                  e-mail salvo na busca da página, que filtrava os cards e
+                  "sumia" com tudo (achado do Márcio, 08/10/2026). */}
               <input
-                type="password"
+                type="text"
+                name="gemini-key-input"
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
                 placeholder={side?.masked_key || "AIza..."}
                 autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                spellCheck={false}
+                style={{ WebkitTextSecurity: keyInput ? "disc" : "none" } as React.CSSProperties}
                 className="w-full h-9 px-2.5 bg-transparent border border-border rounded-lg text-xs font-mono text-foreground outline-none focus:border-emerald-500/50"
               />
             </div>
