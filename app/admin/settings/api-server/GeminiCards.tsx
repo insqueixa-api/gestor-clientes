@@ -2,11 +2,11 @@
 
 // app/admin/settings/api-server/GeminiCards.tsx
 // ✅ 08/10/2026, pedido do Márcio: Gemini junto dos Parceiros, 2 cards lado
-// a lado — "Gemini Paga" (principal) e "Gemini Gratuita" (reserva). Cada um
-// com a chave (mascarada) e a SUA ordem de modelos; Testar, Buscar modelos
-// e Editar. O sistema tenta: paga × modelos dela, depois gratuita × modelos
-// dela (lib/whatsapp/gemini-client.ts::callGemini). Se o Google aposentar
-// ou sobrecarregar um modelo, troca aqui sem deploy.
+// a lado — "Gemini Paga" e "Gemini Gratuita". Cada um com a chave
+// (mascarada) e a SUA ordem de modelos; Testar, Buscar modelos e Editar.
+// Aplicativos (captcha) tentam a paga primeiro; o resto, a gratuita
+// primeiro (lib/whatsapp/gemini-client.ts::callGemini). Se o Google
+// aposentar ou sobrecarregar um modelo, troca aqui sem deploy.
 import { useEffect, useState } from "react";
 import { Loader2, Pencil, RefreshCcw } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -60,8 +60,8 @@ export default function GeminiCards({
   if (!shown) return null;
   return (
     <>
-      <GeminiCard which="paid" title="Gemini Paga" badge="Principal" order="order-6" cfg={cfg} loading={loading} reload={load} onToast={onToast} />
-      <GeminiCard which="free" title="Gemini Gratuita" badge="Reserva" order="order-7" cfg={cfg} loading={loading} reload={load} onToast={onToast} />
+      <GeminiCard which="paid" title="Gemini Paga" badge="1ª nos aplicativos" order="order-6" cfg={cfg} loading={loading} reload={load} onToast={onToast} />
+      <GeminiCard which="free" title="Gemini Gratuita" badge="1ª nos demais" order="order-7" cfg={cfg} loading={loading} reload={load} onToast={onToast} />
     </>
   );
 }

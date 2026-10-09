@@ -55,10 +55,12 @@ async function requestGemini(apiKey: string, payload: any, timeoutMs: number, mo
 //
 // ✅ 08/10/2026 (2ª parte): chaves e listas de modelos vêm do painel
 // (Configurações → API de Integrações → Parceiros → Gemini, tabela
-// gemini_config — lib/ai/gemini-config.ts), 2 cards: "Gemini Paga"
-// (principal, decisão do Márcio) e "Gemini Gratuita" (reserva), cada uma
-// com a sua ordem de modelos. Tenta: paga × modelos dela, depois gratuita ×
-// modelos dela. Sem nada salvo, cai nas env vars e na lista padrão.
+// gemini_config — lib/ai/gemini-config.ts), 2 cards: "Gemini Paga" e
+// "Gemini Gratuita", cada uma com a sua ordem de modelos. Ordem das chaves
+// (decisão do Márcio, 08/10/2026): aplicativos (captcha) → paga primeiro,
+// gratuita de reserva; o resto (treino, mensagens, textos) → gratuita
+// primeiro, paga de reserva. Sem nada salvo, cai nas env vars e na lista
+// padrão.
 export async function callGemini(
   apiKey: string,
   payload: any,
@@ -77,11 +79,16 @@ export async function callGemini(
       attempts.push({ key: k, model, label });
     }
   };
-  add(cfg.paidKey, cfg.paidModels, "paga");
-  add(cfg.freeKey, cfg.freeModels, "grátis");
+  const isCaptcha = opts.purpose === "captcha";
+  if (isCaptcha) {
+    add(cfg.paidKey, cfg.paidModels, "paga");
+    add(cfg.freeKey, cfg.freeModels, "grátis");
+  } else {
+    add(cfg.freeKey, cfg.freeModels, "grátis");
+    add(cfg.paidKey, cfg.paidModels, "paga");
+  }
   add(apiKey, cfg.freeModels, "grátis"); // chave passada pelo chamador, se for outra
   if (!attempts.length) throw new Error("Gemini sem chave configurada");
-  const isCaptcha = opts.purpose === "captcha";
   // Captcha: texto curto, sem raciocínio — sem "pensar" (o flash-latest
   // pensando levava 15-25s por captcha).
   const body = isCaptcha
