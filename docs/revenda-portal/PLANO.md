@@ -171,3 +171,9 @@ Substitui o fluxo solto (revenda informava qualquer M3U). Decisões do Márcio:
 - Resumo da revenda no Elite: só saldo e situação (`elite-reseller-stats.ts`, no máx. 1 consulta/5 min). API do Elite não lista clientes de sub-revenda → "Seus Clientes" some no portal e no admin.
 - Aplicativos: servidor sem lista (Elite) → "Informar M3U" (nome + link). Link só aceito se o host for DNS de um servidor nosso vinculado à revenda e sem lista (NaTV recusa e manda usar a lista). Reconfigurar alterna principal/secundária com usuário/senha do link.
 - Chave do Elite precisa das permissões: "Listar sub-revendas e envios de créditos", "Enviar créditos" (e "Retirar créditos" se for corrigir).
+
+### 09/10/2026 — Elite pronto (sem teste real)
+- Envio de créditos (`lib/integrations/elite-transfer.ts`): POST /resellers/{id}/credits/send, mínimo 20, Idempotency-Key fixa por envio (`ugcred-<id>`); 200 = done, 202/sem resposta/409 = 'unknown' (reconsultado no "open" da Recarga repetindo o mesmo pedido — só consulta o comprovante). Mesma trava/tabela do NaTV.
+- Resumo da revenda Elite = saldo + situação (`elite-reseller-stats.ts`, no máx. 1 consulta/5 min). A API NÃO lista clientes de sub-revenda → sem "Seus Clientes", sem espelho de clientes.
+- Aplicativos: revenda do Elite informa o M3U do cliente; o servidor só aceita link de servidor nosso vinculado a ela e sem lista (NaTV recusa: usa a lista).
+- Pendências pro Márcio: chave do Elite com permissões "Listar sub-revendas e envios de créditos" + "Enviar créditos" (+ "Retirar"); linha do Elite na Tabela Revenda; testes nunca chamaram a API do Elite (pedido dele — risco de bloqueio).
