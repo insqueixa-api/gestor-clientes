@@ -195,6 +195,9 @@ export function PainelContaCard({
       </div>
 
       <div className="space-y-2.5">
+        {/* ✅ 09/10/2026: Elite não lista clientes de sub-revenda → só saldo/situação */}
+        {(stats as any)?.clients_available !== false && (
+        <>
         <Row
           icon={<Users className="w-4 h-4 text-sky-400" />}
           label="Total de clientes"
@@ -225,6 +228,8 @@ export function PainelContaCard({
         )}
 
         <div className="border-t border-border my-1" />
+        </>
+        )}
 
         <div className="flex justify-between items-center text-xs">
           <span className="flex items-center gap-2.5 text-muted-foreground">

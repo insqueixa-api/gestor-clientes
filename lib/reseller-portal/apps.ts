@@ -28,7 +28,7 @@ import {
 } from "@/lib/apps/panel";
 import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, normalizeMacInput, type AppFieldType } from "@/lib/apps/field-types";
-import { rotatePrincipalM3u, rotateSecondaryM3u, type M3uList } from "@/lib/apps/m3u-lists";
+import { baseHostOf, rotatePrincipalM3u, rotateSecondaryM3u, type M3uList } from "@/lib/apps/m3u-lists";
 import type { AppFieldConfig, IntegrationHandler, PartnerApiResponse } from "@/lib/apps/types";
 
 export const DEFAULT_GERENCIAAPP_LIMIT = 10;
@@ -315,3 +315,66 @@ export async function resellerCanAddApps(admin: SupabaseClient, tenantId: string
   return access.canAdd;
 }
 export const RESELLER_APPS_MAINTENANCE_MESSAGE = "Adicionar e ativar aplicativos pelo portal está em manutenção. Fale com o suporte.";
+
+// ---------------------------------------------------------------------------
+// ✅ 09/10/2026: M3U INFORMADO pela revenda (servidores sem lista de clientes
+// da revenda — ex.: Elite, cuja API não lista clientes de sub-revenda).
+// Segurança: o link só é aceito se o endereço for de um servidor NOSSO
+// vinculado a essa revenda (DNS do servidor; espelhos r2./r3. contam) e que
+// NÃO tenha lista de clientes (NaTV usa a lista — M3U não vale lá).
+// ---------------------------------------------------------------------------
+export type ManualM3uServer = { server_id: string; name: string; dns: string[]; username: string; password: string };
+
+export async function resolveManualM3uServer(
+  admin: SupabaseClient,
+  tenantId: string,
+  resellerId: string,
+  m3uUrl: string,
+): Promise<ManualM3uServer | { error: string }> {
+  const m = parseM3u(m3uUrl);
+  if (!m || !m.username || !m.password) return { error: "Link M3U inválido — precisa ter username=… e password=…." };
+  const { data: links } = await admin
+    .from("reseller_servers")
+    .select("server_id, servers(id, name, dns, panel_integration)")
+    .eq("tenant_id", tenantId)
+    .eq("reseller_id", resellerId);
+  const servers = ((links || []) as any[]).map((l) => l.servers).filter(Boolean);
+  const integIds = servers.map((sv: any) => sv.panel_integration).filter(Boolean);
+  const { data: integs } = integIds.length ? await admin.from("server_integrations").select("id, provider").in("id", integIds) : { data: [] as any[] };
+  const providerOf = (sv: any) => String((integs || []).find((i: any) => i.id === sv.panel_integration)?.provider || "").toUpperCase();
+  const host = baseHostOf(m3uUrl);
+  const hit = servers.find(
+    (sv: any) => providerOf(sv) !== "NATV" && (Array.isArray(sv.dns) ? sv.dns : []).some((d: string) => baseHostOf(/^https?:\/\//i.test(d) ? d : `http://${d}`) === host),
+  );
+  if (!hit) {
+    const natvHit = servers.some(
+      (sv: any) => providerOf(sv) === "NATV" && (Array.isArray(sv.dns) ? sv.dns : []).some((d: string) => baseHostOf(/^https?:\/\//i.test(d) ? d : `http://${d}`) === host),
+    );
+    if (natvHit) return { error: "Esse cliente é do NaTV — escolha ele em \"Cliente da lista\" (o link é montado sozinho)." };
+    return { error: "Esse link não é de um servidor seu com a gente. Confira o link M3U do cliente." };
+  }
+  return { server_id: hit.id, name: String(hit.name || "Servidor"), dns: Array.isArray(hit.dns) ? hit.dns : [], username: m.username, password: m.password };
+}
+
+/**
+ * Lista do app de um cliente com M3U informado: 1ª configuração usa o link
+ * exatamente como a revenda mandou; Reconfigurar alterna principal ↔
+ * secundária montando com usuário/senha do próprio link (mesma regra).
+ */
+export async function buildManualM3u(
+  admin: SupabaseClient,
+  row: { server_id: string | null; m3u_url: string | null },
+  list: M3uList,
+  asGiven = false,
+): Promise<{ url: string; serverName: string } | null> {
+  if (!row.server_id || !row.m3u_url) return null;
+  const m = parseM3u(row.m3u_url);
+  if (!m?.username || !m.password) return null;
+  const { data: server } = await admin.from("servers").select("name, dns").eq("id", row.server_id).maybeSingle();
+  if (!server) return null;
+  const serverName = String(server.name || "Servidor");
+  if (asGiven) return { url: row.m3u_url, serverName };
+  const params = { dnsList: Array.isArray(server.dns) ? (server.dns as string[]) : [], username: m.username, password: m.password, serverName: server.name };
+  const url = list === "secundaria" ? rotateSecondaryM3u(params) : rotatePrincipalM3u(params);
+  return url ? { url, serverName } : { url: row.m3u_url, serverName };
+}

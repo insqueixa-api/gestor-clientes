@@ -47,6 +47,8 @@ import {
   resolveHandlerFor,
   resellerCanAddApps,
   RESELLER_APPS_MAINTENANCE_MESSAGE,
+  buildManualM3u,
+  resolveManualM3uServer,
   type PartnerCtx,
 } from "@/lib/reseller-portal/apps";
 
@@ -59,7 +61,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const APP_COLS =
   "id, name, icon_url, technology, device_types, integration_type, cost_type, license_price, license_period, is_active, is_hidden, appativa_app_id, appativa_meta, tier, portal_setup_instructions, fields_config, download_info";
 const ROW_COLS =
-  "id, end_client_id, app_id, device_type, field_values, obs, list_name, m3u_list, configured_at, expire_date, created_at, apps(" + APP_COLS + ")";
+  "id, end_client_id, client_label, server_id, m3u_url, m3u_username, app_id, device_type, field_values, obs, list_name, m3u_list, configured_at, expire_date, created_at, servers(name), apps(" +
+  APP_COLS +
+  ")";
 // password só é lida pra montar o M3U aqui dentro — shapeClient nunca a devolve
 const CLIENT_COLS = "id, username, password, server_id, expires_at, status, blocked, missing_since, servers(name)";
 
@@ -99,6 +103,8 @@ function shapeRow(r: any, priceIn: (brl: number | null) => number | null = (v) =
     license_price: priceIn(resellerLicensePrice(a)),
     tier: effectiveTier({ tier: a.tier, appativa_app_id: a.appativa_app_id, appativa_meta: a.appativa_meta }).value,
     renew: renewInfo(a, expire),
+    manual: !r.end_client_id,
+    m3u_url: r.end_client_id ? null : r.m3u_url || null,
   };
 }
 
@@ -210,7 +216,6 @@ export async function POST(req: NextRequest) {
           .select(ROW_COLS)
           .eq("tenant_id", ctx.tenant_id)
           .eq("reseller_id", ctx.reseller_id)
-          .not("end_client_id", "is", null)
           .order("created_at", { ascending: true }),
         gerenciaAppUsage(sb, ctx.tenant_id, ctx.reseller_id),
         resellerCanAddApps(sb, ctx.tenant_id, ctx.reseller_id),
@@ -228,7 +233,17 @@ export async function POST(req: NextRequest) {
       const priceIn = (v: number | null) => (v ? converted.get(v) ?? v : null);
 
       const byClient = new Map<string, any[]>();
+      // ✅ 09/10/2026: M3U informado (Elite) — agrupa por usuário do M3U + servidor
+      const manualGroups = new Map<string, { key: string; username: string; label: string; server_name: string | null; apps: any[] }>();
       for (const r of (rows || []) as any[]) {
+        if (!r.end_client_id) {
+          if (!r.m3u_url) continue;
+          const key = `m3u:${r.server_id}:${String(r.m3u_username || "").toLowerCase()}`;
+          const g = manualGroups.get(key) || { key, username: r.m3u_username || "", label: r.client_label || r.m3u_username || "", server_name: r.servers?.name || null, apps: [] };
+          g.apps.push(shapeRow(r, priceIn));
+          manualGroups.set(key, g);
+          continue;
+        }
         const list = byClient.get(r.end_client_id) || [];
         list.push(shapeRow(r, priceIn));
         byClient.set(r.end_client_id, list);
@@ -241,9 +256,35 @@ export async function POST(req: NextRequest) {
         const { data } = await sb.from("reseller_end_clients").select(CLIENT_COLS).in("id", missingIds).eq("reseller_id", ctx.reseller_id);
         missing = (data || []) as any[];
       }
-      const configured = [...visible, ...missing]
-        .filter((c) => byClient.has(c.id))
-        .map((c) => ({ ...shapeClient(c), missing: !!c.missing_since, apps: byClient.get(c.id) }));
+      const configured = [
+        ...[...visible, ...missing]
+          .filter((c) => byClient.has(c.id))
+          .map((c) => ({ ...shapeClient(c), missing: !!c.missing_since, apps: byClient.get(c.id) })),
+        ...[...manualGroups.values()].map((g) => ({
+          id: g.key,
+          username: g.username,
+          label: g.label,
+          server_name: g.server_name,
+          expires_at: null,
+          status: null,
+          blocked: false,
+          manual: true,
+          apps: g.apps,
+        })),
+      ];
+
+      // servidores da revenda SEM lista de clientes (ex.: Elite) → "Adicionar" pede o M3U
+      const { data: linkSrv } = await sb
+        .from("reseller_servers")
+        .select("server_id, servers(id, name, panel_integration)")
+        .eq("tenant_id", ctx.tenant_id)
+        .eq("reseller_id", ctx.reseller_id);
+      const srvList = ((linkSrv || []) as any[]).map((l) => l.servers).filter(Boolean);
+      const integIds = srvList.map((x: any) => x.panel_integration).filter(Boolean);
+      const { data: integRows } = integIds.length ? await sb.from("server_integrations").select("id, provider").in("id", integIds) : { data: [] as any[] };
+      const isNatv = (x: any) => String((integRows || []).find((i: any) => i.id === x.panel_integration)?.provider || "").toUpperCase() === "NATV";
+      const m3uServers = srvList.filter((x: any) => !isNatv(x)).map((x: any) => ({ id: x.id, name: x.name }));
+      const clientsAvailable = srvList.some(isNatv);
 
       return ok({
         stats: {
@@ -257,7 +298,10 @@ export async function POST(req: NextRequest) {
           gerenciaapp_used: ga.used,
           gerenciaapp_limit: ga.limit,
           synced_at: synced,
+          // false = nenhum servidor da revenda informa clientes (ex.: só Elite)
+          clients_available: clientsAvailable,
         },
+        m3u_servers: m3uServers,
         clients: visible.map(shapeClient),
         configured,
         currency,
@@ -316,8 +360,18 @@ export async function POST(req: NextRequest) {
 
     // ---------------- Adicionar: cliente + app → configura e salva ----------------
     if (action === "configure_new") {
-      const client = await loadClient(s(body?.end_client_id));
-      if (!client || client.missing_since) return jsonError(400, "Escolha um cliente seu da lista.");
+      // ✅ 09/10/2026: sem end_client_id → M3U informado (servidor sem lista, ex.: Elite)
+      const manualUrl = s(body?.m3u_url);
+      const isManual = !s(body?.end_client_id) && !!manualUrl;
+      let manual: Awaited<ReturnType<typeof resolveManualM3uServer>> | null = null;
+      if (isManual) {
+        manual = await resolveManualM3uServer(sb, ctx.tenant_id, ctx.reseller_id, manualUrl);
+        if ("error" in manual) return jsonError(400, manual.error);
+      }
+      const client = isManual ? null : await loadClient(s(body?.end_client_id));
+      if (!isManual && (!client || client.missing_since)) return jsonError(400, "Escolha um cliente seu da lista.");
+      const manualLabel = s(body?.client_label).slice(0, 80);
+      if (isManual && !manualLabel) return jsonError(400, "Informe o nome do cliente.");
       const app = await loadApp(s(body?.app_id));
       if (!app || !isAddableApp(app)) return jsonError(400, "Esse aplicativo não tem configuração pelo portal.");
       const fv = readFieldValues(app, body?.field_values);
@@ -326,11 +380,11 @@ export async function POST(req: NextRequest) {
       // mesmo app + mesmo MAC já salvo → é o mesmo aparelho (atualiza)
       const macField = editableFields(app).find((f) => f.type === "mac");
       const macNorm = (v: unknown) => s(v).toUpperCase().replace(/[^0-9A-Z]/g, "");
-      let existing: { id: string; end_client_id: string | null; field_values: any; m3u_list: string | null } | undefined;
+      let existing: { id: string; end_client_id: string | null; field_values: any; m3u_list: string | null; m3u_url: string | null; m3u_username: string | null; server_id: string | null } | undefined;
       if (macField) {
         const { data: same } = await sb
           .from("reseller_client_apps")
-          .select("id, end_client_id, field_values, m3u_list")
+          .select("id, end_client_id, field_values, m3u_list, m3u_url, m3u_username, server_id")
           .eq("tenant_id", ctx.tenant_id)
           .eq("reseller_id", ctx.reseller_id)
           .eq("app_id", app.id);
@@ -348,23 +402,38 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const m3u = await buildResellerM3u(sb, client, "principal");
+      const targetServerId = isManual ? (manual as any).server_id : client.server_id;
+      const targetUser = isManual ? (manual as any).username : client.username;
+      const m3u = isManual
+        ? await buildManualM3u(sb, { server_id: targetServerId, m3u_url: manualUrl }, "principal", true)
+        : await buildResellerM3u(sb, client, "principal");
       if (!m3u) return jsonError(400, "Não foi possível montar a lista desse cliente agora. Fale com o suporte.");
       // o aparelho estava com OUTRO cliente dela → tira a lista antiga (só a de nome exato)
-      if (existing?.end_client_id && existing.end_client_id !== client.id) {
-        const old = await loadClient(existing.end_client_id);
-        const oldM3u = old ? await buildResellerM3u(sb, old, existing.m3u_list === "secundaria" ? "secundaria" : "principal") : null;
+      const sameTarget =
+        existing &&
+        (isManual
+          ? !existing.end_client_id && String(existing.m3u_username || "").toLowerCase() === String(targetUser).toLowerCase() && existing.server_id === targetServerId
+          : existing.end_client_id === client.id);
+      if (existing && !sameTarget) {
+        const oldList: M3uList = existing.m3u_list === "secundaria" ? "secundaria" : "principal";
+        let oldM3u: { url: string; serverName: string } | null = null;
+        if (existing.end_client_id) {
+          const old = await loadClient(existing.end_client_id);
+          oldM3u = old ? await buildResellerM3u(sb, old, oldList) : null;
+        } else if (existing.m3u_url) {
+          oldM3u = await buildManualM3u(sb, existing, oldList);
+        }
         if (oldM3u) {
           await removeResellerAppFromPartner(sb, {
             app: partnerApp(app),
             fieldValues: existing.field_values || {},
             m3uUrl: oldM3u.url,
             serverName: oldM3u.serverName,
-            serverId: old.server_id,
+            serverId: existing.server_id,
           }).catch(() => null);
         }
       }
-      const pctx: PartnerCtx = { app: partnerApp(app), fieldValues: fv.values, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: client.server_id };
+      const pctx: PartnerCtx = { app: partnerApp(app), fieldValues: fv.values, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: targetServerId };
       const r = await configureResellerApp(sb, pctx);
       if (!r.ok) return jsonError(400, r.error);
       let expire = isoDate(r.expireDate);
@@ -373,14 +442,14 @@ export async function POST(req: NextRequest) {
         if (c?.ok) expire = isoDate(c.expireDate);
       }
       const patch = {
-        end_client_id: client.id,
-        client_label: client.username,
+        end_client_id: isManual ? null : client.id,
+        client_label: isManual ? manualLabel : client.username,
         device_type: s(body?.device_type) || null,
         field_values: fv.values,
         obs: s(body?.obs).slice(0, 120) || null,
-        server_id: client.server_id,
-        m3u_url: null,
-        m3u_username: client.username,
+        server_id: targetServerId,
+        m3u_url: isManual ? manualUrl : null,
+        m3u_username: targetUser,
         m3u_list: "principal",
         list_name: r.listName,
         configured_at: new Date().toISOString(),
@@ -414,28 +483,40 @@ export async function POST(req: NextRequest) {
     const row = rowData as any;
     if (!row?.apps) return jsonError(404, "Aplicativo não encontrado.");
     const app = row.apps;
-    const client = await loadClient(s(row.end_client_id));
-    if (!client) return jsonError(404, "Cliente não encontrado.");
+    // app de cliente da lista (end_client) OU de M3U informado (Elite)
+    const client = row.end_client_id ? await loadClient(s(row.end_client_id)) : null;
+    if (row.end_client_id ? !client : !row.m3u_url) return jsonError(404, "Cliente não encontrado.");
 
-    const ctxFor = async (list: M3uList, fieldValues: Record<string, string>): Promise<PartnerCtx | null> => {
-      const m3u = await buildResellerM3u(sb, client, list);
+    const ctxFor = async (list: M3uList, fieldValues: Record<string, string>, rowLike: any = row): Promise<PartnerCtx | null> => {
+      const m3u = client ? await buildResellerM3u(sb, client, list) : await buildManualM3u(sb, rowLike, list);
       if (!m3u) return null;
-      return { app: partnerApp(app), fieldValues, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: client.server_id };
+      return { app: partnerApp(app), fieldValues, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: client ? client.server_id : rowLike.server_id };
     };
     const noList = () => jsonError(400, "Não foi possível montar a lista desse cliente agora. Fale com o suporte.");
     const currentList: M3uList = row.m3u_list === "secundaria" ? "secundaria" : "principal";
 
     if (action === "update" || action === "configure") {
-      if (client.missing_since) return jsonError(400, "Esse cliente não aparece mais no seu painel — não dá pra configurar.");
+      if (client?.missing_since) return jsonError(400, "Esse cliente não aparece mais no seu painel — não dá pra configurar.");
       let fieldValues: Record<string, string> = row.field_values || {};
+      // M3U informado: o Editar pode trocar o link e o nome (validados de novo)
+      let manualPatch: Record<string, unknown> = {};
+      let rowForM3u: any = row;
       if (action === "update") {
         const fv = readFieldValues(app, body?.field_values);
         if ("error" in fv) return jsonError(400, fv.error);
         fieldValues = fv.values;
+        if (!client) {
+          const newUrl = s(body?.m3u_url) || row.m3u_url;
+          const man = await resolveManualM3uServer(sb, ctx.tenant_id, ctx.reseller_id, newUrl);
+          if ("error" in man) return jsonError(400, man.error);
+          const newLabel = s(body?.client_label).slice(0, 80) || row.client_label;
+          manualPatch = { m3u_url: newUrl, m3u_username: man.username, server_id: man.server_id, client_label: newLabel };
+          rowForM3u = { ...row, ...manualPatch };
+        }
       }
       // Reconfigurar alterna principal ↔ secundária; Editar mantém a atual
       const list: M3uList = action === "configure" ? (currentList === "principal" ? "secundaria" : "principal") : currentList;
-      const pctx = await ctxFor(list, fieldValues);
+      const pctx = await ctxFor(list, fieldValues, rowForM3u);
       if (!pctx) return noList();
       const r = await configureResellerApp(sb, pctx);
       if (!r.ok) return jsonError(400, r.error);
@@ -448,7 +529,7 @@ export async function POST(req: NextRequest) {
         .from("reseller_client_apps")
         .update({
           field_values: fieldValues,
-          ...(action === "update" ? { obs: s(body?.obs).slice(0, 120) || null } : {}),
+          ...(action === "update" ? { obs: s(body?.obs).slice(0, 120) || null, ...manualPatch } : {}),
           m3u_list: list,
           list_name: r.listName,
           configured_at: new Date().toISOString(),

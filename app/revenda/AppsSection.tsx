@@ -44,8 +44,11 @@ type AppRow = {
   license_price: number | null;
   tier: number | null;
   renew: Renew;
+  // ✅ 09/10/2026: M3U informado pela revenda (servidor sem lista, ex.: Elite)
+  manual?: boolean;
+  m3u_url?: string | null;
 };
-type ConfiguredClient = EndClient & { missing?: boolean; apps: AppRow[] };
+type ConfiguredClient = EndClient & { missing?: boolean; manual?: boolean; label?: string; apps: AppRow[] };
 type Stats = {
   total: number;
   active: number;
@@ -54,11 +57,20 @@ type Stats = {
   expiring_2d: number;
   apps_configured: number;
   clients_with_apps: number;
+  clients_available?: boolean;
   gerenciaapp_used: number;
   gerenciaapp_limit: number;
   synced_at: string | null;
 };
-type Dashboard = { stats: Stats; clients: EndClient[]; configured: ConfiguredClient[]; can_add: boolean; currency: string };
+type Dashboard = {
+  stats: Stats;
+  clients: EndClient[];
+  configured: ConfiguredClient[];
+  can_add: boolean;
+  currency: string;
+  // servidores da revenda sem lista de clientes → "Adicionar" pede o M3U
+  m3u_servers: { id: string; name: string }[];
+};
 type Call = (p: Record<string, unknown>) => Promise<any>;
 
 // ✅ 08/10/2026: valores na moeda da revenda (BRL/USD/EUR, câmbio salvo)
@@ -141,7 +153,14 @@ export default function AppsSection({
     if (sync) setSyncing(true);
     try {
       const j = await call({ action: "dashboard", sync });
-      setDash({ stats: j.stats, clients: j.clients, configured: j.configured, can_add: j.can_add !== false, currency: j.currency || "BRL" });
+      setDash({
+        stats: j.stats,
+        clients: j.clients,
+        configured: j.configured,
+        can_add: j.can_add !== false,
+        currency: j.currency || "BRL",
+        m3u_servers: j.m3u_servers || [],
+      });
       setDashErr(null);
     } catch (e: any) {
       setDashErr(e?.message || "Não foi possível carregar.");
@@ -253,11 +272,15 @@ export default function AppsSection({
       {dashErr && <div className="text-sm rounded-lg px-3 py-2 bg-rose-500/10 text-rose-600">{dashErr}</div>}
 
       {/* mini dashboard */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-        <StatTile label="Clientes" value={st?.total} tone="slate" />
-        <StatTile label="Ativos" value={st?.active} tone="emerald" />
-        <StatTile label="Vencidos" value={st?.expired} tone="rose" />
-        <StatTile label="Vencem em 2 dias" value={st?.expiring_2d} tone="amber" />
+      <div className={`grid grid-cols-2 gap-2 sm:gap-3 ${st?.clients_available === false ? "sm:grid-cols-2" : "sm:grid-cols-3 lg:grid-cols-6"}`}>
+        {st?.clients_available !== false && (
+          <>
+            <StatTile label="Clientes" value={st?.total} tone="slate" />
+            <StatTile label="Ativos" value={st?.active} tone="emerald" />
+            <StatTile label="Vencidos" value={st?.expired} tone="rose" />
+            <StatTile label="Vencem em 2 dias" value={st?.expiring_2d} tone="amber" />
+          </>
+        )}
         <StatTile label="Apps configurados" value={st?.apps_configured} tone="sky" />
         <StatTile
           label="GerenciaApp"
@@ -286,13 +309,24 @@ export default function AppsSection({
                 <div key={c.id} className="rounded-xl border border-border overflow-hidden bg-card shadow-sm">
                   <div className="px-4 py-2.5 bg-muted/40 border-b border-border flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <div className="font-mono font-bold text-foreground truncate">{c.username}</div>
+                      <div className="font-mono font-bold text-foreground truncate">
+                        {c.manual ? c.label || c.username : c.username}
+                        {c.manual && c.label && c.label !== c.username ? (
+                          <span className="font-normal text-muted-foreground"> ({c.username})</span>
+                        ) : null}
+                      </div>
                       <div className="text-[11px] text-muted-foreground">
-                        Vencimento {c.server_name || "painel"}: <span className="font-semibold text-foreground">{tsDateTimeBR(c.expires_at)}</span>
-                        {c.missing ? " · não aparece mais no painel" : ""}
+                        {c.manual ? (
+                          <>Servidor {c.server_name || "—"} · M3U informado por você</>
+                        ) : (
+                          <>
+                            Vencimento {c.server_name || "painel"}: <span className="font-semibold text-foreground">{tsDateTimeBR(c.expires_at)}</span>
+                            {c.missing ? " · não aparece mais no painel" : ""}
+                          </>
+                        )}
                       </div>
                     </div>
-                    <ClientStatus c={c} />
+                    {!c.manual && <ClientStatus c={c} />}
                   </div>
                   <div className="divide-y divide-border">
                     {c.apps.map((a) => {
@@ -514,6 +548,7 @@ export default function AppsSection({
           app={adding.app}
           deviceType={adding.deviceType}
           clients={dash.clients}
+          m3uServers={dash.m3u_servers}
           gaFull={gaFull && adding.app.is_gerenciaapp ? st! : null}
           call={call}
           onBack={() => {
@@ -725,6 +760,7 @@ function AddModal({
   app,
   deviceType,
   clients,
+  m3uServers,
   gaFull,
   call,
   onBack,
@@ -734,6 +770,7 @@ function AddModal({
   app: CatalogItem;
   deviceType: string | null;
   clients: EndClient[];
+  m3uServers: { id: string; name: string }[];
   gaFull: Stats | null;
   call: Call;
   onBack: () => void;
@@ -744,6 +781,13 @@ function AddModal({
   // ✅ 07/10/2026 (pedido do Márcio): lista só abre ao digitar ou na seta
   const [listOpen, setListOpen] = useState(false);
   const [client, setClient] = useState<EndClient | null>(null);
+  // ✅ 09/10/2026: servidor sem lista de clientes (Elite) → a revenda informa o M3U
+  const hasList = clients.length > 0;
+  const hasManual = m3uServers.length > 0;
+  const [mode, setMode] = useState<"list" | "m3u">(hasList || !hasManual ? "list" : "m3u");
+  const [mLabel, setMLabel] = useState("");
+  const [mUrl, setMUrl] = useState("");
+  const m3uOk = /username=[^&\s]+/i.test(mUrl) && /password=[^&\s]+/i.test(mUrl) && /^https?:\/\//i.test(mUrl.trim());
   const [vals, setVals] = useState<Record<string, string>>({});
   const [obs, setObs] = useState("");
   const [busy, setBusy] = useState(false);
@@ -755,17 +799,20 @@ function AddModal({
     const t = q.trim().toLowerCase();
     return (t ? clients.filter((c) => c.username.toLowerCase().includes(t)) : clients).slice(0, 300);
   }, [q, clients]);
-  const filled = !!client && fields.every((f) => (vals[f.id] || "").trim());
+  const unlocked = mode === "list" ? !!client : !!mLabel.trim() && m3uOk;
+  const filled = unlocked && fields.every((f) => (vals[f.id] || "").trim());
 
   async function configure() {
-    if (!client) return;
+    if (!unlocked) return;
     setBusy(true);
     setMsg(null);
     try {
-      const j = await call({ action: "configure_new", end_client_id: client.id, app_id: app.id, device_type: deviceType, field_values: vals, obs });
+      const who = mode === "list" ? { end_client_id: client!.id } : { client_label: mLabel.trim(), m3u_url: mUrl.trim() };
+      const j = await call({ action: "configure_new", ...who, app_id: app.id, device_type: deviceType, field_values: vals, obs });
+      const name = mode === "list" ? client!.username : mLabel.trim();
       setMsg({
         tone: "ok",
-        text: `Configurado para ${client.username}: lista ${j.list_name}${j.expire_date ? ` · app vence ${dateBR(j.expire_date)}` : j.is_trial ? " · aparelho em avaliação" : ""}.`,
+        text: `Configurado para ${name}: lista ${j.list_name}${j.expire_date ? ` · app vence ${dateBR(j.expire_date)}` : j.is_trial ? " · aparelho em avaliação" : ""}.`,
       });
       setDone(true);
       onDone();
@@ -792,6 +839,55 @@ function AddModal({
         </button>
       ) : (
         <>
+          {hasList && hasManual && (
+            <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+              {(
+                [
+                  ["list", "Cliente da lista"],
+                  ["m3u", `Informar M3U (${m3uServers.map((x) => x.name).join(", ")})`],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setMode(k)}
+                  className={`h-8 rounded-md text-xs font-semibold truncate px-2 ${mode === k ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          {mode === "m3u" ? (
+            <>
+              <div>
+                <label className={labelCls}>Nome do cliente</label>
+                <input
+                  value={mLabel}
+                  onChange={(e) => setMLabel(capitalizeFirst(e.target.value))}
+                  maxLength={80}
+                  disabled={busy}
+                  className={input}
+                  placeholder="Ex.: João da Silva"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Link M3U do cliente</label>
+                <input
+                  value={mUrl}
+                  onChange={(e) => setMUrl(e.target.value.trim())}
+                  disabled={busy}
+                  spellCheck={false}
+                  autoCapitalize="none"
+                  className={`${input} font-mono text-xs`}
+                  placeholder="http://…/get.php?username=…&password=…"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Só links dos seus servidores com a gente ({m3uServers.map((x) => x.name).join(", ")}). O usuário do link vira o nome da lista no aparelho.
+                </p>
+              </div>
+            </>
+          ) : (
           <div>
             <label className={labelCls}>Cliente</label>
             {client ? (
@@ -864,14 +960,19 @@ function AddModal({
               </div>
             )}
           </div>
+          )}
 
-          {!client && <p className="text-[11px] text-muted-foreground">Escolha o cliente pra liberar os dados do aparelho.</p>}
-          <FieldInputs fields={fields} vals={vals} setVals={setVals} disabled={!client || busy} />
+          {!unlocked && (
+            <p className="text-[11px] text-muted-foreground">
+              {mode === "list" ? "Escolha o cliente pra liberar os dados do aparelho." : "Informe o nome e o link M3U do cliente pra liberar os dados do aparelho."}
+            </p>
+          )}
+          <FieldInputs fields={fields} vals={vals} setVals={setVals} disabled={!unlocked || busy} />
           <div>
             <label className={labelCls}>
               Ambiente <span className="normal-case font-medium">(opcional)</span>
             </label>
-            <input value={obs} onChange={(e) => setObs(capitalizeFirst(e.target.value))} maxLength={120} disabled={!client || busy} className={input} placeholder="Ex.: TV da sala" />
+            <input value={obs} onChange={(e) => setObs(capitalizeFirst(e.target.value))} maxLength={120} disabled={!unlocked || busy} className={input} placeholder="Ex.: TV da sala" />
           </div>
           <button
             onClick={() => void configure()}
@@ -1226,15 +1327,23 @@ function EditModal({
 }) {
   const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(row.fields.map((f) => [f.id, f.value])));
   const [obs, setObs] = useState(row.obs || "");
+  const [mLabel, setMLabel] = useState(client.label || client.username || "");
+  const [mUrl, setMUrl] = useState(row.m3u_url || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const filled = row.fields.every((f) => (vals[f.id] || "").trim());
+  const filled = row.fields.every((f) => (vals[f.id] || "").trim()) && (!row.manual || (!!mLabel.trim() && !!mUrl.trim()));
 
   async function save() {
     setBusy(true);
     setErr(null);
     try {
-      await call({ action: "update", id: row.id, field_values: vals, obs });
+      await call({
+        action: "update",
+        id: row.id,
+        field_values: vals,
+        obs,
+        ...(row.manual ? { client_label: mLabel.trim(), m3u_url: mUrl.trim() } : {}),
+      });
       onDone();
     } catch (e: any) {
       setErr(e?.message);
@@ -1244,8 +1353,27 @@ function EditModal({
   }
 
   return (
-    <ModalShell app={row.app} onClose={onClose} subtitle={`Cliente ${client.username}`}>
+    <ModalShell app={row.app} onClose={onClose} subtitle={`Cliente ${client.label || client.username}`}>
       {err && <div className="text-sm rounded-lg px-3 py-2 bg-rose-500/10 text-rose-600">{err}</div>}
+      {row.manual && (
+        <>
+          <div>
+            <label className={labelCls}>Nome do cliente</label>
+            <input value={mLabel} onChange={(e) => setMLabel(capitalizeFirst(e.target.value))} maxLength={80} disabled={busy} className={input} />
+          </div>
+          <div>
+            <label className={labelCls}>Link M3U do cliente</label>
+            <input
+              value={mUrl}
+              onChange={(e) => setMUrl(e.target.value.trim())}
+              disabled={busy}
+              spellCheck={false}
+              autoCapitalize="none"
+              className={`${input} font-mono text-xs`}
+            />
+          </div>
+        </>
+      )}
       <FieldInputs fields={row.fields} vals={vals} setVals={setVals} disabled={busy} />
       <div>
         <label className={labelCls}>

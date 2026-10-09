@@ -164,3 +164,10 @@ Substitui o fluxo solto (revenda informava qualquer M3U). Decisões do Márcio:
 - Webhook do Stripe reconhece pedidos da revenda (créditos e ativação) só quando não é de cliente; assinatura e valor conferidos.
 - Validação (simulação com chamadas externas interceptadas, código real): créditos BRL e EUR, 3 webhooks simultâneos = 1 envio, valor menor, assinatura inválida (inclusive nas rotas HTTP reais de MP e Stripe), PIX substituído pago, AtivaApp ok/recusa/webhook, DupleCast ok/fallback, pagamento em dobro do mesmo aparelho, Stripe na ativação, Log do Portal, sino, receita e WhatsApp — tudo ok.
 - Falta: pagamento real (PIX e cartão) feito pelo Márcio.
+
+### 09/10/2026 — Elite pronto para revendas (sem testar com revenda real)
+- Envio de créditos: `lib/integrations/elite-transfer.ts` (POST /resellers/{id}/credits/send). Mínimo 20; Idempotency-Key fixa por envio (`ugcred-<id>`) → repetir só consulta o comprovante; 200 = done, 202/sem resposta/409 = sem confirmação (saldo decide; senão Chegou/Não chegou); 4xx = recusado. "open" da Recarga reconsulta sozinho o 'unknown' do Elite com a mesma chave. Mesma trava do NaTV (reseller_credit_transfers).
+- Recarga rápida e compra pelo portal usam NaTV ou Elite pelo provider do servidor (rota `natv/transfer-credits` atende os dois). Tabela Revenda: linhas Elite com pacotes ≥ 20 (padrão 20/30/50/100/200).
+- Resumo da revenda no Elite: só saldo e situação (`elite-reseller-stats.ts`, no máx. 1 consulta/5 min). API do Elite não lista clientes de sub-revenda → "Seus Clientes" some no portal e no admin.
+- Aplicativos: servidor sem lista (Elite) → "Informar M3U" (nome + link). Link só aceito se o host for DNS de um servidor nosso vinculado à revenda e sem lista (NaTV recusa e manda usar a lista). Reconfigurar alterna principal/secundária com usuário/senha do link.
+- Chave do Elite precisa das permissões: "Listar sub-revendas e envios de créditos", "Enviar créditos" (e "Retirar créditos" se for corrigir).

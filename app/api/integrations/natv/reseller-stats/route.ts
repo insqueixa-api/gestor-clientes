@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 import { loadNatvTokenForServer, syncNatvResellerStats } from "@/lib/integrations/natv-reseller-stats";
+import { loadEliteIntegrationForServer, syncEliteResellerStats } from "@/lib/integrations/elite-reseller-stats";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,29 @@ export async function POST(req: NextRequest) {
     if (!member) return jsonError(404, "Vínculo não encontrado.");
 
     const token = await loadNatvTokenForServer(admin, rs.tenant_id, rs.server_id);
-    if (!token) return NextResponse.json({ ok: true, supported: false });
+    if (!token) {
+      // ✅ 09/10/2026: Elite — saldo e situação da conta (a API não lista clientes de sub-revenda)
+      const integ = await loadEliteIntegrationForServer(admin, rs.tenant_id, rs.server_id);
+      if (!integ) return NextResponse.json({ ok: true, supported: false });
+      if (action === "get") return NextResponse.json({ ok: true, supported: true, stats: rs.panel_stats ?? null, synced_at: rs.panel_stats_at ?? null });
+      if (action !== "sync") return jsonError(400, "action inválida.");
+      const eUser = String(rs.server_username || "").trim();
+      if (!eUser) return jsonError(400, "A revenda não tem usuário do painel cadastrado nesse servidor.");
+      const e = await syncEliteResellerStats(admin, {
+        resellerServerId: rs.id,
+        integ,
+        username: eUser,
+        lastSyncAt: rs.panel_stats_at ?? null,
+        cached: rs.panel_stats ?? null,
+      });
+      return NextResponse.json({
+        ok: true,
+        supported: true,
+        stats: e.stats,
+        synced_at: e.synced_at,
+        ...(e.throttled ? { note: "Sincronizado há menos de 5 minutos (pra não abusar da API do Elite) — mostrando o último resumo." } : {}),
+      });
+    }
 
     const cached = { ok: true, supported: true, stats: rs.panel_stats ?? null, synced_at: rs.panel_stats_at ?? null };
     if (action === "get") return NextResponse.json(cached);

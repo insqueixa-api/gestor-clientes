@@ -34,6 +34,10 @@ type Server = {
     expiring_2d: { username: string; expires_at: string | null }[];
   } | null;
   synced_at: string | null;
+  // ✅ 09/10/2026: Elite não lista clientes de sub-revenda → sem "Seus Clientes"
+  provider?: string | null;
+  clients_available?: boolean;
+  min_credits?: number;
   // ✅ 08/10/2026: já na moeda da revenda (price = por crédito; total = valor do pacote)
   prices: { credits: number; price: number; total?: number }[];
 };
@@ -506,7 +510,8 @@ function RevendaPortal() {
               </div>
             </div>
 
-            {/* Seus clientes */}
+            {/* Seus clientes — só onde o painel informa (NaTV); Elite não lista clientes de sub-revenda */}
+            {server.clients_available !== false && (
             <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
               <div className="bg-muted/50 px-3 sm:px-4 py-2 sm:py-3 border-b border-border">
                 <h2 className="text-sm font-bold text-foreground flex items-center gap-2">👥 Seus Clientes</h2>
@@ -531,6 +536,7 @@ function RevendaPortal() {
                 )}
               </div>
             </div>
+            )}
 
             {/* Comprar créditos — faixas da Tabela Revenda */}
             <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">

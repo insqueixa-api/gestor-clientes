@@ -9,10 +9,11 @@
 import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
-import { DEFAULT_CREDIT_PACKAGES, supportsCreditTransfer } from "@/lib/integrations/credit-transfer";
+import { defaultCreditPackages, minCreditTransfer, supportsCreditTransfer } from "@/lib/integrations/credit-transfer";
 
 type Pkg = { position: number; credits: string; price: string };
-type ServerRow = { id: string; name: string; logo_url: string | null; packages: Pkg[] };
+// ✅ 09/10/2026: min = mínimo de créditos por envio do painel (NaTV 5, Elite 20)
+type ServerRow = { id: string; name: string; logo_url: string | null; packages: Pkg[]; min: number };
 
 function fmtBRL(n: number | null) {
   if (n === null || !Number.isFinite(n)) return "—";
@@ -42,7 +43,8 @@ async function loadRows(tenantId: string): Promise<ServerRow[]> {
     .filter((s: any) => s.panel_integration && supportsCreditTransfer(providerById.get(String(s.panel_integration))))
     .map((s: any) => {
       const saved = (pkgRes.data || []).filter((p: any) => p.server_id === s.id);
-      const packages: Pkg[] = DEFAULT_CREDIT_PACKAGES.map((def, idx) => {
+      const provider = providerById.get(String(s.panel_integration));
+      const packages: Pkg[] = defaultCreditPackages(provider).map((def, idx) => {
         const row = saved.find((p: any) => Number(p.position) === idx + 1);
         return {
           position: idx + 1,
@@ -50,7 +52,7 @@ async function loadRows(tenantId: string): Promise<ServerRow[]> {
           price: row?.price_brl != null ? String(Number(row.price_brl)) : "",
         };
       });
-      return { id: s.id, name: s.name, logo_url: s.logo_url ?? null, packages };
+      return { id: s.id, name: s.name, logo_url: s.logo_url ?? null, packages, min: minCreditTransfer(provider) };
     });
 }
 
@@ -221,9 +223,9 @@ function RevendaCreditosModal({
     for (const r of rows) {
       for (const p of r.packages) {
         const credits = Number(p.credits);
-        // NaTV não envia menos de 5 créditos (4 só se a revenda tiver exatamente 1)
-        if (!Number.isInteger(credits) || credits < 5) {
-          setErr(`${r.name}: cada pacote precisa de no mínimo 5 créditos (número inteiro).`);
+        // mínimo do painel: NaTV 5 (4 só se a revenda tiver exatamente 1); Elite 20
+        if (!Number.isInteger(credits) || credits < r.min) {
+          setErr(`${r.name}: cada pacote precisa de no mínimo ${r.min} créditos (número inteiro).`);
           return;
         }
         const priceRaw = String(p.price).trim().replace(",", ".");
@@ -294,7 +296,7 @@ function RevendaCreditosModal({
                       <span className="flex items-center text-[9px] font-medium text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-lg border border-emerald-500/10">
                         <input
                           type="number"
-                          min={5}
+                          min={r.min}
                           step={1}
                           value={p.credits}
                           onChange={(e) => setPkg(r.id, p.position, { credits: e.target.value.replace(/\D/g, "") })}

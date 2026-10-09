@@ -1,6 +1,7 @@
 "use client";
 // app/admin/revendedor/recarga_revenda.tsx
 import { Loader2 } from "lucide-react";
+import { creditProviderLabel, minCreditTransfer, supportsCreditTransfer } from "@/lib/integrations/credit-transfer";
 
 import { useEffect, useMemo, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -275,8 +276,11 @@ export default function QuickRechargeModal({
   }, [servers, selectedResellerServerId]);
 
   const recipientUsername = String(selectedLink?.server_username || "").trim();
-  const canAutoSend = serverProvider === "NATV" && !!recipientUsername;
+  // ✅ 09/10/2026: NaTV e Elite enviam crédito pela API (Elite: mínimo 20)
+  const canAutoSend = supportsCreditTransfer(serverProvider) && !!recipientUsername;
   const sendingViaApi = canAutoSend && autoSend;
+  const panelLabel = creditProviderLabel(serverProvider);
+  const apiMin = minCreditTransfer(serverProvider);
 
   // Provedor da integração do servidor escolhido + envio pendente de conferência
   useEffect(() => {
@@ -318,7 +322,7 @@ export default function QuickRechargeModal({
       const provider = String(integ?.provider || "").toUpperCase() || null;
       if (!alive) return;
       setServerProvider(provider);
-      if (provider === "NATV") {
+      if (supportsCreditTransfer(provider)) {
         const res = await fetch("/api/integrations/natv/transfer-credits", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -339,8 +343,8 @@ export default function QuickRechargeModal({
       title: outcome === "arrived" ? "Os créditos chegaram?" : "Os créditos NÃO chegaram?",
       subtitle:
         outcome === "arrived"
-          ? `Confirme que você viu os ${openTransfer.amount} créditos na conta ${openTransfer.recipient_username} no painel do NaTV. A venda será registrada no Financeiro.`
-          : `Confirme que você conferiu no painel do NaTV e os ${openTransfer.amount} créditos não chegaram em ${openTransfer.recipient_username}. Nada será registrado e você poderá enviar de novo.`,
+          ? `Confirme que você viu os ${openTransfer.amount} créditos na conta ${openTransfer.recipient_username} no painel do ${panelLabel}. A venda será registrada no Financeiro.`
+          : `Confirme que você conferiu no painel do ${panelLabel} e os ${openTransfer.amount} créditos não chegaram em ${openTransfer.recipient_username}. Nada será registrado e você poderá enviar de novo.`,
       tone: outcome === "arrived" ? "emerald" : "rose",
       confirmText: outcome === "arrived" ? "Chegou" : "Não chegou",
       cancelText: "Voltar",
@@ -671,10 +675,17 @@ export default function QuickRechargeModal({
       onError?.("Há um envio anterior sem confirmação. Resolva ele (Chegou / Não chegou) antes de enviar outro.");
       return;
     }
+    if (sendingViaApi && qty < apiMin) {
+      onError?.(`O ${panelLabel} exige no mínimo ${apiMin} créditos por envio.`);
+      return;
+    }
     if (sendingViaApi) {
       const ok = await confirm({
-        title: `Enviar ${qty} créditos no NaTV?`,
-        subtitle: `Os créditos saem da sua conta e vão para "${recipientUsername}". O NaTV não permite desfazer o envio.`,
+        title: `Enviar ${qty} créditos no ${panelLabel}?`,
+        subtitle:
+          serverProvider === "ELITE"
+            ? `Os créditos saem da sua conta e vão para "${recipientUsername}". No Elite dá pra corrigir em até 24h pelo painel.`
+            : `Os créditos saem da sua conta e vão para "${recipientUsername}". O NaTV não permite desfazer o envio.`,
         details: [
           `Revenda: ${resellerName}`,
           `Valor da venda: ${fmtMoney("BRL", totalBRL)}`,
@@ -731,7 +742,7 @@ export default function QuickRechargeModal({
         // 3A') ✅ 06/10/2026: envia o crédito de verdade no NaTV. A rota faz
         // trava + conferência antes/depois e SÓ registra a venda com o
         // crédito confirmado — aqui não chama o RPC da venda.
-        setLoadingText("Enviando créditos no NaTV...");
+        setLoadingText(`Enviando créditos no ${panelLabel}...`);
         const res = await fetch("/api/integrations/natv/transfer-credits", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -750,7 +761,7 @@ export default function QuickRechargeModal({
         if (j?.unknown || res.status === 409) {
           // sem confirmação: trava novas recargas até conferir no painel
           setOpenTransfer(j?.transfer || j?.open || null);
-          throw new Error(j?.error || "Envio sem confirmação — confira no painel do NaTV.");
+          throw new Error(j?.error || `Envio sem confirmação — confira no painel do ${panelLabel}.`);
         }
         if (!res.ok || !j?.ok) {
           // recusado ANTES/NO envio: nada saiu → próxima tentativa é outra transferência
@@ -981,7 +992,7 @@ export default function QuickRechargeModal({
                       </option>
                     ))}
                   </Select>
-                  {/* ✅ Envio do crédito pela API (NaTV) */}
+                  {/* ✅ Envio do crédito pela API (NaTV / Elite) */}
                   {canAutoSend && (
                     <div
                       onClick={() => setAutoSend(!autoSend)}
@@ -1004,6 +1015,11 @@ export default function QuickRechargeModal({
                     Só registra a venda — você envia os créditos no painel.
                   </p>
                 )}
+                {sendingViaApi && apiMin > 5 && (
+                  <p className="text-[11px] text-muted-foreground/70 mt-1">
+                    O {panelLabel} envia no mínimo {apiMin} créditos por vez.
+                  </p>
+                )}
               </div>
 
               {canAutoSend && openTransfer && (
@@ -1013,7 +1029,7 @@ export default function QuickRechargeModal({
                       <div>
                         Envio de <b>{openTransfer.amount} créditos</b> em{" "}
                         {new Date(openTransfer.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}{" "}
-                        ficou <b>sem confirmação</b>. Confira no painel do NaTV se chegou em{" "}
+                        ficou <b>sem confirmação</b>. Confira no painel do {panelLabel} se chegou em{" "}
                         {openTransfer.recipient_username} antes de enviar outro.
                       </div>
                       <div className="flex gap-2">

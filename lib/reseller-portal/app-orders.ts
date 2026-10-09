@@ -128,7 +128,7 @@ export async function createAppOrder(
   if (p.rowId) {
     const { data: row } = await admin
       .from("reseller_client_apps")
-      .select("id, app_id, field_values, reseller_end_clients(username)")
+      .select("id, app_id, field_values, client_label, reseller_end_clients(username)")
       .eq("id", p.rowId)
       .eq("tenant_id", p.tenantId)
       .eq("reseller_id", p.resellerId)
@@ -138,7 +138,7 @@ export async function createAppOrder(
     if ("error" in fv) return { ok: false, status: 400, error: `${fv.error} (toque em Editar no card do cliente).` };
     values = fv.values;
     rowId = (row as any).id;
-    endClientUsername = (row as any).reseller_end_clients?.username || null;
+    endClientUsername = (row as any).reseller_end_clients?.username || (row as any).client_label || null;
   } else {
     const fv = readFieldValues(app, p.fieldValues);
     if ("error" in fv) return { ok: false, status: 400, error: fv.error };

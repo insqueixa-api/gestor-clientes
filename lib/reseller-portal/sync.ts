@@ -6,6 +6,7 @@
 // painel falhar, fica o último salvo (nunca derruba a tela).
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadNatvTokenForServer, syncNatvResellerStats } from "@/lib/integrations/natv-reseller-stats";
+import { loadEliteIntegrationForServer, syncEliteResellerStats } from "@/lib/integrations/elite-reseller-stats";
 
 export type ResellerLinkRow = {
   id: string;
@@ -23,7 +24,21 @@ export async function syncResellerPanels(sb: SupabaseClient, tenantId: string, l
         const username = String(l.server_username || "").trim();
         if (!username) return;
         const token = await loadNatvTokenForServer(sb, tenantId, l.server_id);
-        if (!token) return;
+        if (!token) {
+          // ✅ 09/10/2026: Elite — só saldo/situação (a API não lista clientes de sub-revenda)
+          const integ = await loadEliteIntegrationForServer(sb, tenantId, l.server_id);
+          if (!integ) return;
+          const e = await syncEliteResellerStats(sb, {
+            resellerServerId: l.id,
+            integ,
+            username,
+            lastSyncAt: l.panel_stats_at ?? null,
+            cached: l.panel_stats ?? null,
+          });
+          l.panel_stats = e.stats;
+          l.panel_stats_at = e.synced_at;
+          return;
+        }
         const r = await syncNatvResellerStats(sb, {
           resellerServerId: l.id,
           token,

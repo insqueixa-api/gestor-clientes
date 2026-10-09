@@ -15,6 +15,8 @@ import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createFastDepixTransaction, fetchQrCodeAsBase64, getFastDepixTransaction, isFastDepixGatewayType } from "@/lib/fastdepix";
 import { executeNatvCreditTransfer } from "@/lib/integrations/natv-transfer";
+import { executeEliteCreditTransfer } from "@/lib/integrations/elite-transfer";
+import { minCreditTransfer, supportsCreditTransfer } from "@/lib/integrations/credit-transfer";
 import { notify } from "@/lib/notifications/notify";
 import { syncIptvRendimentos } from "@/lib/finance/sync-iptv-lancamentos";
 import { creditUnitInCurrency, handleResellerAppOrderWebhook, resellerCurrency } from "@/lib/reseller-portal/app-orders";
@@ -61,13 +63,18 @@ export async function createCreditOrder(
   // vínculo é DESTA revenda
   const { data: link } = await admin
     .from("reseller_servers")
-    .select("id, server_id, server_username, servers(name)")
+    .select("id, server_id, server_username, servers(name, panel_integration)")
     .eq("id", resellerServerId)
     .eq("tenant_id", tenantId)
     .eq("reseller_id", resellerId)
     .maybeSingle();
   if (!link) return { ok: false, status: 404, error: "Servidor não encontrado." };
   const serverName = (link as any).servers?.name || "Servidor";
+  // ✅ 09/10/2026: mínimo do painel (Elite 20 por envio)
+  const pi = (link as any).servers?.panel_integration;
+  const { data: pInteg } = pi ? await admin.from("server_integrations").select("provider").eq("id", pi).maybeSingle() : { data: null as any };
+  const minCredits = minCreditTransfer(pInteg?.provider);
+  if (credits < minCredits) return { ok: false, status: 400, error: `Esse servidor envia no mínimo ${minCredits} créditos por compra.` };
   const username = String(link.server_username || "").trim();
   if (!username) return { ok: false, status: 400, error: "Seu usuário do painel não está cadastrado — fale com o suporte." };
 
@@ -477,36 +484,56 @@ export async function fulfillCreditOrder(admin: SupabaseClient, orderId: string)
       .maybeSingle();
     const integrationId = (link as any)?.servers?.panel_integration;
     const { data: integ } = integrationId
-      ? await admin.from("server_integrations").select("id, provider, api_token, is_active").eq("id", integrationId).maybeSingle()
+      ? await admin
+          .from("server_integrations")
+          .select("id, tenant_id, provider, api_token, is_active, api_base_url, integration_name, proxy_url")
+          .eq("id", integrationId)
+          .maybeSingle()
       : { data: null as any };
     const token = String(integ?.api_token || "").trim();
     const recipient = String(link?.server_username || "").trim();
-    if (!link || !integ || String(integ.provider).toUpperCase() !== "NATV" || integ.is_active === false || !token || !recipient) {
-      await finish({ fulfillment_status: "error", fulfillment_error: "Servidor sem integração NaTV ativa — envie os créditos manualmente." });
+    const provider = String(integ?.provider || "").toUpperCase();
+    if (!link || !integ || !supportsCreditTransfer(provider) || integ.is_active === false || !token || !recipient) {
+      await finish({ fulfillment_status: "error", fulfillment_error: "Servidor sem integração de envio ativa — envie os créditos manualmente." });
       await notifyAdmin(admin, order, "Créditos pagos sem envio automático", `Revenda pagou ${order.credits} créditos, mas o envio automático não está disponível. Envie manualmente.`);
       return;
     }
 
-    const out = await executeNatvCreditTransfer(admin, {
-      transferId: order.id, // mesmo id do pedido → nunca 2 envios por pedido
-      tenantId: order.tenant_id,
-      resellerServerId: link.id,
-      serverId: link.server_id,
-      integrationId: integ.id,
-      token,
-      recipient,
-      amount: order.credits,
-      // mesmo formato da Recarga rápida: se ficar "sem confirmação" e o Márcio
-      // clicar "Chegou" no admin, a venda é registrada com estes valores
-      salePayload: {
-        unit_price: Number(order.unit_price),
-        currency: "BRL",
-        total_brl: Number(order.amount_brl),
-        notes: `Portal da Revenda · ${order.credits} créditos · PIX ${order.gateway_type} · pedido ${String(order.id).slice(0, 8)}`,
-        order_id: order.id,
-      },
-      createdBy: null,
-    });
+    // mesmo formato da Recarga rápida: se ficar "sem confirmação" e o Márcio
+    // clicar "Chegou" no admin, a venda é registrada com estes valores
+    const salePayload = {
+      unit_price: Number(order.unit_price),
+      currency: "BRL",
+      total_brl: Number(order.amount_brl),
+      notes: `Portal da Revenda · ${order.credits} créditos · ${order.gateway_type === "stripe" ? "Cartão" : "PIX"} ${order.gateway_type} · pedido ${String(order.id).slice(0, 8)}`,
+      order_id: order.id,
+    };
+    // mesmo id do pedido → nunca 2 envios por pedido (NaTV: trava; Elite: trava + Idempotency-Key)
+    const out =
+      provider === "ELITE"
+        ? await executeEliteCreditTransfer(admin, {
+            transferId: order.id,
+            tenantId: order.tenant_id,
+            resellerServerId: link.id,
+            serverId: link.server_id,
+            integ: integ as any,
+            recipient,
+            amount: order.credits,
+            salePayload,
+            createdBy: null,
+          })
+        : await executeNatvCreditTransfer(admin, {
+            transferId: order.id,
+            tenantId: order.tenant_id,
+            resellerServerId: link.id,
+            serverId: link.server_id,
+            integrationId: integ.id,
+            token,
+            recipient,
+            amount: order.credits,
+            salePayload,
+            createdBy: null,
+          });
     const transfer = out.kind === "repeated" ? out.transfer : "transfer" in out ? out.transfer : null;
     const effective = out.kind === "repeated" ? String(transfer?.status) : out.kind;
 
@@ -538,8 +565,8 @@ export async function fulfillCreditOrder(admin: SupabaseClient, orderId: string)
     }
 
     if (effective === "unknown" || effective === "pending") {
-      await finish({ fulfillment_status: "unknown", fulfillment_error: "Envio sem confirmação do NaTV — conferir no painel (Recarga rápida: Chegou / Não chegou)." });
-      await notifyAdmin(admin, order, "Créditos pagos: envio sem confirmação", `Pedido de ${order.credits} créditos pago. O NaTV não confirmou o envio — confira no painel e marque Chegou / Não chegou na Recarga rápida.`);
+      await finish({ fulfillment_status: "unknown", fulfillment_error: "Envio sem confirmação do painel — conferir (Recarga rápida: Chegou / Não chegou)." });
+      await notifyAdmin(admin, order, "Créditos pagos: envio sem confirmação", `Pedido de ${order.credits} créditos pago. O painel não confirmou o envio — confira e marque Chegou / Não chegou na Recarga rápida.`);
       return;
     }
 

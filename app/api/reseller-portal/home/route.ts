@@ -11,6 +11,7 @@ import { createClient } from "@supabase/supabase-js";
 import { validateResellerSession, endResellerSession } from "@/lib/reseller-portal/session";
 import { syncResellerPanels } from "@/lib/reseller-portal/sync";
 import { creditUnitInCurrency, resellerCurrency } from "@/lib/reseller-portal/app-orders";
+import { minCreditTransfer } from "@/lib/integrations/credit-transfer";
 
 export const maxDuration = 60;
 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       sb.from("resellers").select("display_name, created_at").eq("id", ctx.reseller_id).eq("tenant_id", ctx.tenant_id).maybeSingle(),
       sb
         .from("reseller_servers")
-        .select("id, server_id, server_username, server_password, panel_stats, panel_stats_at, servers(name, logo_url, panel_telegram_group)")
+        .select("id, server_id, server_username, server_password, panel_stats, panel_stats_at, servers(name, logo_url, panel_telegram_group, panel_integration)")
         .eq("tenant_id", ctx.tenant_id)
         .eq("reseller_id", ctx.reseller_id),
     ]);
@@ -67,6 +68,13 @@ export async function POST(req: NextRequest) {
       }
     } catch {}
     const serverIds = links.map((l) => l.server_id);
+    // ✅ 09/10/2026: painel de cada servidor — mínimo de créditos (Elite 20) e
+    // se dá pra ver os clientes da revenda (Elite não lista clientes de sub-revenda)
+    const integIds = links.map((l) => l.servers?.panel_integration).filter(Boolean);
+    const { data: integRows } = integIds.length
+      ? await sb.from("server_integrations").select("id, provider").in("id", integIds)
+      : { data: [] as any[] };
+    const providerOf = (l: any) => String((integRows || []).find((i: any) => i.id === l.servers?.panel_integration)?.provider || "").toUpperCase();
 
     const pkgRes = serverIds.length
       ? await sb
@@ -110,8 +118,14 @@ export async function POST(req: NextRequest) {
           telegram_url: telegramUrl(l.servers?.panel_telegram_group),
           stats: l.panel_stats || null,
           synced_at: l.panel_stats_at || null,
+          provider: providerOf(l) || null,
+          clients_available: providerOf(l) === "NATV",
+          min_credits: minCreditTransfer(providerOf(l)),
           prices: (pkgRes.data || [])
-            .filter((p: any) => p.server_id === l.server_id && p.price_brl != null && Number(p.price_brl) > 0)
+            .filter(
+              (p: any) =>
+                p.server_id === l.server_id && p.price_brl != null && Number(p.price_brl) > 0 && Number(p.credits) >= minCreditTransfer(providerOf(l)),
+            )
             .map((p: any) => {
               const unit = unitDisplay.get(`${p.server_id}:${p.credits}`) ?? Number(p.price_brl);
               // price = por crédito NA MOEDA da revenda; total = valor exato cobrado pelo pacote

@@ -15,10 +15,14 @@
 //      recargas até o Márcio dizer "chegou"/"não chegou" (action: resolve).
 // A venda (server_credit_sales + Financeiro) só é registrada com o crédito
 // confirmado.
+// ✅ 09/10/2026: atende também o ELITE (lib/integrations/elite-transfer.ts —
+// mínimo 20, Idempotency-Key fixa por envio; 'unknown' do Elite é reconsultado
+// sozinho no "open" repetindo o mesmo pedido, o que só consulta o comprovante).
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 import { createClient as createSupabaseServer } from "@/lib/supabase/server";
 import { executeNatvCreditTransfer } from "@/lib/integrations/natv-transfer";
+import { eliteRecheckTransfer, executeEliteCreditTransfer } from "@/lib/integrations/elite-transfer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,7 +80,7 @@ function repeatedResponse(t: any) {
       error:
         t.status === "pending"
           ? "Esse envio ainda está em andamento — aguarde e confira antes de tentar de novo."
-          : t.error || "Envio sem confirmação — confira no painel do NaTV.",
+          : t.error || "Envio sem confirmação — confira no painel do servidor.",
       transfer: publicTransfer(t),
     },
     { status: 202 },
@@ -147,6 +151,23 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       const isOpen =
         open && (open.status === "unknown" || Date.now() - new Date(open.created_at).getTime() > STALE_PENDING_MS);
+      if (isOpen && open.status === "unknown" && open.provider === "ELITE") {
+        const { data: integ } = await admin
+          .from("server_integrations")
+          .select("id, tenant_id, api_token, api_base_url, integration_name, proxy_url")
+          .eq("id", open.server_integration_id)
+          .maybeSingle();
+        if (integ && (await eliteRecheckTransfer(admin, open, integ as any)) === "done") {
+          const { data: done } = await admin.from("reseller_credit_transfers").select("*").eq("id", open.id).maybeSingle();
+          const sale = await registerSale(done);
+          await admin
+            .from("reseller_credit_orders")
+            .update({ fulfillment_status: "done", fulfilled_at: new Date().toISOString(), sale_id: sale.saleId, fulfillment_error: null })
+            .eq("id", open.id)
+            .in("fulfillment_status", ["unknown", "processing"]);
+          return NextResponse.json({ ok: true, open: null, rechecked: publicTransfer({ ...done, sale_id: sale.saleId }) });
+        }
+      }
       return NextResponse.json({ ok: true, open: isOpen ? publicTransfer(open) : null, in_progress: open && !isOpen });
     }
 
@@ -229,29 +250,44 @@ export async function POST(req: NextRequest) {
     if (!server?.panel_integration) return jsonError(400, "Servidor sem integração.");
     const { data: integ } = await admin
       .from("server_integrations")
-      .select("id, provider, api_token, is_active")
+      .select("id, tenant_id, provider, api_token, is_active, api_base_url, integration_name, proxy_url")
       .eq("id", server.panel_integration)
       .eq("tenant_id", rs.tenant_id)
       .maybeSingle();
-    if (!integ || String(integ.provider).toUpperCase() !== "NATV") return jsonError(400, "Integração do servidor não é NaTV.");
-    if (integ.is_active === false) return jsonError(400, "Integração NaTV está desativada.");
+    const provider = String(integ?.provider || "").toUpperCase();
+    if (!integ || !["NATV", "ELITE"].includes(provider)) return jsonError(400, "O servidor não envia créditos pela API (só NaTV e Elite).");
+    const label = provider === "ELITE" ? "Elite" : "NaTV";
+    if (integ.is_active === false) return jsonError(400, `Integração ${label} está desativada.`);
     const token = String(integ.api_token || "").trim();
-    if (!token) return jsonError(400, "Chave da API do NaTV não cadastrada.");
+    if (!token) return jsonError(400, `Chave da API do ${label} não cadastrada.`);
 
-    // ✅ trava + conferências + envio único: lib/integrations/natv-transfer.ts
-    // (mesma lógica usada pela compra de créditos do Portal da Revenda)
-    const out = await executeNatvCreditTransfer(admin, {
-      transferId,
-      tenantId: rs.tenant_id,
-      resellerServerId: rs.id,
-      serverId: rs.server_id,
-      integrationId: integ.id,
-      token,
-      recipient,
-      amount,
-      salePayload: sale,
-      createdBy: userId,
-    });
+    // ✅ trava + conferências + envio único (NaTV: natv-transfer.ts; Elite:
+    // elite-transfer.ts) — mesma lógica usada pela compra do Portal da Revenda
+    const out =
+      provider === "ELITE"
+        ? await executeEliteCreditTransfer(admin, {
+            transferId,
+            tenantId: rs.tenant_id,
+            resellerServerId: rs.id,
+            serverId: rs.server_id,
+            integ: integ as any,
+            recipient,
+            amount,
+            salePayload: sale,
+            createdBy: userId,
+          })
+        : await executeNatvCreditTransfer(admin, {
+            transferId,
+            tenantId: rs.tenant_id,
+            resellerServerId: rs.id,
+            serverId: rs.server_id,
+            integrationId: integ.id,
+            token,
+            recipient,
+            amount,
+            salePayload: sale,
+            createdBy: userId,
+          });
 
     if (out.kind === "repeated") return repeatedResponse(out.transfer);
     if (out.kind === "open_conflict") {
