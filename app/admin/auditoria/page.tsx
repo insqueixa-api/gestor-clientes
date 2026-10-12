@@ -2279,7 +2279,7 @@ function AuditoriaPageContent() {
                       <th className="px-4 py-3 text-center">Pagamento</th>
                       <th className="px-4 py-3 text-center">Renovação</th>
                       <th className="px-4 py-3 text-center">WhatsApp</th>
-                      <th className="px-4 py-3 text-center">Valor</th>
+                      <th className="px-4 py-3 text-center">Valor pago</th>
                       <th className="px-4 py-3 text-center">Desconto</th>
                       <th className="px-4 py-3 text-center">Ações</th>
                     </tr>

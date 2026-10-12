@@ -2,7 +2,7 @@
 // ✅ 12/10/2026, pedido do Márcio: o DupleCast dá 15 dias de avaliação e
 // depois expira sozinho — mas o parceiro não informa quando começou. A 1ª
 // verificação que vê "trial" grava field_values._trial_since (dia em SP) e a
-// partir dela contamos os 15 dias: "faltam X dias" e, passado o prazo, o app
+// partir dela contamos os 15 dias (só internamente) e, passado o prazo, o app
 // aparece como Expirado (renovação liberada) mesmo antes de alguém checar
 // de novo. Só DupleCast tem prazo conhecido; os outros seguem só "avaliação".
 
@@ -32,8 +32,12 @@ export function trialOver(fieldValues: Record<string, any> | null | undefined, i
   return left != null && left <= 0;
 }
 
+// ✅ 12/10/2026 (mesmo dia), pedido do Márcio: NÃO mostrar "faltam X dias" —
+// a contagem começa na 1ª checagem, não na instalação real (o cliente pode
+// ter instalado dias antes), então o número poderia estar errado. Mostra só
+// "Modo de avaliação"; a contagem fica interna, pra virar Expirado depois dos
+// 15 dias (como começa na 1ª checagem, nunca expira ANTES do real).
 export function trialLabel(daysLeft: number | null): string {
-  if (daysLeft == null) return "Modo de avaliação";
-  if (daysLeft <= 0) return "Expirado";
-  return daysLeft === 1 ? "Avaliação · último dia" : `Avaliação · faltam ${daysLeft} dias`;
+  if (daysLeft != null && daysLeft <= 0) return "Expirado";
+  return "Modo de avaliação";
 }
