@@ -14,6 +14,7 @@
 //     tem essa fila; o admin sempre exclui direto
 //   - client_app_activity_log (cada rota sabe melhor o que logar e quando)
 import { SupabaseClient } from "@supabase/supabase-js";
+import { todaySP } from "@/lib/apps/trial";
 import { getIntegrationHandler } from "@/lib/integrations";
 import {
   PIN_HANDLERS,
@@ -405,12 +406,21 @@ export async function configureClientApp(
   // "check" logo depois de criar) — marca _trial_hint na hora, igual ao
   // checkClientAppValidity. Vencimento real tira a marca.
   const isTrial = !expireDate && !!apiJson.isTrial;
+  // ✅ 12/10/2026: create também avisa licença vencida (DupleCast "expired")
+  const isExpiredNow = !expireDate && !isTrial && !!apiJson.isExpired;
   const dateField = findFieldByType(row.fieldsConfig, "date");
-  if (dateField && (expireDate || isTrial)) {
+  if (dateField && (expireDate || isTrial || isExpiredNow)) {
     const fieldKey = String(dateField.id || dateField.label);
-    const { _trial_hint: _drop, ...semTrial } = row.field_values;
+    const { _trial_hint: _drop, _expired_hint: _dropExp, _trial_since: _dropSince, ...clean } = row.field_values;
     void _drop;
-    const next = expireDate ? { ...semTrial, [fieldKey]: expireDate } : { ...row.field_values, _trial_hint: "1" };
+    void _dropExp;
+    void _dropSince;
+    const next = expireDate
+      ? { ...clean, [fieldKey]: expireDate }
+      : isTrial
+        ? // 1ª vez em avaliação grava o dia — DupleCast expira 15 dias depois (lib/apps/trial.ts)
+          { ...clean, _trial_hint: "1", _trial_since: row.field_values["_trial_since"] || todaySP() }
+        : { ...clean, _expired_hint: "1" };
     await supabaseAdmin.from("client_apps").update({ field_values: next }).eq("id", row.id);
   }
 
@@ -505,17 +515,19 @@ export async function checkClientAppValidity(
     // ✅ 30/09/2026: vencimento REAL chegou (licença ativada) → sai do modo
     // de avaliação. Antes a marca _trial_hint nunca era removida.
     // 12/10/2026: idem pra marca de expirado.
-    const { _trial_hint: _drop, _expired_hint: _dropExp, ...semTrial } = row.field_values;
+    const { _trial_hint: _drop, _expired_hint: _dropExp, _trial_since: _dropSince, ...semTrial } = row.field_values;
     void _drop;
     void _dropExp;
+    void _dropSince;
     await supabaseAdmin
       .from("client_apps")
       .update({ field_values: { ...semTrial, [fieldKey]: expireDate } })
       .eq("id", row.id);
   } else if (isExpired) {
     if (row.field_values["_expired_hint"] !== "1" || row.field_values["_trial_hint"] === "1") {
-      const { _trial_hint: _dropT, ...rest } = row.field_values;
+      const { _trial_hint: _dropT, _trial_since: _dropS, ...rest } = row.field_values;
       void _dropT;
+      void _dropS;
       await supabaseAdmin
         .from("client_apps")
         .update({ field_values: { ...rest, _expired_hint: "1" } })
@@ -529,12 +541,14 @@ export async function checkClientAppValidity(
     // no portal. Substitui a regra de 10/08/2026 (data manual escondia o trial).
     // expireDate fica null de propósito: quem chama trata "veio data" como
     // vencimento real confirmado (o admin tiraria o selo de avaliação).
-    if (row.field_values["_trial_hint"] !== "1" || row.field_values["_expired_hint"]) {
+    // ✅ 12/10/2026: 1ª vez que vê "trial" grava o dia (_trial_since) —
+    // DupleCast expira 15 dias depois (lib/apps/trial.ts)
+    if (row.field_values["_trial_hint"] !== "1" || row.field_values["_expired_hint"] || !row.field_values["_trial_since"]) {
       const { _expired_hint: _dropExp, ...rest } = row.field_values;
       void _dropExp;
       await supabaseAdmin
         .from("client_apps")
-        .update({ field_values: { ...rest, _trial_hint: "1" } })
+        .update({ field_values: { ...rest, _trial_hint: "1", _trial_since: row.field_values["_trial_since"] || todaySP() } })
         .eq("id", row.id);
     }
   } else if (dateField) {

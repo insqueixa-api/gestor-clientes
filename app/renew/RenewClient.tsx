@@ -2,6 +2,7 @@
 // app/renew/RenewClient.tsx
 
 import { useSearchParams, useRouter } from "next/navigation"; // ✅ useRouter adicionado
+import { trialLabel } from "@/lib/apps/trial";
 import { Fragment, useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useConfirm } from "@/hooks/useConfirm";
 import {
@@ -467,6 +468,8 @@ export default function RenewClient() {
     is_trial: boolean;
     // ✅ 12/10/2026: licença vencida confirmada pelo parceiro, sem data (DupleCast "expired")
     is_expired?: boolean;
+    // ✅ 12/10/2026: dias restantes da avaliação (DupleCast, 15 dias)
+    trial_days_left?: number | null;
     fields: InstalledAppField[];
     portal_setup_instructions: string | null;
     // ✅ 04/10/2026: download do aparelho deste app (Computador/Downloader/App Store)
@@ -5465,7 +5468,7 @@ export default function RenewClient() {
                             {app.is_partnership
                               ? "Vencimento: Parceria (gratuito)"
                               : app.is_trial
-                                ? "Vencimento: Modo de avaliação"
+                                ? `Vencimento: ${trialLabel(app.trial_days_left ?? null)}`
                                 : app.is_expired && !expirationDatePart
                                   ? "Vencimento: Expirado"
                                   : expirationDatePart
@@ -5985,7 +5988,7 @@ export default function RenewClient() {
                       : prev,
                   );
                 const statusLabel = (a: InstalledApp) => {
-                  if (a.is_trial) return "Modo de avaliação";
+                  if (a.is_trial) return trialLabel(a.trial_days_left ?? null);
                   if (a.is_expired && !a.expiration) return "Expirado";
                   const dp = a.expiration ? String(a.expiration).split("T")[0] : "";
                   if (!dp) return "Sem vencimento";
@@ -6700,7 +6703,7 @@ export default function RenewClient() {
                               }`}
                             >
                               {app.is_trial
-                                ? "Modo de avaliação"
+                                ? trialLabel(app.trial_days_left ?? null)
                                 : app.is_expired && !datePart
                                   ? "Expirado"
                                   : isExpiredApp

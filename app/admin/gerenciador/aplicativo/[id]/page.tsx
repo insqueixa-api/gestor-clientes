@@ -7,6 +7,7 @@
 // confiança e histórico de configurações. Dados: /api/admin/apps/[id]/overview
 // (lib/apps/app-overview.ts). Só leitura — editar continua no catálogo.
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { trialLabel } from "@/lib/apps/trial";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -370,7 +371,7 @@ export default function AppDetailPage() {
               ))}
             </div>,
             <div key="v" className="flex flex-col items-start gap-1">
-              <ExpiryBadge expiration={u.expiration} trial={u.trial_hint} expired={u.expired_hint} today={today} />
+              <ExpiryBadge expiration={u.expiration} trial={u.trial_hint} trialDaysLeft={u.trial_days_left} expired={u.expired_hint} today={today} />
               {checkMsg[u.client_app_id] && (
                 <span className={`text-[10px] ${checkMsg[u.client_app_id].ok ? "text-emerald-600" : "text-rose-500"}`}>
                   {checkMsg[u.client_app_id].text}
@@ -616,7 +617,19 @@ function ClientCell({ id, name, username, server, status }: { id: string; name: 
   );
 }
 
-function ExpiryBadge({ expiration, trial, expired, today }: { expiration: string | null; trial?: boolean; expired?: boolean; today: string }) {
+function ExpiryBadge({
+  expiration,
+  trial,
+  trialDaysLeft,
+  expired,
+  today,
+}: {
+  expiration: string | null;
+  trial?: boolean;
+  trialDaysLeft?: number | null;
+  expired?: boolean;
+  today: string;
+}) {
   // parceiro confirmou licença vencida e não há data futura (não renovou)
   if (!trial && expired && !(expiration && expiration >= today)) {
     return <span className="text-xs font-medium px-2 py-0.5 rounded-lg whitespace-nowrap text-rose-500 bg-rose-500/10">Expirado</span>;
@@ -633,7 +646,7 @@ function ExpiryBadge({ expiration, trial, expired, today }: { expiration: string
               : "text-emerald-600 bg-emerald-500/10"
       }`}
     >
-      {trial ? "Avaliação" : fmtDate(expiration)}
+      {trial ? trialLabel(trialDaysLeft ?? null) : fmtDate(expiration)}
     </span>
   );
 }

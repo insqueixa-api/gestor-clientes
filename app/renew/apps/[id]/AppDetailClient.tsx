@@ -7,6 +7,7 @@
 // que os aplicativos são de terceiros — o pagamento da licença deles é com
 // o desenvolvedor, o admin só faz o intermédio da instalação/manutenção).
 import { useEffect, useState } from "react";
+import { trialLabel } from "@/lib/apps/trial";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -35,6 +36,7 @@ type AppDetail = {
   is_trial: boolean;
   // ✅ 12/10/2026: licença vencida confirmada pelo parceiro, sem data
   is_expired?: boolean;
+  trial_days_left?: number | null;
   fields: AppField[];
   portal_setup_instructions: string | null;
   // ✅ 04/10/2026: download do aparelho deste app
@@ -440,7 +442,7 @@ export default function AppDetailClient() {
               {!app.has_pending_manual_renewal && app.is_trial && (
                 <div className="flex items-center gap-1.5 -mt-2">
                   <p className="text-xs text-amber-500 font-bold">
-                    Vencimento: Modo de avaliação
+                    Vencimento: {trialLabel(app.trial_days_left ?? null)}
                   </p>
                   {app.can_check_validity && (
                     <button

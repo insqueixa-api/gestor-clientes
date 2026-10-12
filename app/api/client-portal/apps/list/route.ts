@@ -1,5 +1,6 @@
 // app/api/client-portal/apps/list/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { trialDaysLeft, trialOver } from "@/lib/apps/trial";
 import { renewsFirstViaAppativa } from "@/lib/apps/renewal-window";
 import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
 import { getPortalAddAppAccess } from "@/lib/client-portal/add-app-access";
@@ -351,13 +352,16 @@ export async function POST(req: NextRequest) {
         // existe vencimento de verdade salvo (senão o vencimento real manda).
         // ✅ 30/09/2026: vale mesmo com data salva à mão — a marca só sai quando
           // o parceiro devolve vencimento real (lib/apps/orchestration.ts).
-          is_trial: !isPartnership && vals["_trial_hint"] === "1",
+          // ✅ 12/10/2026: avaliação do DupleCast passou dos 15 dias → expirado
+          is_trial: !isPartnership && vals["_trial_hint"] === "1" && !trialOver(vals, integrationType),
+        trial_days_left: isPartnership ? null : trialDaysLeft(vals, integrationType),
         // ✅ 12/10/2026: parceiro confirmou licença VENCIDA sem data (DupleCast
         // "expired") — vale enquanto não aparecer vencimento futuro (renovou)
         is_expired:
           !isPartnership &&
-          vals["_expired_hint"] === "1" &&
-          !(String(extractExpiration(vals, config) || "").slice(0, 10) >= new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })),
+          (trialOver(vals, integrationType) ||
+            (vals["_expired_hint"] === "1" &&
+              !(String(extractExpiration(vals, config) || "").slice(0, 10) >= new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })))),
         is_partnership: isPartnership,
         fields: extractEditableFields(vals, config),
         // ✅ 04/10/2026: download do aparelho deste app (Computador/Downloader/App Store)

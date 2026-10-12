@@ -3,6 +3,7 @@
 // app/api/admin/apps/[id]/overview/route.ts, que só checa o login e chama
 // isto). Separado da rota pra poder ser testado direto.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { trialDaysLeft, trialOver } from "@/lib/apps/trial";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
 import { renewalWindowDays } from "@/lib/apps/renewal-window";
@@ -69,9 +70,12 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
         .filter((f) => f.type !== "date")
         .map((f) => ({ label: String(f.label || f.type), type: f.type, value: String(vals[f.id] ?? vals[f.label] ?? "").trim() }))
         .filter((f) => f.value),
-      trial_hint: vals._trial_hint === "1",
-      // ✅ 12/10/2026: licença vencida confirmada pelo parceiro, sem data (DupleCast "expired")
-      expired_hint: vals._expired_hint === "1" && vals._trial_hint !== "1",
+      // ✅ 12/10/2026: avaliação do DupleCast conta 15 dias a partir da 1ª checagem
+      trial_hint: vals._trial_hint === "1" && !trialOver(vals, app.integration_type),
+      trial_days_left: trialDaysLeft(vals, app.integration_type),
+      // licença vencida confirmada pelo parceiro, sem data (DupleCast "expired"),
+      // ou avaliação que passou do prazo
+      expired_hint: (vals._expired_hint === "1" && vals._trial_hint !== "1") || trialOver(vals, app.integration_type),
       configured: !!r.m3u_list,
       added_at: r.created_at,
     };

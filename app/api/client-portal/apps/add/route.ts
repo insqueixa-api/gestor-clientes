@@ -4,6 +4,7 @@
 // preenche os campos e chama /configure separadamente (mesmo fluxo em 2
 // passos do admin: adicionar → preencher → Configurar).
 import { NextRequest, NextResponse, after } from "next/server";
+import { todaySP } from "@/lib/apps/trial";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { PORTAL_APPS_DISABLED, PORTAL_APPS_DISABLED_MESSAGE } from "@/lib/apps/portal-apps-flag";
 import { logAppActivity, findFieldByType } from "@/lib/apps/panel";
@@ -209,7 +210,10 @@ export async function POST(req: NextRequest) {
         } else if (check?.ok) {
           const dateField = findFieldByType(cfg, "date");
           if (dateField && check.rawExpireDate) fieldValues[String(dateField.id || dateField.label)] = check.rawExpireDate;
-          else if (check.isTrial) fieldValues._trial_hint = "1";
+          else if (check.isTrial) {
+            fieldValues._trial_hint = "1";
+            fieldValues._trial_since = todaySP(); // ✅ 12/10/2026: conta os 15 dias do DupleCast
+          }
           else if (check.isExpired) fieldValues._expired_hint = "1"; // ✅ 12/10/2026
         }
       }

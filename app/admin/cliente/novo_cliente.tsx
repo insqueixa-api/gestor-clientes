@@ -1,6 +1,7 @@
 ﻿"use client";
 // app/admin/cliente/novo_cliente.tsx
 import { Loader2, X, MessageCircle } from "lucide-react";
+import { todaySP, trialDaysLeft, trialLabel, trialOver } from "@/lib/apps/trial";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
@@ -1032,6 +1033,8 @@ export default function NovoCliente({
     isTrial?: boolean;
     // ✅ 12/10/2026: licença vencida confirmada pelo parceiro (field_values._expired_hint)
     isExpired?: boolean;
+    // ✅ 12/10/2026: dia em que a avaliação foi vista pela 1ª vez (field_values._trial_since)
+    trialSince?: string | null;
 
     // ✅ Ativação Appativa manual em andamento (achado 27/08/2026, pedido do
     // Márcio: "deixa um ver status no admin") — vem de field_values.
@@ -1909,7 +1912,7 @@ export default function NovoCliente({
               const instances = currentApps.map((ca: any) => {
                 const savedValues = ca.field_values || {};
 
-                const { _config_cost, _config_partner, _trial_hint, _expired_hint, _appativa_pending_id, ...restValues } =
+                const { _config_cost, _config_partner, _trial_hint, _expired_hint, _trial_since, _appativa_pending_id, ...restValues } =
                   savedValues;
 
                 const cfg = Array.isArray(ca.apps?.fields_config)
@@ -1965,6 +1968,7 @@ export default function NovoCliente({
 
                   isTrial: _trial_hint === "1",
                   isExpired: _expired_hint === "1",
+                  trialSince: _trial_since || null,
 
                   appativaPending: !!_appativa_pending_id,
 
@@ -3923,7 +3927,7 @@ export default function NovoCliente({
             _config_cost: app.costType,
             _config_partner: app.partnerServerId,
             // ✅ 30/09/2026: mantém o "Modo de avaliação" ao salvar
-            ...(app.isTrial ? { _trial_hint: "1" } : {}), ...(app.isExpired && !app.isTrial ? { _expired_hint: "1" } : {}),
+            ...(app.isTrial ? { _trial_hint: "1", _trial_since: app.trialSince || todaySP() } : {}), ...(app.isExpired && !app.isTrial ? { _expired_hint: "1" } : {}),
           },
           m3u_list: app.m3uList || null,
           m3u_list_at: app.m3uListAt || null,
@@ -4472,7 +4476,7 @@ export default function NovoCliente({
               _config_partner: app.partnerServerId,
               // ✅ 30/09/2026: mantém o "Modo de avaliação" ao salvar (antes o
               // save recriava o app sem a marca e o aviso sumia)
-              ...(app.isTrial ? { _trial_hint: "1" } : {}), ...(app.isExpired && !app.isTrial ? { _expired_hint: "1" } : {}),
+              ...(app.isTrial ? { _trial_hint: "1", _trial_since: app.trialSince || todaySP() } : {}), ...(app.isExpired && !app.isTrial ? { _expired_hint: "1" } : {}),
             },
             m3u_list: app.m3uList || null,
             m3u_list_at: app.m3uListAt || null,
@@ -6767,11 +6771,14 @@ export default function NovoCliente({
                               ) : null;
                             })()}
                             {/* ✅ 12/10/2026: parceiro confirmou licença vencida (DupleCast "expired") */}
-                            {app.isExpired && !app.isTrial && (() => {
+                            {(() => {
+                              // ✅ 12/10/2026: avaliação do DupleCast passou dos 15 dias → Expirado
+                              const over = app.isTrial && trialOver({ _trial_hint: "1", _trial_since: app.trialSince }, integrationType);
+                              if (!(over || (app.isExpired && !app.isTrial))) return null;
                               const df = (app.fields_config || []).find((f: any) => String(f?.type || "").toLowerCase() === "date");
                               const d = df ? String(app.values?.[df.id] ?? app.values?.[df.label] ?? "").slice(0, 10) : "";
                               // renovou (data futura) → não está mais expirado
-                              if (d && d >= new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })) return null;
+                              if (!over && d && d >= new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })) return null;
                               return (
                                 <span
                                   title="O parceiro informa a licença como vencida — precisa renovar"
@@ -6781,13 +6788,13 @@ export default function NovoCliente({
                                 </span>
                               );
                             })()}
-                            {app.isTrial && (
+                            {app.isTrial && !trialOver({ _trial_hint: "1", _trial_since: app.trialSince }, integrationType) && (
                               <span
-                                title="Ainda no trial grátis do parceiro — sem vencimento fixo até ativar a licença paga"
+                                title={app.trialSince ? `Avaliação vista pela 1ª vez em ${app.trialSince.split("-").reverse().join("/")}` : "Ainda no trial grátis do parceiro — sem vencimento fixo até ativar a licença paga"}
                                 className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/20 text-amber-400 shadow-sm ml-1"
                               >
                                 <span className="text-[9px] font-medium uppercase tracking-wider">
-                                  Modo de avaliação
+                                  {trialLabel(trialDaysLeft({ _trial_hint: "1", _trial_since: app.trialSince }, integrationType))}
                                 </span>
                               </span>
                             )}
