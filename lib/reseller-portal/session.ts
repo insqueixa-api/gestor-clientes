@@ -111,7 +111,7 @@ export async function startResellerSessionAsAdmin(sb: SupabaseClient, tenantId: 
   return createSession(sb, tenantId, resellerId);
 }
 
-export type ResellerPortalContext = { tenant_id: string; reseller_id: string };
+export type ResellerPortalContext = { tenant_id: string; reseller_id: string; reseller_name?: string | null };
 
 /** Valida a sessão (e desliza a validade +30min). null = sessão inválida/vencida. */
 export async function validateResellerSession(sb: SupabaseClient, sessionToken: string): Promise<ResellerPortalContext | null> {
@@ -129,7 +129,7 @@ export async function validateResellerSession(sb: SupabaseClient, sessionToken: 
     .from("reseller_portal_sessions")
     .update({ expires_at: new Date(Date.now() + SESSION_TTL_MS).toISOString(), last_seen_at: new Date().toISOString() })
     .eq("id", s.id);
-  return { tenant_id: s.tenant_id, reseller_id: s.reseller_id };
+  return { tenant_id: s.tenant_id, reseller_id: s.reseller_id, reseller_name: r.display_name };
 }
 
 export async function endResellerSession(sb: SupabaseClient, sessionToken: string) {

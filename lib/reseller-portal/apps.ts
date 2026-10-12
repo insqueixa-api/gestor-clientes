@@ -157,7 +157,17 @@ export type PartnerCtx = {
   m3uUrl: string;
   serverName: string;
   serverId: string | null;
+  /** ✅ 12/10/2026: nome da revenda — no GerenciaApp a lista vira
+   * <usuario>_<Revenda> em vez de <usuario>_<Servidor> */
+  resellerName?: string | null;
 };
+
+// nome de lista seguro (sem espaço/acento/símbolo): "Jaime Silva" → "JaimeSilva"
+const cleanListPart = (s: string) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^A-Za-z0-9]/g, "");
 
 async function partnerSetup(admin: SupabaseClient, ctx: PartnerCtx) {
   const handler = resolveHandlerFor(ctx.app);
@@ -168,7 +178,13 @@ async function partnerSetup(admin: SupabaseClient, ctx: PartnerCtx) {
   const m3u = parseM3u(ctx.m3uUrl);
   const username = m3u?.username || "";
   const serverNameClean = String(ctx.serverName || "Servidor").replace(/\s+/g, "");
-  const listName = `${username}_${serverNameClean}`;
+  // ✅ 12/10/2026, pedido do Márcio: GerenciaApp configurado pela REVENDA
+  // fica <usuario>_<Revenda> (ex: jaime6635_Jaime) — admin e portal do
+  // cliente continuam <usuario>_<Servidor>. O nome antigo (legacyListName)
+  // ainda é apagado/consultado, pra quem foi configurado antes da troca.
+  const legacyListName = `${username}_${serverNameClean}`;
+  const resellerPart = cleanListPart(ctx.resellerName || "");
+  const listName = handler.actionPrefix === "GERENCIAAPP" && resellerPart ? `${username}_${resellerPart}` : legacyListName;
   const integrationType = String(ctx.app.integration_type || "").trim().toUpperCase() || resolveIntegrationTypeByName(ctx.app.name);
   const { data: integ } = await admin.from("app_integrations").select("api_url, pin").eq("app_name", integrationType).maybeSingle();
   const password = PIN_HANDLERS.has(handler.actionPrefix) ? integ?.pin || "" : m3u?.password || "";
@@ -180,6 +196,7 @@ async function partnerSetup(admin: SupabaseClient, ctx: PartnerCtx) {
     username,
     serverNameClean,
     listName,
+    legacyListName,
     integ,
     password,
     url: internalAppUrl(handler.apiEndpoint || ""),
@@ -203,18 +220,21 @@ export async function configureResellerApp(admin: SupabaseClient, ctx: PartnerCt
   if (!s.username) return { ok: false as const, error: "Informe o link M3U do cliente (Editar dados) pra configurar." };
 
   if (s.handler.actionPrefix !== "DUPLEXTV") {
-    try {
-      const del = s.handler.buildDeletePayload({
-        username: s.username,
-        finalServerName: s.listName,
-        serverName: s.serverNameClean,
-        macValue: s.macValue,
-        appName: ctx.app.name,
-        password: s.password,
-      });
-      await post(s.url, s.secret, { ...del, base_url: s.integ?.api_url || "", deviceKey: s.deviceKey, exact_only: true });
-    } catch {
-      // best-effort
+    // nome atual + o antigo (<usuario>_<Servidor>, antes da troca de 12/10)
+    for (const name of [...new Set([s.listName, s.legacyListName])]) {
+      try {
+        const del = s.handler.buildDeletePayload({
+          username: s.username,
+          finalServerName: name,
+          serverName: s.serverNameClean,
+          macValue: s.macValue,
+          appName: ctx.app.name,
+          password: s.password,
+        });
+        await post(s.url, s.secret, { ...del, base_url: s.integ?.api_url || "", deviceKey: s.deviceKey, exact_only: true });
+      } catch {
+        // best-effort
+      }
     }
   }
 
@@ -247,16 +267,23 @@ export async function checkResellerApp(admin: SupabaseClient, ctx: PartnerCtx) {
   // GerenciaApp consulta pelo nome da lista (<usuario>_<Servidor>) — sem M3U não dá
   if (s.handler.actionPrefix === "GERENCIAAPP" && !s.username)
     return { ok: false as const, error: "Informe o link M3U do cliente (Editar dados) pra verificar esse aplicativo." };
-  const r = await post(s.url, s.secret, {
-    action: "check",
-    macValue: s.macValue,
-    mac: s.macValue,
-    mac_address: s.macValue,
-    username: s.handler.actionPrefix === "GERENCIAAPP" ? s.listName : "",
-    deviceKey: s.deviceKey,
-    app_name: ctx.app.name,
-    base_url: s.integ?.api_url || "",
-  });
+  const checkBy = (listName: string) =>
+    post(s.url, s.secret, {
+      action: "check",
+      macValue: s.macValue,
+      mac: s.macValue,
+      mac_address: s.macValue,
+      username: s.handler.actionPrefix === "GERENCIAAPP" ? listName : "",
+      deviceKey: s.deviceKey,
+      app_name: ctx.app.name,
+      base_url: s.integ?.api_url || "",
+    });
+  let r = await checkBy(s.listName);
+  // GerenciaApp configurado antes de 12/10 ainda está com o nome antigo
+  if (s.handler.actionPrefix === "GERENCIAAPP" && s.legacyListName !== s.listName && !(r?.ok && r.expireDate)) {
+    const old = await checkBy(s.legacyListName);
+    if (old?.ok && old.expireDate) r = old;
+  }
   if (!r?.ok) return { ok: false as const, error: r?.error || "Falha ao consultar o painel do parceiro." };
   return { ok: true as const, expireDate: r.expireDate || null, isTrial: !!r.isTrial };
 }
@@ -269,15 +296,20 @@ export async function removeResellerAppFromPartner(admin: SupabaseClient, ctx: P
     // o parceiro só sabe apagar TODAS as listas do MAC — não mexe
     return { ok: true as const, skipped: true };
   }
-  const del = s.handler.buildDeletePayload({
-    username: s.username,
-    finalServerName: s.listName,
-    serverName: s.serverNameClean,
-    macValue: s.macValue,
-    appName: ctx.app.name,
-    password: s.password,
-  });
-  const r = await post(s.url, s.secret, { ...del, base_url: s.integ?.api_url || "", deviceKey: s.deviceKey, exact_only: true });
+  // nome atual + o antigo (configurado antes de 12/10) — basta um dar certo
+  let r: PartnerApiResponse | null = null;
+  for (const name of [...new Set([s.listName, s.legacyListName])]) {
+    const del = s.handler.buildDeletePayload({
+      username: s.username,
+      finalServerName: name,
+      serverName: s.serverNameClean,
+      macValue: s.macValue,
+      appName: ctx.app.name,
+      password: s.password,
+    });
+    const out = await post(s.url, s.secret, { ...del, base_url: s.integ?.api_url || "", deviceKey: s.deviceKey, exact_only: true });
+    if (!r?.ok) r = out;
+  }
   return r?.ok ? { ok: true as const } : { ok: false as const, error: r?.error || "Falha ao remover do parceiro." };
 }
 

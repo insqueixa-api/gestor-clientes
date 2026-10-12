@@ -433,10 +433,11 @@ export async function POST(req: NextRequest) {
             m3uUrl: oldM3u.url,
             serverName: oldM3u.serverName,
             serverId: existing.server_id,
+            resellerName: ctx.reseller_name,
           }).catch(() => null);
         }
       }
-      const pctx: PartnerCtx = { app: partnerApp(app), fieldValues: fv.values, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: targetServerId };
+      const pctx: PartnerCtx = { app: partnerApp(app), fieldValues: fv.values, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: targetServerId, resellerName: ctx.reseller_name };
       const r = await configureResellerApp(sb, pctx);
       if (!r.ok) return jsonError(400, r.error);
       let expire = isoDate(r.expireDate);
@@ -493,7 +494,7 @@ export async function POST(req: NextRequest) {
     const ctxFor = async (list: M3uList, fieldValues: Record<string, string>, rowLike: any = row): Promise<PartnerCtx | null> => {
       const m3u = client ? await buildResellerM3u(sb, client, list) : await buildManualM3u(sb, rowLike, list);
       if (!m3u) return null;
-      return { app: partnerApp(app), fieldValues, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: client ? client.server_id : rowLike.server_id };
+      return { app: partnerApp(app), fieldValues, m3uUrl: m3u.url, serverName: m3u.serverName, serverId: client ? client.server_id : rowLike.server_id, resellerName: ctx.reseller_name };
     };
     const noList = () => jsonError(400, "Não foi possível montar a lista desse cliente agora. Fale com o suporte.");
     const currentList: M3uList = row.m3u_list === "secundaria" ? "secundaria" : "principal";
