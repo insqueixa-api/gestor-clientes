@@ -160,6 +160,11 @@ export async function POST(req: NextRequest) {
           // ✅ 30/09/2026: vale mesmo com data salva à mão — a marca só sai quando
           // o parceiro devolve vencimento real (lib/apps/orchestration.ts).
           is_trial: !isPartnership && vals["_trial_hint"] === "1",
+          // ✅ 12/10/2026: licença VENCIDA confirmada pelo parceiro sem data
+          is_expired:
+            !isPartnership &&
+            vals["_expired_hint"] === "1" &&
+            !(String(extractExpiration(vals, config) || "").slice(0, 10) >= new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })),
           fields: extractEditableFields(vals, config),
           portal_setup_instructions: (row as any).apps?.portal_setup_instructions || null,
           // ✅ 04/10/2026: download do aparelho deste app

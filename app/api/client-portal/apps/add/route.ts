@@ -210,6 +210,7 @@ export async function POST(req: NextRequest) {
           const dateField = findFieldByType(cfg, "date");
           if (dateField && check.rawExpireDate) fieldValues[String(dateField.id || dateField.label)] = check.rawExpireDate;
           else if (check.isTrial) fieldValues._trial_hint = "1";
+          else if (check.isExpired) fieldValues._expired_hint = "1"; // ✅ 12/10/2026
         }
       }
     }

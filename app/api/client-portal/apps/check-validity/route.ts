@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json(
-      { ok: true, expireDate: result.expireDate, isTrial: result.isTrial || false },
+      { ok: true, expireDate: result.expireDate, isTrial: result.isTrial || false, isExpired: result.isExpired || false },
       { status: 200, headers: NO_STORE_HEADERS },
     );
   } catch (e: any) {

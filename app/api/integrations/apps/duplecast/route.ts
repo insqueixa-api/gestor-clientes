@@ -121,11 +121,14 @@ export async function POST(req: Request) {
         ok: true,
         expireDate: vmJson.expireDate ?? null,
         isTrial: !!vmJson.isTrial,
+        isExpired: !vmJson.expireDate && !vmJson.isTrial && !!vmJson.isExpired,
         message: vmJson.expireDate
           ? "Vencimento atualizado."
           : vmJson.isTrial
             ? "Dispositivo ainda em modo trial — Duplecast não informa vencimento até ativar a licença."
-            : "Não foi possível localizar o vencimento no painel.",
+            : vmJson.isExpired
+              ? "Licença expirada no DupleCast — precisa renovar."
+              : "Não foi possível localizar o vencimento no painel.",
       });
     }
 
@@ -136,6 +139,7 @@ export async function POST(req: Request) {
         ok: true,
         expireDate: vmJson.expireDate ?? null,
         isTrial: !vmJson.expireDate && !!vmJson.isTrial,
+        isExpired: !vmJson.expireDate && !vmJson.isTrial && !!vmJson.isExpired,
         message: vmJson.isTrial && !vmJson.expireDate
           ? "Playlist configurada — aparelho em modo de avaliação (DupleCast não informa vencimento até ativar a licença)."
           : "Playlist configurada com sucesso.",

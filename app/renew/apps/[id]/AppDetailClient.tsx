@@ -33,6 +33,8 @@ type AppDetail = {
   has_pending_manual_renewal: boolean;
   expiration: string | null;
   is_trial: boolean;
+  // ✅ 12/10/2026: licença vencida confirmada pelo parceiro, sem data
+  is_expired?: boolean;
   fields: AppField[];
   portal_setup_instructions: string | null;
   // ✅ 04/10/2026: download do aparelho deste app
@@ -420,6 +422,21 @@ export default function AppDetailClient() {
                   sem isso a validade ficava totalmente em branco, sem
                   explicar o motivo nem oferecer um jeito de confirmar. */}
               {/* ✅ 30/09/2026: vale mesmo com data salva à mão (não é validade real no trial) */}
+              {/* ✅ 12/10/2026: parceiro confirmou licença vencida (DupleCast "expired") */}
+              {!app.has_pending_manual_renewal && !app.is_trial && app.is_expired && !app.expiration && (
+                <div className="flex items-center gap-1.5 -mt-2">
+                  <p className="text-xs text-rose-500 font-bold">Vencimento: Expirado — renove pra voltar a usar</p>
+                  {app.can_check_validity && (
+                    <button
+                      disabled={busy}
+                      onClick={handleCheckValidity}
+                      className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-bold hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
+                    >
+                      {busy ? "..." : "Ver validade"}
+                    </button>
+                  )}
+                </div>
+              )}
               {!app.has_pending_manual_renewal && app.is_trial && (
                 <div className="flex items-center gap-1.5 -mt-2">
                   <p className="text-xs text-amber-500 font-bold">

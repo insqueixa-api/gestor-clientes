@@ -32,7 +32,10 @@ const USER_FILTERS: Record<UserFilter, { label: string; test: (u: any) => boolea
     label: "Vencem em 30 dias",
     test: (u) => u.client_status === "ativo" && u.days_left != null && u.days_left >= 0 && u.days_left <= 30,
   },
-  vencidos: { label: "Vencidos", test: (u) => u.client_status === "ativo" && u.days_left != null && u.days_left < 0 },
+  vencidos: {
+    label: "Vencidos",
+    test: (u) => u.client_status === "ativo" && ((u.days_left != null && u.days_left < 0) || (u.expired_hint && (u.days_left == null || u.days_left < 0))),
+  },
   todos: { label: "Todos", test: () => true },
 };
 
@@ -367,7 +370,7 @@ export default function AppDetailPage() {
               ))}
             </div>,
             <div key="v" className="flex flex-col items-start gap-1">
-              <ExpiryBadge expiration={u.expiration} trial={u.trial_hint} today={today} />
+              <ExpiryBadge expiration={u.expiration} trial={u.trial_hint} expired={u.expired_hint} today={today} />
               {checkMsg[u.client_app_id] && (
                 <span className={`text-[10px] ${checkMsg[u.client_app_id].ok ? "text-emerald-600" : "text-rose-500"}`}>
                   {checkMsg[u.client_app_id].text}
@@ -613,7 +616,11 @@ function ClientCell({ id, name, username, server, status }: { id: string; name: 
   );
 }
 
-function ExpiryBadge({ expiration, trial, today }: { expiration: string | null; trial?: boolean; today: string }) {
+function ExpiryBadge({ expiration, trial, expired, today }: { expiration: string | null; trial?: boolean; expired?: boolean; today: string }) {
+  // parceiro confirmou licença vencida e não há data futura (não renovou)
+  if (!trial && expired && !(expiration && expiration >= today)) {
+    return <span className="text-xs font-medium px-2 py-0.5 rounded-lg whitespace-nowrap text-rose-500 bg-rose-500/10">Expirado</span>;
+  }
   return (
     <span
       className={`text-xs font-medium px-2 py-0.5 rounded-lg whitespace-nowrap ${

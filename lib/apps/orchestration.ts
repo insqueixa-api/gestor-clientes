@@ -495,17 +495,32 @@ export async function checkClientAppValidity(
   const dateField = findFieldByType(row.fieldsConfig, "date");
   const rawExpireDate: string | null = apiJson.expireDate || null;
   const isTrial = !!apiJson.isTrial;
+  // ✅ 12/10/2026: licença VENCIDA confirmada pelo parceiro, sem data
+  // (DUPLECAST "Status : expired") — marca _expired_hint pro portal/admin
+  // mostrarem "Expirado" e liberarem a renovação.
+  const isExpired = !rawExpireDate && !isTrial && !!apiJson.isExpired;
   let expireDate = rawExpireDate;
   if (expireDate && dateField) {
     const fieldKey = String(dateField.id || dateField.label);
     // ✅ 30/09/2026: vencimento REAL chegou (licença ativada) → sai do modo
     // de avaliação. Antes a marca _trial_hint nunca era removida.
-    const { _trial_hint: _drop, ...semTrial } = row.field_values;
+    // 12/10/2026: idem pra marca de expirado.
+    const { _trial_hint: _drop, _expired_hint: _dropExp, ...semTrial } = row.field_values;
     void _drop;
+    void _dropExp;
     await supabaseAdmin
       .from("client_apps")
       .update({ field_values: { ...semTrial, [fieldKey]: expireDate } })
       .eq("id", row.id);
+  } else if (isExpired) {
+    if (row.field_values["_expired_hint"] !== "1" || row.field_values["_trial_hint"] === "1") {
+      const { _trial_hint: _dropT, ...rest } = row.field_values;
+      void _dropT;
+      await supabaseAdmin
+        .from("client_apps")
+        .update({ field_values: { ...rest, _expired_hint: "1" } })
+        .eq("id", row.id);
+    }
   } else if (dateField && isTrial) {
     // ✅ 30/09/2026, pedido do Márcio: parceiro confirma "trial" (ex:
     // DUPLECAST — a página dele mostra "Expire on" VAZIO no trial) → marca
@@ -514,10 +529,12 @@ export async function checkClientAppValidity(
     // no portal. Substitui a regra de 10/08/2026 (data manual escondia o trial).
     // expireDate fica null de propósito: quem chama trata "veio data" como
     // vencimento real confirmado (o admin tiraria o selo de avaliação).
-    if (row.field_values["_trial_hint"] !== "1") {
+    if (row.field_values["_trial_hint"] !== "1" || row.field_values["_expired_hint"]) {
+      const { _expired_hint: _dropExp, ...rest } = row.field_values;
+      void _dropExp;
       await supabaseAdmin
         .from("client_apps")
-        .update({ field_values: { ...row.field_values, _trial_hint: "1" } })
+        .update({ field_values: { ...rest, _trial_hint: "1" } })
         .eq("id", row.id);
     }
   } else if (dateField) {
@@ -527,7 +544,7 @@ export async function checkClientAppValidity(
     expireDate = row.field_values[fieldKey] || null;
   }
 
-  return { ok: true, expireDate, rawExpireDate, isTrial };
+  return { ok: true, expireDate, rawExpireDate, isTrial, isExpired };
 }
 
 // Espelha app/api/client-portal/apps/remove/route.ts:133-180 — só a parte

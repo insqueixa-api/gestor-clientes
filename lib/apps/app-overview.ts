@@ -69,6 +69,8 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
         .map((f) => ({ label: String(f.label || f.type), type: f.type, value: String(vals[f.id] ?? vals[f.label] ?? "").trim() }))
         .filter((f) => f.value),
       trial_hint: vals._trial_hint === "1",
+      // ✅ 12/10/2026: licença vencida confirmada pelo parceiro, sem data (DupleCast "expired")
+      expired_hint: vals._expired_hint === "1" && vals._trial_hint !== "1",
       configured: !!r.m3u_list,
       added_at: r.created_at,
     };

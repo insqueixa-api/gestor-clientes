@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 400 });
     }
 
-    return NextResponse.json({ ok: true, expireDate: result.expireDate, isTrial: result.isTrial || false });
+    return NextResponse.json({ ok: true, expireDate: result.expireDate, isTrial: result.isTrial || false, isExpired: result.isExpired || false });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Erro interno" }, { status: 500 });
   }

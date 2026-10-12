@@ -317,6 +317,13 @@ function parseIsTrial(html) {
   return /Status\s*:\s*trial/i.test(html);
 }
 
+// ✅ 12/10/2026 (conferido ao vivo, clientes FabianoElite/VagnerNaTV2):
+// licença vencida aparece como "Status : expired" com "Expire on" VAZIO —
+// antes isso virava "sem vencimento", igual a não ter informação nenhuma.
+function parseIsExpired(html) {
+  return /Status\s*:\s*expired/i.test(html);
+}
+
 function parsePlaylistRows(html) {
   const rowMatches = [...html.matchAll(/<tr>([\s\S]*?)<\/tr>/g)];
   const out = [];
@@ -556,7 +563,8 @@ export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey,
     const html = await fetchDeviceMain(siteRoot, jar, userAgent);
     const expireDate = parseExpireDate(html);
     const isTrial = !expireDate && parseIsTrial(html);
-    return { expireDate, isTrial };
+    const isExpired = !expireDate && !isTrial && parseIsExpired(html);
+    return { expireDate, isTrial, isExpired };
   }
 
   if (action === "create") {
@@ -567,16 +575,18 @@ export async function runDuplecastAction({ action, baseUrl, macValue, deviceKey,
 
     let expireDate = null;
     let isTrial = false;
+    let isExpired = false;
     try {
       const mainHtml = await fetchDeviceMain(siteRoot, jar, userAgent);
       expireDate = parseExpireDate(mainHtml);
       // ✅ 02/10/2026: mesma leitura do "check" — avisa o modo de avaliação
       // já no create (antes precisava clicar em "Checar vencimento" depois)
       isTrial = !expireDate && parseIsTrial(mainHtml);
+      isExpired = !expireDate && !isTrial && parseIsExpired(mainHtml);
     } catch {
       // best-effort — não bloqueia o create
     }
-    return { expireDate, isTrial };
+    return { expireDate, isTrial, isExpired };
   }
 
   if (action === "delete") {

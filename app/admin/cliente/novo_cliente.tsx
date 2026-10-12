@@ -1030,6 +1030,8 @@ export default function NovoCliente({
     // lib/apps/orchestration.ts) e é atualizado ao vivo após "Verificar
     // vencimento", pra não precisar recarregar a página pra ver o aviso.
     isTrial?: boolean;
+    // ✅ 12/10/2026: licença vencida confirmada pelo parceiro (field_values._expired_hint)
+    isExpired?: boolean;
 
     // ✅ Ativação Appativa manual em andamento (achado 27/08/2026, pedido do
     // Márcio: "deixa um ver status no admin") — vem de field_values.
@@ -1907,7 +1909,7 @@ export default function NovoCliente({
               const instances = currentApps.map((ca: any) => {
                 const savedValues = ca.field_values || {};
 
-                const { _config_cost, _config_partner, _trial_hint, _appativa_pending_id, ...restValues } =
+                const { _config_cost, _config_partner, _trial_hint, _expired_hint, _appativa_pending_id, ...restValues } =
                   savedValues;
 
                 const cfg = Array.isArray(ca.apps?.fields_config)
@@ -1962,6 +1964,7 @@ export default function NovoCliente({
                   partnerServerId: _config_partner || "",
 
                   isTrial: _trial_hint === "1",
+                  isExpired: _expired_hint === "1",
 
                   appativaPending: !!_appativa_pending_id,
 
@@ -2211,6 +2214,12 @@ export default function NovoCliente({
   // Espelha ao vivo o `_trial_hint` que lib/apps/orchestration.ts persiste
   // em field_values — sem isso, o badge "Modo Teste" só apareceria depois
   // de recarregar a página.
+  function setAppExpiredFlag(instanceId: string, isExpired: boolean) {
+    setSelectedApps((prev) =>
+      prev.map((app) => (app.instanceId === instanceId ? { ...app, isExpired } : app)),
+    );
+  }
+
   function setAppTrialFlag(instanceId: string, isTrial: boolean) {
     setSelectedApps((prev) =>
       prev.map((app) =>
@@ -2685,12 +2694,19 @@ export default function NovoCliente({
             );
           }
           setAppTrialFlag(currentApp!.instanceId, false);
+          setAppExpiredFlag(currentApp!.instanceId, false);
           addToast(
             "success",
             "Vencimento verificado",
             `${appName}: ${apiJson.expireDate.split("T")[0].split("-").reverse().join("/")}`,
           );
+        } else if (apiJson?.ok && apiJson.isExpired) {
+          // ✅ 12/10/2026: parceiro confirmou licença VENCIDA (DupleCast "expired")
+          setAppTrialFlag(currentApp!.instanceId, false);
+          setAppExpiredFlag(currentApp!.instanceId, true);
+          addToast("warning", "Licença expirada", `${appName}: a licença venceu no parceiro — precisa renovar.`);
         } else if (apiJson?.ok && apiJson.isTrial) {
+          setAppExpiredFlag(currentApp!.instanceId, false);
           setAppTrialFlag(currentApp!.instanceId, true);
           addToast(
             "warning",
@@ -3907,7 +3923,7 @@ export default function NovoCliente({
             _config_cost: app.costType,
             _config_partner: app.partnerServerId,
             // ✅ 30/09/2026: mantém o "Modo de avaliação" ao salvar
-            ...(app.isTrial ? { _trial_hint: "1" } : {}),
+            ...(app.isTrial ? { _trial_hint: "1" } : {}), ...(app.isExpired && !app.isTrial ? { _expired_hint: "1" } : {}),
           },
           m3u_list: app.m3uList || null,
           m3u_list_at: app.m3uListAt || null,
@@ -4456,7 +4472,7 @@ export default function NovoCliente({
               _config_partner: app.partnerServerId,
               // ✅ 30/09/2026: mantém o "Modo de avaliação" ao salvar (antes o
               // save recriava o app sem a marca e o aviso sumia)
-              ...(app.isTrial ? { _trial_hint: "1" } : {}),
+              ...(app.isTrial ? { _trial_hint: "1" } : {}), ...(app.isExpired && !app.isTrial ? { _expired_hint: "1" } : {}),
             },
             m3u_list: app.m3uList || null,
             m3u_list_at: app.m3uListAt || null,
@@ -6749,6 +6765,21 @@ export default function NovoCliente({
                                   </span>
                                 </span>
                               ) : null;
+                            })()}
+                            {/* ✅ 12/10/2026: parceiro confirmou licença vencida (DupleCast "expired") */}
+                            {app.isExpired && !app.isTrial && (() => {
+                              const df = (app.fields_config || []).find((f: any) => String(f?.type || "").toLowerCase() === "date");
+                              const d = df ? String(app.values?.[df.id] ?? app.values?.[df.label] ?? "").slice(0, 10) : "";
+                              // renovou (data futura) → não está mais expirado
+                              if (d && d >= new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" })) return null;
+                              return (
+                                <span
+                                  title="O parceiro informa a licença como vencida — precisa renovar"
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/20 text-rose-500 ml-1"
+                                >
+                                  <span className="text-[9px] font-medium uppercase tracking-wider">Expirado</span>
+                                </span>
+                              );
                             })()}
                             {app.isTrial && (
                               <span

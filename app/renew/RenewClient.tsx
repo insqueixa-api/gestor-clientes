@@ -465,6 +465,8 @@ export default function RenewClient() {
     expiration: string | null;
     is_partnership: boolean;
     is_trial: boolean;
+    // ✅ 12/10/2026: licença vencida confirmada pelo parceiro, sem data (DupleCast "expired")
+    is_expired?: boolean;
     fields: InstalledAppField[];
     portal_setup_instructions: string | null;
     // ✅ 04/10/2026: download do aparelho deste app (Computador/Downloader/App Store)
@@ -1193,6 +1195,8 @@ export default function RenewClient() {
       // em trial — o parceiro não informa vencimento) também oferece a
       // renovação junto com o sinal, independente da data guardada.
       if (app.is_trial) return true;
+      // ✅ 12/10/2026: expirado no parceiro (sem data) também oferece renovar
+      if (app.is_expired) return true;
       const datePart = app.expiration ? String(app.expiration).split("T")[0] : "";
       if (!datePart) return false;
       // ✅ <= 7, não < 7 (achado 26/08/2026): um trial novo de 7 dias exatos
@@ -1817,15 +1821,20 @@ export default function RenewClient() {
         throw new Error(
           result?.error || "Não foi possível atualizar a validade.",
         );
-      addToast(
-        "success",
-        result.isTrial ? "Modo de avaliação" : "Validade atualizada",
-        result.expireDate
-          ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
-          : result.isTrial
-            ? "Ainda no trial grátis (15 dias) — o parceiro só informa vencimento depois de ativar a licença paga."
-            : "Ainda não encontramos essa informação.",
-      );
+      if (result.isExpired && !result.expireDate) {
+        // ✅ 12/10/2026: parceiro confirmou licença vencida (DupleCast "expired")
+        addToast("warning", "Licença expirada", "A licença desse aplicativo venceu — renove pra voltar a usar.");
+      } else {
+        addToast(
+          "success",
+          result.isTrial ? "Modo de avaliação" : "Validade atualizada",
+          result.expireDate
+            ? `Vencimento: ${String(result.expireDate).split("-").reverse().join("/")}`
+            : result.isTrial
+              ? "Ainda no trial grátis (15 dias) — o parceiro só informa vencimento depois de ativar a licença paga."
+              : "Ainda não encontramos essa informação.",
+        );
+      }
       await refreshInstalledApps();
     } catch (err: any) {
       // ✅ err.message já vem sem texto técnico cru do parceiro (rota
@@ -5444,7 +5453,7 @@ export default function RenewClient() {
                                 ? "text-muted-foreground"
                                 : app.is_trial
                                   ? "text-amber-500 font-bold"
-                                  : isExpired
+                                  : isExpired || app.is_expired
                                     ? "text-rose-500 font-bold"
                                     : isExpiringSoon
                                       ? "text-amber-500 font-bold"
@@ -5455,7 +5464,9 @@ export default function RenewClient() {
                               ? "Vencimento: Parceria (gratuito)"
                               : app.is_trial
                                 ? "Vencimento: Modo de avaliação"
-                                : expirationDatePart
+                                : app.is_expired && !expirationDatePart
+                                  ? "Vencimento: Expirado"
+                                  : expirationDatePart
                                   ? `${isExpired ? "Vencido" : isExpiringSoon ? "Vencendo" : "Validade"}: ${expirationDatePart.split("-").reverse().join("/")}`
                                   : "Vencimento: —"}
                           </p>
@@ -5973,6 +5984,7 @@ export default function RenewClient() {
                   );
                 const statusLabel = (a: InstalledApp) => {
                   if (a.is_trial) return "Modo de avaliação";
+                  if (a.is_expired && !a.expiration) return "Expirado";
                   const dp = a.expiration ? String(a.expiration).split("T")[0] : "";
                   if (!dp) return "Sem vencimento";
                   const d = daysUntilSP(dp);
@@ -6612,7 +6624,7 @@ export default function RenewClient() {
                       ? String(app.expiration).split("T")[0]
                       : "";
                   const diffDays = datePart ? daysUntilSP(datePart) : null;
-                  const isExpiredApp = diffDays !== null && diffDays < 0;
+                  const isExpiredApp = (diffDays !== null && diffDays < 0) || (!!app.is_expired && !app.is_trial);
                   const otherFieldsApp = app.fields.filter(
                     (f) => f.type !== "obs",
                   );
@@ -6652,9 +6664,11 @@ export default function RenewClient() {
                             >
                               {app.is_trial
                                 ? "Modo de avaliação"
-                                : isExpiredApp
-                                  ? "Vencido"
-                                  : "Vencendo"}
+                                : app.is_expired && !datePart
+                                  ? "Expirado"
+                                  : isExpiredApp
+                                    ? "Vencido"
+                                    : "Vencendo"}
                               {datePart &&
                                 ` — ${new Date(`${datePart}T12:00:00`).toLocaleDateString("pt-BR")}`}
                             </span>
