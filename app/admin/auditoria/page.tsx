@@ -1378,7 +1378,8 @@ function AuditoriaPageContent() {
       const res = await fetch("/api/admin/payments/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ payment_id: log.id }),
+        // revenda: o pedido mora em outra tabela (ver payments/delete)
+        body: JSON.stringify({ payment_id: log.id, kind: log.payment_type }),
       });
       const result = await res.json().catch(() => null);
       if (!res.ok) throw new Error(result?.error || "Falha ao apagar.");

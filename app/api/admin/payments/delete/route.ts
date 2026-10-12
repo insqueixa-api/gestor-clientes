@@ -27,6 +27,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "payment_id é obrigatório" }, { status: 400 });
   }
 
+  // ✅ 12/10/2026: linhas da Revenda na Auditoria vêm de outras tabelas
+  // (pedido de créditos / ativação de app) — antes a lixeira procurava em
+  // client_portal_payments e dava "Registro não encontrado". Só apaga
+  // pedido NÃO pago: pago tem venda/ativação ligada e é histórico real.
+  const kind = String(body?.kind || "");
+  if (kind === "reseller_credits" || kind === "reseller_app") {
+    const table = kind === "reseller_credits" ? "reseller_credit_orders" : "reseller_app_orders";
+    const { data: gone, error: delErr } = await supabaseAdmin
+      .from(table)
+      .delete()
+      .eq("id", paymentId)
+      .eq("tenant_id", authTenantId)
+      .neq("status", "approved")
+      .select("id")
+      .maybeSingle();
+    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+    if (!gone) return NextResponse.json({ error: "Registro não encontrado (ou já pago — pedido pago não pode ser apagado)" }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  }
+
   const { data: deleted, error } = await supabaseAdmin
     .from("client_portal_payments")
     .delete()
