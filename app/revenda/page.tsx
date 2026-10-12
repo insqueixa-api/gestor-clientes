@@ -560,20 +560,26 @@ function RevendaPortal() {
                             }`}
                           >
                             <div className="text-[11px] font-semibold text-emerald-600">{p.credits} Créditos</div>
-                            <div className="text-sm sm:text-base font-bold text-foreground">
-                              {money(p.price, cur)}
-                              <span className="text-[10px] text-muted-foreground font-normal">/cr</span>
+                            {/* ✅ 12/10/2026: mesmo desenho dos planos do cliente —
+                                desconto à esquerda, valor à direita */}
+                            <div className="mt-1 flex items-end justify-between gap-1.5">
+                              <div className="min-w-0">
+                                {(() => {
+                                  // % de desconto comparado ao menor pacote
+                                  const base = Number(sortedPrices[0]?.price || 0);
+                                  const pct = base > 0 ? Math.round(((base - p.price) / base) * 1000) / 10 : 0;
+                                  return pct > 0 ? (
+                                    <span className="inline-block px-1.5 py-px text-[9px] font-bold rounded uppercase tracking-wider bg-emerald-500/15 text-emerald-600">
+                                      {pct}% off
+                                    </span>
+                                  ) : null;
+                                })()}
+                              </div>
+                              <div className="text-sm sm:text-base font-bold text-foreground whitespace-nowrap">
+                                {money(p.price, cur)}
+                                <span className="text-[10px] text-muted-foreground font-normal">/cr</span>
+                              </div>
                             </div>
-                            {/* ✅ 12/10/2026: % de desconto comparado ao menor pacote */}
-                            {(() => {
-                              const base = Number(sortedPrices[0]?.price || 0);
-                              const pct = base > 0 ? Math.round(((base - p.price) / base) * 1000) / 10 : 0;
-                              return pct > 0 ? (
-                                <span className="inline-block mt-0.5 px-1.5 py-px text-[9px] font-bold rounded uppercase tracking-wider bg-emerald-500/15 text-emerald-600">
-                                  {pct}% off
-                                </span>
-                              ) : null;
-                            })()}
                           </button>
                         );
                       })}
