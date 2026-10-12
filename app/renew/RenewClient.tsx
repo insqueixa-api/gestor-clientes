@@ -6464,8 +6464,16 @@ export default function RenewClient() {
                           isSelected ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:border-emerald-500/40"
                         }`}
                       >
-                        <div className="text-[11px] sm:text-xs font-semibold text-emerald-600 truncate">
-                          {PERIOD_LABELS[price.period]}
+                        {/* "Atual": badge azul na linha do título, à direita */}
+                        <div className="flex items-center justify-between gap-1.5 min-w-0">
+                          <span className="text-[11px] sm:text-xs font-semibold text-emerald-600 truncate">
+                            {PERIOD_LABELS[price.period]}
+                          </span>
+                          {isCurrent && (
+                            <span className="shrink-0 px-1.5 py-px text-[9px] font-bold rounded uppercase tracking-wider bg-sky-500/15 text-sky-600 border border-sky-500/20">
+                              Atual
+                            </span>
+                          )}
                         </div>
                         <div className="mt-1 flex items-end justify-between gap-1.5">
                           <div className="min-w-0">
@@ -6473,12 +6481,6 @@ export default function RenewClient() {
                               <div className="text-[10px] text-muted-foreground whitespace-nowrap">
                                 {formatMoney(perMonth, cur)}/mês
                               </div>
-                            )}
-                            {/* "Atual" na linha de baixo, junto do desconto */}
-                            {isCurrent && (
-                              <span className="inline-block mt-0.5 mr-1 px-1.5 py-px text-[9px] font-bold rounded uppercase tracking-wider bg-sky-500/15 text-sky-600">
-                                Atual
-                              </span>
                             )}
                             {pct !== 0 && (
                               <span
