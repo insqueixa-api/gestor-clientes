@@ -707,7 +707,10 @@ function AuditoriaPageContent() {
         (appsRes.data || []).forEach((a: any) => {
           appsIconMap[String(a.name || "").trim().toLowerCase()] =
             a.icon_url ?? null;
-          appsIdMap[String(a.name || "").trim().toLowerCase()] = a.id;
+          // nome repetido no catálogo ("IPTV Stream Player" 2x): sem link,
+          // pra não abrir o app errado
+          const k = String(a.name || "").trim().toLowerCase();
+          appsIdMap[k] = k in appsIdMap ? "" : a.id;
         });
 
         const alertsMap: Record<

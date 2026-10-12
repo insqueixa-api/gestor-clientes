@@ -1423,6 +1423,7 @@ export default function NovoCliente({
           { data: appInts },
           tRes,
           { data: tmplData, error: tmplErr },
+          { data: userCounts },
         ] = await Promise.all([
           // 1. Servidores
           supabaseBrowser
@@ -1462,6 +1463,9 @@ export default function NovoCliente({
             .select("id, name, content, image_url, category")
             .eq("tenant_id", tid)
             .order("name", { ascending: true }),
+          // 5. ✅ 12/10/2026: clientes ativos por app (ordem do modal) — no
+          // mesmo lote paralelo, não soma tempo de carregamento
+          supabaseBrowser.rpc("app_user_counts", { p_tenant_id: tid }),
         ]);
 
         if (!alive) return;
@@ -1542,7 +1546,12 @@ export default function NovoCliente({
 
         if (appsData) {
           // Guardamos o catálogo completo para usar no seletor
-          setCatalog(appsData);
+          // ✅ 12/10/2026: + clientes ativos usando cada app (ordena o modal:
+          // estrelas → mais usados → com integração → alfabética). Falhar
+          // aqui só deixa o modal em ordem alfabética dentro das estrelas.
+          const counts: Record<string, number> = {};
+          for (const r of (userCounts as any[]) || []) counts[r.app_id] = Number(r.users) || 0;
+          setCatalog(appsData.map((a: any) => ({ ...a, user_count: counts[a.id] || 0 })));
         }
 
         const allTables = (tRes.data || []) as unknown as PlanTable[];
@@ -7009,6 +7018,7 @@ export default function NovoCliente({
                     ),
                     // ✅ 07/10/2026: ⚡ = licença renova sozinha (AtivaApp/DupleCast/GerenciaApp)
                     has_auto_renewal: hasAutoRenewal(app as any),
+                    user_count: (app as any).user_count ?? 0,
                   }))}
                   // ✅ Trava de parceria (só app do servidor parceiro certo,
                   // mesma regra de app/api/client-portal/apps/catalog/route.ts)

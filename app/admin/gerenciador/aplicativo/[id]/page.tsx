@@ -114,7 +114,11 @@ export default function AppDetailPage() {
 
       {/* Números */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Kpi label="Clientes usando" value={String(stats.active_users)} hint={`${stats.total_rows} cadastro(s) no total${stats.trial_users ? ` · ${stats.trial_users} em teste` : ""}`} />
+        <Kpi
+          label="Clientes usando"
+          value={String(stats.active_users)}
+          hint={`${stats.active_devices} aparelho(s) · ${stats.total_rows} cadastro(s) no total${stats.trial_users ? ` · ${stats.trial_users} em teste` : ""}`}
+        />
         <Kpi
           label="Vencimentos"
           value={`${stats.expiring_30d} em 30 dias`}
@@ -176,7 +180,7 @@ export default function AppDetailPage() {
 
       {/* Quem usa */}
       <Card
-        title={`👥 Quem usa (${users.length})`}
+        title={`👥 Quem usa (${users.length} aparelho${users.length === 1 ? "" : "s"})`}
         right={
           <div className="flex items-center gap-2">
             <input
@@ -258,7 +262,7 @@ export default function AppDetailPage() {
               {!p.counted && <span className="text-[10px] text-rose-500">não contabilizado ({p.fulfillment_status || p.status})</span>}
             </div>,
             <div key="m" className="flex flex-col text-xs">
-              <span className="text-muted-foreground">{p.counted && stats.cost_per_activation != null ? `− ${brl(stats.cost_per_activation)}` : "--"}</span>
+              <span className="text-muted-foreground">{p.margin != null ? `− ${brl(stats.cost_per_activation)}` : "--"}</span>
               {p.margin != null && (
                 <span className={`font-semibold ${p.margin >= 0 ? "text-emerald-600" : "text-rose-500"}`}>{brl(p.margin, p.currency)}</span>
               )}

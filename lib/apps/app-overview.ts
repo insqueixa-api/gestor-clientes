@@ -17,28 +17,24 @@ function extractExpiration(vals: Record<string, any>, config: any[]): string | n
 }
 
 export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id: string): Promise<{ status: number; body: any }> {
-  const { data: app } = await sb.from("apps").select("*").eq("id", id).eq("tenant_id", tenantId).maybeSingle();
-  if (!app) return { status: 404, body: { error: "Aplicativo não encontrado" } };
+  // ✅ 12/10/2026: UMA ida ao banco (docs/sql/app_overview_payload.sql) —
+  // antes eram até 4 em sequência (app → clientes → pagamentos → nomes).
+  const { data: payload, error } = await sb.rpc("app_overview_payload", { p_tenant_id: tenantId, p_app_id: id });
+  if (error) return { status: 500, body: { error: error.message } };
+  if (!payload?.app) return { status: 404, body: { error: "Aplicativo não encontrado" } };
+  const app: any = payload.app;
+  const rows: any[] = payload.rows || [];
+  const integ: any = payload.integration || null;
+  const partners: any[] = payload.partners || [];
+  const server = payload.partner_server ? { name: payload.partner_server } : null;
+  const pays: any[] = payload.payments || [];
+  const alerts: any[] = payload.alerts || [];
+  const activity: any[] = payload.activity || [];
 
   const config: any[] = Array.isArray(app.fields_config) ? app.fields_config : [];
   const macField = config.find((f) => f.type === "mac");
   const keyField = config.find((f) => f.type === "device_key");
   const ambField = config.find((f) => f.type === "obs");
-
-  const [{ data: rows }, { data: integ }, { data: partners }, { data: server }] = await Promise.all([
-    sb
-      .from("client_apps")
-      .select("id, client_id, created_at, field_values, license_paid_until, device_type, m3u_list, clients(id, display_name, server_username, is_trial, is_archived, deep_archived_at, servers(name))")
-      .eq("tenant_id", tenantId)
-      .eq("app_id", id),
-    app.integration_type
-      ? sb.from("app_integrations").select("label, is_active, api_url").eq("tenant_id", tenantId).eq("app_name", app.integration_type).maybeSingle()
-      : Promise.resolve({ data: null }),
-    sb.from("api_integrations").select("provider, credit_unit_price").eq("tenant_id", tenantId),
-    app.partner_server_id
-      ? sb.from("servers").select("name").eq("id", app.partner_server_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
 
   const today = new Date().toISOString().slice(0, 10);
   const in30 = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
@@ -64,7 +60,6 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       added_at: r.created_at,
     };
   });
-  const clientAppIds = users.map((u) => u.client_app_id);
   const activeUsers = users.filter((u) => u.client_status === "ativo");
 
   // ── custo por ativação ──
@@ -81,54 +76,9 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
   }
   const salePrice = app.license_price != null ? Number(app.license_price) : null;
 
-  // ── pagamentos ──
-  let payQuery = sb
-    .from("client_portal_payments")
-    .select("id, created_at, paid_at, status, fulfillment_status, price_amount, price_currency, coupon_code, coupon_discount_amount, payment_method, gateway_type, client_id, client_app_id, app_name_snapshot, parent_payment_id, server_name")
-    .eq("tenant_id", tenantId)
-    .eq("payment_type", "app_renewal")
-    .order("created_at", { ascending: false })
-    .limit(500);
-  // Aspas no valor dentro do or(): nome com espaço ("IBO Player") quebraria
-  // o filtro. Fora do or() (ilike/eq normais) vai o nome puro.
-  const nameEsc = `"${String(app.name).replace(/[",()\\]/g, " ")}"`;
-  payQuery = clientAppIds.length
-    ? payQuery.or(`client_app_id.in.(${clientAppIds.join(",")}),app_name_snapshot.ilike.${nameEsc}`)
-    : payQuery.ilike("app_name_snapshot", String(app.name));
-  const { data: pays } = await payQuery;
-
-  // ── ativações em confiança e histórico ──
-  const [{ data: alerts }, { data: activity }] = await Promise.all([
-    clientAppIds.length
-      ? sb
-          .from("client_alerts")
-          .select("id, created_at, closed_at, status, amount, currency, client_id, activation_date, meta")
-          .eq("tenant_id", tenantId)
-          .eq("kind", "app_activation")
-          .in("client_app_id", clientAppIds)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as any[] }),
-    (clientAppIds.length
-      ? sb
-          .from("client_app_activity_log")
-          .select("id, created_at, event, detail, client_id, client_app_id")
-          .eq("tenant_id", tenantId)
-          .or(`client_app_id.in.(${clientAppIds.join(",")}),app_name.eq.${nameEsc}`)
-      : sb.from("client_app_activity_log").select("id, created_at, event, detail, client_id, client_app_id").eq("tenant_id", tenantId).eq("app_name", app.name)
-    )
-      .order("created_at", { ascending: false })
-      .limit(300),
-  ]);
-
-  // nomes dos clientes citados em pagamentos/sinos/histórico que não estão em `users`
-  const knownNames = new Map(users.map((u) => [u.client_id, u.client_name]));
-  const missing = [
-    ...new Set([...(pays || []), ...(alerts || []), ...(activity || [])].map((x: any) => x.client_id).filter((cid: string) => cid && !knownNames.has(cid))),
-  ];
-  if (missing.length) {
-    const { data: extra } = await sb.from("clients").select("id, display_name").in("id", missing);
-    for (const c of extra || []) knownNames.set(c.id, c.display_name);
-  }
+  // nomes de quem aparece em pagamentos/sinos/histórico já vêm na função
+  const knownNames = new Map<string, string>(users.map((u) => [u.client_id, u.client_name]));
+  for (const x of [...pays, ...alerts, ...activity]) if (x.client_id && x.client_name && !knownNames.has(x.client_id)) knownNames.set(x.client_id, x.client_name);
 
   const payments = (pays || []).map((p: any) => {
     const paid = PAID.has(p.status) && p.fulfillment_status !== "manual_cancelled";
@@ -150,7 +100,8 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       client_name: knownNames.get(p.client_id) || "Cliente excluído",
       bundled: !!p.parent_payment_id,
       server_name: p.server_name,
-      margin: paid && cost.value != null ? amount - cost.value : null,
+      // custo é em R$ — margem só faz sentido em pagamento em R$
+      margin: paid && cost.value != null && (p.price_currency || "BRL") === "BRL" ? amount - cost.value : null,
     };
   });
 
@@ -190,8 +141,11 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       created_at: app.created_at,
     },
     stats: {
-      active_users: activeUsers.length,
-      trial_users: users.filter((u) => u.client_status === "teste").length,
+      // clientes DISTINTOS (um cliente pode ter o app em vários aparelhos) —
+      // mesma conta do modal de apps (app_user_counts)
+      active_users: new Set(activeUsers.map((u) => u.client_id)).size,
+      active_devices: activeUsers.length,
+      trial_users: new Set(users.filter((u) => u.client_status === "teste").map((u) => u.client_id)).size,
       total_rows: users.length,
       expiring_30d: activeUsers.filter((u) => u.expiration && u.expiration >= today && u.expiration <= in30).length,
       expired: activeUsers.filter((u) => u.expiration && u.expiration < today).length,

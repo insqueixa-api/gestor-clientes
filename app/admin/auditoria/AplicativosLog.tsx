@@ -146,7 +146,9 @@ function AplicativosLog(
       const ids: Record<string, string> = {};
       (data || []).forEach((a: any) => {
         map[a.name] = Array.isArray(a.fields_config) ? a.fields_config : [];
-        ids[String(a.name || "").trim().toLowerCase()] = a.id;
+        // nome repetido no catálogo: sem link, pra não abrir o app errado
+        const k = String(a.name || "").trim().toLowerCase();
+        ids[k] = k in ids ? "" : a.id;
       });
       setAppFieldsByName(map);
       setAppIdByName(ids);

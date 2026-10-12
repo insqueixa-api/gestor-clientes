@@ -27,6 +27,7 @@ import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
 import { CHECK_VALIDITY_HANDLERS } from "@/lib/apps/panel";
 import { resellerCurrency, toResellerCurrency } from "@/lib/reseller-portal/app-orders";
 import type { M3uList } from "@/lib/apps/m3u-lists";
+import { getAppPopularityScores } from "@/lib/apps/app-popularity";
 import {
   DEFAULT_GERENCIAAPP_LIMIT,
   activationAvailableFrom,
@@ -313,19 +314,21 @@ export async function POST(req: NextRequest) {
     // ---------------- catálogo ----------------
     if (action === "catalog") {
       const mode = s(body?.mode) === "activate" ? "activate" : "add";
-      const [{ data: apps }, { data: logos }, { data: deviceRows }] = await Promise.all([
+      // ✅ 12/10/2026: popularidade e moeda no mesmo lote paralelo
+      const [{ data: apps }, { data: logos }, { data: deviceRows }, popularity, currency] = await Promise.all([
         sb.from("apps").select(APP_COLS).eq("tenant_id", ctx.tenant_id).eq("is_active", true).order("name", { ascending: true }),
         sb.from("app_download_logos").select("pc_logo_url, downloader_logo_url, ios_logo_url").eq("tenant_id", ctx.tenant_id).maybeSingle(),
         sb.from("app_device_types").select("device_key, icon_url").eq("tenant_id", ctx.tenant_id),
+        getAppPopularityScores(sb, ctx.tenant_id),
+        resellerCurrency(sb, ctx.tenant_id, ctx.reseller_id),
       ]);
       const data = (apps || []).filter((a: any) => (mode === "activate" ? isActivatableApp(a) : isAddableApp(a)));
       // ✅ 08/10/2026: preço na moeda da revenda (câmbio salvo, igual ao portal do cliente)
-      const currency = await resellerCurrency(sb, ctx.tenant_id, ctx.reseller_id);
       const items = await Promise.all(
         data.map(async (a: any) => {
           const price = resellerLicensePrice(a);
           const amount = price ? await toResellerCurrency(sb, ctx.tenant_id, price, currency) : null;
-          return catalogItem(a, logos, mode, { amount, currency });
+          return { ...catalogItem(a, logos, mode, { amount, currency }), user_count: popularity[a.id] || 0 };
         }),
       );
       const device_icons: Record<string, string> = {};

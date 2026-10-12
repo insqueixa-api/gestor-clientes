@@ -42,6 +42,8 @@ export type AppPickerCatalogItem = {
   has_auto_renewal?: boolean;
   /** estrelas (apps.tier, ou a nota da AtivaApp) — null = sem classificação */
   tier?: number | null;
+  /** ✅ 12/10/2026: clientes ATIVOS do Márcio que usam o app (app_user_counts) — ordena o modal */
+  user_count?: number | null;
   /** instruções do app com {licenca} preenchida — mostrada no "Detalhes" */
   description?: string | null;
   /** download por aparelho (portal, 05/10/2026) — card no "Detalhes" */
@@ -334,7 +336,15 @@ export default function AppPickerModal({
     const list = appsForDevice
       .filter((app) => app.name.toLowerCase().includes(q))
       .filter((app) => matchesQuickFilter(app, quickFilter))
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }));
+      // ✅ 12/10/2026 (pedido do Márcio): dentro de cada grupo de estrelas —
+      // mais clientes usando → com integração de configuração (⚙️) →
+      // alfabética. (As estrelas já separam os grupos logo abaixo.)
+      .sort(
+        (a, b) =>
+          (Number(b.user_count) || 0) - (Number(a.user_count) || 0) ||
+          Number(!!b.has_integration) - Number(!!a.has_integration) ||
+          a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
+      );
     const out: { key: string; tier: number | null; label?: string; apps: AppPickerCatalogItem[] }[] = [];
     // ✅ 02/10/2026 (pedido do Márcio): parceria (ex: Elite, NaTV) fica
     // fora das estrelas, numa seção própria no fim. Conta P2P com parceria

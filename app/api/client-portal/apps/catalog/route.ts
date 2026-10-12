@@ -13,6 +13,7 @@ import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
 import { withoutLegacyDevices } from "@/lib/apps/device-types";
 import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
 import { hasAutoRenewal } from "@/lib/apps/auto-renewal";
+import { getAppPopularityScores } from "@/lib/apps/app-popularity";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,9 @@ export async function POST(req: NextRequest) {
     // adicionar app) — client e apps são independentes (o filtro por
     // technology, que dependia do client, virou filtro em JS logo abaixo em
     // vez de condição no .eq() — troca 2 round-trips sequenciais por 1).
-    const [{ data: client }, { data: apps, error: appsErr }, { data: downloadLogos }] = await Promise.all([
+    // ✅ 12/10/2026: popularidade (ordem do modal) entra NESTE mesmo lote
+    // paralelo — não soma uma ida a mais ao banco.
+    const [{ data: client }, { data: apps, error: appsErr }, { data: downloadLogos }, popularity] = await Promise.all([
       supabaseAdmin.from("clients").select("technology, server_id, price_currency").eq("id", client_id).single(),
       // ✅ Descontinuado (is_active=false) continua na lista de propósito
       // (pedido do Marcio, 25/07/2026) — sumir faria quem já usa não achar o
@@ -65,6 +68,7 @@ export async function POST(req: NextRequest) {
         .select("pc_logo_url, downloader_logo_url, ios_logo_url")
         .eq("tenant_id", ctx.tenant_id)
         .maybeSingle(),
+      getAppPopularityScores(supabaseAdmin, ctx.tenant_id),
     ]);
     if (appsErr) return jsonError("Erro interno", 500);
 
@@ -134,6 +138,7 @@ export async function POST(req: NextRequest) {
             has_integration: !!handler && (handler as any).useApi,
             // ✅ 07/10/2026: ⚡ = licença renova sozinha (AtivaApp/DupleCast/GerenciaApp)
             has_auto_renewal: hasAutoRenewal({ appativa_app_id, name: rest.name, integration_type }),
+            user_count: popularity[rest.id] || 0,
             // ✅ 04/10/2026: campos que o cliente preenche ao ADICIONAR (o app
             // só nasce no banco depois de salvar e conferir) — mesmo filtro do
             // extractEditableFields de list/route.ts.
