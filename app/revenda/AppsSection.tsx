@@ -271,24 +271,32 @@ export default function AppsSection({
 
       {dashErr && <div className="text-sm rounded-lg px-3 py-2 bg-rose-500/10 text-rose-600">{dashErr}</div>}
 
-      {/* mini dashboard */}
-      <div className={`grid grid-cols-2 gap-2 sm:gap-3 ${st?.clients_available === false ? "sm:grid-cols-2" : "sm:grid-cols-3 lg:grid-cols-6"}`}>
-        {st?.clients_available !== false && (
-          <>
-            <StatTile label="Clientes" value={st?.total} tone="slate" />
-            <StatTile label="Ativos" value={st?.active} tone="emerald" />
-            <StatTile label="Vencidos" value={st?.expired} tone="rose" />
-            <StatTile label="Vencem em 2 dias" value={st?.expiring_2d} tone="amber" />
-          </>
-        )}
-        <StatTile label="Apps configurados" value={st?.apps_configured} tone="sky" />
-        <StatTile
-          label="GerenciaApp"
-          value={st ? `${st.gerenciaapp_used}/${st.gerenciaapp_limit}` : undefined}
-          tone={gaFull ? "rose" : "violet"}
-          hint={gaFull ? "limite atingido" : "aparelhos em uso"}
-        />
-      </div>
+      {/* ✅ 12/10/2026, pedido do Márcio: o mini painel (clientes, ativos,
+          vencidos, apps, GerenciaApp x/10) saiu — só aparece o aviso quando
+          a revenda chega no limite do GerenciaApp, pra ela procurar o suporte. */}
+      {gaFull && st && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-amber-700">Limite de aparelhos atingido</p>
+            <p className="text-xs text-amber-700/80 mt-0.5">
+              Você já usa {st.gerenciaapp_used} de {st.gerenciaapp_limit} aparelhos nos aplicativos GerenciaApp. Para configurar mais, fale com o suporte
+              pra aumentar o seu limite (ou remova um aparelho que não usa mais).
+            </p>
+          </div>
+          {supportDigits && (
+            <a
+              href={`https://wa.me/${supportDigits}?text=${encodeURIComponent(
+                `Olá! Atingi o limite de ${st.gerenciaapp_limit} aparelhos GerenciaApp no Portal da Revenda e preciso aumentar.`,
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+              className="h-10 px-4 rounded-xl bg-[#25D366] hover:bg-[#20BA5A] text-white text-sm font-bold inline-flex items-center justify-center shrink-0"
+            >
+              Falar com o suporte
+            </a>
+          )}
+        </div>
+      )}
 
       {/* clientes configurados pelo portal */}
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -602,23 +610,6 @@ export default function AppsSection({
   );
 }
 
-function StatTile({ label, value, tone, hint }: { label: string; value: number | string | undefined; tone: string; hint?: string }) {
-  const tones: Record<string, string> = {
-    slate: "text-foreground",
-    emerald: "text-emerald-600",
-    rose: "text-rose-500",
-    amber: "text-amber-600",
-    sky: "text-sky-600",
-    violet: "text-violet-600",
-  };
-  return (
-    <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{label}</div>
-      <div className={`text-xl sm:text-2xl font-bold mt-0.5 ${tones[tone] || ""}`}>{value ?? "—"}</div>
-      {hint && <div className="text-[10px] text-muted-foreground">{hint}</div>}
-    </div>
-  );
-}
 
 function ClientBadge({ c }: { c: EndClient }) {
   const expired = c.status ? c.status.toLowerCase() !== "ativo" : isExpiredTs(c.expires_at);
