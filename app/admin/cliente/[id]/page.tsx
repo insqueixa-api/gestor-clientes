@@ -785,6 +785,7 @@ export default function ClientDetailsPage() {
 
           return {
             id: item.id,
+            app_id: item.app_id || null, // ✅ 12/10/2026: link pra página do aplicativo
             name: catalogApp?.name || "App (Não encontrado)",
             expiration: expiration,
             icon_url: catalogApp?.icon_url || null,
@@ -1835,7 +1836,19 @@ export default function ClientDetailsPage() {
                               ) : (
                                 <span className="text-[11px]">📱</span>
                               )}
-                              {app.name}
+                              {app.app_id ? (
+                                <Link
+                                  href={`/admin/gerenciador/aplicativo/${app.app_id}`}
+                                  prefetch={false}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="hover:text-emerald-500 hover:underline decoration-emerald-500/30 underline-offset-2"
+                                  title={`Ver detalhes de ${app.name}`}
+                                >
+                                  {app.name}
+                                </Link>
+                              ) : (
+                                app.name
+                              )}
                               {/* ✅ Reloginho vermelho ao lado do nome — pedido do
                                   Márcio: a data de vencimento fica alinhada à
                                   direita, longe do nome, então dava pra escanear

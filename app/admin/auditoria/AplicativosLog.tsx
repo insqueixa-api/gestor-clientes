@@ -136,15 +136,20 @@ function AplicativosLog(
   // WhatsApp username + servidor (Username do servidor + nome do servidor)
   // são as infos cruciais que faltavam aqui.
   const [appFieldsByName, setAppFieldsByName] = useState<Record<string, { id: string; type: string; label?: string }[]>>({});
+  // ✅ 12/10/2026: nome do app abre a página do aplicativo
+  const [appIdByName, setAppIdByName] = useState<Record<string, string>>({});
 
   useEffect(() => {
     async function loadAppFields() {
-      const { data } = await supabaseBrowser.from("apps").select("name, fields_config").eq("tenant_id", tenantId);
+      const { data } = await supabaseBrowser.from("apps").select("id, name, fields_config").eq("tenant_id", tenantId);
       const map: Record<string, any[]> = {};
+      const ids: Record<string, string> = {};
       (data || []).forEach((a: any) => {
         map[a.name] = Array.isArray(a.fields_config) ? a.fields_config : [];
+        ids[String(a.name || "").trim().toLowerCase()] = a.id;
       });
       setAppFieldsByName(map);
+      setAppIdByName(ids);
     }
     if (tenantId) loadAppFields();
   }, [tenantId]);
@@ -449,7 +454,7 @@ function AplicativosLog(
                               ? `${r.server_username || "—"}${r.server_name ? ` (${r.server_name})` : ""}`
                               : "—"}
                           </td>
-                          <td className="px-4 py-3 text-foreground/90">{r.app_name}</td>
+                          <td className="px-4 py-3 text-foreground/90"><AppNameLink name={r.app_name} id={appIdByName[String(r.app_name || "").trim().toLowerCase()]} /></td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded-lg text-[10px] font-medium uppercase border ${meta.tone}`}>
                               {meta.label}
@@ -567,7 +572,7 @@ function AplicativosLog(
                         ? `${r.server_username || "—"}${r.server_name ? ` (${r.server_name})` : ""}`
                         : "—"}
                     </td>
-                    <td className="px-4 py-3 text-foreground/90">{r.app_name}</td>
+                    <td className="px-4 py-3 text-foreground/90"><AppNameLink name={r.app_name} id={appIdByName[String(r.app_name || "").trim().toLowerCase()]} /></td>
                     <td className="px-4 py-3">
                       {r.action === "removal" ? (
                         <span className="px-2 py-1 rounded-lg bg-rose-500/10 text-rose-500 text-[10px] font-medium uppercase border border-rose-500/20">
@@ -667,3 +672,16 @@ function AplicativosLog(
 }
 
 export default forwardRef(AplicativosLog);
+
+function AppNameLink({ name, id }: { name: string; id?: string }) {
+  if (!id) return <>{name}</>;
+  return (
+    <Link
+      href={`/admin/gerenciador/aplicativo/${id}`}
+      prefetch={false}
+      className="hover:text-emerald-500 hover:underline decoration-emerald-500/30 underline-offset-2"
+    >
+      {name}
+    </Link>
+  );
+}

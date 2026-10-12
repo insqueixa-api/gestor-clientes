@@ -43,6 +43,7 @@ type LogRow = {
   server_name: string;
   server_logo_url: string | null; // ✅ NOVO
   app_icon_url: string | null; // ✅ NOVO — para payment_type === "app_renewal"
+  app_id?: string | null; // ✅ 12/10/2026 — link pra página do aplicativo
   screens: number;
   payment_method: string;
   payment_status: string;
@@ -685,7 +686,7 @@ function AuditoriaPageContent() {
           // 3.6 Catálogo de apps — só o ícone, casado por nome via
           // app_name_snapshot (payment_type='app_renewal').
           needsAppIcons
-            ? supabaseBrowser.from("apps").select("name, icon_url")
+            ? supabaseBrowser.from("apps").select("id, name, icon_url")
             : Promise.resolve({ data: null as any[] | null }),
         ]);
 
@@ -702,9 +703,11 @@ function AuditoriaPageContent() {
         });
 
         const appsIconMap: Record<string, string | null> = {};
+        const appsIdMap: Record<string, string> = {};
         (appsRes.data || []).forEach((a: any) => {
           appsIconMap[String(a.name || "").trim().toLowerCase()] =
             a.icon_url ?? null;
+          appsIdMap[String(a.name || "").trim().toLowerCase()] = a.id;
         });
 
         const alertsMap: Record<
@@ -835,6 +838,10 @@ function AuditoriaPageContent() {
                 ? appsIconMap[String(r.app_name_snapshot).trim().toLowerCase()] ??
                   null
                 : null, // ✅ NOVO
+            app_id:
+              r.payment_type === "app_renewal" && r.app_name_snapshot
+                ? appsIdMap[String(r.app_name_snapshot).trim().toLowerCase()] ?? null
+                : null,
             screens: cInfo.screens || 1, // Puxa as telas ou assume 1
             payment_method: r.payment_method,
             payment_status: r.status,
@@ -2438,9 +2445,19 @@ function AuditoriaPageContent() {
                                     <span className="text-xs font-medium text-foreground/80">
                                       Aplicativo
                                     </span>
-                                    <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
-                                      {r.app_name_snapshot || "Aplicativo"}
-                                    </span>
+                                    {r.app_id ? (
+                                      <Link
+                                        href={`/admin/gerenciador/aplicativo/${r.app_id}`}
+                                        prefetch={false}
+                                        className="text-[10px] text-muted-foreground truncate max-w-[140px] hover:text-emerald-500 hover:underline"
+                                      >
+                                        {r.app_name_snapshot || "Aplicativo"}
+                                      </Link>
+                                    ) : (
+                                      <span className="text-[10px] text-muted-foreground truncate max-w-[140px]">
+                                        {r.app_name_snapshot || "Aplicativo"}
+                                      </span>
+                                    )}
                                   </div>
                                 ) : (
                                   <div className="flex flex-col gap-0.5 items-start">

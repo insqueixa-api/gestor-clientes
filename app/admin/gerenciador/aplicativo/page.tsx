@@ -20,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import Link from "next/link";
 import { uploadToR2, releaseR2Files, useR2FileTracker } from "@/lib/r2-upload";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useTenantId } from "@/lib/tenant-context";
@@ -716,6 +717,16 @@ export default function AppManagerPage() {
         );
 
       setApps(formattedApps);
+      // ✅ 12/10/2026: "Editar" da página do aplicativo (/aplicativo/[id])
+      // volta pra cá com ?editar=<id> — abre o modal direto e limpa a URL.
+      try {
+        const editId = new URLSearchParams(window.location.search).get("editar");
+        const target = editId ? formattedApps.find((a) => a.id === editId) : null;
+        if (target) {
+          window.history.replaceState(null, "", window.location.pathname);
+          setTimeout(() => openEdit(target), 0);
+        }
+      } catch {}
       setConfiguredIntegrations(
         integrationsRes.data?.map((i) => ({
           name: i.app_name,
@@ -1520,9 +1531,15 @@ export default function AppManagerPage() {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="font-semibold text-sm text-foreground truncate pt-0.5" title={app.name}>
+              {/* ✅ 12/10/2026: nome abre a página do aplicativo */}
+              <Link
+                href={`/admin/gerenciador/aplicativo/${app.id}`}
+                prefetch={false}
+                className="block font-semibold text-sm text-foreground truncate pt-0.5 hover:text-emerald-500 hover:underline decoration-emerald-500/30 underline-offset-2"
+                title={`Ver detalhes de ${app.name}`}
+              >
                 {app.name}
-              </p>
+              </Link>
               {canClassify ? (
                 <div className="relative shrink-0" data-tier-picker>
                   <button
