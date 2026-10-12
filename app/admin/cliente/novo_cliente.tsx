@@ -29,7 +29,7 @@ import AppPickerModal from "@/components/apps/AppPickerModal";
 import AppTrustPrompt, { type AppTrustPromptData } from "@/components/alerts/AppTrustPrompt";
 import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
 import { formatLicenca, renderAppDescription } from "@/lib/apps/license-text";
-import { deviceLabel, withoutLegacyDevices } from "@/lib/apps/device-types";
+import { withoutLegacyDevices } from "@/lib/apps/device-types";
 import AppIntegrationActions from "@/components/apps/AppIntegrationActions";
 import { rotatePrincipalM3u, rotateSecondaryM3u } from "@/lib/apps/m3u-lists";
 import { resolveDownloadHint, withDownloadLogo, type DownloadLogos } from "@/lib/apps/download-info";
@@ -6713,16 +6713,6 @@ export default function NovoCliente({
                             {/* Trial sem vencimento salvo (ex: DUPLECAST, 15 dias
                                 grátis) — sem essa tag ficava com "Vencimento: —"
                                 indistinguível de um app nunca verificado. */}
-                            {app.deviceType && (
-                              <span
-                                title="Aparelho escolhido ao adicionar o app"
-                                className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted border border-border text-muted-foreground ml-1"
-                              >
-                                <span className="text-[9px] font-medium uppercase tracking-wider">
-                                  {deviceLabel(app.deviceType)}
-                                </span>
-                              </span>
-                            )}
                             {app.m3uList && (
                               <span
                                 title={app.m3uListAt ? `Configurado em ${formatDateTimeBR(app.m3uListAt)}` : "Lista configurada"}
@@ -6737,6 +6727,26 @@ export default function NovoCliente({
                                 </span>
                               </span>
                             )}
+                            {/* ✅ 12/10/2026, pedido do Márcio: o aparelho (Samsung
+                                etc.) saiu do cabeçalho; no lugar, o Ambiente
+                                (Sala, Quarto...) quando preenchido — ajuda a achar
+                                o app certo sem abrir o card. */}
+                            {(() => {
+                              const ambField = (app.fields_config || []).find(
+                                (f: any) => String(f?.type || "").toLowerCase() === "obs",
+                              );
+                              const amb = ambField
+                                ? String(app.values?.[ambField.id] ?? app.values?.[ambField.label] ?? "").trim()
+                                : "";
+                              return amb ? (
+                                <span
+                                  title="Ambiente"
+                                  className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted border border-border text-foreground/80 ml-1"
+                                >
+                                  <span className="text-[9px] font-medium uppercase tracking-wider">{amb}</span>
+                                </span>
+                              ) : null;
+                            })()}
                             {app.isTrial && (
                               <span
                                 title="Ainda no trial grátis do parceiro — sem vencimento fixo até ativar a licença paga"
