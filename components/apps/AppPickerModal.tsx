@@ -586,7 +586,10 @@ export default function AppPickerModal({
           <FloatingPanel
             anchorRef={quickFilterAnchor}
             open
-            minWidth={200}
+            // ✅ 12/10/2026, pedido do Márcio: no celular "★★★★★ 5 estrelas"
+            // quebrava a linha — largura que cabe o texto (o painel já se
+            // limita à largura da tela)
+            minWidth={250}
             align="right"
             preferredHeight={360}
             dataAttr="data-quick-filter"
@@ -607,7 +610,7 @@ export default function AppPickerModal({
                   }`}
                 >
                   <span className="w-4 shrink-0">{quickFilter === o.value && <Check className="w-4 h-4" />}</span>
-                  <span className={o.value && /^[1-5]$/.test(o.value) ? "text-amber-500" : ""}>{o.label}</span>
+                  <span className={`whitespace-nowrap ${o.value && /^[1-5]$/.test(o.value) ? "text-amber-500" : ""}`}>{o.label}</span>
                   <span className="ml-auto pl-3 text-xs text-muted-foreground tabular-nums">
                     {quickFilterCounts[o.value] ?? 0}
                   </span>
