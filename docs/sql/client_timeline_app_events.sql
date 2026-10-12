@@ -3,6 +3,8 @@
 -- verificou, falhas — client_app_activity_log) e as RENOVAÇÕES DE APP pagas
 -- (client_portal_payments payment_type = app_renewal). Vem na mesma ida ao
 -- banco da página (get_client_detail_bundle), sem chamada extra.
+-- + logos dos apps (app_icons) e dos servidores (server_logos) pra
+-- linha do tempo mostrar a logo no lugar do emoji.
 -- + lixeira: admin pode apagar registro do histórico de apps (mesmo escopo
 -- de tenant da leitura).
 
@@ -89,6 +91,21 @@ AS $function$
       AND p.status IN ('approved', 'manual_approved', 'paid')
     ORDER BY coalesce(p.paid_at, p.created_at) DESC
     LIMIT 50
+  ),
+  -- logo (R2, senão a da AtivaApp) + campos dos apps que aparecem no histórico
+  app_icons AS (
+    SELECT DISTINCT ON (lower(a.name)) a.id, a.name, coalesce(nullif(a.icon_url, ''), a.appativa_meta->>'logo') AS icon_url, a.fields_config
+    FROM public.apps a, tenant t
+    WHERE a.tenant_id = t.tenant_id
+      AND (lower(a.name) IN (SELECT lower(app_name) FROM app_log)
+           OR lower(a.name) IN (SELECT lower(app_name) FROM app_payments)
+           OR a.id IN (SELECT app_id FROM client_apps_row))
+    ORDER BY lower(a.name), a.is_active DESC
+  ),
+  server_logos AS (
+    SELECT s.id, s.name, s.logo_url
+    FROM public.servers s, tenant t
+    WHERE s.tenant_id = t.tenant_id
   )
   SELECT jsonb_build_object(
     'row', (SELECT to_jsonb(row_final) FROM row_final LIMIT 1),
@@ -98,6 +115,8 @@ AS $function$
     'client_apps', COALESCE((SELECT jsonb_agg(to_jsonb(client_apps_row)) FROM client_apps_row), '[]'::jsonb),
     'events', COALESCE((SELECT jsonb_agg(to_jsonb(events)) FROM events), '[]'::jsonb),
     'app_log', COALESCE((SELECT jsonb_agg(to_jsonb(app_log)) FROM app_log), '[]'::jsonb),
-    'app_payments', COALESCE((SELECT jsonb_agg(to_jsonb(app_payments)) FROM app_payments), '[]'::jsonb)
+    'app_payments', COALESCE((SELECT jsonb_agg(to_jsonb(app_payments)) FROM app_payments), '[]'::jsonb),
+    'app_icons', COALESCE((SELECT jsonb_agg(to_jsonb(app_icons)) FROM app_icons), '[]'::jsonb),
+    'server_logos', COALESCE((SELECT jsonb_agg(to_jsonb(server_logos)) FROM server_logos), '[]'::jsonb)
   );
 $function$;

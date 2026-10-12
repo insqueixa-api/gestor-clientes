@@ -242,51 +242,107 @@ type TimelineItem = {
 };
 
 const APP_LOG_LABELS: Record<string, string> = {
-  added: "📱 App adicionado",
-  removed: "📱 App removido",
-  configured: "⚙️ App configurado",
-  configure_failed: "⚠️ Falha ao configurar app",
-  fields_updated: "📝 Dados do app editados",
-  check_validity: "🔎 Vencimento do app verificado",
-  check_validity_failed: "⚠️ Falha ao verificar vencimento",
-  removed_partner_failed: "⚠️ Falha ao remover no parceiro",
+  added: "App adicionado",
+  removed: "App removido",
+  configured: "App configurado",
+  configure_failed: "Falha ao configurar",
+  fields_updated: "Dados do app editados",
+  check_validity: "Vencimento verificado",
+  check_validity_failed: "Falha ao verificar vencimento",
+  removed_partner_failed: "Falha ao remover no parceiro",
 };
 
-// histórico de apps + renovações de app → mesmo formato dos eventos
-function appTimelineItems(appLog: any[], appPayments: any[]): TimelineItem[] {
+// histórico de apps + renovações de app → mesmo formato dos eventos.
+// ✅ 12/10/2026 (2ª rodada, pedido do Márcio): logo do app no lugar do
+// emoji, Ambiente ao lado do título e os dados do aparelho (ID/MAC, Key…)
+// embaixo — com os NOMES do cadastro de cada app. Registro antigo (sem o
+// aparelho guardado) usa o app instalado do cliente: o vínculo, senão o
+// único aparelho desse app, senão o que tem o mesmo vencimento.
+type AppIconRow = { id: string; name: string; icon_url: string | null; fields_config: any[] | null };
+type DeviceField = { label: string; value: string; type?: string };
+
+function deviceFromValues(cfg: any[] | null | undefined, vals: Record<string, any> | null | undefined) {
+  const fields: DeviceField[] = [];
+  let ambiente = "";
+  for (const f of Array.isArray(cfg) ? cfg : []) {
+    const t = String(f?.type || "").toLowerCase();
+    const v = String((vals || {})[f?.id] ?? (vals || {})[f?.label] ?? "").trim();
+    if (!v || t === "date" || t === "password") continue;
+    if (t === "obs") ambiente = v;
+    else fields.push({ label: String(f.label || t), value: v, type: t });
+  }
+  return { fields, ambiente };
+}
+
+function appTimelineItems(
+  appLog: any[],
+  appPayments: any[],
+  ctx: { icons: AppIconRow[]; clientApps: { id: string; app_id: string; field_values: any }[] },
+): TimelineItem[] {
   const br = (d?: string | null) => (d ? String(d).slice(0, 10).split("-").reverse().join("/") : "");
+  const appByName = new Map(ctx.icons.map((a) => [String(a.name || "").toLowerCase(), a]));
+  const appById = new Map(ctx.icons.map((a) => [a.id, a]));
+  const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s);
+
   const logs = (appLog || []).map((l: any): TimelineItem => {
     const d = l.detail || {};
-    const parts: string[] = [l.app_name];
-    for (const f of Array.isArray(d.device) ? d.device : []) if (f?.value && f?.type !== "password") parts.push(`${f.label}: ${f.value}`);
+    const app = appByName.get(String(l.app_name || "").toLowerCase());
+    let fields: DeviceField[] = [];
+    let ambiente = "";
+    if (Array.isArray(d.device) && d.device.length) {
+      for (const f of d.device) {
+        if (!f?.value || f?.type === "password" || f?.type === "date") continue;
+        if (f.type === "obs") ambiente = String(f.value);
+        else fields.push({ label: String(f.label), value: String(f.value), type: f.type });
+      }
+    } else {
+      const linked = l.client_app_id ? ctx.clientApps.find((c) => c.id === l.client_app_id) : null;
+      const same = ctx.clientApps.filter((c) => appById.get(c.app_id)?.name?.toLowerCase() === String(l.app_name || "").toLowerCase());
+      let row = linked || (same.length === 1 ? same[0] : null);
+      if (!row && same.length > 1 && d.expireDate) {
+        const dateF = (app?.fields_config || []).find((f: any) => String(f?.type).toLowerCase() === "date");
+        const byDate = dateF ? same.filter((c) => String(c.field_values?.[dateF.id] ?? "").slice(0, 10) === String(d.expireDate).slice(0, 10)) : [];
+        if (byDate.length === 1) row = byDate[0];
+      }
+      if (row) ({ fields, ambiente } = deviceFromValues(appById.get(row.app_id)?.fields_config || app?.fields_config, row.field_values));
+    }
+    const parts: string[] = [];
     if (d.lista) parts.push(`lista ${d.lista === "secundaria" ? "secundária" : d.lista}`);
-    if (d.renew) parts.push("renovou a licença");
     if (d.expireDate) parts.push(`vencimento ${br(d.expireDate)}`);
     if (d.error) parts.push(String(d.error));
     return {
       id: l.id,
       created_at: l.created_at,
       event_type: `APP_${l.event}`,
-      message: parts.join(" · "),
-      meta: { label: d.renew ? "🔄 Licença do app renovada" : APP_LOG_LABELS[l.event] || `📱 ${l.event}` },
+      message: parts.join(" · ") || null,
+      meta: {
+        label: d.renew ? "Licença renovada" : APP_LOG_LABELS[l.event] || l.event,
+        app_name: l.app_name,
+        icon_url: app?.icon_url || null,
+        ambiente: capitalize(ambiente),
+        device: fields,
+        failed: /failed/.test(String(l.event)),
+      },
       source: "app_log",
     };
   });
-  const pays = (appPayments || []).map((p: any): TimelineItem => ({
-    id: p.id,
-    created_at: p.created_at,
-    event_type: "APP_RENEWAL_PAID",
-    message: [
-      p.app_name || "Aplicativo",
-      fmtMoney(p.price_amount, p.price_currency),
-      p.payment_method === "manual" ? "manual" : p.gateway_type || p.payment_method || "",
-      p.parent_payment_id ? "junto da mensalidade" : "",
-    ]
-      .filter(Boolean)
-      .join(" · "),
-    meta: { label: "💳 Renovação de aplicativo", server_name: p.server_name || undefined },
-    source: "app_payment",
-  }));
+  const pays = (appPayments || []).map((p: any): TimelineItem => {
+    const app = appByName.get(String(p.app_name || "").toLowerCase());
+    return {
+      id: p.id,
+      created_at: p.created_at,
+      event_type: "APP_RENEWAL_PAID",
+      message: [
+        fmtMoney(p.price_amount, p.price_currency),
+        p.payment_method === "manual" ? "manual" : p.gateway_type || p.payment_method || "",
+        p.parent_payment_id ? "junto da mensalidade" : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      meta: { label: "Renovação paga", app_name: p.app_name || "Aplicativo", icon_url: app?.icon_url || null },
+      source: "app_payment",
+    };
+  });
   return [...logs, ...pays];
 }
 
@@ -377,6 +433,8 @@ export default function ClientDetailsPage() {
   const [mergeSiblings, setMergeSiblings] = useState<Awaited<ReturnType<typeof loadMergeSiblings>>>([]);
   const [showMerge, setShowMerge] = useState(false);
   const [timeline, setTimeline] = useState<TimelineItem[]>([]);
+  // logos dos servidores (renovações na linha do tempo)
+  const [serverLogoByName, setServerLogoByName] = useState<Record<string, string>>({});
   const [tenantId, setTenantId] = useState<string | null>(resolvedTenantId);
   // ✅ 08/10/2026: carrega as outras contas com o mesmo WhatsApp (Mesclar)
   useEffect(() => {
@@ -709,6 +767,8 @@ export default function ClientDetailsPage() {
         events: any[];
         app_log?: any[];
         app_payments?: any[];
+        app_icons?: AppIconRow[];
+        server_logos?: { id: string; name: string; logo_url: string | null }[];
       };
 
       const row = bundle.row;
@@ -861,9 +921,15 @@ export default function ClientDetailsPage() {
       setClient(mapped);
 
       // ✅ Timeline — client_events já veio no bundle
+      setServerLogoByName(
+        Object.fromEntries((bundle.server_logos || []).filter((x) => x.logo_url).map((x) => [String(x.name).toLowerCase(), x.logo_url as string])),
+      );
       // + histórico de apps e renovações de app (mesma ida ao banco)
       setTimeline(
-        [...((bundle.events || []) as TimelineItem[]), ...appTimelineItems(bundle.app_log || [], bundle.app_payments || [])].sort(
+        [...((bundle.events || []) as TimelineItem[]), ...appTimelineItems(bundle.app_log || [], bundle.app_payments || [], {
+            icons: bundle.app_icons || [],
+            clientApps: bundle.client_apps || [],
+          })].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         ),
       );
@@ -2107,9 +2173,40 @@ export default function ClientDetailsPage() {
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50 p-2 rounded-xl border border-transparent hover:border-border transition-all">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-foreground tracking-tight">
-                          {item.meta?.label ?? EVENT_LABELS[item.event_type] ?? item.event_type}
-                        </span>
+                        {/* ✅ 12/10/2026: logo do app (eventos de app) ou do
+                            servidor (renovações) no lugar do emoji */}
+                        {(() => {
+                          const isApp = item.source === "app_log" || item.source === "app_payment";
+                          const logo = isApp
+                            ? item.meta?.icon_url
+                            : item.meta?.server_name
+                              ? serverLogoByName[String(item.meta.server_name).toLowerCase()]
+                              : null;
+                          const raw = item.meta?.label ?? EVENT_LABELS[item.event_type] ?? item.event_type;
+                          // com logo, tira o emoji do começo do texto ("💰 Renovação" → "Renovação")
+                          const label = logo && typeof raw === "string" ? raw.replace(/^[^\p{L}\p{N}]+/u, "") : raw;
+                          return (
+                            <>
+                              {logo && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={logo} alt="" className="w-5 h-5 rounded object-cover border border-border shrink-0" />
+                              )}
+                              <span
+                                className={`text-sm font-medium tracking-tight ${item.meta?.failed ? "text-rose-500" : "text-foreground"}`}
+                              >
+                                {label}
+                                {isApp && item.meta?.app_name && (
+                                  <span className="text-foreground/70 font-normal"> · {item.meta.app_name}</span>
+                                )}
+                              </span>
+                              {item.meta?.ambiente && (
+                                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-card border border-border text-foreground/80">
+                                  {item.meta.ambiente}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                         {/* ✅ 08/10/2026: servidor onde o evento aconteceu (carimbo
                             em meta, docs/sql/server_snapshot_history.sql) — se o
                             cliente migrar, cada evento continua no servidor dele. */}
@@ -2127,7 +2224,21 @@ export default function ClientDetailsPage() {
                         className={`text-xs text-muted-foreground mt-1.5 leading-relaxed transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}
                       >
                         {item.message ||
-                          (item.meta ? JSON.stringify(item.meta) : "")}
+                          (item.source && item.source !== "event" ? "" : item.meta ? JSON.stringify(item.meta) : "")}
+                        {/* dados do aparelho (nomes do cadastro de cada app) */}
+                        {Array.isArray(item.meta?.device) && item.meta.device.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {item.meta.device.map((f: any) => (
+                              <span
+                                key={f.label}
+                                className="px-1.5 py-0.5 rounded bg-card border border-border text-[10px] text-foreground/80"
+                              >
+                                <span className="text-muted-foreground">{f.label}:</span>{" "}
+                                <span className={f.type === "mac" || f.type === "device_key" ? "font-mono" : ""}>{f.value}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">

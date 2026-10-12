@@ -1,7 +1,7 @@
 "use client";
 // components/ui/ConfirmDialog.tsx
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 
 type Tone = "emerald" | "rose" | "amber" | "sky" | "slate";
@@ -81,10 +81,30 @@ export default function ConfirmDialog({
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onCancel();
+      // ✅ 12/10/2026, pedido do Márcio: Enter confirma (em TODAS as
+      // confirmações do sistema). Botão focado (ex: Tab até "Voltar") e
+      // campo de texto seguem o comportamento normal deles.
+      if (e.key === "Enter" && !e.isComposing && !loading) {
+        const el = e.target as HTMLElement | null;
+        const tag = el?.tagName;
+        if (tag === "BUTTON" || tag === "TEXTAREA" || tag === "A" || el?.isContentEditable) return;
+        e.preventDefault();
+        onConfirm();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onCancel]);
+  }, [open, onCancel, onConfirm, loading]);
+
+  // ✅ 12/10/2026: ao abrir, o foco vai pro botão de confirmar — senão o
+  // foco ficava no botão que abriu o diálogo (ex: a lixeira) e o Enter
+  // "clicava" nele de novo por trás, em vez de confirmar.
+  const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => confirmBtnRef.current?.focus(), 0);
+    return () => window.clearTimeout(id);
+  }, [open]);
 
   if (!open) return null;
 
@@ -159,6 +179,7 @@ export default function ConfirmDialog({
             </button>
           )}
           <button
+            ref={confirmBtnRef}
             onClick={onConfirm}
             disabled={loading}
             className={`flex-1 py-3 rounded-xl ${t.confirm} text-white font-medium text-sm shadow-lg ${t.ring} transition-all transform active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed`}
