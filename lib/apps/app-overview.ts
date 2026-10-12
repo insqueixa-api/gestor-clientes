@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getIntegrationHandler } from "@/lib/integrations";
 import { CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
+import { renewalWindowDays } from "@/lib/apps/renewal-window";
 
 const PAID = new Set(["approved", "manual_approved", "paid"]);
 
@@ -88,7 +89,7 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
   const canCheckValidity =
     !!handler?.useApi && CHECK_VALIDITY_HANDLERS.has(handler.actionPrefix) && handler.actionPrefix !== "DUPLEXTV";
   const hasRenewPath =(Number(app.license_price) > 0 && app.cost_type !== "free") || String(app.integration_type || "").toUpperCase() === "GERENCIAAPP";
-  const windowDays = app.appativa_app_id ? 7 : 30;
+  const windowDays = renewalWindowDays(app);
   const todaySP = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const daysUntil = (d: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${todaySP}T00:00:00Z`)) / 86_400_000);
   for (const u of users as any[]) {

@@ -1087,6 +1087,8 @@ export default function RenewClient() {
 
   const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
+  // ✅ 12/10/2026: planos mostram atual + próximo; o resto em "Mostrar mais opções"
+  const [showAllPlans, setShowAllPlans] = useState(false);
 
   // -------------------------------------------------------------------------
   // INÍCIO DO ESTADO DE BUSCA (Movido para o topo para respeitar as regras do React)
@@ -6459,9 +6461,34 @@ export default function RenewClient() {
                 .sort((a, b) => PERIOD_MONTHS[a.period] - PERIOD_MONTHS[b.period]);
               const monthly = availablePrices.find((p) => p.period === "MONTHLY");
               const baseMonthly = monthly && monthly.price_amount > 0 ? monthly.price_amount : null;
+              // ✅ 12/10/2026, pedido do Márcio (muita informação no celular):
+              // de cara só o plano ATUAL + o próximo da cadeia Mensal →
+              // Trimestral → Semestral → Anual (Bimestral nunca de cara).
+              // Anual: o anterior (Semestral) à esquerda e o atual à direita.
+              const has = (period: string) => plans.some((p) => p.period === period);
+              const chain = ["MONTHLY", "QUARTERLY", "SEMIANNUAL", "ANNUAL"].filter(has);
+              const currentPeriod =
+                plans.find((p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label)?.period || chain[0] || plans[0]?.period;
+              let featured: string[];
+              if (currentPeriod === "BIMONTHLY") {
+                featured = ["BIMONTHLY", chain.find((x) => PERIOD_MONTHS[x] > 2)].filter(Boolean) as string[];
+              } else {
+                const i = chain.indexOf(currentPeriod as string);
+                featured =
+                  i < 0
+                    ? chain.slice(0, 2)
+                    : i === chain.length - 1
+                      ? chain.slice(Math.max(0, i - 1), i + 1)
+                      : chain.slice(i, i + 2);
+              }
+              // plano escolhido fora dos 2 em destaque continua visível
+              if (selectedPeriod && has(selectedPeriod) && !featured.includes(selectedPeriod)) featured = [...featured, selectedPeriod];
+              const visible = showAllPlans ? plans : plans.filter((p) => featured.includes(p.period));
+              const hiddenCount = plans.length - plans.filter((p) => featured.includes(p.period)).length;
               return (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                  {plans.map((price) => {
+                <>
+                <div className={`grid gap-2 ${showAllPlans ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" : "grid-cols-2"}`}>
+                  {visible.map((price) => {
                     const months = PERIOD_MONTHS[price.period];
                     const perMonth = price.price_amount / months;
                     const pct =
@@ -6516,6 +6543,16 @@ export default function RenewClient() {
                     );
                   })}
                 </div>
+                {hiddenCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllPlans((v) => !v)}
+                    className="mt-2 w-full py-2 rounded-xl border border-dashed border-border text-xs font-bold text-muted-foreground hover:bg-muted/50 transition-colors"
+                  >
+                    {showAllPlans ? "Mostrar menos" : `Mostrar mais opções (${hiddenCount})`}
+                  </button>
+                )}
+                </>
               );
             })()}
           </div>

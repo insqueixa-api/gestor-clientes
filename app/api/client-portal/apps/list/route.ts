@@ -1,5 +1,6 @@
 // app/api/client-portal/apps/list/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { renewsFirstViaAppativa } from "@/lib/apps/renewal-window";
 import { resolveDownloadHint, withDownloadLogo } from "@/lib/apps/download-info";
 import { getPortalAddAppAccess } from "@/lib/client-portal/add-app-access";
 import { APP_FIELD_LABELS, HIDDEN_CLIENT_FIELD_TYPES, AppFieldType } from "@/lib/apps/field-types";
@@ -143,7 +144,7 @@ export async function POST(req: NextRequest) {
     const [{ data: rows, error: rowsErr }, { data: pendingRequests }] = await Promise.all([
       supabaseAdmin
         .from("client_apps")
-        .select("id, app_id, device_type, field_values, m3u_list, m3u_list_at, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id, tier, appativa_meta, download_info)")
+        .select("id, app_id, device_type, field_values, m3u_list, m3u_list_at, apps(name, icon_url, fields_config, integration_type, cost_type, license_price, license_period, portal_setup_instructions, access_code, portal_variable_fields, is_active, discontinued_replacement_name, appativa_app_id, renewal_source, tier, appativa_meta, download_info)")
         .eq("client_id", client_id),
       // ✅ Pra apps sem integração automática, o portal mostra "Solicitar
       // configuração"/"Exclusão solicitada" quando já existe um pedido
@@ -401,7 +402,9 @@ export async function POST(req: NextRequest) {
         // GPC Roku) sobe pra 30. appativa_app_id preenchido = app roteia
         // (ao menos como opção) pela Appativa — ver lib/client-portal/
         // fulfillment.ts (tryAppativaQueue).
-        is_appativa: !!row.apps?.appativa_app_id,
+        // ✅ 12/10/2026: DupleCast que renova direto (padrão) = 30 dias,
+        // mesmo tendo código da Appativa — ver lib/apps/renewal-window.ts
+        is_appativa: renewsFirstViaAppativa(row.apps as any),
       };
     }));
 

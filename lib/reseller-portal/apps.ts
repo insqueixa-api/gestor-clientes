@@ -16,6 +16,7 @@
 //   - nome da lista: <usuario>_<Servidor>; Configurar só apaga a lista de
 //     mesmo nome exato (exact_only), nunca as outras.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { renewalWindowDays } from "@/lib/apps/renewal-window";
 import { getPortalAddAppAccess } from "@/lib/client-portal/add-app-access";
 import { getIntegrationHandler } from "@/lib/integrations";
 import {
@@ -109,7 +110,7 @@ export function isActivatableApp(app: any) {
 
 /** Mesma janela do Renovar do portal do cliente (RenewClient). */
 export function activationWindowDays(app: any) {
-  return app?.appativa_app_id ? 7 : 30;
+  return renewalWindowDays(app);
 }
 
 /** null = disponível agora; senão a data (ISO) em que a ativação libera. */

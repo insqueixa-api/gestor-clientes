@@ -60,7 +60,7 @@ export const maxDuration = 120;
 const NO_STORE = { "Cache-Control": "no-store, no-cache, must-revalidate", Pragma: "no-cache", Expires: "0" };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const APP_COLS =
-  "id, name, icon_url, technology, device_types, integration_type, cost_type, license_price, license_period, is_active, is_hidden, appativa_app_id, appativa_meta, tier, portal_setup_instructions, fields_config, download_info";
+  "id, name, icon_url, technology, device_types, integration_type, cost_type, license_price, license_period, is_active, is_hidden, appativa_app_id, renewal_source, appativa_meta, tier, portal_setup_instructions, fields_config, download_info";
 const ROW_COLS =
   "id, end_client_id, client_label, server_id, m3u_url, m3u_username, app_id, device_type, field_values, obs, list_name, m3u_list, configured_at, expire_date, created_at, servers(name), apps(" +
   APP_COLS +
