@@ -44,8 +44,6 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
   const keyField = config.find((f) => f.type === "device_key");
   const ambField = config.find((f) => f.type === "obs");
 
-  const today = new Date().toISOString().slice(0, 10);
-  const in30 = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
   const users = (rows || []).map((r: any) => {
     const vals = r.field_values || {};
     const c = r.clients || {};
@@ -82,7 +80,8 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
   const todaySP = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const daysUntil = (d: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${todaySP}T00:00:00Z`)) / 86_400_000);
   for (const u of users as any[]) {
-    u.days_left = u.expiration ? daysUntil(u.expiration) : null;
+    const d = u.expiration ? daysUntil(u.expiration) : NaN;
+    u.days_left = Number.isFinite(d) ? d : null; // data inválida = sem data
     u.renewable =
       hasRenewPath &&
       u.client_status === "ativo" &&
@@ -180,8 +179,9 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       active_devices: activeUsers.length,
       trial_users: new Set(users.filter((u) => u.client_status === "teste").map((u) => u.client_id)).size,
       total_rows: users.length,
-      expiring_30d: activeUsers.filter((u) => u.expiration && u.expiration >= today && u.expiration <= in30).length,
-      expired: activeUsers.filter((u) => u.expiration && u.expiration < today).length,
+      // mesma conta dos filtros da página (dias no fuso de SP)
+      expiring_30d: activeUsers.filter((u: any) => u.days_left != null && u.days_left >= 0 && u.days_left <= 30).length,
+      expired: activeUsers.filter((u: any) => u.days_left != null && u.days_left < 0).length,
       payments_count: paidRows.length,
       revenue_by_currency: revenueByCurrency,
       cost_per_activation: cost.value,

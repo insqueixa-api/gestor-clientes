@@ -157,7 +157,7 @@ export default function AppDetailPage() {
   if (!data) return <div className="p-10 text-center text-muted-foreground animate-pulse">Carregando...</div>;
 
   const { app, stats, payments, trust_activations, activity } = data;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); // dia em SP
   const revenue = Object.entries(stats.revenue_by_currency || {}) as [string, number][];
 
   return (
@@ -459,11 +459,16 @@ export default function AppDetailPage() {
   );
 }
 
+// página fora do alcance (a lista encolheu depois de salvar) cai na última
+const clampPage = (total: number, page: number) => Math.max(0, Math.min(page, Math.ceil(Math.min(total, MAX_ROWS) / PAGE_SIZE) - 1));
+
 function paged<T>(list: T[], page: number): T[] {
-  return list.slice(0, MAX_ROWS).slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  const p = clampPage(list.length, page);
+  return list.slice(0, MAX_ROWS).slice(p * PAGE_SIZE, p * PAGE_SIZE + PAGE_SIZE);
 }
 
-function Pager({ total, page, onPage }: { total: number; page: number; onPage: (p: number) => void }) {
+function Pager({ total, page: rawPage, onPage }: { total: number; page: number; onPage: (p: number) => void }) {
+  const page = clampPage(total, rawPage);
   const shown = Math.min(total, MAX_ROWS);
   const pageCount = Math.ceil(shown / PAGE_SIZE);
   if (pageCount <= 1 && total <= MAX_ROWS) return null;
