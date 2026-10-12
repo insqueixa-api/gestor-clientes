@@ -1085,7 +1085,6 @@ export default function RenewClient() {
 
   const [prices, setPrices] = useState<PlanPrice[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string>("MONTHLY");
-  const [showOtherPlans, setShowOtherPlans] = useState(false);
 
   // -------------------------------------------------------------------------
   // INÍCIO DO ESTADO DE BUSCA (Movido para o topo para respeitar as regras do React)
@@ -6432,264 +6431,76 @@ export default function RenewClient() {
             </h2>
           </div>
 
-          <div className="p-3 sm:p-4 space-y-3">
-            {/* Plano Atual */}
+          <div className="p-3 sm:p-4">
+            {/* ✅ 12/10/2026, pedido do Márcio: os outros planos ficavam
+                escondidos atrás de "Planos disponíveis" e ninguém clicava.
+                Agora todos os períodos lado a lado (igual aos pacotes do
+                Portal da Revenda): período em cima, valor por mês + % de
+                desconto (comparado ao Mensal) e o total à direita. O plano
+                atual continua marcado e já vem selecionado. */}
             {(() => {
-              const currentPrice = availablePrices.find(
-                (p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label,
-              );
-              if (!currentPrice) return null;
-              const isSelected = selectedPeriod === currentPrice.period;
+              const cur = selectedAccount.price_currency;
+              const plans = [...availablePrices]
+                .filter((p) => p.price_amount > 0 && PERIOD_MONTHS[p.period])
+                .sort((a, b) => PERIOD_MONTHS[a.period] - PERIOD_MONTHS[b.period]);
+              const monthly = availablePrices.find((p) => p.period === "MONTHLY");
+              const baseMonthly = monthly && monthly.price_amount > 0 ? monthly.price_amount : null;
               return (
-                <button
-                  onClick={() =>
-                    currentPrice && setSelectedPeriod(currentPrice.period)
-                  }
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    isSelected
-                      ? "border-sky-500 bg-sky-500/10"
-                      : "border-border hover:border-sky-500/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <div
-                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-sky-500 bg-sky-500" : "border-border"}`}
-                        >
-                          {isSelected && (
-                            <svg
-                              className="w-3 h-3 text-white"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                        <span className="font-bold text-foreground">
-                          {selectedAccount.plan_label}{" "}
-                          <span className="text-xs font-normal text-sky-500 uppercase tracking-wider ml-1">
-                            (Atual)
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right ml-2">
-                      <div
-                        className={`text-lg font-bold ${isSelected ? "text-sky-500" : "text-muted-foreground"}`}
-                      >
-                        {currentPrice.price_amount > 0
-                          ? formatMoney(
-                              currentPrice.price_amount,
-                              selectedAccount.price_currency,
-                            )
-                          : "—"}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })()}
-
-            {/* ✅ PLANO ESCOLHIDO (Se não for o Atual e a sanfona estiver FECHADA) */}
-            {(() => {
-              const currentPrice = availablePrices.find(
-                (p) => PERIOD_LABELS[p.period] === selectedAccount.plan_label,
-              );
-              const isSelectedNotCurrent =
-                selectedPeriod !== currentPrice?.period;
-
-              if (!showOtherPlans && isSelectedNotCurrent && selectedPrice) {
-                return (
-                  <button
-                    onClick={() => setShowOtherPlans(true)}
-                    className="w-full text-left p-4 rounded-xl border-2 border-emerald-500 bg-emerald-500/10 transition-all animate-in slide-in-from-top-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="w-5 h-5 rounded-full border-2 border-emerald-500 bg-emerald-500 flex items-center justify-center shrink-0">
-                            <svg
-                              className="w-3 h-3 text-white"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </div>
-                          <span className="font-bold text-foreground">
-                            {PERIOD_LABELS[selectedPrice.period]}{" "}
-                            <span className="text-xs font-normal text-emerald-500 tracking-wider ml-1">
-                              (Selecionado)
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right ml-2">
-                        <div className="text-lg font-bold text-emerald-500">
-                          {selectedPrice.price_amount > 0
-                            ? formatMoney(
-                                selectedPrice.price_amount,
-                                selectedAccount.price_currency,
-                              )
-                            : "—"}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Botão para Mostrar/Esconder as Ofertas */}
-            {availablePrices.filter(
-              (p) => PERIOD_LABELS[p.period] !== selectedAccount.plan_label,
-            ).length > 0 && (
-              <button
-                onClick={() => setShowOtherPlans(!showOtherPlans)}
-                className="w-full py-3 px-4 rounded-xl border-2 border-dashed border-border text-muted-foreground font-bold flex items-center justify-center gap-2 hover:bg-muted/50 transition-all"
-              >
-                🏷️ {showOtherPlans ? "Ocultar Ofertas" : "Planos disponíveis"}
-                <svg
-                  className={`w-4 h-4 transition-transform ${showOtherPlans ? "rotate-180" : ""}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-            )}
-
-            {/* Expansível de Ofertas */}
-            {showOtherPlans && (
-              <div className="space-y-2 animate-in slide-in-from-top-2 duration-200 mt-2">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
-                  Todas as Opções
-                </p>
-                {availablePrices
-                  .filter(
-                    (p) =>
-                      PERIOD_LABELS[p.period] !== selectedAccount.plan_label,
-                  )
-                  .map((price) => {
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+                  {plans.map((price) => {
                     const months = PERIOD_MONTHS[price.period];
-                    const currentMonthlyEquiv = (() => {
-                      const currentPrice = availablePrices.find(
-                        (p) =>
-                          PERIOD_LABELS[p.period] ===
-                          selectedAccount.plan_label,
-                      );
-                      if (!currentPrice) {
-                        const baseMonthly = availablePrices.find(
-                          (p) => p.period === "MONTHLY",
-                        );
-                        return baseMonthly ? baseMonthly.price_amount : 0;
-                      }
-                      const currentMonths =
-                        PERIOD_MONTHS[
-                          Object.keys(PERIOD_LABELS).find(
-                            (k) =>
-                              PERIOD_LABELS[k] === selectedAccount.plan_label,
-                          ) || "MONTHLY"
-                        ] || 1;
-                      return currentPrice.price_amount / currentMonths;
-                    })();
-
-                    const thisMonthlyEquiv = price.price_amount / months;
-                    const diffPercent =
-                      currentMonthlyEquiv > 0
-                        ? Math.round(
-                            ((thisMonthlyEquiv - currentMonthlyEquiv) /
-                              currentMonthlyEquiv) *
-                              100 *
-                              10,
-                          ) / 10
+                    const perMonth = price.price_amount / months;
+                    const pct =
+                      baseMonthly && price.period !== "MONTHLY"
+                        ? Math.round(((perMonth - baseMonthly) / baseMonthly) * 1000) / 10
                         : 0;
-
+                    const isCurrent = PERIOD_LABELS[price.period] === selectedAccount.plan_label;
                     const isSelected = selectedPeriod === price.period;
-                    const isCheaper = diffPercent < 0;
-
                     return (
                       <button
                         key={price.period}
                         onClick={() => setSelectedPeriod(price.period)}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                          isSelected
-                            ? "border-emerald-500 bg-emerald-500/10"
-                            : "border-border hover:border-emerald-500/50"
+                        className={`rounded-xl border-2 px-2.5 py-2 text-left transition-colors ${
+                          isSelected ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:border-emerald-500/40"
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <div
-                                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? "border-emerald-500 bg-emerald-500" : "border-border"}`}
-                              >
-                                {isSelected && (
-                                  <svg
-                                    className="w-3 h-3 text-white"
-                                    fill="currentColor"
-                                    viewBox="0 0 20 20"
-                                  >
-                                    <path
-                                      fillRule="evenodd"
-                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                      clipRule="evenodd"
-                                    />
-                                  </svg>
-                                )}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[11px] sm:text-xs font-semibold text-emerald-600 truncate">
+                            {PERIOD_LABELS[price.period]}
+                          </span>
+                          {isCurrent && (
+                            <span className="text-[9px] font-semibold text-sky-500 uppercase tracking-wider shrink-0">atual</span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-end justify-between gap-1.5">
+                          <div className="min-w-0">
+                            {months > 1 && (
+                              <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                {formatMoney(perMonth, cur)}/mês
                               </div>
-                              <span className="font-bold text-foreground">
-                                {PERIOD_LABELS[price.period]}
+                            )}
+                            {pct !== 0 && (
+                              <span
+                                className={`inline-block mt-0.5 px-1.5 py-px text-[9px] font-bold rounded uppercase tracking-wider ${
+                                  pct < 0
+                                    ? "bg-emerald-500/15 text-emerald-600"
+                                    : "bg-amber-500/15 text-amber-600"
+                                }`}
+                              >
+                                {pct < 0 ? `${Math.abs(pct)}% off` : `+${pct}%`}
                               </span>
-                              {diffPercent !== 0 && price.price_amount > 0 && (
-                                <span
-                                  className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase tracking-wider ${isCheaper ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/20" : "bg-amber-500/20 text-amber-500 border border-amber-500/20"}`}
-                                >
-                                  {isCheaper
-                                    ? `${Math.abs(diffPercent)}% off`
-                                    : `+${diffPercent}%`}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1 ml-7">
-                              {price.price_amount > 0
-                                ? `${formatMoney(price.price_amount / months, selectedAccount.price_currency)}/mês`
-                                : "—"}
-                            </p>
+                            )}
                           </div>
-                          <div className="text-right ml-2">
-                            <div className="text-lg font-bold text-foreground">
-                              {price.price_amount > 0
-                                ? formatMoney(
-                                    price.price_amount,
-                                    selectedAccount.price_currency,
-                                  )
-                                : "—"}
-                            </div>
+                          <div className="text-sm sm:text-base font-bold text-foreground whitespace-nowrap">
+                            {formatMoney(price.price_amount, cur)}
                           </div>
                         </div>
                       </button>
                     );
                   })}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </div>
         </div>
 

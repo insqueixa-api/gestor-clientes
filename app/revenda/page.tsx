@@ -564,6 +564,16 @@ function RevendaPortal() {
                               {money(p.price, cur)}
                               <span className="text-[10px] text-muted-foreground font-normal">/cr</span>
                             </div>
+                            {/* ✅ 12/10/2026: % de desconto comparado ao menor pacote */}
+                            {(() => {
+                              const base = Number(sortedPrices[0]?.price || 0);
+                              const pct = base > 0 ? Math.round(((base - p.price) / base) * 1000) / 10 : 0;
+                              return pct > 0 ? (
+                                <span className="inline-block mt-0.5 px-1.5 py-px text-[9px] font-bold rounded uppercase tracking-wider bg-emerald-500/15 text-emerald-600">
+                                  {pct}% off
+                                </span>
+                              ) : null;
+                            })()}
                           </button>
                         );
                       })}
