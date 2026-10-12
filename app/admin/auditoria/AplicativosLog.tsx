@@ -19,6 +19,7 @@ import {
   useState,
 } from "react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import TrashButton from "@/components/ui/TrashButton";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 const AppRequestModal = dynamic(() => import("@/components/apps/AppRequestModal"), { ssr: false });
@@ -175,6 +176,32 @@ function AplicativosLog(
         return { label, value: String(v) };
       })
       .filter((x): x is { label: string; value: string } => x !== null);
+  }
+
+  // ✅ 12/10/2026, pedido do Márcio: lixeira no histórico de apps (mesma da
+  // linha do tempo do cliente). Apaga só o registro do log — não mexe no app.
+  const [deletingActivityId, setDeletingActivityId] = useState<string | null>(null);
+  async function deleteActivity(r: ActivityRow) {
+    const ok = await confirm({
+      tone: "rose",
+      title: "Apagar registro?",
+      subtitle: "Este registro será removido do histórico de aplicativos permanentemente. Não mexe no app do cliente.",
+      details: [`Cliente: ${r.client_name}`, `App: ${r.app_name}`],
+      confirmText: "Apagar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+    setDeletingActivityId(r.id);
+    try {
+      const { error } = await supabaseBrowser.from("client_app_activity_log").delete().eq("id", r.id).eq("tenant_id", tenantId);
+      if (error) throw error;
+      setActivityRows((prev) => prev.filter((x) => x.id !== r.id));
+      addToast("success", "Registro apagado", "");
+    } catch (e: any) {
+      addToast("error", "Erro ao apagar", e?.message);
+    } finally {
+      setDeletingActivityId(null);
+    }
   }
 
   async function loadActivity() {
@@ -429,13 +456,14 @@ function AplicativosLog(
                       <th className="px-4 py-3">Aplicativo</th>
                       <th className="px-4 py-3">Evento</th>
                       <th className="px-4 py-3">Detalhe</th>
+                      <th className="px-2 py-3 w-10"></th>
                     </tr>
                   </thead>
                   <tbody className="text-sm divide-y divide-border">
                     {paginatedActivity.map((r) => {
                       const meta = ACTIVITY_LABELS[r.event] || { label: r.event, tone: "bg-muted text-muted-foreground border-border" };
                       return (
-                        <tr key={r.id} className="hover:bg-muted/50 transition-colors">
+                        <tr key={r.id} className="hover:bg-muted/50 transition-colors group">
                           <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">há {timeAgo(r.created_at)}</td>
                           <td className="px-4 py-3">
                             {r.client_id ? (
@@ -464,6 +492,9 @@ function AplicativosLog(
                           </td>
                           <td className="px-4 py-3 text-xs text-muted-foreground font-mono">
                             {r.detail?.error || (r.detail?.expireDate ? `Vencimento: ${String(r.detail.expireDate).split("T")[0].split("-").reverse().join("/")}` : "") || (r.detail?.fields ? `Campos: ${r.detail.fields.join(", ")}` : "") || "—"}
+                          </td>
+                          <td className="px-2 py-3">
+                            <TrashButton busy={deletingActivityId === r.id} onClick={() => void deleteActivity(r)} />
                           </td>
                         </tr>
                       );
@@ -687,3 +718,4 @@ function AppNameLink({ name, id }: { name: string; id?: string }) {
     </Link>
   );
 }
+

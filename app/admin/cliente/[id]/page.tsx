@@ -236,7 +236,59 @@ type TimelineItem = {
   event_type: string;
   message: string | null;
   meta: any;
+  // ✅ 12/10/2026: a linha do tempo junta também o histórico de apps
+  // (client_app_activity_log) e as renovações de app pagas
+  source?: "event" | "app_log" | "app_payment";
 };
+
+const APP_LOG_LABELS: Record<string, string> = {
+  added: "📱 App adicionado",
+  removed: "📱 App removido",
+  configured: "⚙️ App configurado",
+  configure_failed: "⚠️ Falha ao configurar app",
+  fields_updated: "📝 Dados do app editados",
+  check_validity: "🔎 Vencimento do app verificado",
+  check_validity_failed: "⚠️ Falha ao verificar vencimento",
+  removed_partner_failed: "⚠️ Falha ao remover no parceiro",
+};
+
+// histórico de apps + renovações de app → mesmo formato dos eventos
+function appTimelineItems(appLog: any[], appPayments: any[]): TimelineItem[] {
+  const br = (d?: string | null) => (d ? String(d).slice(0, 10).split("-").reverse().join("/") : "");
+  const logs = (appLog || []).map((l: any): TimelineItem => {
+    const d = l.detail || {};
+    const parts: string[] = [l.app_name];
+    for (const f of Array.isArray(d.device) ? d.device : []) if (f?.value && f?.type !== "password") parts.push(`${f.label}: ${f.value}`);
+    if (d.lista) parts.push(`lista ${d.lista === "secundaria" ? "secundária" : d.lista}`);
+    if (d.renew) parts.push("renovou a licença");
+    if (d.expireDate) parts.push(`vencimento ${br(d.expireDate)}`);
+    if (d.error) parts.push(String(d.error));
+    return {
+      id: l.id,
+      created_at: l.created_at,
+      event_type: `APP_${l.event}`,
+      message: parts.join(" · "),
+      meta: { label: d.renew ? "🔄 Licença do app renovada" : APP_LOG_LABELS[l.event] || `📱 ${l.event}` },
+      source: "app_log",
+    };
+  });
+  const pays = (appPayments || []).map((p: any): TimelineItem => ({
+    id: p.id,
+    created_at: p.created_at,
+    event_type: "APP_RENEWAL_PAID",
+    message: [
+      p.app_name || "Aplicativo",
+      fmtMoney(p.price_amount, p.price_currency),
+      p.payment_method === "manual" ? "manual" : p.gateway_type || p.payment_method || "",
+      p.parent_payment_id ? "junto da mensalidade" : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    meta: { label: "💳 Renovação de aplicativo", server_name: p.server_name || undefined },
+    source: "app_payment",
+  }));
+  return [...logs, ...pays];
+}
 
 type EligibleCouponRule = {
   target_status: string[] | null;
@@ -400,7 +452,7 @@ export default function ClientDetailsPage() {
       title: "Apagar registro?",
       subtitle: "Este evento será removido da linha do tempo permanentemente.",
       details: [
-        `Tipo: ${EVENT_LABELS[item.event_type] ?? item.event_type}`,
+        `Tipo: ${item.meta?.label ?? EVENT_LABELS[item.event_type] ?? item.event_type}`,
         `Data: ${fmtDate(item.created_at)}`,
         item.message ? `Msg: ${item.message.slice(0, 60)}` : "",
       ].filter(Boolean),
@@ -415,8 +467,9 @@ export default function ClientDetailsPage() {
       const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
+      // histórico de apps mora em outra tabela (a lixeira apaga lá também)
       const { error } = await supabaseBrowser
-        .from("client_events")
+        .from(item.source === "app_log" ? "client_app_activity_log" : "client_events")
         .delete()
         .eq("id", item.id)
         .eq("tenant_id", tid);
@@ -654,6 +707,8 @@ export default function ClientDetailsPage() {
         apps_catalog: any[];
         client_apps: any[];
         events: any[];
+        app_log?: any[];
+        app_payments?: any[];
       };
 
       const row = bundle.row;
@@ -806,7 +861,12 @@ export default function ClientDetailsPage() {
       setClient(mapped);
 
       // ✅ Timeline — client_events já veio no bundle
-      setTimeline((bundle.events || []) as any);
+      // + histórico de apps e renovações de app (mesma ida ao banco)
+      setTimeline(
+        [...((bundle.events || []) as TimelineItem[]), ...appTimelineItems(bundle.app_log || [], bundle.app_payments || [])].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        ),
+      );
 
       setLoading(false);
     } catch (e: unknown) {
@@ -2048,7 +2108,7 @@ export default function ClientDetailsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-medium text-foreground tracking-tight">
-                          {EVENT_LABELS[item.event_type] ?? item.event_type}
+                          {item.meta?.label ?? EVENT_LABELS[item.event_type] ?? item.event_type}
                         </span>
                         {/* ✅ 08/10/2026: servidor onde o evento aconteceu (carimbo
                             em meta, docs/sql/server_snapshot_history.sql) — se o
@@ -2074,6 +2134,8 @@ export default function ClientDetailsPage() {
                       <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm">
                         {fmtDate(item.created_at)}
                       </div>
+                      {/* pagamento de app é histórico de dinheiro — apaga só pelo Log do Portal */}
+                      {item.source !== "app_payment" && (
                       <button
                         onClick={() => handleDeleteEvent(item)}
                         disabled={deletingEventId === item.id}
@@ -2097,6 +2159,7 @@ export default function ClientDetailsPage() {
                           </svg>
                         )}
                       </button>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -13,6 +13,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Check, CheckCircle2, Copy, CreditCard, ExternalLink, Loader2, Pencil } from "lucide-react";
 import { useTenantId } from "@/lib/tenant-context";
+import { useConfirm } from "@/hooks/useConfirm";
+import TrashButton from "@/components/ui/TrashButton";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import TierStars from "@/components/apps/TierStars";
 import type { ClientData } from "@/app/admin/cliente/novo_cliente";
@@ -139,6 +141,31 @@ export default function AppDetailPage() {
       setCheckMsg((s) => ({ ...s, [key]: { ok: false, text: "Falha de conexão" } }));
     } finally {
       setChecking((s) => ({ ...s, [key]: false }));
+    }
+  }
+
+  // ✅ 12/10/2026: lixeira do histórico (só o registro do log, não mexe no app)
+  const { confirm } = useConfirm();
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null);
+  async function deleteLog(a: any) {
+    const ok = await confirm({
+      tone: "rose",
+      title: "Apagar registro?",
+      subtitle: "Este registro será removido do histórico do aplicativo permanentemente. Não mexe no app do cliente.",
+      details: [`Cliente: ${a.client_name}`, `Quando: ${fmtDateTime(a.created_at)}`],
+      confirmText: "Apagar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+    setDeletingLogId(a.id);
+    try {
+      const { error: delErr } = await supabaseBrowser.from("client_app_activity_log").delete().eq("id", a.id).eq("tenant_id", tenantId);
+      if (delErr) throw delErr;
+      setData((d: any) => (d ? { ...d, activity: d.activity.filter((x: any) => x.id !== a.id) } : d));
+    } catch (e: any) {
+      alert(e?.message || "Não foi possível apagar.");
+    } finally {
+      setDeletingLogId(null);
     }
   }
 
@@ -511,12 +538,15 @@ export default function AppDetailPage() {
             ) : (
               <span key="v" className="text-xs text-muted-foreground">--</span>
             ),
-            <div key="e" className="flex flex-col text-xs">
-              <span className={`font-medium ${/failed/.test(a.event) ? "text-rose-500" : "text-foreground/90"}`}>
-                {a.detail?.renew ? "Renovou a licença" : EVENT_LABELS[a.event] || a.event}
-              </span>
-              {eventDetail(a) && <span className="text-[10px] text-muted-foreground">{eventDetail(a)}</span>}
-              {a.detail?.error && <span className="text-[10px] text-muted-foreground line-clamp-2" title={String(a.detail.error)}>{String(a.detail.error)}</span>}
+            <div key="e" className="flex items-start justify-between gap-2">
+              <div className="flex flex-col text-xs min-w-0">
+                <span className={`font-medium ${/failed/.test(a.event) ? "text-rose-500" : "text-foreground/90"}`}>
+                  {a.detail?.renew ? "Renovou a licença" : EVENT_LABELS[a.event] || a.event}
+                </span>
+                {eventDetail(a) && <span className="text-[10px] text-muted-foreground">{eventDetail(a)}</span>}
+                {a.detail?.error && <span className="text-[10px] text-muted-foreground line-clamp-2" title={String(a.detail.error)}>{String(a.detail.error)}</span>}
+              </div>
+              <TrashButton busy={deletingLogId === a.id} onClick={() => void deleteLog(a)} />
             </div>,
           ])}
         />
@@ -734,7 +764,7 @@ function Table({ head, rows, empty, fixed }: { head: string[]; rows: React.React
         </thead>
         <tbody className="divide-y divide-border">
           {rows.map((cells, i) => (
-            <tr key={i} className="hover:bg-muted/30 align-top">
+            <tr key={i} className="hover:bg-muted/30 align-top group">
               {cells.map((c, k) => <td key={k} className="px-4 py-2.5">{c}</td>)}
             </tr>
           ))}
