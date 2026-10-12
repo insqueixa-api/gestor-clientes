@@ -504,6 +504,12 @@ export default function ClientDetailsPage() {
     "primary" | "secondary" | null
   >(null);
 
+  // logo do item da linha do tempo: app (eventos de app) ou servidor (renovações)
+  function timelineLogo(item: TimelineItem): string | null {
+    if (item.source === "app_log" || item.source === "app_payment") return item.meta?.icon_url || null;
+    return item.meta?.server_name ? serverLogoByName[String(item.meta.server_name).toLowerCase()] || null : null;
+  }
+
   async function handleDeleteEvent(item: TimelineItem) {
     const ok = await confirm({
       tone: "rose",
@@ -2171,26 +2177,24 @@ export default function ClientDetailsPage() {
                   <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-card bg-muted"></div>
 
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 bg-muted/50 p-2 rounded-xl border border-transparent hover:border-border transition-all">
+                    {/* ✅ 12/10/2026: logo do app (eventos de app) ou do servidor
+                        (renovações) no lugar do emoji — grande, ocupando a
+                        altura do título + texto (pedido do Márcio) */}
+                    <div className="flex-1 min-w-0 flex items-start gap-3">
+                      {timelineLogo(item) && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={timelineLogo(item) as string} alt="" className="w-10 h-10 rounded-lg object-cover border border-border shrink-0 bg-card" />
+                      )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        {/* ✅ 12/10/2026: logo do app (eventos de app) ou do
-                            servidor (renovações) no lugar do emoji */}
                         {(() => {
                           const isApp = item.source === "app_log" || item.source === "app_payment";
-                          const logo = isApp
-                            ? item.meta?.icon_url
-                            : item.meta?.server_name
-                              ? serverLogoByName[String(item.meta.server_name).toLowerCase()]
-                              : null;
+                          const logo = timelineLogo(item);
                           const raw = item.meta?.label ?? EVENT_LABELS[item.event_type] ?? item.event_type;
                           // com logo, tira o emoji do começo do texto ("💰 Renovação" → "Renovação")
                           const label = logo && typeof raw === "string" ? raw.replace(/^[^\p{L}\p{N}]+/u, "") : raw;
                           return (
                             <>
-                              {logo && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={logo} alt="" className="w-5 h-5 rounded object-cover border border-border shrink-0" />
-                              )}
                               <span
                                 className={`text-sm font-medium tracking-tight ${item.meta?.failed ? "text-rose-500" : "text-foreground"}`}
                               >
@@ -2240,6 +2244,7 @@ export default function ClientDetailsPage() {
                           </div>
                         )}
                       </div>
+                    </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">
                       <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm">
