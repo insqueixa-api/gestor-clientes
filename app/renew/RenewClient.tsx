@@ -3082,22 +3082,14 @@ export default function RenewClient() {
     const securityNote = !isApproved &&
       !isRejected &&
       paymentPhase !== "renewing" && (
+        // ✅ 12/10/2026, pedido do Márcio: mesma linha curta dos outros 3
+        // pagamentos (app do cliente, créditos e app da revenda), com o nome
+        // real do gateway (antes era fixo "Mercado Pago" pra qualquer PIX).
         <div className="px-5 pb-4 pt-2">
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-left">
-            <div className="flex items-start gap-2.5 text-[11px] text-muted-foreground">
-              <ShieldCheck className="mt-0.5 w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground">
-                  Pagamento protegido pelo{" "}
-                  {isStripe ? "Stripe" : "Mercado Pago"}
-                </p>
-                <p>
-                  Este portal não armazena dados de pagamento. O processamento é
-                  feito por {isStripe ? "Stripe" : "Mercado Pago"}.
-                </p>
-                <p>Conexão segura com SSL (cadeado de segurança).</p>
-              </div>
-            </div>
+          <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground text-center">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            Conexão segura (SSL) — pagamento processado direto pelo{" "}
+            {isStripe ? "Stripe" : paymentData.gateway_name || "Mercado Pago"}
           </div>
         </div>
       );
@@ -5029,7 +5021,7 @@ export default function RenewClient() {
                               pelo{" "}
                               {renewPayment.payment_method === "stripe"
                                 ? "Stripe"
-                                : "Mercado Pago"}
+                                : renewPayment.gateway_name || "Mercado Pago"}
                             </div>
                           </div>
                         </>
