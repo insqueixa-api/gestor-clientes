@@ -133,7 +133,9 @@ export default function AppDetailPage() {
         <Kpi
           label="Lucro estimado"
           value={stats.estimated_profit_brl != null ? brl(stats.estimated_profit_brl) : "--"}
-          hint="pagamentos em R$ − custo de cada ativação"
+          hint={stats.has_foreign_currency && stats.fx_as_of
+            ? `pagamentos (EUR/USD em R$ pela cotação de ${fmtDate(stats.fx_as_of)}) − custo de cada ativação`
+            : "pagamentos em R$ − custo de cada ativação"}
           tone={stats.estimated_profit_brl > 0 ? "emerald" : undefined}
         />
       </div>
@@ -258,13 +260,14 @@ export default function AppDetailPage() {
             </Link>,
             <div key="v" className="flex flex-col text-xs">
               <span className={`font-semibold ${p.counted ? "text-foreground" : "text-muted-foreground line-through"}`}>{brl(p.amount, p.currency)}</span>
+              {p.currency !== "BRL" && p.amount_brl != null && <span className="text-[10px] text-muted-foreground">≈ {brl(p.amount_brl)}</span>}
               {p.coupon_code && <span className="text-[10px] text-muted-foreground">cupom {p.coupon_code} (−{brl(p.discount, p.currency)})</span>}
               {!p.counted && <span className="text-[10px] text-rose-500">não contabilizado ({p.fulfillment_status || p.status})</span>}
             </div>,
             <div key="m" className="flex flex-col text-xs">
               <span className="text-muted-foreground">{p.margin != null ? `− ${brl(stats.cost_per_activation)}` : "--"}</span>
               {p.margin != null && (
-                <span className={`font-semibold ${p.margin >= 0 ? "text-emerald-600" : "text-rose-500"}`}>{brl(p.margin, p.currency)}</span>
+                <span className={`font-semibold ${p.margin >= 0 ? "text-emerald-600" : "text-rose-500"}`}>{p.currency !== "BRL" ? "≈ " : ""}{brl(p.margin)}</span>
               )}
             </div>,
             <span key="f" className="text-xs text-muted-foreground">{p.method === "manual" ? "Manual" : p.gateway || p.method || "--"}</span>,

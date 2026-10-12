@@ -30,6 +30,14 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
   const pays: any[] = payload.payments || [];
   const alerts: any[] = payload.alerts || [];
   const activity: any[] = payload.activity || [];
+  // cliente EUR/USD paga o app na moeda dele (gravado nela, não em R$) —
+  // margem/lucro convertem pela cotação ATUAL (aproximação, não a do dia)
+  const fx: any = payload.fx || null;
+  const toBRL = (v: number, cur: string): number | null =>
+    cur === "BRL" ? v
+    : cur === "USD" && fx?.usd_to_brl ? v * Number(fx.usd_to_brl)
+    : cur === "EUR" && fx?.eur_to_brl ? v * Number(fx.eur_to_brl)
+    : null;
 
   const config: any[] = Array.isArray(app.fields_config) ? app.fields_config : [];
   const macField = config.find((f) => f.type === "mac");
@@ -83,6 +91,8 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
   const payments = (pays || []).map((p: any) => {
     const paid = PAID.has(p.status) && p.fulfillment_status !== "manual_cancelled";
     const amount = Number(p.price_amount || 0);
+    const currency = p.price_currency || "BRL";
+    const amountBRL = toBRL(amount, currency);
     return {
       id: p.id,
       created_at: p.created_at,
@@ -91,7 +101,8 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       fulfillment_status: p.fulfillment_status,
       counted: paid,
       amount,
-      currency: p.price_currency || "BRL",
+      currency,
+      amount_brl: amountBRL,
       coupon_code: p.coupon_code,
       discount: Number(p.coupon_discount_amount || 0),
       method: p.payment_method,
@@ -100,16 +111,16 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       client_name: knownNames.get(p.client_id) || "Cliente excluído",
       bundled: !!p.parent_payment_id,
       server_name: p.server_name,
-      // custo é em R$ — margem só faz sentido em pagamento em R$
-      margin: paid && cost.value != null && (p.price_currency || "BRL") === "BRL" ? amount - cost.value : null,
+      // custo e margem sempre em R$ (EUR/USD convertido pela cotação atual)
+      margin: paid && cost.value != null && amountBRL != null ? amountBRL - cost.value : null,
     };
   });
 
   const paidRows = payments.filter((p) => p.counted);
   const revenueByCurrency: Record<string, number> = {};
   for (const p of paidRows) revenueByCurrency[p.currency] = (revenueByCurrency[p.currency] || 0) + p.amount;
-  const revenueBRL = revenueByCurrency.BRL || 0;
-  const paidBRL = paidRows.filter((p) => p.currency === "BRL").length;
+  const convertible = paidRows.filter((p) => p.amount_brl != null);
+  const revenueBRL = convertible.reduce((sum, p) => sum + (p.amount_brl as number), 0);
 
   return { status: 200, body: {
     ok: true,
@@ -155,7 +166,9 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       cost_source: cost.source,
       sale_price: salePrice,
       margin_per_activation: salePrice != null && cost.value != null ? salePrice - cost.value : null,
-      estimated_profit_brl: cost.value != null ? revenueBRL - paidBRL * cost.value : null,
+      estimated_profit_brl: cost.value != null ? revenueBRL - convertible.length * cost.value : null,
+      has_foreign_currency: paidRows.some((p) => p.currency !== "BRL"),
+      fx_as_of: fx?.as_of_date || null,
     },
     users,
     payments,

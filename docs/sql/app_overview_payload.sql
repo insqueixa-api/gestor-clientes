@@ -78,6 +78,10 @@ as $$
     'partners', coalesce((select jsonb_agg(jsonb_build_object('provider', provider, 'credit_unit_price', credit_unit_price))
                             from api_integrations where tenant_id = p_tenant_id), '[]'::jsonb),
     'partner_server', (select s.name from servers s, app where s.id = app.partner_server_id),
+    -- cotação atual (cliente EUR/USD paga app na moeda dele e o pagamento é
+    -- gravado nela — a página converte pra R$ pra margem/lucro)
+    'fx', (select jsonb_build_object('usd_to_brl', usd_to_brl, 'eur_to_brl', eur_to_brl, 'as_of_date', as_of_date)
+             from tenant_fx_rates where tenant_id = p_tenant_id order by as_of_date desc limit 1),
     'payments', coalesce((select jsonb_agg(to_jsonb(pays)) from pays), '[]'::jsonb),
     'alerts', coalesce((select jsonb_agg(to_jsonb(alerts)) from alerts), '[]'::jsonb),
     'activity', coalesce((select jsonb_agg(to_jsonb(activity)) from activity), '[]'::jsonb)
