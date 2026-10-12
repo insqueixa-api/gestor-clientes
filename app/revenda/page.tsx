@@ -287,15 +287,35 @@ function RevendaPortal() {
     return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground text-sm animate-pulse">Carregando...</div>;
   }
   if (state !== "ok" || !data) {
+    // ✅ 12/10/2026, pedido do Márcio: mesmo visual da "Sessão Expirada" do
+    // portal do cliente (app/renew/RenewClient.tsx)
+    const expired = state === "expired";
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
-        <div className="max-w-sm w-full bg-card border border-border rounded-2xl p-6 text-center space-y-2 shadow-sm">
-          <h1 className="text-lg font-semibold text-foreground">Portal da Revenda</h1>
-          <p className="text-sm text-muted-foreground">
-            {state === "expired"
-              ? "Sua sessão terminou. Abra de novo o link de acesso que você recebeu no WhatsApp."
-              : "Não foi possível carregar agora. Tente de novo em instantes."}
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="max-w-md w-full bg-card rounded-2xl shadow-2xl p-8 text-center border border-rose-500/20">
+          <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-rose-500 mb-2">{expired ? "Sessão Expirada" : "Não foi possível carregar"}</h1>
+          <p className="text-foreground/70 mb-6">
+            {expired
+              ? "Sua sessão terminou. Abra o link novamente para continuar."
+              : "Tente de novo em instantes."}
           </p>
+          <button
+            onClick={() => {
+              if (!expired) return window.location.reload();
+              try {
+                window.sessionStorage.removeItem(KEY);
+              } catch {}
+              window.location.href = "/";
+            }}
+            className="px-6 py-3 w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-colors"
+          >
+            {expired ? "Fazer Login Novamente" : "Tentar novamente"}
+          </button>
         </div>
       </div>
     );
