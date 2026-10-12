@@ -717,7 +717,7 @@ export default function QuickRechargeModal({
 
       // 2) Prepara payload base
       const autoNote = [
-        `Venda revenda · ${resellerName}`,
+        `Venda manual · ${resellerName}`,
         `${qty} créditos`,
         `Unit: ${fmtMoney(currency, unitCurrency)}`,
         currency !== "BRL" ? `Câmbio: ${Number(fxRate).toFixed(4)}` : null,

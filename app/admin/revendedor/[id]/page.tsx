@@ -244,6 +244,15 @@ export default function ResellerDetailPage() {
     return m;
   }, [servers]);
 
+  // revenda pode ter mais de um servidor — a logo identifica cada compra
+  const serverLogoById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of servers) {
+      if (s?.server_id && s.server_logo_url) m.set(String(s.server_id), s.server_logo_url);
+    }
+    return m;
+  }, [servers]);
+
   async function handleDeleteHistory(h: HistoryRow) {
     const ok = await confirm({
       tone: "rose",
@@ -951,7 +960,22 @@ export default function ResellerDetailPage() {
                         <div className="min-w-0">
                           {/* LINHA 1 — TÍTULO */}
                           <div className="text-sm font-medium text-foreground tracking-tight flex flex-wrap items-center gap-2">
-                            💳 Compra de Créditos
+                            {h.server_id && serverLogoById.get(String(h.server_id)) ? (
+                              <img
+                                src={serverLogoById.get(String(h.server_id))}
+                                alt={serverName}
+                                title={serverName}
+                                className="w-5 h-5 rounded object-cover border border-border shrink-0"
+                              />
+                            ) : (
+                              <span
+                                title={serverName}
+                                className="w-5 h-5 rounded bg-card border border-border flex items-center justify-center text-[10px] font-semibold text-muted-foreground shrink-0"
+                              >
+                                {serverName.charAt(0)}
+                              </span>
+                            )}
+                            Compra de Créditos
                             {h.origin === "portal" ? (
                               <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-violet-500/10 text-violet-500 border border-violet-500/20">
                                 Portal da Revenda · PIX{h.origin_gateway ? ` (${h.origin_gateway === "mercadopago" ? "Mercado Pago" : h.origin_gateway})` : ""}

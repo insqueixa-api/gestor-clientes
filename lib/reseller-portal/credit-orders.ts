@@ -479,7 +479,7 @@ export async function fulfillCreditOrder(admin: SupabaseClient, orderId: string)
   try {
     const { data: link } = await admin
       .from("reseller_servers")
-      .select("id, server_id, server_username, servers(name, panel_integration)")
+      .select("id, server_id, server_username, servers(name, panel_integration), resellers(display_name)")
       .eq("id", order.reseller_server_id)
       .maybeSingle();
     const integrationId = (link as any)?.servers?.panel_integration;
@@ -501,11 +501,22 @@ export async function fulfillCreditOrder(admin: SupabaseClient, orderId: string)
 
     // mesmo formato da Recarga rápida: se ficar "sem confirmação" e o Márcio
     // clicar "Chegou" no admin, a venda é registrada com estes valores
+    // mesmo formato da venda manual (Histórico de Compras do revendedor)
+    const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+    const saleNotes = [
+      "Portal da Revenda",
+      String((link as any)?.resellers?.display_name || "").trim() || null,
+      `${order.credits} créditos`,
+      `Unit: ${brl(Number(order.unit_price))}`,
+      `Total: ${brl(Number(order.amount_brl))}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
     const salePayload = {
       unit_price: Number(order.unit_price),
       currency: "BRL",
       total_brl: Number(order.amount_brl),
-      notes: `Portal da Revenda · ${order.credits} créditos · ${order.gateway_type === "stripe" ? "Cartão" : "PIX"} ${order.gateway_type} · pedido ${String(order.id).slice(0, 8)}`,
+      notes: saleNotes,
       order_id: order.id,
     };
     // mesmo id do pedido → nunca 2 envios por pedido (NaTV: trava; Elite: trava + Idempotency-Key)
@@ -538,7 +549,6 @@ export async function fulfillCreditOrder(admin: SupabaseClient, orderId: string)
     const effective = out.kind === "repeated" ? String(transfer?.status) : out.kind;
 
     if (effective === "done") {
-      const serverName = (link as any).servers?.name || "Servidor";
       const { data: sale } = await admin
         .from("server_credit_sales")
         .insert({
@@ -550,7 +560,7 @@ export async function fulfillCreditOrder(admin: SupabaseClient, orderId: string)
           sale_currency: "BRL",
           total_amount_brl: order.amount_brl,
           payment_method: "PIX",
-          notes: `Portal da Revenda · ${order.credits} créditos · ${serverName} · PIX ${order.gateway_type} · pedido ${String(order.id).slice(0, 8)}`,
+          notes: saleNotes,
         })
         .select("id")
         .single();
