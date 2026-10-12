@@ -503,12 +503,16 @@ export async function fulfillCreditOrder(admin: SupabaseClient, orderId: string)
     // clicar "Chegou" no admin, a venda é registrada com estes valores
     // mesmo formato da venda manual (Histórico de Compras do revendedor)
     const brl = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+    // e da renovação do cliente na tela do servidor ("Nome (login) · ... · MP: id")
+    const resellerName = String((link as any)?.resellers?.display_name || "").trim();
+    const payRef = String(order.gateway_payment_id || "").trim();
     const saleNotes = [
       "Portal da Revenda",
-      String((link as any)?.resellers?.display_name || "").trim() || null,
+      resellerName ? (recipient ? `${resellerName} (${recipient})` : resellerName) : recipient || null,
       `${order.credits} créditos`,
       `Unit: ${brl(Number(order.unit_price))}`,
       `Total: ${brl(Number(order.amount_brl))}`,
+      payRef ? `${order.gateway_type === "mercadopago" ? "MP" : order.gateway_type === "stripe" ? "Stripe" : String(order.gateway_type || "Ref")}: ${payRef}` : null,
     ]
       .filter(Boolean)
       .join(" · ");
