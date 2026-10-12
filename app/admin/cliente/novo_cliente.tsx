@@ -6743,7 +6743,10 @@ export default function NovoCliente({
                                   title="Ambiente"
                                   className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted border border-border text-foreground/80 ml-1"
                                 >
-                                  <span className="text-[9px] font-medium uppercase tracking-wider">{amb}</span>
+                                  {/* "Sala", "Quarto", "Mateus" — 1ª maiúscula, resto minúscula */}
+                                  <span className="text-[10px] font-medium">
+                                    {amb.charAt(0).toUpperCase() + amb.slice(1).toLowerCase()}
+                                  </span>
                                 </span>
                               ) : null;
                             })()}
