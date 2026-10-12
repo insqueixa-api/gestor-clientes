@@ -5792,19 +5792,12 @@ export default function RenewClient() {
               >
                 <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
                   <p className="text-sm font-bold text-foreground">✅ {postAddPrompt.name} salvo!</p>
+                  {/* ✅ 12/10/2026, pedido do Márcio: pergunta mais direta —
+                      configurar (verde, 1º) ou só atualizar o cadastro */}
                   <p className="text-sm text-muted-foreground">
-                    Esse aplicativo já está funcionando {postAddPrompt.where}?
+                    Quer configurar o aplicativo agora pra começar a usar {postAddPrompt.where}?
                   </p>
                   <div className="flex flex-col gap-2 pt-1">
-                    <button
-                      onClick={() => {
-                        setPostAddPrompt(null);
-                        addToast("success", "Cadastro atualizado!", "Obrigado! Se tiver algum problema, toque em Configurar no card.");
-                      }}
-                      className="h-10 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-muted"
-                    >
-                      Sim, só atualizar o cadastro
-                    </button>
                     <button
                       onClick={() => {
                         const target = postAddPrompt;
@@ -5815,7 +5808,16 @@ export default function RenewClient() {
                       }}
                       className="h-10 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
                     >
-                      Não, configurar agora
+                      Sim, configurar agora
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPostAddPrompt(null);
+                        addToast("success", "Cadastro atualizado!", "Quando quiser configurar, toque em Configurar no card do aplicativo.");
+                      }}
+                      className="h-10 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-muted"
+                    >
+                      Não, apenas atualizar o cadastro
                     </button>
                   </div>
                 </div>
