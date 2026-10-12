@@ -589,6 +589,7 @@ function RevendaPortal() {
               <PixModal
                 order={order}
                 serverName={server.name}
+                username={server.username}
                 onClose={closeOrder}
                 onRetryOther={order.has_alternate_gateway && order.state === "waiting" ? () => void startPurchase(order.gateway_type) : undefined}
                 onStripePaid={() => setOrder((o) => (o ? { ...o, state: "sending" } : o))}
@@ -605,6 +606,7 @@ function RevendaPortal() {
 function PixModal({
   order,
   serverName,
+  username,
   onClose,
   onRetryOther,
   supportLink,
@@ -612,6 +614,7 @@ function PixModal({
 }: {
   order: OrderView;
   serverName: string;
+  username?: string | null;
   onClose: () => void;
   onRetryOther?: () => void;
   supportLink: string | null;
@@ -646,6 +649,7 @@ function PixModal({
           <div>
             <div className="text-sm font-bold text-foreground">
               {order.credits} créditos · {serverName}
+              {username && <span className="font-mono font-semibold text-muted-foreground"> · {username}</span>}
             </div>
             <div className="text-xs text-muted-foreground">
               {money(order.amount, order.currency || "BRL")} · {order.payment_method === "stripe" ? "Cartão" : "PIX"}
@@ -709,6 +713,11 @@ function PixModal({
             <div className="text-center py-6 space-y-2">
               <div className="text-4xl">✅</div>
               <p className="font-bold text-foreground text-lg">{order.credits} créditos enviados!</p>
+              {username && (
+                <p className="text-sm text-muted-foreground">
+                  Para o usuário <span className="font-mono font-bold text-foreground">{username}</span>
+                </p>
+              )}
               {typeof order.new_balance === "number" && (
                 <p className="text-sm text-muted-foreground">
                   Seu saldo agora: <span className="font-bold text-emerald-600">{order.new_balance} créditos</span>
