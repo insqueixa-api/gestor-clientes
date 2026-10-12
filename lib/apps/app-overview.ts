@@ -63,12 +63,33 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       ambiente: ambField ? String(vals[ambField.id] || "") : "",
       device_type: r.device_type,
       expiration,
+      // todos os campos preenchidos (menos a data) — botões de copiar
+      fields: config
+        .filter((f) => f.type !== "date")
+        .map((f) => ({ label: String(f.label || f.type), type: f.type, value: String(vals[f.id] ?? vals[f.label] ?? "").trim() }))
+        .filter((f) => f.value),
       trial_hint: vals._trial_hint === "1",
       configured: !!r.m3u_list,
       added_at: r.created_at,
     };
   });
+  // ✅ botão "Renovar" só na janela aberta — mesma regra do portal
+  // (isAppRenewableNow em app/renew/RenewClient.tsx): avaliação, sem data,
+  // vencido ou vencendo em 30 dias (Appativa: 7). GerenciaApp grátis
+  // também renova pelo admin ("Renovar licença" grátis no modal).
+  const hasRenewPath = (Number(app.license_price) > 0 && app.cost_type !== "free") || String(app.integration_type || "").toUpperCase() === "GERENCIAAPP";
+  const windowDays = app.appativa_app_id ? 7 : 30;
+  const todaySP = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const daysUntil = (d: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${todaySP}T00:00:00Z`)) / 86_400_000);
+  for (const u of users as any[]) {
+    u.days_left = u.expiration ? daysUntil(u.expiration) : null;
+    u.renewable =
+      hasRenewPath &&
+      u.client_status === "ativo" &&
+      (u.trial_hint || u.days_left == null || u.days_left <= windowDays);
+  }
   const activeUsers = users.filter((u) => u.client_status === "ativo");
+  const userByLink = new Map(users.map((u) => [u.client_app_id, u]));
 
   // ── custo por ativação ──
   const price = (p: string) => Number((partners || []).find((x: any) => x.provider === p)?.credit_unit_price || 0) || null;
@@ -146,6 +167,7 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       partner_server: server?.name || null,
       fields: config.map((f) => ({ id: f.id, type: f.type, label: f.label })),
       info_url: app.info_url,
+      renew_window_days: hasRenewPath ? windowDays : null,
       download_info: app.download_info,
       has_portal_instructions: !!String(app.portal_setup_instructions || "").trim(),
       discontinued_replacement_name: app.discontinued_replacement_name,
@@ -176,6 +198,17 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       ...a,
       client_name: knownNames.get(a.client_id) || "—",
     })),
-    activity: (activity || []).map((a: any) => ({ ...a, client_name: knownNames.get(a.client_id) || "—" })),
+    // MAC/Key/vencimento do app instalado (se ainda existir)
+    activity: (activity || []).map((a: any) => {
+      const u = a.client_app_id ? userByLink.get(a.client_app_id) : null;
+      return {
+        ...a,
+        client_name: knownNames.get(a.client_id) || "—",
+        mac: u?.mac || "",
+        device_key: u?.device_key || "",
+        expiration: u?.expiration || null,
+        trial_hint: !!u?.trial_hint,
+      };
+    }),
   } };
 }

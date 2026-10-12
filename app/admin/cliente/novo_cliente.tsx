@@ -82,6 +82,9 @@ interface Props {
   defaultSendWhatsapp?: boolean; // ✅ Teste rápido começa com WhatsApp desligado
   mode?: ModalMode;
   initialTab?: "dados" | "pagamento" | "apps";
+  /** ✅ 12/10/2026 (página Aplicativo ID): abre com este app (client_apps.id)
+   * expandido e rolado até ele — os outros ficam minimizados. */
+  focusClientAppId?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -630,6 +633,7 @@ export default function NovoCliente({
   defaultSendWhatsapp,
   mode = "client",
   initialTab,
+  focusClientAppId,
   onClose,
   onSuccess,
 }: Props) {
@@ -653,6 +657,7 @@ export default function NovoCliente({
     setActiveTab(initialTab);
   }, [initialTab]);
 
+  const focusScrolledRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(""); // ✅ NOVO: Guarda o texto do passo atual
   const [fetchingAux, setFetchingAux] = useState(true);
@@ -1964,7 +1969,8 @@ export default function NovoCliente({
                   m3uListAt: ca.m3u_list_at || null,
                   deviceType: ca.device_type || null,
 
-                  is_minimized: isEditing, // editando = minimizado; criando teste = aberto
+                  // editando = minimizado; criando teste = aberto; app em foco = aberto
+                  is_minimized: focusClientAppId ? ca.id !== focusClientAppId : isEditing,
                 };
               });
 
@@ -6604,7 +6610,19 @@ export default function NovoCliente({
                     return (
                       <div
                         key={app.instanceId}
-                        className="px-3 pt-2 pb-3 bg-transparent rounded-xl border border-border relative group"
+                        ref={
+                          focusClientAppId && app.client_app_id === focusClientAppId
+                            ? (el) => {
+                                if (el && !focusScrolledRef.current) {
+                                  focusScrolledRef.current = true;
+                                  setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                                }
+                              }
+                            : undefined
+                        }
+                        className={`px-3 pt-2 pb-3 bg-transparent rounded-xl border relative group ${
+                          focusClientAppId && app.client_app_id === focusClientAppId ? "border-emerald-500/50" : "border-border"
+                        }`}
                       >
                         {/* HEADER DO CARD (Sempre visível) */}
                         <div className="flex justify-between items-center">

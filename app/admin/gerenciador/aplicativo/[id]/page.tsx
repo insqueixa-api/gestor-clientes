@@ -6,14 +6,34 @@
 // integração, pagamentos com custo e margem estimados, ativações em
 // confiança e histórico de configurações. Dados: /api/admin/apps/[id]/overview
 // (lib/apps/app-overview.ts). Só leitura — editar continua no catálogo.
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import TierStars from "@/components/apps/TierStars";
+import type { ClientData } from "@/app/admin/cliente/novo_cliente";
+
+const NovoCliente = dynamic(() => import("@/app/admin/cliente/novo_cliente"), { ssr: false });
 
 type Overview = any;
+
+// ✅ 12/10/2026, pedido do Márcio: 50 por página, no máximo 100 por tabela
+const PAGE_SIZE = 50;
+const MAX_ROWS = 100;
+
+type UserFilter = "ativos" | "renovar" | "vencendo" | "vencidos" | "todos";
+const USER_FILTERS: Record<UserFilter, { label: string; test: (u: any) => boolean }> = {
+  ativos: { label: "Ativos", test: (u) => u.client_status === "ativo" },
+  renovar: { label: "Renovação aberta", test: (u) => !!u.renewable },
+  vencendo: {
+    label: "Vencem em 30 dias",
+    test: (u) => u.client_status === "ativo" && u.days_left != null && u.days_left >= 0 && u.days_left <= 30,
+  },
+  vencidos: { label: "Vencidos", test: (u) => u.client_status === "ativo" && u.days_left != null && u.days_left < 0 },
+  todos: { label: "Todos", test: () => true },
+};
 
 const EVENT_LABELS: Record<string, string> = {
   added: "Adicionou",
@@ -39,32 +59,99 @@ export default function AppDetailPage() {
   const id = String(params?.id || "");
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [userFilter, setUserFilter] = useState<"ativos" | "todos">("ativos");
+  const [userFilter, setUserFilter] = useState<UserFilter>("ativos");
   const [search, setSearch] = useState("");
+  const [pages, setPages] = useState<Record<string, number>>({});
+  const pageOf = (k: string) => pages[k] || 0;
+  const setPage = (k: string, p: number) => setPages((prev) => ({ ...prev, [k]: p }));
+  // modal de edição do cliente, aberto na aba do aplicativo
+  const [edit, setEdit] = useState<{ client: ClientData; clientAppId: string } | null>(null);
+  const [openingEdit, setOpeningEdit] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`/api/admin/apps/${id}/overview`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Falha ao carregar");
+      setData(json);
+    } catch (e: any) {
+      setError(e?.message || "Falha ao carregar");
+    }
+  }, [id]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { data: sess } = await supabaseBrowser.auth.getSession();
-        const token = sess?.session?.access_token;
-        const res = await fetch(`/api/admin/apps/${id}/overview`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json?.ok) throw new Error(json?.error || "Falha ao carregar");
-        setData(json);
-      } catch (e: any) {
-        setError(e?.message || "Falha ao carregar");
+    void load();
+  }, [load]);
+
+  // mesmo registro que a lista/página do cliente usam (views), numa ida só
+  async function openEdit(clientId: string, clientAppId: string) {
+    setOpeningEdit(clientAppId);
+    try {
+      const [a, b] = await Promise.all([
+        supabaseBrowser.from("vw_clients_list_active").select("*").eq("id", clientId).maybeSingle(),
+        supabaseBrowser.from("vw_clients_list_archived").select("*").eq("id", clientId).maybeSingle(),
+      ]);
+      const r: any = a.data ?? b.data;
+      if (!r) {
+        alert("Não foi possível abrir a edição deste cliente.");
+        return;
       }
-    })();
-  }, [id]);
+      setEdit({
+        clientAppId,
+        client: {
+          id: String(r.id),
+          client_name: r.client_name,
+          name_prefix: r.name_prefix ?? undefined,
+          username: r.username,
+          server_password: r.server_password ?? undefined,
+          whatsapp_e164: r.whatsapp_e164 ?? undefined,
+          whatsapp_username: r.whatsapp_username ?? undefined,
+          whatsapp_opt_in: r.whatsapp_opt_in ?? true,
+          secondary_display_name: r.secondary_display_name ?? undefined,
+          secondary_name_prefix: r.secondary_name_prefix ?? undefined,
+          secondary_phone_e164: r.secondary_phone_e164 ?? undefined,
+          secondary_whatsapp_username: r.secondary_whatsapp_username ?? undefined,
+          dont_message_until: r.dont_message_until ?? undefined,
+          server_id: String(r.server_id ?? ""),
+          screens: Number(r.screens || 1),
+          technology: r.technology ?? undefined,
+          plan_name: r.plan_name ?? undefined,
+          price_amount: r.price_amount ?? undefined,
+          price_currency: r.price_currency ?? undefined,
+          plan_table_id: r.plan_table_id ?? null,
+          m3u_url: r.m3u_url ?? "",
+          vencimento: r.vencimento ?? undefined,
+          notes: r.notes ?? undefined,
+          apps_names: r.apps_names ?? undefined,
+        } as ClientData,
+      });
+    } finally {
+      setOpeningEdit(null);
+    }
+  }
 
   const users = useMemo(() => {
     const list = (data?.users || []) as any[];
     const q = search.trim().toLowerCase();
     return list
-      .filter((u) => (userFilter === "ativos" ? u.client_status === "ativo" : true))
-      .filter((u) => !q || [u.client_name, u.server_username, u.mac, u.ambiente].some((v) => String(v || "").toLowerCase().includes(q)))
+      .filter((u) => USER_FILTERS[userFilter].test(u))
+      .filter(
+        (u) =>
+          !q ||
+          [u.client_name, u.server_username, u.server_name, ...(u.fields || []).map((f: any) => f.value)].some((v) =>
+            String(v || "").toLowerCase().includes(q),
+          ),
+      )
       .sort((a, b) => String(a.expiration || "9999").localeCompare(String(b.expiration || "9999")));
   }, [data, userFilter, search]);
+  const filterCounts = useMemo(() => {
+    const list = (data?.users || []) as any[];
+    return Object.fromEntries(
+      (Object.keys(USER_FILTERS) as UserFilter[]).map((k) => [k, list.filter((u) => USER_FILTERS[k].test(u)).length]),
+    ) as Record<UserFilter, number>;
+  }, [data]);
 
   if (error) return <div className="p-10 text-center text-rose-500 font-medium">{error}</div>;
   if (!data) return <div className="p-10 text-center text-muted-foreground animate-pulse">Carregando...</div>;
@@ -187,62 +274,83 @@ export default function AppDetailPage() {
           <div className="flex items-center gap-2">
             <input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cliente, MAC..."
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage("users", 0);
+              }}
+              placeholder="Buscar cliente, login, MAC, key..."
               className="h-8 w-40 sm:w-56 px-2.5 bg-transparent border border-border rounded-lg text-xs text-foreground outline-none focus:border-emerald-500/50"
             />
-            <div className="flex rounded-lg border border-border p-0.5 bg-muted/50">
-              {(["ativos", "todos"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => setUserFilter(k)}
-                  className={`px-2.5 py-1 rounded-md text-xs font-medium ${userFilter === k ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"}`}
-                >
-                  {k === "ativos" ? "Ativos" : "Todos"}
-                </button>
-              ))}
-            </div>
           </div>
         }
         noPad
       >
-        <Table
-          head={["Cliente", "Servidor", "Aparelho", "Vencimento do app"]}
-          empty="Nenhum cliente."
-          rows={users.map((u) => [
-            <div key="c" className="flex flex-col min-w-0">
-              <Link href={`/admin/cliente/${u.client_id}`} prefetch={false} className="font-medium text-foreground hover:text-emerald-500 hover:underline truncate">
-                {u.client_name}
-              </Link>
-              {u.client_status !== "ativo" && <span className="text-[10px] text-muted-foreground">{u.client_status}</span>}
-            </div>,
-            <div key="s" className="flex flex-col text-xs">
-              <span className="text-foreground/90">{u.server_username}</span>
-              <span className="text-muted-foreground">{u.server_name}</span>
-            </div>,
-            <div key="d" className="flex flex-col text-xs font-mono">
-              <span className="text-foreground/90">{u.mac || "--"}</span>
-              <span className="text-muted-foreground font-sans">
-                {[u.device_key && `Key ${u.device_key}`, u.ambiente].filter(Boolean).join(" · ")}
-              </span>
-            </div>,
-            <span
-              key="v"
-              className={`text-xs font-medium px-2 py-0.5 rounded-lg ${
-                u.trial_hint
-                  ? "text-sky-500 bg-sky-500/10"
-                  : !u.expiration
-                    ? "text-muted-foreground bg-muted"
-                    : u.expiration < today
-                      ? "text-rose-500 bg-rose-500/10"
-                      : "text-emerald-600 bg-emerald-500/10"
+        <div className="px-4 py-2 border-b border-border flex flex-wrap gap-1.5">
+          {(Object.keys(USER_FILTERS) as UserFilter[]).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => {
+                setUserFilter(k);
+                setPage("users", 0);
+              }}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                userFilter === k ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" : "border-border text-muted-foreground hover:bg-muted"
               }`}
             >
-              {u.trial_hint ? "Avaliação" : fmtDate(u.expiration)}
-            </span>,
+              {USER_FILTERS[k].label} <span className="opacity-70">({filterCounts[k]})</span>
+            </button>
+          ))}
+        </div>
+        <Table
+          head={["Cliente", "Aparelho", "Vencimento do app", ""]}
+          empty="Nenhum cliente nesse filtro."
+          rows={paged(users, pageOf("users")).map((u) => [
+            <ClientCell key="c" id={u.client_id} name={u.client_name} username={u.server_username} server={u.server_name} status={u.client_status} />,
+            <div key="d" className="flex flex-col gap-1">
+              {(u.fields || []).length === 0 && <span className="text-xs text-muted-foreground">--</span>}
+              {(u.fields || []).map((f: any) => (
+                <CopyField key={f.label} label={f.label} value={f.value} mono={f.type === "mac" || f.type === "device_key"} />
+              ))}
+            </div>,
+            <ExpiryBadge key="v" expiration={u.expiration} trial={u.trial_hint} today={today} />,
+            <div key="a" className="flex items-center justify-end gap-1.5">
+              {u.renewable && (
+                <button
+                  type="button"
+                  onClick={() => void openEdit(u.client_id, u.client_app_id)}
+                  disabled={openingEdit === u.client_app_id}
+                  className="h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center gap-1 disabled:opacity-60"
+                  title={`Renovação aberta${app.renew_window_days ? ` (até ${app.renew_window_days} dias antes do vencimento)` : ""} — abre o app deste cliente com os botões de licença`}
+                >
+                  {openingEdit === u.client_app_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  Renovar
+                </button>
+              )}
+              {app.info_url && (
+                <a
+                  href={app.info_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="h-8 w-8 rounded-lg border border-border text-muted-foreground hover:bg-muted inline-flex items-center justify-center"
+                  title={`Abrir o site do app (${app.info_url})`}
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => void openEdit(u.client_id, u.client_app_id)}
+                disabled={openingEdit === u.client_app_id}
+                className="h-8 w-8 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 hover:bg-amber-500/20 inline-flex items-center justify-center disabled:opacity-60"
+                title="Editar o cliente (abre na aba Aplicativos)"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>,
           ])}
         />
+        <Pager total={users.length} page={pageOf("users")} onPage={(p) => setPage("users", p)} />
       </Card>
 
       {/* Pagamentos */}
@@ -250,7 +358,7 @@ export default function AppDetailPage() {
         <Table
           head={["Data", "Cliente", "Valor", "Custo / margem", "Forma"]}
           empty="Nenhum pagamento desse aplicativo ainda."
-          rows={payments.map((p: any) => [
+          rows={paged(payments, pageOf("payments")).map((p: any) => [
             <div key="d" className="flex flex-col text-xs">
               <span className="text-foreground/90">{fmtDateTime(p.paid_at || p.created_at)}</span>
               {p.bundled && <span className="text-[10px] text-muted-foreground">junto da mensalidade</span>}
@@ -273,6 +381,7 @@ export default function AppDetailPage() {
             <span key="f" className="text-xs text-muted-foreground">{p.method === "manual" ? "Manual" : p.gateway || p.method || "--"}</span>,
           ])}
         />
+        <Pager total={payments.length} page={pageOf("payments")} onPage={(p) => setPage("payments", p)} />
       </Card>
 
       {/* Ativações em confiança */}
@@ -281,7 +390,7 @@ export default function AppDetailPage() {
           <Table
             head={["Ativado em", "Cliente", "Valor", "Situação"]}
             empty=""
-            rows={trust_activations.map((a: any) => [
+            rows={paged(trust_activations, pageOf("trust")).map((a: any) => [
               <span key="d" className="text-xs text-foreground/90">{fmtDate(a.activation_date || a.created_at)}</span>,
               <Link key="c" href={`/admin/cliente/${a.client_id}`} prefetch={false} className="text-sm font-medium text-foreground hover:text-emerald-500 hover:underline">
                 {a.client_name}
@@ -298,22 +407,31 @@ export default function AppDetailPage() {
               </span>,
             ])}
           />
+          <Pager total={trust_activations.length} page={pageOf("trust")} onPage={(p) => setPage("trust", p)} />
         </Card>
       )}
 
       {/* Histórico de configurações */}
-      <Card title={`🛠️ Histórico de configurações (${activity.length})`} noPad>
+      <Card title={`🛠️ Histórico de configurações (${activity.length >= MAX_ROWS ? `últimos ${MAX_ROWS}` : activity.length})`} noPad>
         <Table
-          head={["Quando", "Cliente", "O que aconteceu"]}
+          head={["Quando", "Cliente", "Aparelho", "Vencimento do app", "O que aconteceu"]}
           empty="Nenhum registro."
-          rows={activity.map((a: any) => [
+          rows={paged(activity, pageOf("activity")).map((a: any) => [
             <span key="d" className="text-xs text-muted-foreground whitespace-nowrap">{fmtDateTime(a.created_at)}</span>,
             a.client_id ? (
-              <Link key="c" href={`/admin/cliente/${a.client_id}`} prefetch={false} className="text-sm font-medium text-foreground hover:text-emerald-500 hover:underline">
-                {a.client_name}
-              </Link>
+              <ClientCell key="c" id={a.client_id} name={a.client_name} username={a.server_username} server={a.server_name} />
             ) : (
               <span key="c" className="text-sm text-muted-foreground">—</span>
+            ),
+            <div key="m" className="flex flex-col gap-1">
+              {!a.mac && !a.device_key && <span className="text-xs text-muted-foreground" title="App já removido deste cliente">--</span>}
+              {a.mac && <CopyField label="MAC" value={a.mac} mono />}
+              {a.device_key && <CopyField label="Key" value={a.device_key} mono />}
+            </div>,
+            a.mac || a.device_key || a.expiration || a.trial_hint ? (
+              <ExpiryBadge key="v" expiration={a.expiration} trial={a.trial_hint} today={today} />
+            ) : (
+              <span key="v" className="text-xs text-muted-foreground">--</span>
             ),
             <div key="e" className="flex flex-col text-xs">
               <span className={`font-medium ${/failed/.test(a.event) ? "text-rose-500" : "text-foreground/90"}`}>{EVENT_LABELS[a.event] || a.event}</span>
@@ -321,8 +439,114 @@ export default function AppDetailPage() {
             </div>,
           ])}
         />
+        <Pager total={activity.length} page={pageOf("activity")} onPage={(p) => setPage("activity", p)} />
       </Card>
+
+      {edit && (
+        <NovoCliente
+          key={`${edit.client.id}-${edit.clientAppId}`}
+          clientToEdit={edit.client}
+          initialTab="apps"
+          focusClientAppId={edit.clientAppId}
+          onClose={() => setEdit(null)}
+          onSuccess={() => {
+            setEdit(null);
+            void load();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function paged<T>(list: T[], page: number): T[] {
+  return list.slice(0, MAX_ROWS).slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+}
+
+function Pager({ total, page, onPage }: { total: number; page: number; onPage: (p: number) => void }) {
+  const shown = Math.min(total, MAX_ROWS);
+  const pageCount = Math.ceil(shown / PAGE_SIZE);
+  if (pageCount <= 1 && total <= MAX_ROWS) return null;
+  return (
+    <div className="px-4 py-2 border-t border-border flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <span>
+        {page * PAGE_SIZE + 1}–{Math.min(shown, (page + 1) * PAGE_SIZE)} de {shown}
+        {total > MAX_ROWS ? ` (mostrando os ${MAX_ROWS} primeiros de ${total} — use a busca/filtros)` : ""}
+      </span>
+      <div className="flex gap-1">
+        {Array.from({ length: pageCount }, (_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPage(i)}
+            className={`h-7 min-w-7 px-2 rounded-md border text-xs font-medium ${
+              i === page ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600" : "border-border hover:bg-muted"
+            }`}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ClientCell({ id, name, username, server, status }: { id: string; name: string; username?: string | null; server?: string | null; status?: string }) {
+  return (
+    <div className="flex flex-col min-w-0">
+      <Link href={`/admin/cliente/${id}`} prefetch={false} className="font-medium text-sm text-foreground hover:text-emerald-500 hover:underline truncate">
+        {name}
+      </Link>
+      <span className="text-xs text-muted-foreground truncate">
+        {[username && username !== "—" ? username : null, server && server !== "—" ? server : null].filter(Boolean).join(" · ") || "--"}
+      </span>
+      {status && status !== "ativo" && <span className="text-[10px] text-muted-foreground">{status}</span>}
+    </div>
+  );
+}
+
+function ExpiryBadge({ expiration, trial, today }: { expiration: string | null; trial?: boolean; today: string }) {
+  return (
+    <span
+      className={`text-xs font-medium px-2 py-0.5 rounded-lg whitespace-nowrap ${
+        trial
+          ? "text-sky-500 bg-sky-500/10"
+          : !expiration
+            ? "text-muted-foreground bg-muted"
+            : expiration < today
+              ? "text-rose-500 bg-rose-500/10"
+              : "text-emerald-600 bg-emerald-500/10"
+      }`}
+    >
+      {trial ? "Avaliação" : fmtDate(expiration)}
+    </span>
+  );
+}
+
+// valor + botão de copiar (MAC, key, e-mail, senha... os campos do app)
+function CopyField({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {}
+      }}
+      className="group/cp flex items-center gap-1.5 text-left text-xs min-w-0"
+      title={`Copiar ${label}`}
+    >
+      <span className="text-muted-foreground shrink-0">{label}:</span>
+      <span className={`text-foreground/90 truncate ${mono ? "font-mono" : ""}`}>{value}</span>
+      {copied ? (
+        <Check className="w-3 h-3 text-emerald-500 shrink-0" />
+      ) : (
+        <Copy className="w-3 h-3 text-muted-foreground/50 group-hover/cp:text-emerald-500 shrink-0" />
+      )}
+    </button>
   );
 }
 

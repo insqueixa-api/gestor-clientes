@@ -48,14 +48,19 @@ as $$
      order by a.created_at desc
   ),
   activity as (
-    select l.id, l.created_at, l.event, l.detail, l.client_id, l.client_app_id, c.display_name as client_name
+    -- ✅ 12/10/2026: login + servidor (pedido do Márcio: "não adianta só o
+    -- nome"); MAC/Key/vencimento vêm do app instalado (rows) na lib.
+    -- Máximo 100 (a página mostra 50 por página, 2 páginas).
+    select l.id, l.created_at, l.event, l.detail, l.client_id, l.client_app_id, c.display_name as client_name,
+           c.server_username, s.name as server_name
       from client_app_activity_log l
       left join clients c on c.id = l.client_id
+      left join servers s on s.id = c.server_id
      where l.tenant_id = p_tenant_id
        and (l.client_app_id in (select id from links)
             or (l.client_app_id is null and lower(l.app_name) = lower((select name from app))))
      order by l.created_at desc
-     limit 300
+     limit 100
   )
   select case when not exists (select 1 from app) then null else jsonb_build_object(
     'app', (select to_jsonb(app) from app),
