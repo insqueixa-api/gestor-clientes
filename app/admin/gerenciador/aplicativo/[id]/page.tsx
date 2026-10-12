@@ -10,7 +10,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Check, Copy, ExternalLink, Loader2, Pencil, RefreshCw } from "lucide-react";
+import { Check, CheckCircle2, Copy, CreditCard, ExternalLink, Loader2, Pencil } from "lucide-react";
+import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import TierStars from "@/components/apps/TierStars";
 import type { ClientData } from "@/app/admin/cliente/novo_cliente";
@@ -59,6 +60,7 @@ export default function AppDetailPage() {
   const id = String(params?.id || "");
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tenantId = useTenantId();
   const [userFilter, setUserFilter] = useState<UserFilter>("ativos");
   const [search, setSearch] = useState("");
   const [pages, setPages] = useState<Record<string, number>>({});
@@ -84,6 +86,57 @@ export default function AppDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // ✅ "Verificar vencimento" — mesma rota do botão do modal do cliente
+  // (/api/admin/apps/check-validity, que já grava a data nova no banco).
+  // Atualiza só a linha na tela, sem recarregar a página toda.
+  const [checking, setChecking] = useState<Record<string, boolean>>({});
+  const [checkMsg, setCheckMsg] = useState<Record<string, { ok: boolean; text: string }>>({});
+  async function checkValidity(u: any) {
+    const key = u.client_app_id;
+    setChecking((s) => ({ ...s, [key]: true }));
+    setCheckMsg((s) => {
+      const n = { ...s };
+      delete n[key];
+      return n;
+    });
+    try {
+      const { data: sess } = await supabaseBrowser.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch("/api/admin/apps/check-validity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ tenant_id: tenantId, client_app_id: key }),
+      });
+      const j = await res.json().catch(() => ({}) as any);
+      if (!j?.ok) {
+        setCheckMsg((s) => ({ ...s, [key]: { ok: false, text: j?.error || "Não foi possível verificar" } }));
+        return;
+      }
+      const exp = j.expireDate ? String(j.expireDate).slice(0, 10) : null;
+      const patch = j.isTrial
+        ? { trial_hint: true }
+        : exp
+          ? { trial_hint: false, expiration: exp, days_left: daysUntilSP(exp) }
+          : null;
+      if (patch) {
+        setData((d: any) =>
+          d ? { ...d, users: d.users.map((x: any) => (x.client_app_id === key ? { ...x, ...patch, renewable: renewableAfter({ ...x, ...patch }, d.app) } : x)) } : d,
+        );
+      }
+      setCheckMsg((s) => ({
+        ...s,
+        [key]: {
+          ok: true,
+          text: j.isTrial ? "Verificado: em avaliação" : exp ? "Verificado agora ✓" : "Painel sem data — mantida a salva",
+        },
+      }));
+    } catch {
+      setCheckMsg((s) => ({ ...s, [key]: { ok: false, text: "Falha de conexão" } }));
+    } finally {
+      setChecking((s) => ({ ...s, [key]: false }));
+    }
+  }
 
   // mesmo registro que a lista/página do cliente usam (views), numa ida só
   async function openEdit(clientId: string, clientAppId: string) {
@@ -313,18 +366,35 @@ export default function AppDetailPage() {
                 <CopyField key={f.label} label={f.label} value={f.value} mono={f.type === "mac" || f.type === "device_key"} />
               ))}
             </div>,
-            <ExpiryBadge key="v" expiration={u.expiration} trial={u.trial_hint} today={today} />,
+            <div key="v" className="flex flex-col items-start gap-1">
+              <ExpiryBadge expiration={u.expiration} trial={u.trial_hint} today={today} />
+              {checkMsg[u.client_app_id] && (
+                <span className={`text-[10px] ${checkMsg[u.client_app_id].ok ? "text-emerald-600" : "text-rose-500"}`}>
+                  {checkMsg[u.client_app_id].text}
+                </span>
+              )}
+            </div>,
             <div key="a" className="flex items-center justify-end gap-1.5">
+              {app.can_check_validity && (
+                <button
+                  type="button"
+                  onClick={() => void checkValidity(u)}
+                  disabled={!!checking[u.client_app_id]}
+                  className="h-8 w-8 rounded-lg border border-border text-emerald-500 hover:bg-emerald-500/10 inline-flex items-center justify-center disabled:opacity-60"
+                  title="Verificar vencimento no painel do app (grava a data nova)"
+                >
+                  {checking[u.client_app_id] ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                </button>
+              )}
               {u.renewable && (
                 <button
                   type="button"
                   onClick={() => void openEdit(u.client_id, u.client_app_id)}
                   disabled={openingEdit === u.client_app_id}
-                  className="h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center gap-1 disabled:opacity-60"
-                  title={`Renovação aberta${app.renew_window_days ? ` (até ${app.renew_window_days} dias antes do vencimento)` : ""} — abre o app deste cliente com os botões de licença`}
+                  className="h-8 w-8 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/20 inline-flex items-center justify-center disabled:opacity-60"
+                  title={`Renovar — renovação aberta${app.renew_window_days ? ` (até ${app.renew_window_days} dias antes do vencimento)` : ""}; abre o app deste cliente com os botões de licença`}
                 >
-                  {openingEdit === u.client_app_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                  Renovar
+                  {openingEdit === u.client_app_id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
                 </button>
               )}
               {app.info_url && (
@@ -389,12 +459,11 @@ export default function AppDetailPage() {
         <Card title={`🤝 Ativações em confiança (${trust_activations.length})`} noPad>
           <Table
             head={["Ativado em", "Cliente", "Valor", "Situação"]}
+            fixed
             empty=""
             rows={paged(trust_activations, pageOf("trust")).map((a: any) => [
               <span key="d" className="text-xs text-foreground/90">{fmtDate(a.activation_date || a.created_at)}</span>,
-              <Link key="c" href={`/admin/cliente/${a.client_id}`} prefetch={false} className="text-sm font-medium text-foreground hover:text-emerald-500 hover:underline">
-                {a.client_name}
-              </Link>,
+              <ClientCell key="c" id={a.client_id} name={a.client_name} username={a.server_username} server={a.server_name} />,
               <div key="v" className="flex flex-col text-xs">
                 <span className="font-semibold text-foreground">{brl(Number(a.amount || 0), a.currency || "BRL")}</span>
                 {a.meta?.coupon_code && <span className="text-[10px] text-muted-foreground">cupom {a.meta.coupon_code}</span>}
@@ -415,6 +484,7 @@ export default function AppDetailPage() {
       <Card title={`🛠️ Histórico de configurações (${activity.length >= MAX_ROWS ? `últimos ${MAX_ROWS}` : activity.length})`} noPad>
         <Table
           head={["Quando", "Cliente", "Aparelho", "Vencimento do app", "O que aconteceu"]}
+          fixed
           empty="Nenhum registro."
           rows={paged(activity, pageOf("activity")).map((a: any) => [
             <span key="d" className="text-xs text-muted-foreground whitespace-nowrap">{fmtDateTime(a.created_at)}</span>,
@@ -429,12 +499,18 @@ export default function AppDetailPage() {
               {a.device_key && <CopyField label="Key" value={a.device_key} mono />}
             </div>,
             a.mac || a.device_key || a.expiration || a.trial_hint ? (
-              <ExpiryBadge key="v" expiration={a.expiration} trial={a.trial_hint} today={today} />
+              <div key="v" className="flex flex-col items-start gap-0.5">
+                <ExpiryBadge expiration={a.expiration} trial={a.trial_hint} today={today} />
+                <span className="text-[10px] text-muted-foreground">{a.expiration_at_time ? "informado na hora" : "atual"}</span>
+              </div>
             ) : (
               <span key="v" className="text-xs text-muted-foreground">--</span>
             ),
             <div key="e" className="flex flex-col text-xs">
-              <span className={`font-medium ${/failed/.test(a.event) ? "text-rose-500" : "text-foreground/90"}`}>{EVENT_LABELS[a.event] || a.event}</span>
+              <span className={`font-medium ${/failed/.test(a.event) ? "text-rose-500" : "text-foreground/90"}`}>
+                {a.detail?.renew ? "Renovou a licença" : EVENT_LABELS[a.event] || a.event}
+              </span>
+              {eventDetail(a) && <span className="text-[10px] text-muted-foreground">{eventDetail(a)}</span>}
               {a.detail?.error && <span className="text-[10px] text-muted-foreground line-clamp-2" title={String(a.detail.error)}>{String(a.detail.error)}</span>}
             </div>,
           ])}
@@ -458,6 +534,32 @@ export default function AppDetailPage() {
     </div>
   );
 }
+
+// o que o registro guardou, em português (lista usada, troca de lista,
+// origem, e se o MAC é o aparelho atual por dedução)
+function eventDetail(a: any): string {
+  const d = a.detail || {};
+  const parts: string[] = [];
+  if (d.lista) parts.push(`lista ${d.lista === "secundaria" ? "secundária" : d.lista}`);
+  if (d.rotacionou) parts.push("trocou de lista");
+  if (d.source === "admin") parts.push("pelo admin");
+  else if (String(d.source || "").startsWith("portal")) parts.push("pelo portal");
+  if (Array.isArray(d.fields) && d.fields.length) parts.push(`campos: ${d.fields.join(", ")}`);
+  if (a.device_guess) parts.push("aparelho atual do cliente");
+  return parts.join(" · ");
+}
+
+// mesma regra de lib/apps/app-overview.ts (janela de renovação), refeita
+// na linha depois de "Verificar vencimento" trazer a data nova
+const daysUntilSP = (d: string) => {
+  const todaySP = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const n = Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${todaySP}T00:00:00Z`)) / 86_400_000);
+  return Number.isFinite(n) ? n : null;
+};
+const renewableAfter = (u: any, app: any) =>
+  app.renew_window_days != null &&
+  u.client_status === "ativo" &&
+  (u.trial_hint || u.days_left == null || u.days_left <= app.renew_window_days);
 
 // página fora do alcance (a lista encolheu depois de salvar) cai na última
 const clampPage = (total: number, page: number) => Math.max(0, Math.min(page, Math.ceil(Math.min(total, MAX_ROWS) / PAGE_SIZE) - 1));
@@ -600,11 +702,12 @@ function Row({ label, value, sub, strong }: { label: string; value: string; sub?
   );
 }
 
-function Table({ head, rows, empty }: { head: string[]; rows: React.ReactNode[][]; empty: string }) {
+// fixed: colunas repartidas por igual na largura toda (pedido do Márcio)
+function Table({ head, rows, empty, fixed }: { head: string[]; rows: React.ReactNode[][]; empty: string; fixed?: boolean }) {
   if (!rows.length) return <p className="p-6 text-center text-sm text-muted-foreground">{empty}</p>;
   return (
     <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
-      <table className="w-full text-left text-sm">
+      <table className={`w-full text-left text-sm ${fixed ? "table-fixed min-w-[720px]" : ""}`}>
         <thead className="bg-muted text-muted-foreground text-[11px] uppercase sticky top-0 z-10">
           <tr>{head.map((h) => <th key={h} className="px-4 py-2 font-medium">{h}</th>)}</tr>
         </thead>

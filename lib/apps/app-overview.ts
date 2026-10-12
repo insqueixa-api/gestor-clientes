@@ -3,6 +3,8 @@
 // app/api/admin/apps/[id]/overview/route.ts, que só checa o login e chama
 // isto). Separado da rota pra poder ser testado direto.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getIntegrationHandler } from "@/lib/integrations";
+import { CHECK_VALIDITY_HANDLERS, resolveIntegrationTypeByName } from "@/lib/apps/panel";
 
 const PAID = new Set(["approved", "manual_approved", "paid"]);
 
@@ -75,7 +77,15 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
   // (isAppRenewableNow em app/renew/RenewClient.tsx): avaliação, sem data,
   // vencido ou vencendo em 30 dias (Appativa: 7). GerenciaApp grátis
   // também renova pelo admin ("Renovar licença" grátis no modal).
-  const hasRenewPath = (Number(app.license_price) > 0 && app.cost_type !== "free") || String(app.integration_type || "").toUpperCase() === "GERENCIAAPP";
+  // "Verificar vencimento" — mesmo critério do botão do modal do cliente
+  // (handleCheckApp): handler com API + na lista de checagem; DUPLEXTV não
+  // informa vencimento; extensão (SET IPTV/ClouDDy) fica só no modal.
+  const handler =
+    getIntegrationHandler(String(app.integration_type || "")) ||
+    getIntegrationHandler(resolveIntegrationTypeByName(String(app.name || "")));
+  const canCheckValidity =
+    !!handler?.useApi && CHECK_VALIDITY_HANDLERS.has(handler.actionPrefix) && handler.actionPrefix !== "DUPLEXTV";
+  const hasRenewPath =(Number(app.license_price) > 0 && app.cost_type !== "free") || String(app.integration_type || "").toUpperCase() === "GERENCIAAPP";
   const windowDays = app.appativa_app_id ? 7 : 30;
   const todaySP = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const daysUntil = (d: string) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${todaySP}T00:00:00Z`)) / 86_400_000);
@@ -167,6 +177,7 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       fields: config.map((f) => ({ id: f.id, type: f.type, label: f.label })),
       info_url: app.info_url,
       renew_window_days: hasRenewPath ? windowDays : null,
+      can_check_validity: canCheckValidity,
       download_info: app.download_info,
       has_portal_instructions: !!String(app.portal_setup_instructions || "").trim(),
       discontinued_replacement_name: app.discontinued_replacement_name,
@@ -199,15 +210,30 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
       client_name: knownNames.get(a.client_id) || "—",
     })),
     // MAC/Key/vencimento do app instalado (se ainda existir)
+    // Ordem: o que o próprio registro guardou (MAC/Key desde 12/10/2026,
+    // vencimento do momento em detail.expireDate) → app ainda vinculado →
+    // se o cliente tem só 1 aparelho desse app, é ele (o Salvar do admin
+    // regrava client_apps e o vínculo antigo vira null).
     activity: (activity || []).map((a: any) => {
-      const u = a.client_app_id ? userByLink.get(a.client_app_id) : null;
+      const d = a.detail || {};
+      const atTime = d.expireDate ? String(d.expireDate).slice(0, 10) : null;
+      let u: any = a.client_app_id ? userByLink.get(a.client_app_id) : null;
+      if (!u && a.client_id) {
+        const same = users.filter((x) => x.client_id === a.client_id);
+        // vários aparelhos: o único cujo vencimento bate com o registrado
+        const byDate = atTime ? same.filter((x) => x.expiration === atTime) : [];
+        if (same.length === 1) u = same[0];
+        else if (byDate.length === 1) u = byDate[0];
+      }
       return {
         ...a,
         client_name: knownNames.get(a.client_id) || "—",
-        mac: u?.mac || "",
-        device_key: u?.device_key || "",
-        expiration: u?.expiration || null,
-        trial_hint: !!u?.trial_hint,
+        mac: d.mac || u?.mac || "",
+        device_key: d.device_key || u?.device_key || "",
+        expiration: atTime || u?.expiration || null,
+        expiration_at_time: !!atTime,
+        trial_hint: atTime ? false : d.isTrial === true || !!u?.trial_hint,
+        device_guess: !d.mac && !a.client_app_id && !!u,
       };
     }),
   } };

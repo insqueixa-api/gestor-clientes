@@ -150,13 +150,31 @@ export async function logAppActivity(
   },
 ) {
   try {
+    // ✅ 12/10/2026 (página Aplicativo ID): guarda MAC/Key do aparelho no
+    // próprio registro — o Salvar do admin regrava client_apps e o vínculo
+    // (client_app_id) vira null, aí o histórico perdia de qual aparelho era.
+    let detail = params.detail || null;
+    if (params.clientAppId && !(detail && "mac" in detail)) {
+      const { data: ca } = await supabaseAdmin
+        .from("client_apps")
+        .select("field_values, apps(fields_config)")
+        .eq("id", params.clientAppId)
+        .maybeSingle();
+      if (ca) {
+        const cfg = (((ca as any).apps?.fields_config as AppFieldConfig[]) || []) as AppFieldConfig[];
+        const vals = ((ca as any).field_values || {}) as Record<string, string>;
+        const mac = extractFieldByType(cfg, vals, "mac");
+        const deviceKey = extractFieldByType(cfg, vals, "device_key");
+        if (mac || deviceKey) detail = { ...(detail || {}), mac: mac || null, device_key: deviceKey || null };
+      }
+    }
     await supabaseAdmin.from("client_app_activity_log").insert({
       tenant_id: params.tenantId,
       client_id: params.clientId,
       client_app_id: params.clientAppId || null,
       app_name: params.appName,
       event: params.event,
-      detail: params.detail || null,
+      detail,
     });
   } catch {
     // não bloqueia a ação do cliente por falha no log

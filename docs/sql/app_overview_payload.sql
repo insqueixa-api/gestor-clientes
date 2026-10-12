@@ -38,9 +38,10 @@ as $$
   ),
   alerts as (
     select a.id, a.created_at, a.closed_at, a.status, a.amount, a.currency, a.client_id, a.activation_date,
-           a.meta, c.display_name as client_name
+           a.meta, c.display_name as client_name, c.server_username, s.name as server_name
       from client_alerts a
       left join clients c on c.id = a.client_id
+      left join servers s on s.id = c.server_id
      where a.tenant_id = p_tenant_id
        and a.kind = 'app_activation'
        and (a.client_app_id in (select id from links)
