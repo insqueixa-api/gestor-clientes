@@ -2538,11 +2538,6 @@ function AuditoriaPageContent() {
                                     {r.app_alert_label}
                                   </span>
                                 )}
-                                {isReseller && (
-                                  <span className="text-[10px] text-muted-foreground font-medium">
-                                    {isResellerApp ? "Ativação de app · Portal da Revenda" : "Compra de créditos · Portal da Revenda"}
-                                  </span>
-                                )}
                               </div>
                             </td>
                                                         {/* Renovação */}
