@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import AppsSection from "./AppsSection";
-import StripeCardForm from "./StripeCardForm";
+import PaymentModal from "./PaymentModal";
 import { ConfirmProvider } from "@/hooks/useConfirm";
 import { BRAND_LOGO_MOBILE_URL, BRAND_LOGO_URL } from "@/lib/brand";
 
@@ -586,14 +586,40 @@ function RevendaPortal() {
             {buyError && <p className="text-sm text-center text-rose-500 -mt-1">{buyError}</p>}
 
             {order && (
-              <PixModal
+              <PaymentModal
                 order={order}
-                serverName={server.name}
-                username={server.username}
-                onClose={closeOrder}
-                onRetryOther={order.has_alternate_gateway && order.state === "waiting" ? () => void startPurchase(order.gateway_type) : undefined}
-                onStripePaid={() => setOrder((o) => (o ? { ...o, state: "sending" } : o))}
+                summary={[
+                  {
+                    label: `${order.credits} créditos · ${server.name}`,
+                    value: `${money(order.amount / order.credits, order.currency || "BRL")} cada`,
+                  },
+                  ...(server.username ? [{ label: "Usuário que recebe", value: server.username }] : []),
+                ]}
+                waitingHint="Os créditos são enviados na hora pra sua conta."
+                processingText="Enviando os créditos para a sua conta…"
+                done={{
+                  title: `${order.credits} créditos enviados!`,
+                  children: (
+                    <>
+                      {server.username && (
+                        <p className="text-xs text-muted-foreground">
+                          Para o usuário <span className="font-mono font-bold text-foreground">{server.username}</span>
+                        </p>
+                      )}
+                      {typeof order.new_balance === "number" && (
+                        <div className="mt-1 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                          <p className="text-[10px] text-emerald-600/80 uppercase font-bold tracking-wide">Seu saldo agora</p>
+                          <p className="text-sm font-bold text-emerald-600">{order.new_balance} créditos</p>
+                        </div>
+                      )}
+                    </>
+                  ),
+                }}
+                failedText="O envio automático dos créditos não confirmou. O suporte já foi avisado e vai concluir manualmente — você não precisa pagar de novo."
                 supportLink={supportDigits ? waLink(`Olá! Paguei ${order.credits} créditos no Portal da Revenda e preciso de ajuda.`) : null}
+                onClose={closeOrder}
+                onRetryOther={order.has_alternate_gateway && order.state === "waiting" && !creating ? () => void startPurchase(order.gateway_type) : undefined}
+                onStripePaid={() => setOrder((o) => (o ? { ...o, state: "sending" } : o))}
               />
             )}
           </>
@@ -602,163 +628,6 @@ function RevendaPortal() {
     </div>
   );
 }
-
-function PixModal({
-  order,
-  serverName,
-  username,
-  onClose,
-  onRetryOther,
-  supportLink,
-  onStripePaid,
-}: {
-  order: OrderView;
-  serverName: string;
-  username?: string | null;
-  onClose: () => void;
-  onRetryOther?: () => void;
-  supportLink: string | null;
-  onStripePaid?: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const iv = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(iv);
-  }, []);
-  const left = Math.max(0, new Date(order.expires_at).getTime() - now);
-  const mm = String(Math.floor(left / 60000)).padStart(2, "0");
-  const ss = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
-
-  async function copy() {
-    if (!order.pix_qr_code) return;
-    try {
-      await navigator.clipboard.writeText(order.pix_qr_code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {}
-  }
-
-  return (
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl max-h-[90dvh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div>
-            <div className="text-sm font-bold text-foreground">
-              {order.credits} créditos · {serverName}
-              {username && <span className="font-mono font-semibold text-muted-foreground"> · {username}</span>}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {money(order.amount, order.currency || "BRL")} · {order.payment_method === "stripe" ? "Cartão" : "PIX"}
-            </div>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-muted text-muted-foreground text-lg" title="Fechar">
-            ×
-          </button>
-        </div>
-
-        <div className="p-4 space-y-3">
-          {order.state === "waiting" && order.payment_method === "stripe" && order.client_secret && order.publishable_key && (
-            <StripeCardForm
-              clientSecret={order.client_secret}
-              publishableKey={order.publishable_key}
-              amountLabel={money(order.amount, order.currency || "BRL")}
-              onPaid={onStripePaid || (() => {})}
-            />
-          )}
-          {order.state === "waiting" && order.payment_method !== "stripe" && (
-            <>
-              {order.pix_qr_code_base64 && (
-                <img
-                  src={`data:image/png;base64,${order.pix_qr_code_base64}`}
-                  alt="QR Code PIX"
-                  className="w-56 h-56 mx-auto rounded-lg border border-border bg-white p-2"
-                />
-              )}
-              {order.pix_qr_code && (
-                <button
-                  onClick={copy}
-                  className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors"
-                >
-                  {copied ? "Código copiado ✓" : "Copiar código PIX (copia e cola)"}
-                </button>
-              )}
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-                Aguardando o pagamento {left > 0 ? `· expira em ${mm}:${ss}` : ""}
-              </div>
-              <p className="text-[11px] text-center text-muted-foreground">
-                Assim que o PIX cair, os créditos são enviados automaticamente para a sua conta — pode acompanhar por aqui.
-              </p>
-              {onRetryOther && (
-                <button onClick={onRetryOther} className="w-full text-xs text-muted-foreground underline">
-                  Problema com este PIX? Tentar outra forma de pagamento
-                </button>
-              )}
-            </>
-          )}
-
-          {order.state === "sending" && (
-            <div className="text-center py-6 space-y-2">
-              <div className="w-10 h-10 mx-auto rounded-full border-4 border-emerald-500/30 border-t-emerald-500 animate-spin" />
-              <p className="font-semibold text-foreground">Pagamento confirmado!</p>
-              <p className="text-sm text-muted-foreground">Enviando os créditos para a sua conta…</p>
-            </div>
-          )}
-
-          {order.state === "done" && (
-            <div className="text-center py-6 space-y-2">
-              <div className="text-4xl">✅</div>
-              <p className="font-bold text-foreground text-lg">{order.credits} créditos enviados!</p>
-              {username && (
-                <p className="text-sm text-muted-foreground">
-                  Para o usuário <span className="font-mono font-bold text-foreground">{username}</span>
-                </p>
-              )}
-              {typeof order.new_balance === "number" && (
-                <p className="text-sm text-muted-foreground">
-                  Seu saldo agora: <span className="font-bold text-emerald-600">{order.new_balance} créditos</span>
-                </p>
-              )}
-              <button onClick={onClose} className="mt-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
-                Fechar
-              </button>
-            </div>
-          )}
-
-          {order.state === "failed" && (
-            <div className="text-center py-6 space-y-2">
-              <div className="text-4xl">⏳</div>
-              <p className="font-bold text-foreground">Pagamento recebido</p>
-              <p className="text-sm text-muted-foreground">
-                O envio automático dos créditos não confirmou. O suporte já foi avisado e vai concluir manualmente — você não precisa pagar de novo.
-              </p>
-              {supportLink && (
-                <a href={supportLink} target="_blank" rel="noreferrer" className="inline-block mt-1 px-5 py-2.5 rounded-xl bg-[#25D366] text-white font-bold">
-                  Falar com o suporte
-                </a>
-              )}
-            </div>
-          )}
-
-          {order.state === "expired" && (
-            <div className="text-center py-6 space-y-2">
-              <p className="font-bold text-foreground">PIX expirado ou cancelado</p>
-              <p className="text-sm text-muted-foreground">Nenhum valor foi cobrado. Feche e gere um novo PIX.</p>
-              <button onClick={onClose} className="mt-1 px-6 py-2.5 rounded-xl border border-border text-foreground font-semibold">
-                Fechar
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 
 function Field({ label, value, mono, bold, tone }: { label: string; value: string; mono?: boolean; bold?: boolean; tone?: string }) {
   return (

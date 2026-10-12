@@ -19,7 +19,7 @@ import { ChevronDown, Loader2, Plus, Search, Settings, Star, Zap } from "lucide-
 import AppPickerModal, { type AppPickerCatalogItem } from "@/components/apps/AppPickerModal";
 import TierStars from "@/components/apps/TierStars";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
-import StripeCardForm from "./StripeCardForm";
+import PaymentModal from "./PaymentModal";
 import ToastNotifications, { type ToastMessage } from "@/hooks/ToastNotifications";
 import { useConfirm } from "@/hooks/useConfirm";
 import { normalizeMacInput } from "@/lib/apps/field-types";
@@ -1079,16 +1079,44 @@ function ActivateModal({
   const subtitle = row ? `Renovar · cliente ${clientUsername || ""}` : `Ativação${app.license_price ? ` · ${money(Number(app.license_price), currency)}/ano` : ""}`;
 
   if (order) {
+    // ✅ 12/10/2026: mesmo modal de pagamento da compra de créditos, no
+    // padrão do portal do cliente (app/revenda/PaymentModal.tsx)
+    const digits = String(supportPhone || "").replace(/\D/g, "");
+    const fieldLine = (row ? row.fields : fields.map((f) => ({ ...f, value: vals[f.id] })))
+      .filter((f: any) => f.value)
+      .map((f: any) => `${f.label}: ${f.value}`)
+      .join(" · ");
     return (
-      <ModalShell app={app} onClose={onClose} subtitle={subtitle}>
-        <PixPanel
-          order={order}
-          supportPhone={supportPhone}
-          onClose={onClose}
-          onStripePaid={() => setOrder((o: any) => (o ? { ...o, state: "activating" } : o))}
-          onRetryOther={order.has_alternate_gateway && order.state === "waiting" ? () => void pay(order.gateway_type) : undefined}
-        />
-      </ModalShell>
+      <PaymentModal
+        order={order}
+        summary={[
+          { label: order.app_name || app.name, value: row ? "Renovação da licença" : "Ativação da licença" },
+          ...(clientUsername ? [{ label: "Cliente", value: clientUsername }] : []),
+          ...(fieldLine ? [{ label: fieldLine }] : []),
+        ]}
+        waitingHint="A licença é ativada automaticamente."
+        processingText="Ativando a licença no aplicativo… pode levar alguns minutos."
+        done={{
+          title: "Licença ativada!",
+          children: order.new_expire_date ? (
+            <div className="mt-1 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+              <p className="text-[10px] text-emerald-600/80 uppercase font-bold tracking-wide">Novo vencimento</p>
+              <p className="text-sm font-bold text-emerald-600">{dateBR(order.new_expire_date)}</p>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">O aplicativo já está liberado e pode ser usado normalmente.</p>
+          ),
+        }}
+        failedText="A ativação automática não confirmou. O suporte já foi avisado e vai concluir manualmente — você não precisa pagar de novo."
+        supportLink={
+          digits
+            ? `https://wa.me/${digits}?text=${encodeURIComponent(`Olá! Paguei a ativação do ${order.app_name || app.name} no Portal da Revenda e preciso de ajuda.`)}`
+            : null
+        }
+        onClose={onClose}
+        onStripePaid={() => setOrder((o: any) => (o ? { ...o, state: "activating" } : o))}
+        onRetryOther={order.has_alternate_gateway && order.state === "waiting" && !busy ? () => void pay(order.gateway_type) : undefined}
+      />
     );
   }
 
@@ -1181,133 +1209,6 @@ function ActivateModal({
         </button>
       )}
     </ModalShell>
-  );
-}
-
-/** PIX da ativação + acompanhamento (mesmo visual da compra de créditos). */
-function PixPanel({
-  order,
-  supportPhone,
-  onClose,
-  onRetryOther,
-  onStripePaid,
-}: {
-  order: any;
-  supportPhone: string | null;
-  onClose: () => void;
-  onRetryOther?: () => void;
-  onStripePaid?: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const iv = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(iv);
-  }, []);
-  const left = Math.max(0, new Date(order.expires_at).getTime() - now);
-  const mm = String(Math.floor(left / 60000)).padStart(2, "0");
-  const ss = String(Math.floor((left % 60000) / 1000)).padStart(2, "0");
-  const digits = String(supportPhone || "").replace(/\D/g, "");
-
-  async function copy() {
-    if (!order.pix_qr_code) return;
-    try {
-      await navigator.clipboard.writeText(order.pix_qr_code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {}
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="text-center text-sm text-muted-foreground">
-        {order.app_name} · <b className="text-foreground">{money(Number(order.amount), order.currency || "BRL")}</b> ·{" "}
-        {order.payment_method === "stripe" ? "Cartão" : "PIX"}
-      </div>
-      {order.state === "waiting" && order.payment_method === "stripe" && order.client_secret && order.publishable_key && (
-        <StripeCardForm
-          clientSecret={order.client_secret}
-          publishableKey={order.publishable_key}
-          amountLabel={money(Number(order.amount), order.currency || "BRL")}
-          onPaid={onStripePaid || (() => {})}
-        />
-      )}
-      {order.state === "waiting" && order.payment_method !== "stripe" && (
-        <>
-          {order.pix_qr_code_base64 && (
-            <img
-              src={`data:image/png;base64,${order.pix_qr_code_base64}`}
-              alt="QR Code PIX"
-              className="w-56 h-56 mx-auto rounded-lg border border-border bg-white p-2"
-            />
-          )}
-          {order.pix_qr_code && (
-            <button onClick={copy} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors">
-              {copied ? "Código copiado ✓" : "Copiar código PIX (copia e cola)"}
-            </button>
-          )}
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-            Aguardando o pagamento {left > 0 ? `· expira em ${mm}:${ss}` : ""}
-          </div>
-          <p className="text-[11px] text-center text-muted-foreground">Assim que o PIX cair, a licença é ativada automaticamente — pode acompanhar por aqui.</p>
-          {onRetryOther && (
-            <button onClick={onRetryOther} className="w-full text-xs text-muted-foreground underline">
-              Problema com este PIX? Tentar outra forma de pagamento
-            </button>
-          )}
-        </>
-      )}
-      {order.state === "activating" && (
-        <div className="text-center py-6 space-y-2">
-          <div className="w-10 h-10 mx-auto rounded-full border-4 border-emerald-500/30 border-t-emerald-500 animate-spin" />
-          <p className="font-semibold text-foreground">Pagamento confirmado!</p>
-          <p className="text-sm text-muted-foreground">Ativando a licença no aplicativo… pode levar alguns minutos.</p>
-        </div>
-      )}
-      {order.state === "done" && (
-        <div className="text-center py-6 space-y-2">
-          <div className="text-4xl">✅</div>
-          <p className="font-bold text-foreground text-lg">Licença ativada!</p>
-          {order.new_expire_date && (
-            <p className="text-sm text-muted-foreground">
-              Novo vencimento: <span className="font-bold text-emerald-600">{dateBR(order.new_expire_date)}</span>
-            </p>
-          )}
-          <button onClick={onClose} className="mt-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
-            Fechar
-          </button>
-        </div>
-      )}
-      {order.state === "failed" && (
-        <div className="text-center py-6 space-y-2">
-          <div className="text-4xl">⏳</div>
-          <p className="font-bold text-foreground">Pagamento recebido</p>
-          <p className="text-sm text-muted-foreground">
-            A ativação automática não confirmou. O suporte já foi avisado e vai concluir manualmente — você não precisa pagar de novo.
-          </p>
-          {digits && (
-            <a
-              href={`https://wa.me/${digits}?text=${encodeURIComponent(`Olá! Paguei a ativação do ${order.app_name} no Portal da Revenda e preciso de ajuda.`)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-block mt-1 px-5 py-2.5 rounded-xl bg-[#25D366] text-white font-bold"
-            >
-              Falar com o suporte
-            </a>
-          )}
-        </div>
-      )}
-      {order.state === "expired" && (
-        <div className="text-center py-6 space-y-2">
-          <p className="font-bold text-foreground">PIX expirado ou cancelado</p>
-          <p className="text-sm text-muted-foreground">Nenhum valor foi cobrado. Feche e gere um novo PIX.</p>
-          <button onClick={onClose} className="mt-1 px-6 py-2.5 rounded-xl border border-border text-foreground font-semibold">
-            Fechar
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 

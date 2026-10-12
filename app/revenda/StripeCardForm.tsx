@@ -106,7 +106,6 @@ export default function StripeCardForm({
         {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
         {submitting ? "Processando..." : `Pagar ${amountLabel}`}
       </button>
-      <p className="text-[11px] text-center text-muted-foreground">Pagamento seguro processado pelo Stripe.</p>
     </div>
   );
 }
