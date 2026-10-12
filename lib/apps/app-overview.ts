@@ -214,7 +214,8 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
     // vencimento do momento em detail.expireDate) → app ainda vinculado →
     // se o cliente tem só 1 aparelho desse app, é ele (o Salvar do admin
     // regrava client_apps e o vínculo antigo vira null).
-    activity: (activity || []).map((a: any) => {
+    activity: (activity || [])
+      .map((a: any) => {
       const d = a.detail || {};
       const atTime = d.expireDate ? String(d.expireDate).slice(0, 10) : null;
       let u: any = a.client_app_id ? userByLink.get(a.client_app_id) : null;
@@ -225,16 +226,28 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
         if (same.length === 1) u = same[0];
         else if (byDate.length === 1) u = byDate[0];
       }
+      // dados do aparelho: o que o registro guardou na hora (detail.device,
+      // já com os nomes do cadastro do app) ou os campos do app instalado.
+      // Cada app tem os seus campos (ClouDDy = e-mail, sem MAC).
+      const snap: { label: string; type: string; value: string }[] = Array.isArray(d.device)
+        ? d.device.filter((f: any) => f?.value)
+        : [];
       return {
         ...a,
         client_name: knownNames.get(a.client_id) || "—",
-        mac: d.mac || u?.mac || "",
-        device_key: d.device_key || u?.device_key || "",
+        fields: snap.length ? snap : u?.fields || [],
+        installed: !!u,
         expiration: atTime || u?.expiration || null,
         expiration_at_time: !!atTime,
         trial_hint: atTime ? false : d.isTrial === true || !!u?.trial_hint,
-        device_guess: !d.mac && !a.client_app_id && !!u,
+        device_guess: !snap.length && !a.client_app_id && !!u,
       };
-    }),
+    })
+      // ✅ pedido do Márcio: registro sem dado nenhum do aparelho E cujo app
+      // não está mais no cliente não serve pra nada — some da página.
+      // Mostra os 50 mais recentes (a tabela guarda 50 por app, ver
+      // docs/sql/app_activity_log_retention.sql).
+      .filter((a: any) => a.fields.length > 0 || a.installed)
+      .slice(0, 50),
   } };
 }

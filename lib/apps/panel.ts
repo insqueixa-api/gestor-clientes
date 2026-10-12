@@ -154,7 +154,7 @@ export async function logAppActivity(
     // próprio registro — o Salvar do admin regrava client_apps e o vínculo
     // (client_app_id) vira null, aí o histórico perdia de qual aparelho era.
     let detail = params.detail || null;
-    if (params.clientAppId && !(detail && "mac" in detail)) {
+    if (params.clientAppId && !(detail && "device" in detail)) {
       const { data: ca } = await supabaseAdmin
         .from("client_apps")
         .select("field_values, apps(fields_config)")
@@ -163,9 +163,21 @@ export async function logAppActivity(
       if (ca) {
         const cfg = (((ca as any).apps?.fields_config as AppFieldConfig[]) || []) as AppFieldConfig[];
         const vals = ((ca as any).field_values || {}) as Record<string, string>;
-        const mac = extractFieldByType(cfg, vals, "mac");
-        const deviceKey = extractFieldByType(cfg, vals, "device_key");
-        if (mac || deviceKey) detail = { ...(detail || {}), mac: mac || null, device_key: deviceKey || null };
+        // todos os campos do aparelho com o NOME do cadastro do app (cada app
+        // tem os seus: ID/MAC, Device Key, E-mail, Usuário...). Sem data
+        // (o vencimento já vai em expireDate) e sem senha (não guardar
+        // segredo em log).
+        const device = cfg
+          .filter((f) => !["date", "password"].includes(String(f?.type || "").toLowerCase()))
+          .map((f) => ({
+            label: String(f.label || f.type),
+            type: String(f.type || ""),
+            value: String(vals[String(f.id || "")] ?? vals[String(f.label || "")] ?? "").trim(),
+          }))
+          .filter((f) => f.value);
+        const mac = extractFieldByType(cfg, vals, "mac"); // salva-vidas: MAC fora do campo certo
+        if (mac && !device.some((f) => f.value === mac)) device.unshift({ label: "ID/MAC", type: "mac", value: mac });
+        if (device.length) detail = { ...(detail || {}), device };
       }
     }
     await supabaseAdmin.from("client_app_activity_log").insert({

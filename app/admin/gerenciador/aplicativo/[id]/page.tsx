@@ -481,7 +481,7 @@ export default function AppDetailPage() {
       )}
 
       {/* Histórico de configurações */}
-      <Card title={`🛠️ Histórico de configurações (${activity.length >= MAX_ROWS ? `últimos ${MAX_ROWS}` : activity.length})`} noPad>
+      <Card title={`🛠️ Histórico de configurações (${activity.length >= 50 ? "últimos 50" : activity.length})`} noPad>
         <Table
           head={["Quando", "Cliente", "Aparelho", "Vencimento do app", "O que aconteceu"]}
           fixed
@@ -494,11 +494,12 @@ export default function AppDetailPage() {
               <span key="c" className="text-sm text-muted-foreground">—</span>
             ),
             <div key="m" className="flex flex-col gap-1">
-              {!a.mac && !a.device_key && <span className="text-xs text-muted-foreground" title="App já removido deste cliente">--</span>}
-              {a.mac && <CopyField label="MAC" value={a.mac} mono />}
-              {a.device_key && <CopyField label="Key" value={a.device_key} mono />}
+              {(a.fields || []).length === 0 && <span className="text-xs text-muted-foreground">--</span>}
+              {(a.fields || []).map((f: any) => (
+                <CopyField key={f.label} label={f.label} value={f.value} mono={f.type === "mac" || f.type === "device_key"} />
+              ))}
             </div>,
-            a.mac || a.device_key || a.expiration || a.trial_hint ? (
+            a.expiration || a.trial_hint ? (
               <div key="v" className="flex flex-col items-start gap-0.5">
                 <ExpiryBadge expiration={a.expiration} trial={a.trial_hint} today={today} />
                 <span className="text-[10px] text-muted-foreground">{a.expiration_at_time ? "informado na hora" : "atual"}</span>
