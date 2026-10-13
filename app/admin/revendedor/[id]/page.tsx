@@ -141,6 +141,22 @@ type ServerLink = {
   created_at: string | null;
 };
 
+type ResellerAppRow = {
+  id: string;
+  created_at: string;
+  configured_at: string | null;
+  list_name: string | null;
+  m3u_list: string | null;
+  expire_date: string | null;
+  client_label: string | null;
+  m3u_username: string | null;
+  field_values: Record<string, any> | null;
+  obs: string | null;
+  apps: { name: string; icon_url: string | null; integration_type: string | null; fields_config: any[] | null; appativa_meta?: any } | null;
+  reseller_end_clients: { username: string | null } | null;
+  servers: { name: string | null } | null;
+};
+
 type HistoryRow = {
   id: string;
   reseller_server_id: string;
@@ -203,6 +219,9 @@ export default function ResellerDetailPage() {
   const [reseller, setReseller] = useState<Reseller | null>(null);
   const [servers, setServers] = useState<ServerLink[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
+  // ✅ 13/10/2026: apps configurados pela revenda (linha do tempo) e uso do GerenciaApp
+  const [resellerApps, setResellerApps] = useState<ResellerAppRow[]>([]);
+  const [gaUsage, setGaUsage] = useState<{ used: number; limit: number } | null>(null);
   // ✅ 07/10/2026: ativações de app pagas pela revenda no Portal (reseller_app_orders)
   // — lista separada de propósito: não entra nos totais de créditos
   const [appActs, setAppActs] = useState<
@@ -329,10 +348,11 @@ export default function ResellerDetailPage() {
       const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
-      // ✅ Revenda + vínculos não dependem um do outro (só de tid/resellerId,
-      // já conhecidos) — paralelo em vez de sequencial. Só o histórico
-      // (abaixo) continua depois, porque precisa dos ids vindos daqui.
-      const [resellerRes, serversRes] = await Promise.all([
+      // ✅ 13/10/2026: 2 rodadas em vez de 4 (pedido do Márcio: nada de
+      // carregar uma chamada atrás da outra). 1ª: tudo que só depende do
+      // id da revenda; 2ª: vendas + origem de cada venda (precisam dos
+      // vínculos com servidor).
+      const [resellerRes, serversRes, actsRes, appsRes, limitRes] = await Promise.all([
         supabaseBrowser
           .from("vw_resellers_list")
           .select("*")
@@ -345,6 +365,25 @@ export default function ResellerDetailPage() {
           .eq("tenant_id", tid)
           .eq("reseller_id", resellerId)
           .order("created_at", { ascending: false }),
+        supabaseBrowser
+          .from("reseller_app_orders")
+          .select("id, app_name, end_client_username, amount_brl, created_at, paid_at, fulfillment_status, fulfillment_error, new_expire_date, gateway_type")
+          .eq("tenant_id", tid)
+          .eq("reseller_id", resellerId)
+          .eq("status", "approved")
+          .order("created_at", { ascending: false })
+          .limit(100),
+        // apps configurados pela revenda no Portal (linha do tempo + uso do GerenciaApp)
+        supabaseBrowser
+          .from("reseller_client_apps")
+          .select(
+            "id, created_at, configured_at, list_name, m3u_list, expire_date, client_label, m3u_username, field_values, obs, apps(name, icon_url, integration_type, fields_config, appativa_meta), reseller_end_clients(username), servers(name)",
+          )
+          .eq("tenant_id", tid)
+          .eq("reseller_id", resellerId)
+          .order("created_at", { ascending: false })
+          .limit(200),
+        supabaseBrowser.from("resellers").select("gerenciaapp_limit").eq("id", resellerId).maybeSingle(),
       ]);
 
       if (resellerRes.error) throw resellerRes.error;
@@ -369,8 +408,19 @@ export default function ResellerDetailPage() {
       const links = (serversRes.data || []) as ServerLink[];
       setServers(links);
 
-      // 3) Histórico (tabela server_credit_sales)
-      // ✅ server_credit_sales NÃO tem reseller_id; tem reseller_server_id
+      setAppActs(((actsRes.data as any[]) || []).map((a: any) => ({ ...a, amount_brl: Number(a.amount_brl) })));
+
+      const resellerApps = ((appsRes.data as any[]) || []) as ResellerAppRow[];
+      setResellerApps(resellerApps);
+      // mesma conta do Portal da Revenda (gerenciaAppUsage): configurados agora
+      const lim = Number((limitRes.data as any)?.gerenciaapp_limit);
+      setGaUsage({
+        used: resellerApps.filter((r) => r.configured_at && String(r.apps?.integration_type || "").toUpperCase() === "GERENCIAAPP").length,
+        limit: Number.isFinite(lim) ? lim : 10,
+      });
+
+      // 2ª rodada — Histórico de vendas (server_credit_sales NÃO tem
+      // reseller_id; tem reseller_server_id) + origem de cada venda
       const resellerServerIds = links
         .map((l) => l.reseller_server_id)
         .filter(Boolean);
@@ -378,29 +428,36 @@ export default function ResellerDetailPage() {
       if (resellerServerIds.length === 0) {
         setHistory([]);
       } else {
-        const historyRes = await supabaseBrowser
-          .from("server_credit_sales")
-          .select(
-            "id,tenant_id,server_id,reseller_server_id,credits_sold,unit_price,total_amount_brl,notes,created_at,payment_method,sale_currency",
-          )
-          .eq("tenant_id", tid)
-          .in("reseller_server_id", resellerServerIds)
-          .order("created_at", { ascending: false });
+        const [historyRes, ordersRes, transfersRes] = await Promise.all([
+          supabaseBrowser
+            .from("server_credit_sales")
+            .select(
+              "id,tenant_id,server_id,reseller_server_id,credits_sold,unit_price,total_amount_brl,notes,created_at,payment_method,sale_currency",
+            )
+            .eq("tenant_id", tid)
+            .in("reseller_server_id", resellerServerIds)
+            .order("created_at", { ascending: false }),
+          // ✅ 06/10/2026: origem de cada compra — Portal (PIX, pedido da
+          // revenda), Recarga rápida com envio automático no painel, ou manual
+          supabaseBrowser
+            .from("reseller_credit_orders")
+            .select("sale_id, gateway_type")
+            .eq("tenant_id", tid)
+            .eq("reseller_id", resellerId)
+            .not("sale_id", "is", null),
+          supabaseBrowser
+            .from("reseller_credit_transfers")
+            .select("sale_id")
+            .eq("tenant_id", tid)
+            .in("reseller_server_id", resellerServerIds)
+            .not("sale_id", "is", null),
+        ]);
 
         if (historyRes.error) throw historyRes.error;
 
         const serverNameMap = new Map<string, string>();
         for (const l of links) serverNameMap.set(l.server_id, l.server_name);
 
-        // ✅ 06/10/2026: origem de cada compra — Portal (PIX, pedido da
-        // revenda), Recarga rápida com envio automático no painel, ou manual
-        const saleIds = (historyRes.data || []).map((h: any) => h.id);
-        const [ordersRes, transfersRes] = saleIds.length
-          ? await Promise.all([
-              supabaseBrowser.from("reseller_credit_orders").select("sale_id, gateway_type").in("sale_id", saleIds),
-              supabaseBrowser.from("reseller_credit_transfers").select("sale_id").in("sale_id", saleIds),
-            ])
-          : [{ data: [] as any[] }, { data: [] as any[] }];
         const portalSale = new Map<string, string>(
           (ordersRes.data || []).map((o: any) => [String(o.sale_id), String(o.gateway_type || "")]),
         );
@@ -439,16 +496,6 @@ export default function ResellerDetailPage() {
 
         setHistory(mappedHistory);
       }
-
-      const { data: acts } = await supabaseBrowser
-        .from("reseller_app_orders")
-        .select("id, app_name, end_client_username, amount_brl, created_at, paid_at, fulfillment_status, fulfillment_error, new_expire_date, gateway_type")
-        .eq("tenant_id", tid)
-        .eq("reseller_id", resellerId)
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      setAppActs((acts || []).map((a: any) => ({ ...a, amount_brl: Number(a.amount_brl) })));
     } catch (e: any) {
       addToast("error", "Erro", e?.message ?? "Erro desconhecido");
     } finally {
@@ -712,6 +759,7 @@ export default function ResellerDetailPage() {
                         serversCount={servers.length}
                         totalInvested={fmtBRL(totalInvested)}
                         valuesHidden={valuesHidden}
+                        gerenciaApp={gaUsage}
                       />
                     )}
                   </div>
@@ -753,6 +801,14 @@ export default function ResellerDetailPage() {
                   {servers.length}
                 </span>
               </div>
+              {gaUsage && (
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Aparelhos GerenciaApp</span>
+                  <span className={`font-medium ${gaUsage.used >= gaUsage.limit ? "text-rose-500" : "text-foreground"}`}>
+                    {gaUsage.used} / {gaUsage.limit}
+                  </span>
+                </div>
+              )}
 
               {/* TOTAL INVESTIDO */}
               <div className="pt-4 mt-2 border-t border-border flex justify-between items-center bg-transparent p-3 rounded-lg">
@@ -870,21 +926,63 @@ export default function ResellerDetailPage() {
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm h-fit transition-colors">
             <h3 className="text-[11px] font-medium text-muted-foreground uppercase mb-6 tracking-widest flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              Histórico de Compras
+              Linha do tempo
             </h3>
 
             <div className="space-y-0 px-2">
-              {history.length === 0 && appActs.length === 0 ? (
+              {history.length === 0 && appActs.length === 0 && resellerApps.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground text-sm italic border-2 border-dashed border-border rounded-xl">
                   Nenhuma movimentação registrada.
                 </div>
               ) : (
                 [
-                  ...history.map((h) => ({ at: String(h.created_at), sale: h, act: null as (typeof appActs)[number] | null })),
-                  ...appActs.map((a) => ({ at: String(a.paid_at || a.created_at), sale: null as HistoryRow | null, act: a })),
+                  ...history.map((h) => ({ at: String(h.created_at), sale: h, act: null as (typeof appActs)[number] | null, app: null as AppEvent | null })),
+                  ...appActs.map((a) => ({ at: String(a.paid_at || a.created_at), sale: null as HistoryRow | null, act: a, app: null as AppEvent | null })),
+                  // ✅ 13/10/2026: apps configurados pela revenda no Portal
+                  ...resellerAppEvents(resellerApps).map((e) => ({ at: e.at, sale: null as HistoryRow | null, act: null as (typeof appActs)[number] | null, app: e })),
                 ]
                   .sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())
-                  .map(({ sale, act }) => {
+                  .map(({ sale, act, app }) => {
+                  if (app) {
+                    return (
+                      <div key={`app-${app.key}`} className="relative pl-8 pb-1.5 last:pb-0 border-l-2 border-border last:border-0 group">
+                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 border-background bg-sky-500" />
+                        <div className="flex justify-between items-start gap-2 bg-muted/30 p-2 rounded-xl border border-transparent hover:border-border transition-all">
+                          <div className="min-w-0 flex items-start gap-3">
+                            {app.icon ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={app.icon} alt="" className="w-10 h-10 rounded-lg object-cover border border-border shrink-0 bg-card" />
+                            ) : null}
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-foreground tracking-tight flex flex-wrap items-center gap-2">
+                                <span>
+                                  {app.label} <span className="text-foreground/70 font-normal">· {app.appName}</span>
+                                </span>
+                                {app.ambiente && (
+                                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-card border border-border text-foreground/80">
+                                    {app.ambiente}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground/80">{app.detail}</div>
+                              {app.fields.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {app.fields.map((f) => (
+                                    <span key={f.label} className="px-1.5 py-0.5 rounded bg-card border border-border text-[10px] text-foreground/80">
+                                      <span className="text-muted-foreground">{f.label}:</span> <span className="font-mono">{f.value}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap shrink-0 tabular-nums">
+                            {fmtDate(app.at)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
                   if (act) {
                     const done = act.fulfillment_status === "done";
                     const failed = act.fulfillment_status === "error" || act.fulfillment_status === "unknown";
@@ -1125,4 +1223,67 @@ function IconWhatsapp() {
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
     </svg>
   );
+}
+
+
+// ✅ 13/10/2026, pedido do Márcio: o que a revenda fez com aplicativos no
+// Portal entra na linha do tempo. Não existe log próprio dos apps da revenda
+// — usa reseller_client_apps: "App adicionado" (created_at) e, se configurou
+// depois, "App configurado" (configured_at) com lista, vencimento e aparelho.
+// App removido some da tabela, então não aparece.
+type AppEvent = {
+  key: string;
+  at: string;
+  label: string;
+  appName: string;
+  icon: string | null;
+  ambiente: string;
+  detail: string;
+  fields: { label: string; value: string }[];
+};
+
+function resellerAppEvents(rows: ResellerAppRow[]): AppEvent[] {
+  const br = (d?: string | null) => (d ? String(d).slice(0, 10).split("-").reverse().join("/") : "");
+  const out: AppEvent[] = [];
+  for (const r of rows) {
+    const cfg = Array.isArray(r.apps?.fields_config) ? r.apps!.fields_config : [];
+    const vals = r.field_values || {};
+    const fields: { label: string; value: string }[] = [];
+    for (const f of cfg) {
+      const t = String(f?.type || "").toLowerCase();
+      const v = String(vals[f?.id] ?? vals[f?.label] ?? "").trim();
+      if (!v || t === "date" || t === "password" || t === "obs") continue;
+      fields.push({ label: String(f.label || t), value: v });
+    }
+    const amb = String(r.obs || "").trim();
+    const ambiente = amb ? amb.charAt(0).toUpperCase() + amb.slice(1).toLowerCase() : "";
+    const who = r.reseller_end_clients?.username || r.m3u_username || r.client_label || "";
+    const base = {
+      appName: r.apps?.name || "Aplicativo",
+      icon: r.apps?.icon_url || r.apps?.appativa_meta?.logo || null,
+      ambiente,
+      fields,
+    };
+    const configuredLater = r.configured_at && Math.abs(new Date(r.configured_at).getTime() - new Date(r.created_at).getTime()) > 120_000;
+    if (!r.configured_at || configuredLater) {
+      out.push({ ...base, key: `${r.id}-add`, at: r.created_at, label: "App adicionado", detail: [who && `cliente ${who}`, r.servers?.name].filter(Boolean).join(" · ") });
+    }
+    if (r.configured_at) {
+      out.push({
+        ...base,
+        key: `${r.id}-cfg`,
+        at: r.configured_at,
+        label: "App configurado",
+        detail: [
+          who && `cliente ${who}`,
+          r.servers?.name,
+          r.list_name ? `lista ${r.list_name}` : r.m3u_list ? `lista ${r.m3u_list === "secundaria" ? "secundária" : "principal"}` : "",
+          r.expire_date ? `vencimento ${br(r.expire_date)}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
+  }
+  return out;
 }

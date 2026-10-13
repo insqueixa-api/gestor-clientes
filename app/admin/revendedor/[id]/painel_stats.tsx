@@ -133,11 +133,14 @@ export function ResumoContaNoCard({
   serversCount,
   totalInvested,
   valuesHidden,
+  gerenciaApp,
 }: {
   since: string;
   serversCount: number;
   totalInvested: string;
   valuesHidden: boolean;
+  /** ✅ 13/10/2026: aparelhos GerenciaApp configurados pela revenda / limite */
+  gerenciaApp?: { used: number; limit: number } | null;
 }) {
   return (
     <div className="w-full mt-4 pt-4 border-t border-border space-y-2 text-sm">
@@ -150,6 +153,14 @@ export function ResumoContaNoCard({
         <span className="text-muted-foreground font-medium">Servidores</span>
         <span className="font-medium text-foreground">{serversCount}</span>
       </div>
+      {gerenciaApp && (
+        <div className="flex justify-between items-center pb-2 border-b border-border">
+          <span className="text-muted-foreground font-medium">Aparelhos GerenciaApp</span>
+          <span className={`font-medium ${gerenciaApp.used >= gerenciaApp.limit ? "text-rose-500" : "text-foreground"}`}>
+            {gerenciaApp.used} / {gerenciaApp.limit}
+          </span>
+        </div>
+      )}
       <div className="flex justify-between items-center pt-1">
         <span className="text-muted-foreground font-medium text-[11px] uppercase tracking-tight">Total investido</span>
         <span className={`font-medium text-base text-emerald-500 transition-all duration-300 ${valuesHidden ? "blur-sm select-none" : ""}`}>
