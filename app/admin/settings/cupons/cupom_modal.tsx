@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { isoDateInSaoPaulo } from "@/lib/date-br";
+import { randomCouponCode } from "@/lib/alerts/app-activation-alert";
 import { Modal, ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { Dropdown } from "@/components/ui/Dropdown";
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
@@ -120,7 +121,19 @@ export default function CupomModal({
   const resolvedTenantId = useTenantId();
   const isEdit = !!coupon?.id;
 
-  const [code, setCode] = useState(coupon?.code ?? "");
+  // ✅ 13/10/2026, pedido do Márcio: cupom INDIVIDUAL novo aberto pelo
+  // cliente (página do cliente → lockedClient) já vem com nome sugerido, no
+  // mesmo formato do cupom da renovação em confiança (randomCouponCode:
+  // NOME-XXXX). Pela página de Cupons (universal) continua em branco.
+  const autoCodeRef = useRef<string>("");
+  const [code, setCode] = useState(() => {
+    if (coupon?.code) return coupon.code;
+    if (!isEdit && lockedClient?.display_name) {
+      autoCodeRef.current = randomCouponCode(String(lockedClient.display_name).trim().split(/\s+/)[0] || "CLIENTE");
+      return autoCodeRef.current;
+    }
+    return "";
+  });
   const [description, setDescription] = useState(coupon?.description ?? "");
   const [discountType, setDiscountType] = useState<"percent" | "fixed">(
     coupon?.discount_type ?? "percent",
@@ -286,6 +299,16 @@ export default function CupomModal({
   const [targetClientAppIds, setTargetClientAppIds] = useState<string[]>(
     coupon?.target_client_app_ids ?? [],
   );
+  useEffect(() => {
+    if (isEdit || !lockedClient || !autoCodeRef.current || code !== autoCodeRef.current) return;
+    const firstApp = clientAppOptions?.find((o) => targetClientAppIds.includes(o.id))?.appName;
+    const base = firstApp || String(lockedClient.display_name || "").trim().split(/\s+/)[0] || "CLIENTE";
+    const prefix = base.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 6);
+    if (code.startsWith(`${prefix}-`)) return; // já está no nome certo
+    autoCodeRef.current = randomCouponCode(base);
+    setCode(autoCodeRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetClientAppIds, clientAppOptions]);
   useEffect(() => {
     if (!hasPersonalClient || !personalClient?.id) {
       setClientAppOptions(null);
