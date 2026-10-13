@@ -164,3 +164,21 @@ html[data-privacy="on"] .finance-value {
 .finance-value {
   transition: filter 0.25s ease, opacity 0.25s ease;
 }
+
+/* Cards com linhas "rótulo → valor" (ex: API de integração): no modo oculto
+   borra só o VALOR (último item da linha), o rótulo continua visível. */
+html[data-privacy="on"] .privacy-rows .justify-between > span:last-child,
+html[data-privacy="on"] .privacy-rows .justify-between > a:last-child {
+  filter: blur(8px);
+  opacity: 0.6;
+  user-select: none;
+}
+
+/* Formulário com dado pessoal (ex: Perfil → Dados Cadastrais): no modo
+   oculto borra o conteúdo dos campos, os rótulos continuam visíveis. */
+html[data-privacy="on"] .privacy-fields input,
+html[data-privacy="on"] .privacy-fields select,
+html[data-privacy="on"] .privacy-fields textarea {
+  filter: blur(6px);
+  user-select: none;
+}

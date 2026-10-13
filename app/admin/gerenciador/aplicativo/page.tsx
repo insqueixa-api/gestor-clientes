@@ -1686,7 +1686,8 @@ export default function AppManagerPage() {
           >
             Ver detalhes
           </button>
-          <span className="text-sm font-semibold text-foreground shrink-0">
+          {/* ✅ 13/10/2026: preço some no modo oculto */}
+          <span className="text-sm font-semibold text-foreground shrink-0 sensitive">
             {app.is_active === false && app.discontinued_replacement_name
               ? <span className="text-xs font-normal text-muted-foreground">→ {app.discontinued_replacement_name}</span>
               : priceLabel}
@@ -1858,7 +1859,7 @@ export default function AppManagerPage() {
                 {row("Situação", a.is_active === false
                   ? `Descontinuado${a.discontinued_replacement_name ? ` — usar ${a.discontinued_replacement_name}` : ""}`
                   : "Ativo")}
-                {row("Preço ao cliente", appPriceLabel(a))}
+                {row("Preço ao cliente", <span className="sensitive">{appPriceLabel(a)}</span>)}
                 {row("Configuração", a.integration_type
                   ? `Automática — ${a.integration_type}${integOk ? "" : " (API ainda não configurada)"}`
                   : "Manual (sem integração)")}

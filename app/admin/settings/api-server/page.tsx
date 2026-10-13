@@ -1095,7 +1095,7 @@ export default function ApiServerPage() {
                     </div>
                   </div>
 
-                  <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                  <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm privacy-rows">
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">
@@ -1329,7 +1329,7 @@ export default function ApiServerPage() {
                       </IconActionBtn>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-5 text-sm space-y-2">
+                  <div className="p-4 sm:p-5 text-sm space-y-2 privacy-rows">
                     {(row.provider === "APPATIVA" || row.provider === "DUPLECAST") && (
                       <>
                         <div className="flex justify-between items-center">
@@ -1553,7 +1553,7 @@ export default function ApiServerPage() {
                       </IconActionBtn>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-5 text-sm space-y-2">
+                  <div className="p-4 sm:p-5 text-sm space-y-2 privacy-rows">
                     <div className="flex justify-between items-center">
                       <span className="text-muted-foreground">📅 Validade</span>
                       <span
@@ -1645,7 +1645,7 @@ export default function ApiServerPage() {
                         </IconActionBtn>
                       </div>
                     </div>
-                    <div className="p-4 sm:p-5 text-sm space-y-2">
+                    <div className="p-4 sm:p-5 text-sm space-y-2 privacy-rows">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">📅 Validade</span>
                         <span
@@ -1720,7 +1720,7 @@ export default function ApiServerPage() {
                           <div className="flex justify-between items-center gap-2 pt-2">
                             <div className="min-w-0">
                               <span className="text-muted-foreground text-[11px]">🌐 Conexão (IP)</span>
-                              <p className="font-mono text-xs text-foreground/90 truncate" title={proxyConnRaw}>
+                              <p className="font-mono text-xs text-foreground/90 truncate sensitive" title={proxyConnRaw}>
                                 {proxyConnRaw || "-- (não configurada)"}
                               </p>
                             </div>
@@ -1888,7 +1888,7 @@ export default function ApiServerPage() {
                       </IconActionBtn>
                     </div>
                   </div>
-                  <div className="p-4 sm:p-5 text-sm space-y-2">
+                  <div className="p-4 sm:p-5 text-sm space-y-2 privacy-rows">
                     {row.api_url && (
                       <div className="flex justify-between items-center gap-2">
                         <span className="text-muted-foreground shrink-0">

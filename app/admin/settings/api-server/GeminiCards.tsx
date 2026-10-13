@@ -215,7 +215,7 @@ function GeminiCard({
           <>
             <div className="flex justify-between items-center gap-3">
               <span className="text-muted-foreground">🔑 Chave</span>
-              <span className="font-mono text-xs text-foreground/90 text-right">
+              <span className="font-mono text-xs text-foreground/90 text-right sensitive">
                 {side?.masked_key || (loading ? "carregando..." : "--")}
                 {side?.source && side.source !== "painel" && side.masked_key && (
                   <span className="block font-sans text-[10px] text-muted-foreground">da variável de ambiente</span>

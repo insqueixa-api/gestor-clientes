@@ -1387,7 +1387,7 @@ async function handleSave() {
         <div className="space-y-6">
           {/* CARD 1: DADOS PESSOAIS (SEMPRE VISÍVEL) */}
           <div
-            className={`bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
+            className={`privacy-fields bg-card border-y sm:border border-border sm:rounded-2xl p-4 sm:p-6 shadow-sm space-y-6 transition-all ${isEditing ? "ring-1 ring-emerald-500/20" : ""}`}
           >
             <div className="flex items-center justify-between border-b border-border pb-3">
 <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-widest">

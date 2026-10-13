@@ -1574,7 +1574,8 @@ function FinanceiroPageContent() {
                       })()}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-normal text-foreground/90 truncate max-w-[220px] group-hover:text-emerald-500 transition-colors">
+                      {/* ✅ 13/10/2026: nome do lançamento também some no modo oculto */}
+                      <div className="sensitive font-normal text-foreground/90 truncate max-w-[220px] group-hover:text-emerald-500 transition-colors">
                         {t.descricao}
                       </div>
                     </td>
