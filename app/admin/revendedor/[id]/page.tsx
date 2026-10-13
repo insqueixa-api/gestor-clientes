@@ -220,7 +220,8 @@ export default function ResellerDetailPage() {
   const [servers, setServers] = useState<ServerLink[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   // ✅ 13/10/2026: apps configurados pela revenda (linha do tempo) e uso do GerenciaApp
-  const [resellerApps, setResellerApps] = useState<ResellerAppRow[]>([]);
+  const [appLog, setAppLog] = useState<AppEvent[]>([]);
+  const [deletingTimelineId, setDeletingTimelineId] = useState<string | null>(null);
   const [gaUsage, setGaUsage] = useState<{ used: number; limit: number } | null>(null);
   // ✅ 07/10/2026: ativações de app pagas pela revenda no Portal (reseller_app_orders)
   // — lista separada de propósito: não entra nos totais de créditos
@@ -273,6 +274,47 @@ export default function ResellerDetailPage() {
     }
     return m;
   }, [servers]);
+
+  // ✅ 13/10/2026: lixeira em todos os itens da linha do tempo (igual ao cliente).
+  // App: apaga só o registro do histórico. Ativação paga: apaga o pedido —
+  // some também do Log do Portal (não mexe no app do cliente da revenda).
+  async function handleDeleteTimeline(kind: "app" | "act", id: string, label: string) {
+    const ok = await confirm({
+      tone: "rose",
+      title: "Apagar registro?",
+      subtitle:
+        kind === "act"
+          ? "Esta ativação será apagada — some da linha do tempo e também do Log do Portal. Não mexe no app do cliente."
+          : "Este registro será removido da linha do tempo permanentemente. Não mexe no app.",
+      details: [label],
+      confirmText: "Apagar",
+      cancelText: "Voltar",
+    });
+    if (!ok) return;
+    setDeletingTimelineId(id);
+    try {
+      if (kind === "app") {
+        const { error } = await supabaseBrowser.from("reseller_app_activity_log").delete().eq("id", id).eq("tenant_id", tenantId as string);
+        if (error) throw error;
+        setAppLog((prev) => prev.filter((e) => e.key !== id));
+      } else {
+        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const res = await fetch("/api/admin/payments/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token}` },
+          body: JSON.stringify({ payment_id: id, kind: "reseller_app", allow_paid: true }),
+        });
+        const j = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(j?.error || "Falha ao apagar.");
+        setAppActs((prev) => prev.filter((a) => a.id !== id));
+      }
+      addToast("success", "Registro apagado", "");
+    } catch (e: any) {
+      addToast("error", "Erro ao apagar", e?.message || "Falha ao apagar.");
+    } finally {
+      setDeletingTimelineId(null);
+    }
+  }
 
   async function handleDeleteHistory(h: HistoryRow) {
     const ok = await confirm({
@@ -352,7 +394,7 @@ export default function ResellerDetailPage() {
       // carregar uma chamada atrás da outra). 1ª: tudo que só depende do
       // id da revenda; 2ª: vendas + origem de cada venda (precisam dos
       // vínculos com servidor).
-      const [resellerRes, serversRes, actsRes, appsRes, limitRes] = await Promise.all([
+      const [resellerRes, serversRes, actsRes, appsRes, limitRes, logRes, iconsRes] = await Promise.all([
         supabaseBrowser
           .from("vw_resellers_list")
           .select("*")
@@ -384,6 +426,16 @@ export default function ResellerDetailPage() {
           .order("created_at", { ascending: false })
           .limit(200),
         supabaseBrowser.from("resellers").select("gerenciaapp_limit").eq("id", resellerId).maybeSingle(),
+        // histórico dos apps da revenda (docs/sql/reseller_app_activity_log.sql)
+        supabaseBrowser
+          .from("reseller_app_activity_log")
+          .select("id, created_at, event, app_name, detail")
+          .eq("tenant_id", tid)
+          .eq("reseller_id", resellerId)
+          .order("created_at", { ascending: false })
+          .limit(200),
+        // logos dos apps (pela logo do cadastro, senão a da AtivaApp)
+        supabaseBrowser.from("apps").select("name, icon_url, appativa_meta").eq("tenant_id", tid),
       ]);
 
       if (resellerRes.error) throw resellerRes.error;
@@ -411,7 +463,12 @@ export default function ResellerDetailPage() {
       setAppActs(((actsRes.data as any[]) || []).map((a: any) => ({ ...a, amount_brl: Number(a.amount_brl) })));
 
       const resellerApps = ((appsRes.data as any[]) || []) as ResellerAppRow[];
-      setResellerApps(resellerApps);
+      const iconByName = new Map<string, string>();
+      for (const a of (iconsRes.data as any[]) || []) {
+        const icon = a.icon_url || a.appativa_meta?.logo;
+        if (icon) iconByName.set(String(a.name || "").toLowerCase(), icon);
+      }
+      setAppLog(resellerAppEvents((logRes.data as any[]) || [], iconByName));
       // mesma conta do Portal da Revenda (gerenciaAppUsage): configurados agora
       const lim = Number((limitRes.data as any)?.gerenciaapp_limit);
       setGaUsage({
@@ -930,7 +987,7 @@ export default function ResellerDetailPage() {
             </h3>
 
             <div className="space-y-0 px-2">
-              {history.length === 0 && appActs.length === 0 && resellerApps.length === 0 ? (
+              {history.length === 0 && appActs.length === 0 && appLog.length === 0 ? (
                 <div className="py-12 text-center text-muted-foreground text-sm italic border-2 border-dashed border-border rounded-xl">
                   Nenhuma movimentação registrada.
                 </div>
@@ -939,7 +996,7 @@ export default function ResellerDetailPage() {
                   ...history.map((h) => ({ at: String(h.created_at), sale: h, act: null as (typeof appActs)[number] | null, app: null as AppEvent | null })),
                   ...appActs.map((a) => ({ at: String(a.paid_at || a.created_at), sale: null as HistoryRow | null, act: a, app: null as AppEvent | null })),
                   // ✅ 13/10/2026: apps configurados pela revenda no Portal
-                  ...resellerAppEvents(resellerApps).map((e) => ({ at: e.at, sale: null as HistoryRow | null, act: null as (typeof appActs)[number] | null, app: e })),
+                  ...appLog.map((e) => ({ at: e.at, sale: null as HistoryRow | null, act: null as (typeof appActs)[number] | null, app: e })),
                 ]
                   .sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())
                   .map(({ sale, act, app }) => {
@@ -980,7 +1037,7 @@ export default function ResellerDetailPage() {
                             <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap tabular-nums">
                               {fmtDate(app.at)}
                             </div>
-                            <span className="w-7 h-7 shrink-0" aria-hidden />
+                            <RowTrash busy={deletingTimelineId === app.key} onClick={() => void handleDeleteTimeline("app", app.key, `${app.label} · ${app.appName}`)} />
                           </div>
                         </div>
                       </div>
@@ -1023,7 +1080,7 @@ export default function ResellerDetailPage() {
                             <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap tabular-nums">
                               {fmtDate(act.paid_at || act.created_at)}
                             </div>
-                            <span className="w-7 h-7 shrink-0" aria-hidden />
+                            <RowTrash busy={deletingTimelineId === act.id} onClick={() => void handleDeleteTimeline("act", act.id, `Ativação · ${act.app_name}`)} />
                           </div>
                         </div>
                       </div>
@@ -1233,12 +1290,11 @@ function IconWhatsapp() {
 
 
 // ✅ 13/10/2026, pedido do Márcio: o que a revenda fez com aplicativos no
-// Portal entra na linha do tempo. Não existe log próprio dos apps da revenda
-// — usa reseller_client_apps: "App adicionado" (created_at) e, se configurou
-// depois, "App configurado" (configured_at) com lista, vencimento e aparelho.
-// App removido some da tabela, então não aparece.
+// Portal entra na linha do tempo — lido do histórico próprio
+// (reseller_app_activity_log), então a lixeira apaga SÓ o registro, igual
+// à linha do tempo do cliente.
 type AppEvent = {
-  key: string;
+  key: string; // id do registro
   at: string;
   label: string;
   appName: string;
@@ -1246,50 +1302,72 @@ type AppEvent = {
   ambiente: string;
   detail: string;
   fields: { label: string; value: string }[];
+  failed?: boolean;
 };
 
-function resellerAppEvents(rows: ResellerAppRow[]): AppEvent[] {
+const RESELLER_APP_LABELS: Record<string, string> = {
+  added: "App adicionado",
+  configured: "App configurado",
+  fields_updated: "Dados do app editados",
+  check_validity: "Vencimento verificado",
+  renewed: "Licença renovada",
+  removed: "App removido",
+};
+
+function resellerAppEvents(rows: any[], iconByName: Map<string, string>): AppEvent[] {
   const br = (d?: string | null) => (d ? String(d).slice(0, 10).split("-").reverse().join("/") : "");
-  const out: AppEvent[] = [];
-  for (const r of rows) {
-    const cfg = Array.isArray(r.apps?.fields_config) ? r.apps!.fields_config : [];
-    const vals = r.field_values || {};
+  return rows.map((l) => {
+    const d = l.detail || {};
     const fields: { label: string; value: string }[] = [];
-    for (const f of cfg) {
-      const t = String(f?.type || "").toLowerCase();
-      const v = String(vals[f?.id] ?? vals[f?.label] ?? "").trim();
-      if (!v || t === "date" || t === "password" || t === "obs") continue;
-      fields.push({ label: String(f.label || t), value: v });
+    let ambiente = "";
+    for (const f of Array.isArray(d.device) ? d.device : []) {
+      if (!f?.value) continue;
+      if (f.type === "obs") ambiente = String(f.value);
+      else fields.push({ label: String(f.label), value: String(f.value) });
     }
-    const amb = String(r.obs || "").trim();
-    const ambiente = amb ? amb.charAt(0).toUpperCase() + amb.slice(1).toLowerCase() : "";
-    const who = r.reseller_end_clients?.username || r.m3u_username || r.client_label || "";
-    const base = {
-      appName: r.apps?.name || "Aplicativo",
-      icon: r.apps?.icon_url || r.apps?.appativa_meta?.logo || null,
-      ambiente,
+    const lic =
+      d.license === "trial" ? "Modo de avaliação" : d.license === "expired" ? "Expirado" : d.expireDate ? `vencimento ${br(d.expireDate)}` : "";
+    return {
+      key: String(l.id),
+      at: String(l.created_at),
+      label: RESELLER_APP_LABELS[l.event] || l.event,
+      appName: l.app_name,
+      icon: iconByName.get(String(l.app_name || "").toLowerCase()) || null,
+      ambiente: ambiente ? ambiente.charAt(0).toUpperCase() + ambiente.slice(1).toLowerCase() : "",
+      detail: [
+        d.client && `cliente ${d.client}`,
+        d.server,
+        d.list_name ? `lista ${d.list_name}` : "",
+        lic,
+        d.error ? String(d.error) : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
       fields,
+      failed: /failed/.test(String(l.event)),
     };
-    const configuredLater = r.configured_at && Math.abs(new Date(r.configured_at).getTime() - new Date(r.created_at).getTime()) > 120_000;
-    if (!r.configured_at || configuredLater) {
-      out.push({ ...base, key: `${r.id}-add`, at: r.created_at, label: "App adicionado", detail: [who && `cliente ${who}`, r.servers?.name].filter(Boolean).join(" · ") });
-    }
-    if (r.configured_at) {
-      out.push({
-        ...base,
-        key: `${r.id}-cfg`,
-        at: r.configured_at,
-        label: "App configurado",
-        detail: [
-          who && `cliente ${who}`,
-          r.servers?.name,
-          r.list_name ? `lista ${r.list_name}` : r.m3u_list ? `lista ${r.m3u_list === "secundaria" ? "secundária" : "principal"}` : "",
-          r.expire_date ? `vencimento ${br(r.expire_date)}` : "",
-        ]
-          .filter(Boolean)
-          .join(" · "),
-      });
-    }
-  }
-  return out;
+  });
+}
+
+// lixeira do mesmo tamanho/estilo da das compras (aparece no hover)
+function RowTrash({ busy, onClick }: { busy?: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      className="w-7 h-7 shrink-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
+      title="Apagar registro"
+    >
+      {busy ? (
+        <Loader2 className="w-4 h-4 animate-spin" />
+      ) : (
+        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6l-1 14H6L5 6" />
+          <path d="M10 11v6M14 11v6" />
+          <path d="M9 6V4h6v2" />
+        </svg>
+      )}
+    </button>
+  );
 }

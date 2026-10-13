@@ -34,14 +34,14 @@ export async function POST(req: NextRequest) {
   const kind = String(body?.kind || "");
   if (kind === "reseller_credits" || kind === "reseller_app") {
     const table = kind === "reseller_credits" ? "reseller_credit_orders" : "reseller_app_orders";
-    const { data: gone, error: delErr } = await supabaseAdmin
-      .from(table)
-      .delete()
-      .eq("id", paymentId)
-      .eq("tenant_id", authTenantId)
-      .neq("status", "approved")
-      .select("id")
-      .maybeSingle();
+    // ✅ 13/10/2026: a lixeira da linha do tempo da Revenda apaga ativação de
+    // app JÁ PAGA (allow_paid), igual à renovação de app na linha do tempo do
+    // cliente (pedido do Márcio: mesmo comportamento, pra limpar testes).
+    // Pedido de CRÉDITOS pago continua protegido (tem venda ligada).
+    const allowPaid = kind === "reseller_app" && body?.allow_paid === true;
+    let q = supabaseAdmin.from(table).delete().eq("id", paymentId).eq("tenant_id", authTenantId);
+    if (!allowPaid) q = q.neq("status", "approved");
+    const { data: gone, error: delErr } = await q.select("id").maybeSingle();
     if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
     if (!gone) return NextResponse.json({ error: "Registro não encontrado (ou já pago — pedido pago não pode ser apagado)" }, { status: 404 });
     return NextResponse.json({ ok: true });

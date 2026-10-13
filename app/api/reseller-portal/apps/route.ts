@@ -41,6 +41,7 @@ import {
   isAddableApp,
   isGerenciaAppFamily,
   removeResellerAppFromPartner,
+  logResellerAppActivity,
   renewGerenciaAppFree,
   resellerLicensePrice,
   editableFields,
@@ -471,6 +472,14 @@ export async function POST(req: NextRequest) {
         if (error || !ins) return jsonError(500, "Configurou no aparelho, mas não foi possível salvar aqui. Tente de novo.");
         rowId = ins.id;
       }
+      // ✅ 13/10/2026: histórico dos apps da revenda
+      const logBase = { tenantId: ctx.tenant_id, resellerId: ctx.reseller_id, rowId, app, fieldValues: fv.values, ambiente: patch.obs, client: patch.client_label, server: m3u.serverName };
+      if (!existingId) await logResellerAppActivity(sb, { ...logBase, event: "added" });
+      await logResellerAppActivity(sb, {
+        ...logBase,
+        event: "configured",
+        extra: { list_name: r.listName, lista: "principal", expireDate: expire, license: expire ? "valid" : r.isTrial ? "trial" : null },
+      });
       return ok({ id: rowId, list_name: r.listName, expire_date: expire, is_trial: r.isTrial });
     }
 
@@ -541,6 +550,18 @@ export async function POST(req: NextRequest) {
         })
         .eq("id", row.id);
       const finalExpire = expire || isoDate(row.expire_date);
+      await logResellerAppActivity(sb, {
+        tenantId: ctx.tenant_id,
+        resellerId: ctx.reseller_id,
+        rowId: row.id,
+        app,
+        event: action === "update" ? "fields_updated" : "configured",
+        fieldValues,
+        ambiente: action === "update" ? s(body?.obs).slice(0, 120) || null : row.obs,
+        client: (manualPatch as any).client_label || row.client_label,
+        server: pctx.serverName,
+        extra: { list_name: r.listName, lista: list, expireDate: finalExpire, license: finalExpire ? "valid" : r.isTrial ? "trial" : null },
+      });
       return ok({ list_name: r.listName, expire_date: finalExpire, m3u_list: list, renew: renewInfo(app, finalExpire) });
     }
 
@@ -552,6 +573,11 @@ export async function POST(req: NextRequest) {
       const expire = isoDate(r.expireDate);
       if (expire) await sb.from("reseller_client_apps").update({ expire_date: expire }).eq("id", row.id);
       const finalExpire = expire || isoDate(row.expire_date);
+      await logResellerAppActivity(sb, {
+        tenantId: ctx.tenant_id, resellerId: ctx.reseller_id, rowId: row.id, app, event: "check_validity",
+        fieldValues: row.field_values, ambiente: row.obs, client: row.client_label, server: pctx.serverName,
+        extra: { expireDate: finalExpire, license: r.isTrial ? "trial" : finalExpire ? "valid" : null },
+      });
       return ok({ expire_date: finalExpire, is_trial: r.isTrial, renew: renewInfo(app, finalExpire) });
     }
 
@@ -564,6 +590,11 @@ export async function POST(req: NextRequest) {
       const expire = isoDate(r.expireDate);
       if (expire) await sb.from("reseller_client_apps").update({ expire_date: expire }).eq("id", row.id);
       const finalExpire = expire || isoDate(row.expire_date);
+      await logResellerAppActivity(sb, {
+        tenantId: ctx.tenant_id, resellerId: ctx.reseller_id, rowId: row.id, app, event: "renewed",
+        fieldValues: row.field_values, ambiente: row.obs, client: row.client_label, server: row.servers?.name || null,
+        extra: { expireDate: finalExpire, license: finalExpire ? "valid" : null },
+      });
       return ok({ expire_date: finalExpire, renew: renewInfo(app, finalExpire) });
     }
 
@@ -572,6 +603,10 @@ export async function POST(req: NextRequest) {
       if (!pctx) return jsonError(400, "Não foi possível tirar a lista do aparelho agora. Fale com o suporte.");
       const r = await removeResellerAppFromPartner(sb, pctx);
       if (!r.ok) return jsonError(400, r.error);
+      await logResellerAppActivity(sb, {
+        tenantId: ctx.tenant_id, resellerId: ctx.reseller_id, rowId: row.id, app, event: "removed",
+        fieldValues: row.field_values, ambiente: row.obs, client: row.client_label, server: pctx.serverName,
+      });
       await sb.from("reseller_client_apps").delete().eq("id", row.id);
       return ok({});
     }

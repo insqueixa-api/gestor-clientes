@@ -411,3 +411,46 @@ export async function buildManualM3u(
   const url = list === "secundaria" ? rotateSecondaryM3u(params) : rotatePrincipalM3u(params);
   return url ? { url, serverName } : { url: row.m3u_url, serverName };
 }
+
+/**
+ * ✅ 13/10/2026: histórico dos apps da revenda (docs/sql/reseller_app_activity_log.sql)
+ * — mesmo espírito do logAppActivity do cliente: guarda o aparelho com os
+ * NOMES do cadastro do app (sem data/senha), o cliente, o servidor e a
+ * situação da licença no momento. Nunca derruba a ação da revenda.
+ */
+export async function logResellerAppActivity(
+  admin: SupabaseClient,
+  p: {
+    tenantId: string;
+    resellerId: string;
+    rowId: string | null;
+    app: { name: string; fields_config?: AppFieldConfig[] | null };
+    event: "added" | "configured" | "fields_updated" | "check_validity" | "renewed" | "removed";
+    fieldValues?: Record<string, any> | null;
+    ambiente?: string | null;
+    client?: string | null;
+    server?: string | null;
+    extra?: Record<string, unknown>;
+  },
+) {
+  try {
+    const cfg = Array.isArray(p.app.fields_config) ? p.app.fields_config : [];
+    const vals = p.fieldValues || {};
+    const device = cfg
+      .filter((f) => !["date", "password", "obs"].includes(String(f?.type || "").toLowerCase()))
+      .map((f) => ({ label: String(f.label || f.type), type: String(f.type || ""), value: String(vals[String(f.id || "")] ?? vals[String(f.label || "")] ?? "").trim() }))
+      .filter((f) => f.value);
+    const amb = String(p.ambiente || "").trim();
+    if (amb) device.push({ label: "Ambiente", type: "obs", value: amb });
+    await admin.from("reseller_app_activity_log").insert({
+      tenant_id: p.tenantId,
+      reseller_id: p.resellerId,
+      reseller_client_app_id: p.rowId,
+      app_name: p.app.name,
+      event: p.event,
+      detail: { device, client: p.client || null, server: p.server || null, ...(p.extra || {}) },
+    });
+  } catch {
+    // log nunca derruba a ação
+  }
+}
