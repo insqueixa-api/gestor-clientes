@@ -976,8 +976,11 @@ export default function ResellerDetailPage() {
                               )}
                             </div>
                           </div>
-                          <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap shrink-0 tabular-nums">
-                            {fmtDate(app.at)}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap tabular-nums">
+                              {fmtDate(app.at)}
+                            </div>
+                            <span className="w-7 h-7 shrink-0" aria-hidden />
                           </div>
                         </div>
                       </div>
@@ -1016,8 +1019,11 @@ export default function ResellerDetailPage() {
                             </div>
                             {failed && act.fulfillment_error && <div className="mt-0.5 text-[11px] text-rose-500">{act.fulfillment_error}</div>}
                           </div>
-                          <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap shrink-0">
-                            {fmtDate(act.paid_at || act.created_at)}
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap tabular-nums">
+                              {fmtDate(act.paid_at || act.created_at)}
+                            </div>
+                            <span className="w-7 h-7 shrink-0" aria-hidden />
                           </div>
                         </div>
                       </div>
@@ -1087,13 +1093,13 @@ export default function ResellerDetailPage() {
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap">
+                          <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm whitespace-nowrap tabular-nums">
                             {fmtDate(h.created_at ?? null)}
                           </div>
                           <button
                             onClick={() => handleDeleteHistory(h)}
                             disabled={deletingHistoryId === h.id}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
+                            className="w-7 h-7 shrink-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg hover:bg-rose-500/10 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
                             title="Apagar registro"
                           >
                             {deletingHistoryId === h.id ? (
