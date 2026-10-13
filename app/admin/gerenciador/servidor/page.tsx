@@ -85,7 +85,7 @@ export default function AdminServersPage() {
   // ✅ Seu hook (pelo erro) é o formato "confirm simples"
   const { confirm, ConfirmUI } = useConfirm();
   // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
-  const { valuesHidden, setValuesHidden } = usePrivacyMode();
+  const { valuesHidden } = usePrivacyMode(); // olho fica só no topo do admin
 
   const [syncingServerId, setSyncingServerId] = useState<string | null>(null);
 
@@ -566,20 +566,6 @@ export default function AdminServersPage() {
             <h1 className="text-xl sm:text-2xl font-medium text-foreground tracking-tight truncate">
               Servidores
             </h1>
-            <button
-              onClick={() => setValuesHidden((v) => !v)}
-              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground/90 hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
-            >
-              {valuesHidden ? (
-                <EyeOff className="w-4 h-4" />
-              ) : (
-                <Eye className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline text-[11px] tracking-wide">
-                {valuesHidden ? "Exibir" : "Ocultar"}
-              </span>
-            </button>
           </div>
         </div>
 

@@ -481,18 +481,20 @@ export default function AdminShell({
 
             {/* ✅ 13/10/2026: modo oculto — vale pra todas as páginas e fica
                 lembrado no navegador até desligar */}
-            <button
-              onClick={togglePrivacy}
-              className={[
-                "flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors",
-                valuesHidden
-                  ? "bg-amber-500 border-amber-400 text-black hover:bg-amber-400"
-                  : "bg-white/5 border-white/10 hover:bg-white/10 text-white/90",
-              ].join(" ")}
-              title={valuesHidden ? "Modo oculto LIGADO — clique pra mostrar os valores" : "Ocultar valores (vale pra todas as páginas)"}
-            >
-              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+            {/* mesmo tamanho/borda do sino (dentro da mesma caixinha — solto na
+                barra ele esticava e ficava maior) */}
+            <div className="relative">
+              <button
+                onClick={togglePrivacy}
+                className={[
+                  "flex items-center justify-center w-8 h-8 rounded-full border border-white/10 shadow-sm transition-colors",
+                  valuesHidden ? "bg-amber-500 hover:bg-amber-400 text-black" : "bg-white/5 hover:bg-white/10 text-white/90",
+                ].join(" ")}
+                title={valuesHidden ? "Modo oculto LIGADO — clique pra mostrar os valores" : "Ocultar valores (vale pra todas as páginas)"}
+              >
+                {valuesHidden ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
 
           <div className="flex-1" />

@@ -490,7 +490,7 @@ function ClientePageContent() {
   // ✅ Mobile: menu de filtros
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
-  const { valuesHidden, setValuesHidden } = usePrivacyMode();
+  const { valuesHidden } = usePrivacyMode(); // olho fica só no topo do admin
 
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -1746,23 +1746,6 @@ function ClientePageContent() {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Gestão de {entidadeLabel}s
             </h1>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setValuesHidden((v) => !v);
-              }}
-              title={valuesHidden ? "Exibir valores" : "Ocultar valores"}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-border bg-muted text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-all text-xs font-medium shadow-sm select-none"
-            >
-              {valuesHidden ? (
-                <EyeOff className="w-4 h-4" />
-              ) : (
-                <Eye className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline text-[11px] tracking-wide">
-                {valuesHidden ? "Exibir" : "Ocultar"}
-              </span>
-            </button>
           </div>
         </div>
 

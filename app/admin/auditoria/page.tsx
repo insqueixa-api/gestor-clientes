@@ -12,7 +12,6 @@ import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { useConfirm } from "@/hooks/useConfirm";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
-import { EyeToggle } from "@/components/ui/eye-toggle";
 import Pagination from "@/components/ui/Pagination";
 
 // Ano atual no fuso de SP (não do navegador).
@@ -1814,7 +1813,6 @@ function AuditoriaPageContent() {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate flex items-center gap-2">
               Auditoria do Portal
             </h1>
-            <EyeToggle />
           </div>
         </div>
         <div className="flex items-center gap-2 justify-end shrink-0">

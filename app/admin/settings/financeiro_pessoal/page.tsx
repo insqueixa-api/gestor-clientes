@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
-import { EyeToggle } from "@/components/ui/eye-toggle";
 import ToastNotifications, { ToastMessage } from "@/hooks/ToastNotifications";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
@@ -939,7 +938,6 @@ function FinanceiroPageContent() {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Controle Financeiro
             </h1>
-            <EyeToggle />
           </div>
         </div>
 

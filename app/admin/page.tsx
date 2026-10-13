@@ -4,7 +4,6 @@ import { SimpleBarChart } from "@/components/charts/simplebarchart";
 import { RankingCard } from "@/components/charts/ranking-card";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { EyeToggle } from "@/components/ui/eye-toggle";
 import { DashboardFilter } from "./dashboard-filter";
 import EvolucaoFinanceira from "@/components/charts/evolucao-chart";
 import { toBRDateStr } from "@/lib/date-br";
@@ -775,7 +774,6 @@ export default async function AdminDashboardPage({
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight truncate">
               Dashboard
             </h1>
-            <EyeToggle />
           </div>
           <div className="flex items-center gap-3 mt-1">
             <p className="text-sm font-medium text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md">
