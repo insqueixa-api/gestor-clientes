@@ -11,7 +11,7 @@
 // Ainda NÃO tem pagamento: "Comprar créditos" abre o WhatsApp do suporte com
 // o pedido pronto (PIX automático é a próxima etapa do plano).
 // Aplicativos dos clientes da revenda: próxima fase (docs/revenda-portal/PLANO.md).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Eye, EyeOff } from "lucide-react";
 import AppsSection from "./AppsSection";
 import PaymentModal from "./PaymentModal";
@@ -120,6 +120,26 @@ function RevendaPortal() {
   const [data, setData] = useState<Home | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "expired" | "error">("loading");
   const [section, setSection] = useState<Section>("menu");
+  // ✅ 13/10/2026, pedido do Márcio: entrar numa seção vira uma entrada do
+  // histórico — o voltar do navegador/celular volta pro menu (antes saía do
+  // portal) e a seta da tela faz a mesma coisa.
+  const sectionRef = useRef<Section>("menu");
+  sectionRef.current = section;
+  function openSection(next: Exclude<Section, "menu">) {
+    setSection(next);
+    window.history.pushState({ portal: "section" }, "");
+    window.scrollTo({ top: 0 });
+  }
+  useEffect(() => {
+    const onPop = () => {
+      if (sectionRef.current !== "menu") {
+        setSection("menu");
+        window.scrollTo({ top: 0 });
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const [serverId, setServerId] = useState<string>("");
   const [qty, setQty] = useState<number>(0);
   const [syncing, setSyncing] = useState(false);
@@ -331,7 +351,7 @@ function RevendaPortal() {
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {section !== "menu" && (
             <button
-              onClick={() => setSection("menu")}
+              onClick={() => window.history.back()}
               className="w-8 h-8 flex items-center justify-center bg-card/10 hover:bg-card/20 rounded-lg text-white transition-colors shrink-0"
               title="Voltar"
             >
@@ -384,7 +404,7 @@ function RevendaPortal() {
           </div>
           <div className="flex-1 min-h-0 flex flex-col gap-2.5 px-3 pb-3 sm:flex-none sm:grid sm:grid-cols-2 sm:gap-6 sm:px-0 sm:pb-0">
             <button
-              onClick={() => setSection("payment")}
+              onClick={() => openSection("payment")}
               className="flex-1 min-h-0 sm:flex-none sm:min-h-[240px] w-full text-left rounded-2xl p-4 sm:p-7 border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group overflow-hidden"
             >
               <div className="h-full flex flex-col items-center justify-center text-center gap-2.5 sm:items-start sm:justify-start sm:text-left sm:gap-3">
@@ -403,7 +423,7 @@ function RevendaPortal() {
             </button>
 
             <button
-              onClick={() => setSection("apps")}
+              onClick={() => openSection("apps")}
               className="flex-1 min-h-0 sm:flex-none sm:min-h-[240px] w-full text-left rounded-2xl p-4 sm:p-7 border-2 border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent hover:border-amber-500/60 hover:shadow-md transition-all shadow-sm group overflow-hidden"
             >
               <div className="h-full flex flex-col items-center justify-center text-center gap-2.5 sm:items-start sm:justify-start sm:text-left sm:gap-3">

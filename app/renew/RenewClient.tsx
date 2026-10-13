@@ -2109,26 +2109,43 @@ export default function RenewClient() {
   }
 
   // ========= HANDLERS =========
+  // ✅ 13/10/2026, pedido do Márcio: cada passo vira uma entrada do histórico
+  // do navegador — seletor de contas → menu (Pagamento | Aplicativos) →
+  // seção. O voltar do navegador/celular e a seta da tela fazem a MESMA
+  // coisa: da seção volta pro menu; do menu volta pro seletor. Antes só a
+  // conta entrava no histórico (voltar pulava pro seletor) e a seção ficava
+  // guardada (escolher a conta de novo já caía nela, sem passar pelo menu).
+  const navRef = useRef({ section: activeSection, selected: selectedAccountId, many: accounts.length > 1 });
+  navRef.current = { section: activeSection, selected: selectedAccountId, many: accounts.length > 1 };
+
   const handleSelectAccount = (accountId: string) => {
     setSelectedAccountId(accountId);
+    setActiveSection("menu"); // conta escolhida sempre abre no menu
+    window.history.pushState({ portal: "account" }, "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // ✅ NOVO: interceptar botão voltar do celular
+  function openSection(section: "payment" | "apps") {
+    setActiveSection(section);
+    window.history.pushState({ portal: "section" }, "");
+    window.scrollTo({ top: 0 });
+  }
+
+  // seta "voltar" da tela = voltar do navegador (mantém o histórico certo)
+  function goBack() {
+    window.history.back();
+  }
+
   useEffect(() => {
-    if (!selectedAccountId) return;
-
-    // Adiciona estado no histórico
-    window.history.pushState({ page: "account" }, "");
-
-    const handlePopState = () => {
-      setSelectedAccountId(null);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    const onPop = () => {
+      const n = navRef.current;
+      if (n.section !== "menu") setActiveSection("menu");
+      else if (n.selected && n.many) setSelectedAccountId(null);
+      window.scrollTo({ top: 0 });
     };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [selectedAccountId]);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // ✅ Prévia (nunca autoritativa) — o create-payment recalcula tudo de
   // novo do zero na hora de pagar, nunca confia no que essa chamada
@@ -5051,7 +5068,7 @@ export default function RenewClient() {
     return (
       <div className="h-dvh overflow-hidden sm:h-auto sm:min-h-screen sm:overflow-visible bg-background flex flex-col">
         {renderTopBar(
-          accounts.length > 1 ? () => setSelectedAccountId(null) : null,
+          accounts.length > 1 ? goBack : null,
         )}
 
         {/* ✅ 11/09/2026, pedido do Márcio: no celular os 2 blocos viravam 2
@@ -5083,7 +5100,7 @@ export default function RenewClient() {
           <div className="flex-1 min-h-0 flex flex-col gap-2.5 px-3 pb-3 sm:flex-none sm:grid sm:grid-cols-2 sm:gap-6 sm:px-0 sm:pb-0">
             {/* Bloco 1 — Pagamentos e Renovação */}
             <button
-              onClick={() => setActiveSection("payment")}
+              onClick={() => openSection("payment")}
               className="flex-1 min-h-0 sm:flex-none sm:min-h-[240px] w-full text-left rounded-2xl p-4 sm:p-7 border-2 border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent hover:border-emerald-500/60 transition-all shadow-sm hover:shadow-md group overflow-hidden"
             >
               <div className="h-full flex flex-col items-center justify-center text-center gap-2.5 sm:items-start sm:justify-start sm:text-left sm:gap-3">
@@ -5118,7 +5135,7 @@ export default function RenewClient() {
                 o card continua no lugar (layout não muda), só não abre. */}
             <button
               onClick={() => {
-                if (!PORTAL_APPS_DISABLED) setActiveSection("apps");
+                if (!PORTAL_APPS_DISABLED) openSection("apps");
               }}
               disabled={PORTAL_APPS_DISABLED}
               className={`flex-1 min-h-0 sm:flex-none sm:min-h-[240px] w-full text-left rounded-2xl p-4 sm:p-7 border-2 border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent transition-all shadow-sm group overflow-hidden ${
@@ -5163,7 +5180,7 @@ export default function RenewClient() {
     return (
       <div className="min-h-screen bg-background">
         <ToastNotifications toasts={toasts} removeToast={removeToast} />
-        {renderTopBar(() => setActiveSection("menu"), "max-w-6xl")}
+        {renderTopBar(goBack, "max-w-6xl")}
 
         {/* ✅ Mesma largura (max-w-6xl) de todas as outras telas do
             renew agora — antes só essa tinha (pedido do Márcio,
@@ -6246,7 +6263,7 @@ export default function RenewClient() {
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* Botão de Voltar para o Menu */}
             <button
-              onClick={() => setActiveSection("menu")}
+              onClick={goBack}
               className="w-8 h-8 flex items-center justify-center bg-card/10 hover:bg-card/20 rounded-lg text-white transition-colors shrink-0"
               title="Voltar"
             >
