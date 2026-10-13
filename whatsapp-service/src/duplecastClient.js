@@ -83,21 +83,51 @@ async function tryWithCachedPass(url) {
   }
 }
 
+// ✅ 13/10/2026 (Vera pagou 2 aparelhos DupleCast juntos — os 2 falharam):
+// as 2 renovações chegaram ao mesmo tempo, cada uma abriu o SEU desafio do
+// Cloudflare no FlareSolverr em paralelo e nenhuma resolveu (45s → 237s);
+// sozinha resolveu em 15s. Agora é um desafio por vez por site: quem chega
+// durante a resolução ESPERA e reaproveita o mesmo passe (cf_clearance).
+const inflightSolveByHost = new Map(); // host -> Promise
+
 async function solveChallenge(url) {
   const cached = await tryWithCachedPass(url);
   if (cached) return cached;
 
+  const host = new URL(url).host;
+  const inflight = inflightSolveByHost.get(host);
+  if (inflight) {
+    console.log("[DUPLECAST] Cloudflare já sendo resolvido — aguardando o mesmo passe");
+    try {
+      await inflight;
+    } catch (err) {
+      // o desafio de quem chegou primeiro falhou — não abre outro em paralelo
+      // (estouraria o tempo da rota); a próxima tentativa resolve do zero
+      throw new Error(`Cloudflare não resolveu em 45s: ${err?.message}`);
+    }
+    const reused = await tryWithCachedPass(url);
+    if (reused) return reused;
+    // passe veio sem cookie aproveitável — segue resolvendo sozinho abaixo
+  }
+
   const startedAt = Date.now();
-  try {
+  const p = (async () => {
     const solved = await solveChallengeOnce(url, 45000);
     const cfCookies = cloudflareCookiesOnly(solved.cookies);
     if (cfCookies.length && solved.userAgent) {
-      cfPassByHost.set(new URL(url).host, { cookies: cfCookies, userAgent: solved.userAgent, at: Date.now() });
+      cfPassByHost.set(host, { cookies: cfCookies, userAgent: solved.userAgent, at: Date.now() });
     }
+    return solved;
+  })();
+  inflightSolveByHost.set(host, p);
+  try {
+    const solved = await p;
     console.log(`[DUPLECAST] Cloudflare resolvido em ${Math.round((Date.now() - startedAt) / 1000)}s (passe guardado por 20min)`);
     return solved;
   } catch (err) {
     throw new Error(`Cloudflare não resolveu em 45s: ${err?.message}`);
+  } finally {
+    if (inflightSolveByHost.get(host) === p) inflightSolveByHost.delete(host);
   }
 }
 

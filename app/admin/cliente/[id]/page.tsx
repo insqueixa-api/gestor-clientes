@@ -308,7 +308,11 @@ function appTimelineItems(
     }
     const parts: string[] = [];
     if (d.lista) parts.push(`lista ${d.lista === "secundaria" ? "secundária" : d.lista}`);
+    // situação da licença no momento do registro (desde 13/10/2026)
     if (d.expireDate) parts.push(`vencimento ${br(d.expireDate)}`);
+    else if (d.license === "valid" && d.validity) parts.push(`validade ${br(d.validity)}`);
+    else if (d.license === "trial") parts.push("Modo de avaliação");
+    else if (d.license === "expired") parts.push("Expirado");
     if (d.error) parts.push(String(d.error));
     return {
       id: l.id,
@@ -2247,15 +2251,19 @@ export default function ClientDetailsPage() {
                     </div>
                     </div>
                     <div className="flex items-start gap-2 shrink-0">
-                      <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm">
+                      {/* ✅ 13/10/2026: data com largura fixa (números do mesmo tamanho) */}
+                      <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm tabular-nums whitespace-nowrap">
                         {fmtDate(item.created_at)}
                       </div>
-                      {/* pagamento de app é histórico de dinheiro — apaga só pelo Log do Portal */}
+                      {/* pagamento de app é histórico de dinheiro — apaga só pelo
+                          Log do Portal; fica um espaço do mesmo tamanho pra a
+                          data alinhar com os outros itens */}
+                      {item.source === "app_payment" && <span className="w-7 h-7 shrink-0" aria-hidden />}
                       {item.source !== "app_payment" && (
                       <button
                         onClick={() => handleDeleteEvent(item)}
                         disabled={deletingEventId === item.id}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-rose-500/20 text-rose-500/80 hover:text-rose-500 disabled:opacity-30"
+                        className="w-7 h-7 shrink-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg hover:bg-rose-500/20 text-rose-500/80 hover:text-rose-500 disabled:opacity-30"
                         title="Apagar evento"
                       >
                         {deletingEventId === item.id ? (

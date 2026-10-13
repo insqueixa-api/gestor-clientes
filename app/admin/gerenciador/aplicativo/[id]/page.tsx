@@ -530,9 +530,9 @@ export default function AppDetailPage() {
                 <CopyField key={f.label} label={f.label} value={f.value} mono={f.type === "mac" || f.type === "device_key"} />
               ))}
             </div>,
-            a.expiration || a.trial_hint ? (
+            a.expiration || a.trial_hint || a.expired_hint ? (
               <div key="v" className="flex flex-col items-start gap-0.5">
-                <ExpiryBadge expiration={a.expiration} trial={a.trial_hint} today={today} />
+                <ExpiryBadge expiration={a.expiration} trial={a.trial_hint} expired={a.expired_hint} today={today} />
                 <span className="text-[10px] text-muted-foreground">{a.expiration_at_time ? "informado na hora" : "atual"}</span>
               </div>
             ) : (

@@ -178,6 +178,20 @@ export async function logAppActivity(
         const mac = extractFieldByType(cfg, vals, "mac"); // salva-vidas: MAC fora do campo certo
         if (mac && !device.some((f) => f.value === mac)) device.unshift({ label: "ID/MAC", type: "mac", value: mac });
         if (device.length) detail = { ...(detail || {}), device };
+        // ✅ 13/10/2026, pedido do Márcio: a situação da licença NAQUELE momento
+        // (validade, modo de avaliação ou expirado) — antes só configurar com
+        // data guardava algo; trial/expirado ficava em branco no histórico.
+        const dateField = findFieldByType(cfg, "date");
+        const validity = dateField ? String(vals[String(dateField.id || "")] ?? vals[String(dateField.label || "")] ?? "").slice(0, 10) : "";
+        const license =
+          vals._trial_hint === "1" ? "trial" : vals._expired_hint === "1" ? "expired" : /^\d{4}-\d{2}-\d{2}$/.test(validity) ? "valid" : null;
+        if (license) {
+          detail = {
+            ...(detail || {}),
+            license,
+            ...(license === "valid" && !(detail as any)?.expireDate ? { validity } : {}),
+          };
+        }
       }
     }
     await supabaseAdmin.from("client_app_activity_log").insert({

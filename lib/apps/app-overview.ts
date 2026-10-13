@@ -224,7 +224,9 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
     activity: (activity || [])
       .map((a: any) => {
       const d = a.detail || {};
-      const atTime = d.expireDate ? String(d.expireDate).slice(0, 10) : null;
+      // vencimento informado na hora (configurar/verificar) ou a validade
+      // guardada no registro (desde 13/10/2026: detail.validity / license)
+      const atTime = d.expireDate ? String(d.expireDate).slice(0, 10) : d.license === "valid" && d.validity ? String(d.validity).slice(0, 10) : null;
       let u: any = a.client_app_id ? userByLink.get(a.client_app_id) : null;
       if (!u && a.client_id) {
         const same = users.filter((x) => x.client_id === a.client_id);
@@ -244,9 +246,11 @@ export async function buildAppOverview(sb: SupabaseClient, tenantId: string, id:
         client_name: knownNames.get(a.client_id) || "—",
         fields: snap.length ? snap : u?.fields || [],
         installed: !!u,
-        expiration: atTime || u?.expiration || null,
-        expiration_at_time: !!atTime,
-        trial_hint: atTime ? false : d.isTrial === true || !!u?.trial_hint,
+        expiration: atTime || (d.license ? null : u?.expiration || null),
+        expiration_at_time: !!atTime || !!d.license,
+        trial_hint: atTime ? false : d.license ? d.license === "trial" : d.isTrial === true || !!u?.trial_hint,
+        // expirado no momento do registro (desde 13/10/2026)
+        expired_hint: !atTime && d.license === "expired",
         device_guess: !snap.length && !a.client_app_id && !!u,
       };
     })
