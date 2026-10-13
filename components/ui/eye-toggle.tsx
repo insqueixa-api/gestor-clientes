@@ -1,19 +1,14 @@
 "use client";
 // components/ui/eye-toggle.tsx
+// ✅ 13/10/2026: era um "ocultar" só desta página (voltava a mostrar ao
+// trocar de tela). Agora liga/desliga o MODO OCULTO UNIVERSAL do admin
+// (hooks/usePrivacyMode.tsx) — o CSS global borra .sv / .finance-value /
+// .sensitive em qualquer página enquanto estiver ligado.
 import { EyeOff } from "lucide-react";
-
-import { useState } from "react";
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 
 export function EyeToggle() {
-  const [hidden, setHidden] = useState(false);
-
-  function toggle() {
-    const next = !hidden;
-    setHidden(next);
-    document
-      .getElementById("dashboard-values")
-      ?.setAttribute("data-values-hidden", next ? "true" : "false");
-  }
+  const { valuesHidden: hidden, toggle } = usePrivacyMode();
 
   return (
     <button

@@ -1,5 +1,6 @@
 ﻿"use client";
 // app/admin/agenda/page.tsx
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 import {
   Loader2,
   X,
@@ -107,7 +108,8 @@ function AgendaPageContent() {
 
   // 👇 Ativando o nosso confirm customizado
   const { confirm, ConfirmUI } = useConfirm();
-  const [valuesHidden, setValuesHidden] = useState(false);
+  // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
+  const { valuesHidden, setValuesHidden } = usePrivacyMode();
 
   const [rows, setRows] = useState<GoogleContact[]>([]);
   const [loading, setLoading] = useState(true);

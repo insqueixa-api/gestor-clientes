@@ -1,5 +1,6 @@
 "use client";
 // app/admin/gerenciador/servidor/[id]/page.tsx
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 import { Loader2, CreditCard, EyeOff, Eye } from "lucide-react";
 
 import { useEffect, useState, useMemo } from "react";
@@ -76,7 +77,8 @@ export default function ServerDetailsPage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const { confirm, ConfirmUI } = useConfirm();
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [valuesHidden, setValuesHidden] = useState(false);
+  // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
+  const { valuesHidden, setValuesHidden } = usePrivacyMode();
 
   async function handleDeleteMovement(m: MovementRow) {
     const ok = await confirm({

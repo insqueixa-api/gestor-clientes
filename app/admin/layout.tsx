@@ -6,6 +6,7 @@ import { getAdminTenantContext } from "@/lib/api/auth-server";
 import AdminShell from "./AdminShell";
 import { ConfirmProvider } from "@/hooks/useConfirm";
 import { PromptProvider } from "@/hooks/usePrompt";
+import { PrivacyProvider } from "@/hooks/usePrivacyMode";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +35,19 @@ export default async function AdminLayout({
   return (
     <ConfirmProvider>
       <PromptProvider>
-        <AdminShell userLabel={userLabel} tenantId={ctx.tenantId}>
-          {children}
-        </AdminShell>
+        {/* ✅ 13/10/2026: modo oculto universal (hooks/usePrivacyMode.tsx).
+            O script aplica a escolha salva ANTES da tela desenhar — sem
+            isso, ao abrir/recarregar, os valores apareciam por um instante. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{document.documentElement.dataset.privacy=localStorage.getItem("ug_privacy_mode")==="1"?"on":"off"}catch(e){}`,
+          }}
+        />
+        <PrivacyProvider>
+          <AdminShell userLabel={userLabel} tenantId={ctx.tenantId}>
+            {children}
+          </AdminShell>
+        </PrivacyProvider>
       </PromptProvider>
     </ConfirmProvider>
   );

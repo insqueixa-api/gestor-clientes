@@ -39,7 +39,10 @@ import {
   Tag,
   Building2,
   ChevronDown,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 import { BRAND_LOGO_MOBILE_URL, BRAND_LOGO_URL } from "@/lib/brand";
 
 const PAGE_NAMES: Record<string, string> = {
@@ -171,6 +174,8 @@ export default function AdminShell({
   const [openMenu, setOpenMenu] = useState<
     null | "manager" | "settings" | "mobile"
   >(null);
+  // ✅ 13/10/2026: modo oculto universal (olho fixo ao lado do sino)
+  const { valuesHidden, toggle: togglePrivacy } = usePrivacyMode();
   const [notifications, setNotifications] = useState<Notification[]>([]); // ✅ vem direto da tabela notifications
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   // ✅ 05/10/2026, pedido do Márcio: botão "Fila WhatsApp" no sino abre o
@@ -473,6 +478,21 @@ export default function AdminShell({
                 </div>
               )}
             </div>
+
+            {/* ✅ 13/10/2026: modo oculto — vale pra todas as páginas e fica
+                lembrado no navegador até desligar */}
+            <button
+              onClick={togglePrivacy}
+              className={[
+                "flex items-center justify-center w-8 h-8 rounded-full border shadow-sm transition-colors",
+                valuesHidden
+                  ? "bg-amber-500 border-amber-400 text-black hover:bg-amber-400"
+                  : "bg-white/5 border-white/10 hover:bg-white/10 text-white/90",
+              ].join(" ")}
+              title={valuesHidden ? "Modo oculto LIGADO — clique pra mostrar os valores" : "Ocultar valores (vale pra todas as páginas)"}
+            >
+              {valuesHidden ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
 
           <div className="flex-1" />

@@ -147,3 +147,20 @@ select option:hover {
 svg.lucide {
   filter: saturate(1.2) brightness(1.1);
 }
+
+/* ✅ 13/10/2026: modo oculto universal do admin (hooks/usePrivacyMode.tsx).
+   Elemento com class="sensitive" fica borrado enquanto o modo está ligado. */
+.sensitive {
+  transition: filter 0.2s ease;
+}
+html[data-privacy="on"] .sensitive,
+html[data-privacy="on"] .sv,
+html[data-privacy="on"] .finance-value {
+  filter: blur(8px);
+  opacity: 0.6;
+  user-select: none;
+}
+.sv,
+.finance-value {
+  transition: filter 0.25s ease, opacity 0.25s ease;
+}

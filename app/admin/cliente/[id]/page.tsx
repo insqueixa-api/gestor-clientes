@@ -1,5 +1,6 @@
 "use client";
 // app/admin/cliente/[id]/page.tsx
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 import {
   Loader2,
   CreditCard,
@@ -426,7 +427,8 @@ export default function ClientDetailsPage() {
   const clientId = Array.isArray(clientIdRaw) ? clientIdRaw[0] : clientIdRaw;
   const clientIdSafe = (clientId ?? "").trim();
 
-  const [valuesHidden, setValuesHidden] = useState(false);
+  // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
+  const { valuesHidden, setValuesHidden } = usePrivacyMode();
   const [expandedAppIcon, setExpandedAppIcon] = useState<{
     url: string;
     name: string;

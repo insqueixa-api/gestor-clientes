@@ -298,11 +298,13 @@ export default function AppDetailPage() {
         />
         <Kpi
           label="Pagamentos recebidos"
+          sensitive
           value={String(stats.payments_count)}
           hint={revenue.length ? revenue.map(([c, v]) => brl(v, c)).join(" · ") : "nenhum ainda"}
         />
         <Kpi
           label="Lucro estimado"
+          sensitive
           value={stats.estimated_profit_brl != null ? brl(stats.estimated_profit_brl) : "--"}
           hint={stats.has_foreign_currency && stats.fx_as_of
             ? `pagamentos (EUR/USD em R$ pela cotação de ${fmtDate(stats.fx_as_of)}) − custo de cada ativação`
@@ -313,7 +315,7 @@ export default function AppDetailPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Preço e margem */}
-        <Card title="💰 Preço e margem">
+        <Card title="💰 Preço e margem" bodyClass="sensitive">
           <Row label="Preço de venda" value={app.license_price != null ? `${brl(app.license_price)} / ${PERIOD[app.license_period] || app.license_period || "--"}` : app.cost_type === "free" ? "Gratuito" : "--"} />
           <Row label="Custo por ativação" value={stats.cost_per_activation != null ? brl(stats.cost_per_activation) : "--"} sub={stats.cost_source} />
           <Row
@@ -467,13 +469,13 @@ export default function AppDetailPage() {
             <Link key="c" href={`/admin/cliente/${p.client_id}`} prefetch={false} className="text-sm font-medium text-foreground hover:text-emerald-500 hover:underline">
               {p.client_name}
             </Link>,
-            <div key="v" className="flex flex-col text-xs">
+            <div key="v" className="flex flex-col text-xs sensitive">
               <span className={`font-semibold ${p.counted ? "text-foreground" : "text-muted-foreground line-through"}`}>{brl(p.amount, p.currency)}</span>
               {p.currency !== "BRL" && p.amount_brl != null && <span className="text-[10px] text-muted-foreground">≈ {brl(p.amount_brl)}</span>}
               {p.coupon_code && <span className="text-[10px] text-muted-foreground">cupom {p.coupon_code} (−{brl(p.discount, p.currency)})</span>}
               {!p.counted && <span className="text-[10px] text-rose-500">não contabilizado ({p.fulfillment_status || p.status})</span>}
             </div>,
-            <div key="m" className="flex flex-col text-xs">
+            <div key="m" className="flex flex-col text-xs sensitive">
               <span className="text-muted-foreground">{p.margin != null ? `− ${brl(stats.cost_per_activation)}` : "--"}</span>
               {p.margin != null && (
                 <span className={`font-semibold ${p.margin >= 0 ? "text-emerald-600" : "text-rose-500"}`}>{p.currency !== "BRL" ? "≈ " : ""}{brl(p.margin)}</span>
@@ -495,7 +497,7 @@ export default function AppDetailPage() {
             rows={paged(trust_activations, pageOf("trust")).map((a: any) => [
               <span key="d" className="text-xs text-foreground/90">{fmtDate(a.activation_date || a.created_at)}</span>,
               <ClientCell key="c" id={a.client_id} name={a.client_name} username={a.server_username} server={a.server_name} />,
-              <div key="v" className="flex flex-col text-xs">
+              <div key="v" className="flex flex-col text-xs sensitive">
                 <span className="font-semibold text-foreground">{brl(Number(a.amount || 0), a.currency || "BRL")}</span>
                 {a.meta?.coupon_code && <span className="text-[10px] text-muted-foreground">cupom {a.meta.coupon_code}</span>}
               </div>,
@@ -718,25 +720,49 @@ function Badge({ tone, children }: { tone: "emerald" | "rose" | "amber" | "muted
   return <span className={`inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded-full border ${c}`}>{children}</span>;
 }
 
-function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "emerald" | "amber" | "rose" }) {
+function Kpi({
+  label,
+  value,
+  hint,
+  tone,
+  sensitive,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "emerald" | "amber" | "rose";
+  sensitive?: boolean; // ✅ 13/10/2026: borra no modo oculto
+}) {
   const color = tone === "emerald" ? "text-emerald-600" : tone === "amber" ? "text-amber-600" : tone === "rose" ? "text-rose-500" : "text-foreground";
   return (
     <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-sm">
       <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-lg sm:text-xl font-bold ${color}`}>{value}</p>
-      {hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}
+      <p className={`mt-1 text-lg sm:text-xl font-bold ${color} ${sensitive ? "sensitive" : ""}`}>{value}</p>
+      {hint && <p className={`text-[11px] text-muted-foreground mt-0.5 ${sensitive ? "sensitive" : ""}`}>{hint}</p>}
     </div>
   );
 }
 
-function Card({ title, right, children, noPad }: { title: string; right?: React.ReactNode; children: React.ReactNode; noPad?: boolean }) {
+function Card({
+  title,
+  right,
+  children,
+  noPad,
+  bodyClass = "",
+}: {
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  noPad?: boolean;
+  bodyClass?: string;
+}) {
   return (
     <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-2 flex-wrap">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
         {right}
       </div>
-      <div className={noPad ? "" : "p-4 space-y-2 text-sm"}>{children}</div>
+      <div className={`${noPad ? "" : "p-4 space-y-2 text-sm"} ${bodyClass}`}>{children}</div>
     </div>
   );
 }

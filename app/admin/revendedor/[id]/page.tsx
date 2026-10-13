@@ -1,5 +1,6 @@
 "use client";
 // app/admin/revendedor/[id]/page.tsx
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 import { Loader2, Pencil, RefreshCcw, EyeOff, Eye, Trash2 } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -194,7 +195,8 @@ export default function ResellerDetailPage() {
 
   // ✅ 2. Inicializar o Hook de Confirmação
   const { confirm, ConfirmUI } = useConfirm();
-  const [valuesHidden, setValuesHidden] = useState(false);
+  // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
+  const { valuesHidden, setValuesHidden } = usePrivacyMode();
 
   // Estados de Dados
   const [loading, setLoading] = useState(true);

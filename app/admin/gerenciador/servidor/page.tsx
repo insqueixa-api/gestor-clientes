@@ -1,5 +1,6 @@
 "use client";
 // app/admin/gerenciador/servidor/page.tsx
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 import {
   CreditCard,
   Pencil,
@@ -83,7 +84,8 @@ export default function AdminServersPage() {
 
   // ✅ Seu hook (pelo erro) é o formato "confirm simples"
   const { confirm, ConfirmUI } = useConfirm();
-  const [valuesHidden, setValuesHidden] = useState(false);
+  // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
+  const { valuesHidden, setValuesHidden } = usePrivacyMode();
 
   const [syncingServerId, setSyncingServerId] = useState<string | null>(null);
 

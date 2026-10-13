@@ -1,5 +1,6 @@
 ﻿"use client";
 // app/admin/revendedor/page.tsx
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 import {
   X,
   ChevronUp,
@@ -170,7 +171,8 @@ export default function RevendaPage() {
 
   // ✅ HOOK DE CONFIRMAÇÃO
   const { confirm, ConfirmUI } = useConfirm();
-  const [valuesHidden, setValuesHidden] = useState(false);
+  // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
+  const { valuesHidden, setValuesHidden } = usePrivacyMode();
 
   // Filtros
   const [search, setSearch] = useState("");

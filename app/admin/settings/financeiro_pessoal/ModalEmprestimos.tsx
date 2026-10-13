@@ -300,7 +300,7 @@ export default function ModalEmprestimos({
                 : `${selecionado.nome} te deve`}
             </div>
             <div
-              className={`text-2xl font-bold tabular-nums ${saldo === 0 ? "text-foreground/80" : saldo < 0 ? "text-emerald-500" : peguei ? "text-rose-500" : "text-amber-500"}`}
+              className={`sensitive text-2xl font-bold tabular-nums ${saldo === 0 ? "text-foreground/80" : saldo < 0 ? "text-emerald-500" : peguei ? "text-rose-500" : "text-amber-500"}`}
             >
               {fmtBRL(Math.abs(saldo))}
             </div>
@@ -319,7 +319,7 @@ export default function ModalEmprestimos({
             {programadas.length > 0 && (
               <div className="text-[11px] text-muted-foreground mt-1.5">
                 {peguei ? "Programado pra pagar" : "Programado pra receber"}:{" "}
-                <span className="font-medium text-foreground/80">
+                <span className="sensitive font-medium text-foreground/80">
                   {fmtBRL(totalProgramado)}
                 </span>{" "}
                 em {programadas.length}{" "}
@@ -427,7 +427,7 @@ export default function ModalEmprestimos({
                         )}
                       </div>
                       <span
-                        className={`text-sm font-medium shrink-0 ml-3 ${h.tipo === "DESPESA" ? "text-rose-500" : "text-emerald-500"} ${h.status !== "PAGO" ? "opacity-60" : ""}`}
+                        className={`sensitive text-sm font-medium shrink-0 ml-3 ${h.tipo === "DESPESA" ? "text-rose-500" : "text-emerald-500"} ${h.status !== "PAGO" ? "opacity-60" : ""}`}
                       >
                         {h.tipo === "DESPESA" ? "-" : "+"} {fmtBRL(h.valor)}
                       </span>
@@ -455,7 +455,7 @@ export default function ModalEmprestimos({
                 <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                   A receber (te devem)
                 </div>
-                <div className="text-lg font-bold text-amber-500 tabular-nums">
+                <div className="sensitive text-lg font-bold text-amber-500 tabular-nums">
                   {fmtBRL(totalAReceber)}
                 </div>
               </div>
@@ -465,7 +465,7 @@ export default function ModalEmprestimos({
                 <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                   A pagar (você deve)
                 </div>
-                <div className="text-lg font-bold text-rose-500 tabular-nums">
+                <div className="sensitive text-lg font-bold text-rose-500 tabular-nums">
                   {fmtBRL(totalAPagar)}
                 </div>
               </div>
@@ -576,7 +576,7 @@ export default function ModalEmprestimos({
                     </div>
                   </div>
                   <span
-                    className={`text-sm font-bold tabular-nums shrink-0 ml-3 ${saldo === 0 ? "text-muted-foreground" : saldo < 0 ? "text-emerald-500" : peguei ? "text-rose-500" : "text-amber-500"}`}
+                    className={`sensitive text-sm font-bold tabular-nums shrink-0 ml-3 ${saldo === 0 ? "text-muted-foreground" : saldo < 0 ? "text-emerald-500" : peguei ? "text-rose-500" : "text-amber-500"}`}
                   >
                     {fmtBRL(Math.abs(saldo))}
                   </span>

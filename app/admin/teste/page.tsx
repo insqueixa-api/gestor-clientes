@@ -1,5 +1,6 @@
 "use client";
 // app/admin/teste/page.tsx
+import { usePrivacyMode } from "@/hooks/usePrivacyMode";
 import {
   Loader2,
   X,
@@ -400,7 +401,8 @@ export default function TrialsPage() {
   const [trialToEdit, setTrialToEdit] = useState<ClientData | null>(null);
   const { confirm, ConfirmUI } = useConfirm(); // ✅ Hook adicionado
   const [showPapaTestes, setShowPapaTestes] = useState(false);
-  const [valuesHidden, setValuesHidden] = useState(false);
+  // ✅ 13/10/2026: modo oculto universal (vale pra todas as páginas, lembrado no navegador)
+  const { valuesHidden, setValuesHidden } = usePrivacyMode();
 
   // ✅ Controle de qual aba abrir no modal de edição
   type EditTab = "dados" | "pagamento" | "apps";
