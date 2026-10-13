@@ -518,9 +518,15 @@ export default function ClientDetailsPage() {
     const ok = await confirm({
       tone: "rose",
       title: "Apagar registro?",
-      subtitle: "Este evento será removido da linha do tempo permanentemente.",
+      // ✅ 13/10/2026: renovação de app É o próprio pagamento — apagar tira
+      // também do Log do Portal (pedido do Márcio: mesmo comportamento das
+      // renovações de servidor, pra limpar testes)
+      subtitle:
+        item.source === "app_payment"
+          ? "Este pagamento de aplicativo será apagado — some da linha do tempo e também do Log do Portal. Não mexe no app do cliente."
+          : "Este evento será removido da linha do tempo permanentemente.",
       details: [
-        `Tipo: ${item.meta?.label ?? EVENT_LABELS[item.event_type] ?? item.event_type}`,
+        `Tipo: ${item.meta?.label ?? EVENT_LABELS[item.event_type] ?? item.event_type}${item.meta?.app_name && item.source !== "event" ? ` · ${item.meta.app_name}` : ""}`,
         `Data: ${fmtDate(item.created_at)}`,
         item.message ? `Msg: ${item.message.slice(0, 60)}` : "",
       ].filter(Boolean),
@@ -535,14 +541,26 @@ export default function ClientDetailsPage() {
       const tid = tenantId;
       if (!tid) throw new Error("Tenant não encontrado");
 
-      // histórico de apps mora em outra tabela (a lixeira apaga lá também)
-      const { error } = await supabaseBrowser
-        .from(item.source === "app_log" ? "client_app_activity_log" : "client_events")
-        .delete()
-        .eq("id", item.id)
-        .eq("tenant_id", tid);
+      if (item.source === "app_payment") {
+        // mesma rota da lixeira do Log do Portal
+        const { data: sess } = await supabaseBrowser.auth.getSession();
+        const res = await fetch("/api/admin/payments/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session?.access_token}` },
+          body: JSON.stringify({ payment_id: item.id }),
+        });
+        const j = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(j?.error || "Falha ao apagar.");
+      } else {
+        // histórico de apps mora em outra tabela (a lixeira apaga lá também)
+        const { error } = await supabaseBrowser
+          .from(item.source === "app_log" ? "client_app_activity_log" : "client_events")
+          .delete()
+          .eq("id", item.id)
+          .eq("tenant_id", tid);
 
-      if (error) throw error;
+        if (error) throw error;
+      }
 
       setTimeline((prev) => prev.filter((e) => e.id !== item.id));
       addToast(
@@ -2255,11 +2273,8 @@ export default function ClientDetailsPage() {
                       <div className="text-[10px] font-medium text-muted-foreground/60 bg-card px-2 py-1 rounded-md shadow-sm tabular-nums whitespace-nowrap">
                         {fmtDate(item.created_at)}
                       </div>
-                      {/* pagamento de app é histórico de dinheiro — apaga só pelo
-                          Log do Portal; fica um espaço do mesmo tamanho pra a
-                          data alinhar com os outros itens */}
-                      {item.source === "app_payment" && <span className="w-7 h-7 shrink-0" aria-hidden />}
-                      {item.source !== "app_payment" && (
+                      {/* ✅ 13/10/2026: lixeira em todos os itens (mesmo comportamento) */}
+                      {(
                       <button
                         onClick={() => handleDeleteEvent(item)}
                         disabled={deletingEventId === item.id}
