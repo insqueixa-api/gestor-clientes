@@ -63,7 +63,7 @@ export default function ModalBaixa({
 
   // Conta
   const [contaSelecionada, setContaSelecionada] = useState(
-    transacao.conta_id || (contasDB[0]?.id ?? ""),
+    transacao.conta_id || "", // ✅ 13/10/2026: conta saiu da tela — mantém a que já tinha
   );
 
   // Escopo (só aparece se valor mudar)
@@ -211,7 +211,7 @@ export default function ModalBaixa({
   const [rawCentsAntecipar, setRawCentsAntecipar] = useState(0);
   const [valorAntecTocado, setValorAntecTocado] = useState(false);
   const [contaAntecipar, setContaAntecipar] = useState(
-    transacao.conta_id || (contasDB[0]?.id ?? ""),
+    transacao.conta_id || "", // ✅ 13/10/2026: conta saiu da tela — mantém a que já tinha
   );
   const [dataAntecipar, setDataAntecipar] = useState(initDateIso);
   const [salvandoAntecipar, setSalvandoAntecipar] = useState(false);
@@ -577,23 +577,6 @@ export default function ModalBaixa({
                 />
               </div>
 
-              <div>
-                <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-                  Conta / Carteira
-                </label>
-                <select
-                  value={contaAntecipar}
-                  onChange={(e) => setContaAntecipar(e.target.value)}
-                  className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-                >
-                  <option value="">Sem conta</option>
-                  {contasDB.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.icone} {c.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </>
           )}
 
@@ -716,25 +699,6 @@ export default function ModalBaixa({
               />
             </div>
           )}
-
-          {/* Conta */}
-          <div>
-            <label className="block text-[10px] font-medium text-muted-foreground mb-1.5 uppercase tracking-wider">
-              Conta / Carteira
-            </label>
-            <select
-              value={contaSelecionada}
-              onChange={(e) => setContaSelecionada(e.target.value)}
-              className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50"
-            >
-              <option value="">Sem conta</option>
-              {contasDB.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.icone} {c.nome}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* Botões */}
           <div className="flex gap-2 pt-1">

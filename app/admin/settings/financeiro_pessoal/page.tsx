@@ -1185,20 +1185,6 @@ function FinanceiroPageContent() {
 
         {mobileFiltersOpen && (
           <div className="md:hidden grid grid-cols-3 gap-1.5 pb-2 animate-in fade-in slide-in-from-top-1 duration-200">
-            {finUseful("conta", contaFilter) && (
-            <select
-              value={contaFilter}
-              onChange={(e) => setContaFilter(e.target.value)}
-              className="w-full h-9 px-1 bg-transparent border border-border rounded-lg text-[11px] font-medium outline-none text-foreground/90 truncate"
-            >
-              <option value="Todos">Conta</option>
-              {contasDB.filter((c) => finOk("conta", c.id, contaFilter)).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-            )}
             {finUseful("categoria", categoriaFilter) && (
             <select
               value={categoriaFilter}
@@ -1284,20 +1270,6 @@ function FinanceiroPageContent() {
             <option value="Todos">Tipo</option>
             {finOk("tipo", "RECEITA", tipoFilter) && <option value="RECEITA">Receitas</option>}
             {finOk("tipo", "DESPESA", tipoFilter) && <option value="DESPESA">Despesas</option>}
-          </select>
-          )}
-          {finUseful("conta", contaFilter) && (
-          <select
-            value={contaFilter}
-            onChange={(e) => setContaFilter(e.target.value)}
-            className="w-[140px] h-10 px-3 bg-transparent border border-border rounded-lg text-sm outline-none focus:border-emerald-500/50 text-foreground/90 truncate"
-          >
-            <option value="Todos">Conta</option>
-            {contasDB.filter((c) => finOk("conta", c.id, contaFilter)).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
           </select>
           )}
           {finUseful("categoria", categoriaFilter) && (
@@ -1404,17 +1376,6 @@ function FinanceiroPageContent() {
               </th>
               <th
                 className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 transition-colors"
-                onClick={() => requestSort("conta_nome")}
-              >
-                Conta{" "}
-                {sortConfig?.key === "conta_nome"
-                  ? sortConfig.direction === "asc"
-                    ? "↑"
-                    : "↓"
-                  : "↕"}
-              </th>
-              <th
-                className="px-4 py-3 text-center whitespace-nowrap cursor-pointer hover:text-emerald-500 transition-colors"
                 onClick={() => requestSort("recorrencia_formatada")}
               >
                 Recorrência{" "}
@@ -1442,7 +1403,7 @@ function FinanceiroPageContent() {
             {normais.length === 0 && antecipadas.length === 0 && !loading && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={8}
                   className="p-8 text-center text-muted-foreground italic"
                 >
                   Nenhum lançamento encontrado.
@@ -1452,7 +1413,7 @@ function FinanceiroPageContent() {
             {loading && (
               <tr>
                 <td
-                  colSpan={9}
+                  colSpan={8}
                   className="p-8 text-center text-emerald-500 animate-pulse font-medium"
                 >
                   Carregando dados...
@@ -1538,7 +1499,7 @@ function FinanceiroPageContent() {
                       className="bg-muted border-y border-border border-l-4 border-l-emerald-500"
                     >
                       <td
-                        colSpan={9}
+                        colSpan={8}
                         className="px-4 py-2.5 text-xs font-semibold text-foreground/80 uppercase tracking-wider"
                       >
                         <span className="inline-flex items-center gap-3 flex-wrap">
@@ -1659,12 +1620,6 @@ function FinanceiroPageContent() {
                       <div className="text-xs text-muted-foreground font-normal">
                         {t.categoria_nome || "—"}
                       </div>
-                    </td>
-
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-border bg-muted/40 text-[10px] font-normal tracking-tight shadow-sm text-muted-foreground">
-                        {t.conta_nome || "—"}
-                      </span>
                     </td>
 
                     <td className="px-4 py-3 text-center">
@@ -1792,7 +1747,7 @@ function FinanceiroPageContent() {
                     onClick={() => setShowAntecipadas(!showAntecipadas)}
                     className="bg-sky-500/10 border-y border-sky-500/30 cursor-pointer hover:bg-sky-500/20 transition-colors"
                   >
-                    <td colSpan={9} className="px-4 py-3">
+                    <td colSpan={8} className="px-4 py-3">
                       <div className="flex items-center justify-between text-xs font-medium text-sky-500 uppercase tracking-wider select-none">
                         <span>
                           ⭐ Pagamentos Antecipados ({antecipadas.length})
@@ -2135,7 +2090,7 @@ function ModalTransacao({
     (c) => c.tipo === tipo || c.tipo === "AMBOS",
   );
   const [contaSelecionada, setContaSelecionada] = useState(
-    transacaoEdit?.conta_id || (contas.length > 0 ? contas[0].id : ""),
+    transacaoEdit?.conta_id || "",
   );
   const [categoriaSelecionada, setCategoriaSelecionada] = useState(
     transacaoEdit?.categoria_id ||
@@ -2321,13 +2276,14 @@ function ModalTransacao({
     if (
       !descricao.trim() ||
       valor === "" ||
-      !contaSelecionada ||
       !categoriaSelecionada
     ) {
+      // ✅ 13/10/2026, pedido do Márcio: conta/carteira não é mais obrigatória
+      // (saiu da tela; quem já tinha conta continua com ela no banco)
       addToast(
         "error",
         "Erro",
-        "Preencha todos os campos obrigatórios (Conta e Categoria inclusos)",
+        "Preencha todos os campos obrigatórios (Categoria incluída)",
       );
       return;
     }
@@ -2343,7 +2299,7 @@ function ModalTransacao({
               valor: Number(valor),
               data_vencimento: vencimento,
               status,
-              conta_id: contaSelecionada,
+              conta_id: contaSelecionada || null,
               categoria_id: categoriaSelecionada,
               observacoes: obs,
               data_pagamento:
@@ -2377,7 +2333,7 @@ function ModalTransacao({
               valor: Number(valor),
               data_vencimento: vencimento,
               status,
-              conta_id: contaSelecionada,
+              conta_id: contaSelecionada || null,
               categoria_id: categoriaSelecionada,
               observacoes: obs,
               frequencia: tipoRecorrencia === "RECORRENTE" ? frequencia : null,
@@ -2433,7 +2389,7 @@ function ModalTransacao({
                 tipo,
                 descricao,
                 valor: Number(valor),
-                conta_id: contaSelecionada,
+                conta_id: contaSelecionada || null,
                 categoria_id: categoriaSelecionada,
                 observacoes: obs,
                 frequencia:
@@ -2525,7 +2481,7 @@ function ModalTransacao({
                 data_vencimento: dataVenc.toISOString().split("T")[0],
                 status: "PENDENTE",
                 data_pagamento: null,
-                conta_id: contaSelecionada,
+                conta_id: contaSelecionada || null,
                 categoria_id: categoriaSelecionada,
                 observacoes: obs,
                 is_recorrente: true,
@@ -2607,7 +2563,7 @@ function ModalTransacao({
             data_vencimento: baseDate.toISOString().split("T")[0],
             status,
             data_pagamento: status === "PAGO" ? new Date().toISOString() : null,
-            conta_id: contaSelecionada,
+            conta_id: contaSelecionada || null,
             categoria_id: categoriaSelecionada,
             observacoes: obs,
             is_recorrente: isRecorrente,
@@ -2663,7 +2619,7 @@ function ModalTransacao({
               data_vencimento: dataVenc.toISOString().split("T")[0],
               status: "PENDENTE",
               data_pagamento: null,
-              conta_id: contaSelecionada,
+              conta_id: contaSelecionada || null,
               categoria_id: categoriaSelecionada,
               observacoes: obs,
               is_recorrente: isRecorrente,
@@ -2862,36 +2818,7 @@ function ModalTransacao({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
-                Conta / Carteira
-              </label>
-              <select
-                value={contaSelecionada}
-                onChange={handleContaChange}
-                className="w-full h-10 px-3 bg-transparent border border-border rounded-lg text-sm text-foreground outline-none focus:border-emerald-500/50 font-medium"
-              >
-                <option value="" disabled>
-                  Selecionar Conta
-                </option>
-                {contas.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icone} {c.nome}
-                  </option>
-                ))}
-                <option disabled>──────────</option>
-                <option value="NOVA" className="font-medium text-emerald-500">
-                  + Nova Conta
-                </option>
-                <option
-                  value="GERENCIAR"
-                  className="font-medium text-muted-foreground"
-                >
-                  ⚙️ Gerenciar Contas
-                </option>
-              </select>
-            </div>
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="block text-[10px] font-medium text-muted-foreground mb-1 uppercase tracking-wider">
                 Categoria
