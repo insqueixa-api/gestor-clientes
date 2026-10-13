@@ -18,37 +18,50 @@ interface Props {
 
 export default function ToastNotifications({ toasts, removeToast }: Props) {
   const timersRef = useRef<Map<number, NodeJS.Timeout>>(new Map());
+  // ✅ 13/10/2026, pedido do Márcio: cada toast dura os SEUS 5s e fecha,
+  // independente dos outros. Antes o cleanup deste efeito apagava os timers
+  // de TODOS a cada toast novo (ou a cada render da tela, quando removeToast
+  // não era estável) e recriava com a duração cheia — o 1º ficava esperando
+  // o último. Agora: horário de início guardado por id, o timer só é criado
+  // uma vez e nunca reiniciado; limpeza geral só ao desmontar.
+  const startedRef = useRef<Map<number, number>>(new Map());
+  const removeRef = useRef(removeToast);
+  removeRef.current = removeToast;
 
-  // agenda auto-dismiss por toast (uma vez por id)
   useEffect(() => {
-    // cria timers para novos toasts
+    const now = Date.now();
     for (const t of toasts) {
       if (timersRef.current.has(t.id)) continue;
-
       const duration = Math.max(1000, Number(t.durationMs ?? 5000));
-
+      const started = startedRef.current.get(t.id) ?? now;
+      startedRef.current.set(t.id, started);
+      const remaining = Math.max(0, duration - (now - started));
       const timer = setTimeout(() => {
         timersRef.current.delete(t.id);
-        removeToast(t.id);
-      }, duration);
-
+        startedRef.current.delete(t.id);
+        removeRef.current(t.id);
+      }, remaining);
       timersRef.current.set(t.id, timer);
     }
 
-    // remove timers órfãos (toast já removido manualmente)
+    // toast removido por fora (botão fechar / outra ação) → solta o timer dele
     for (const [id, timer] of timersRef.current.entries()) {
       if (!toasts.some((t) => t.id === id)) {
         clearTimeout(timer);
         timersRef.current.delete(id);
+        startedRef.current.delete(id);
       }
     }
+  }, [toasts]);
 
-    // cleanup geral ao desmontar
+  // limpeza geral só quando o componente sai da tela
+  useEffect(() => {
+    const timers = timersRef.current;
     return () => {
-      for (const timer of timersRef.current.values()) clearTimeout(timer);
-      timersRef.current.clear();
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
     };
-  }, [toasts, removeToast]);
+  }, []);
 
   if (toasts.length === 0) return null;
 
