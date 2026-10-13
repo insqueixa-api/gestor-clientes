@@ -10,6 +10,7 @@
 // revenda, escolhe o 1º código "unused" sozinho, ativa, reloga como
 // dispositivo e lê "Expire on ..." de volta.
 import { SupabaseClient } from "@supabase/supabase-js";
+import { withLicenseDate } from "@/lib/apps/trial";
 import { findFieldByType } from "@/lib/apps/panel";
 import { notify, resolveNotification } from "@/lib/notifications/notify";
 
@@ -184,7 +185,7 @@ export async function renewDuplecastWithCode(
     const fieldKey = String(dateField.id || dateField.label);
     await supabaseAdmin
       .from("client_apps")
-      .update({ field_values: { ...params.fieldValues, [fieldKey]: vmJson.expireDate } })
+      .update({ field_values: withLicenseDate(params.fieldValues, fieldKey, vmJson.expireDate) })
       .eq("id", params.clientAppId);
   }
 

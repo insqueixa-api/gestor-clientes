@@ -2218,6 +2218,17 @@ export default function NovoCliente({
   // Espelha ao vivo o `_trial_hint` que lib/apps/orchestration.ts persiste
   // em field_values — sem isso, o badge "Modo Teste" só apareceria depois
   // de recarregar a página.
+  // ✅ 13/10/2026, pedido do Márcio: data REAL de licença chegou (renovação,
+  // ativação, configurar com data) → grava a data e já tira "Modo de
+  // avaliação"/"Expirado" da tela (antes ficava até checar o vencimento de
+  // novo — e o Salvar ainda regravava a marca).
+  function applyLicenseDate(instanceId: string, fieldKey: string, date: string) {
+    updateAppFieldValue(instanceId, fieldKey, date);
+    setSelectedApps((prev) =>
+      prev.map((app) => (app.instanceId === instanceId ? { ...app, isTrial: false, isExpired: false, trialSince: null } : app)),
+    );
+  }
+
   function setAppExpiredFlag(instanceId: string, isExpired: boolean) {
     setSelectedApps((prev) =>
       prev.map((app) => (app.instanceId === instanceId ? { ...app, isExpired } : app)),
@@ -2464,11 +2475,7 @@ export default function NovoCliente({
             // foi atualizado pela própria rota quando currentApp já tinha
             // client_app_id; sem isso, o valor fica só no state até o
             // próximo "Salvar" (igual sempre foi).
-            updateAppFieldValue(
-              currentApp!.instanceId,
-              String(fieldKey),
-              expireDate,
-            );
+            applyLicenseDate(currentApp!.instanceId, String(fieldKey), expireDate);
 
             addToast(
               "success",
@@ -2795,7 +2802,7 @@ export default function NovoCliente({
         );
         if (dateField) {
           const fieldKey = dateField.id || dateField.label;
-          updateAppFieldValue(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
+          applyLicenseDate(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
         }
         addToast(
           "success",
@@ -2868,7 +2875,7 @@ export default function NovoCliente({
         );
         if (dateField) {
           const fieldKey = dateField.id || dateField.label;
-          updateAppFieldValue(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
+          applyLicenseDate(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
         }
         addToast(
           "success",
@@ -2936,7 +2943,7 @@ export default function NovoCliente({
         );
         if (dateField) {
           const fieldKey = dateField.id || dateField.label;
-          updateAppFieldValue(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
+          applyLicenseDate(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
         }
         addToast(
           "success",
@@ -3073,7 +3080,7 @@ export default function NovoCliente({
         );
         if (dateField) {
           const fieldKey = dateField.id || dateField.label;
-          updateAppFieldValue(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
+          applyLicenseDate(currentApp.instanceId, String(fieldKey), apiJson.expireDate);
         }
         addToast(
           "success",
@@ -3162,7 +3169,7 @@ export default function NovoCliente({
     );
     if (!dateField) return;
     const fieldKey = dateField.id || dateField.label;
-    updateAppFieldValue(currentApp.instanceId, String(fieldKey), expireDate);
+    applyLicenseDate(currentApp.instanceId, String(fieldKey), expireDate);
     if (currentApp.client_app_id) {
       const { data: currentDbData } = await supabaseBrowser
         .from("client_apps")

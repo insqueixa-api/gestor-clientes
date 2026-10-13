@@ -1,5 +1,6 @@
 // lib/client-portal/fulfillment.ts
 import { after } from "next/server";
+import { withLicenseDate } from "@/lib/apps/trial";
 import { createClient } from "@supabase/supabase-js";
 import { notify, resolveNotification, formatClientLabel } from "@/lib/notifications/notify";
 import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
@@ -1332,7 +1333,7 @@ export async function resolveAppativaAppRenewal(
         const fieldKey = String(dateField.id || dateField.label);
         await supabaseAdmin
           .from("client_apps")
-          .update({ field_values: { ...(appRow.field_values || {}), [fieldKey]: dateOnly } })
+          .update({ field_values: withLicenseDate(appRow.field_values, fieldKey, dateOnly) })
           .eq("id", effectiveClientAppId);
       }
     } catch (e: any) {

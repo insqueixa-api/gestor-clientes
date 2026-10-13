@@ -9,6 +9,7 @@
 // (Márcio marca manualmente quando o cliente paga por fora do Portal) —
 // nunca duplicar a query/chamada nesses 3 lugares.
 import { SupabaseClient } from "@supabase/supabase-js";
+import { withLicenseDate } from "@/lib/apps/trial";
 import { addYearsToIsoDate, isoDateInSaoPaulo } from "@/lib/date-br";
 import { findFieldByType, internalAppUrl } from "@/lib/apps/panel";
 
@@ -160,7 +161,7 @@ export async function renewGpcRokuOneYear(
     const fieldKey = String(dateField.id || dateField.label);
     await supabaseAdmin
       .from("client_apps")
-      .update({ field_values: { ...params.fieldValues, [fieldKey]: targetExpireDate } })
+      .update({ field_values: withLicenseDate(params.fieldValues, fieldKey, targetExpireDate) })
       .eq("id", params.clientAppId);
   }
 

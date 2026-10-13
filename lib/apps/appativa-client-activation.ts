@@ -17,6 +17,7 @@
 // plano (mesma janela 15s+5s/1min de fulfillment.ts, constantes
 // compartilhadas de lib/integrations/appativa.ts).
 import { after } from "next/server";
+import { withLicenseDate } from "@/lib/apps/trial";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { findFieldByType } from "@/lib/apps/panel";
 import { notifyClientAppRenewal } from "@/lib/apps/admin-renewal-notify";
@@ -141,7 +142,7 @@ export async function finishAdminAppativaActivation(
   let next: Record<string, string> = rest;
   if (params.outcome === "done" && params.expireDate) {
     const dateField = findFieldByType(params.fieldsConfig, "date");
-    if (dateField) next = { ...rest, [String(dateField.id || dateField.label)]: params.expireDate };
+    if (dateField) next = withLicenseDate(rest, String(dateField.id || dateField.label), params.expireDate);
   }
 
   const { data: claimed } = await supabaseAdmin

@@ -16,6 +16,7 @@
 // achado em produção nesse MAC real. Editar só a data não tem esse
 // problema: não cria nem apaga nenhuma playlist.
 import { NextRequest, NextResponse, after } from "next/server";
+import { withLicenseDate } from "@/lib/apps/trial";
 import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/session";
 import { PORTAL_APPS_DISABLED, PORTAL_APPS_DISABLED_MESSAGE } from "@/lib/apps/portal-apps-flag";
 import { getIntegrationHandler } from "@/lib/integrations";
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
       const fieldKey = String(dateField.id || dateField.label);
       await supabaseAdmin
         .from("client_apps")
-        .update({ field_values: { ...values, [fieldKey]: expireDate } })
+        .update({ field_values: withLicenseDate(values, fieldKey, expireDate) })
         .eq("id", client_app_id);
     }
 

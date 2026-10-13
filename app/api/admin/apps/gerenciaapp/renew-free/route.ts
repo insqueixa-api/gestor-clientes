@@ -15,6 +15,7 @@
 // esta rota. Guard explícito abaixo, mesma defesa em profundidade que a
 // rota do Portal já tem.
 import { NextRequest, NextResponse } from "next/server";
+import { withLicenseDate } from "@/lib/apps/trial";
 import { requireAdminTenant } from "@/lib/api/auth";
 import { notifyClientAppRenewal } from "@/lib/apps/admin-renewal-notify";
 import { loadClientApp } from "@/lib/apps/orchestration";
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
     const fieldKey = String(dateField.id || dateField.label);
     await supabase
       .from("client_apps")
-      .update({ field_values: { ...row.field_values, [fieldKey]: expireDate } })
+      .update({ field_values: withLicenseDate(row.field_values, fieldKey, expireDate) })
       .eq("id", clientAppId);
   }
 

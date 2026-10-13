@@ -41,3 +41,21 @@ export function trialLabel(daysLeft: number | null): string {
   if (daysLeft != null && daysLeft <= 0) return "Expirado";
   return "Modo de avaliação";
 }
+
+/**
+ * ✅ 13/10/2026, pedido do Márcio: grava o vencimento novo de uma RENOVAÇÃO
+ * já limpando "Modo de avaliação" / "Expirado" (_trial_hint, _trial_since,
+ * _expired_hint). Antes só a verificação de vencimento limpava — renovava,
+ * a data aparecia, mas o selo de avaliação ficava até checar de novo.
+ */
+export function withLicenseDate(
+  fieldValues: Record<string, any> | null | undefined,
+  fieldKey: string,
+  date: string,
+): Record<string, any> {
+  const { _trial_hint, _trial_since, _expired_hint, ...rest } = fieldValues || {};
+  void _trial_hint;
+  void _trial_since;
+  void _expired_hint;
+  return { ...rest, [fieldKey]: date };
+}
