@@ -149,9 +149,12 @@ const fmtInt = (v: number) => new Intl.NumberFormat("pt-BR").format(v);
 function FooterFaturamentoCustoLucro({
   faturamento,
   custo,
+  faturamentoLabel = "Faturamento",
 }: {
   faturamento: number;
   custo: number;
+  /** ✅ 14/10/2026: "Previsão do mês" no card A Receber */
+  faturamentoLabel?: string;
 }) {
   const lucro = faturamento - custo;
   const col = (label: string, value: number, cls: string, prefix = "") => (
@@ -175,7 +178,7 @@ function FooterFaturamentoCustoLucro({
     // Bloco com fundo suave + divisórias verticais finas entre as colunas —
     // sem isso os 3 valores ficavam "soltos" no rodapé do card.
     <div className="grid grid-cols-3 w-full text-center rounded-lg bg-muted/50 border border-border/60 divide-x divide-border/60 py-1.5">
-      {col("Faturamento", faturamento, "text-foreground/80")}
+      {col(faturamentoLabel, faturamento, "text-foreground/80")}
       {/* ✅ 30/09/2026: custos à mostra (recarga de servidor + despesas
           pagas da categoria IPTV) — sem isso Faturamento - Lucro parecia
           não fechar. */}
@@ -963,7 +966,16 @@ export default async function AdminDashboardPage({
                   </span>
                 </>
               }
-              footer="Até o fim do mês"
+              // ✅ 14/10/2026, pedido do Márcio: previsão do mês = já recebido
+              // (clientes + revenda/apps) + o que ainda vence até o fim do mês;
+              // custo = o já realizado no mês; lucro = previsão − custo
+              footer={
+                <FooterFaturamentoCustoLucro
+                  faturamentoLabel="Previsão do mês"
+                  faturamento={clientsMonthVal + resellerMonthVal + toReceiveVal}
+                  custo={expensesMonthVal}
+                />
+              }
             />
 
             <MetricCardView
