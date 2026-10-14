@@ -14,6 +14,7 @@
 //   - abaixo: clientes configurados pelo portal com seus apps (editar,
 //     checar, reconfigurar, remover, renovar GerenciaApp grátis).
 // Rotas: /api/reseller-portal/apps.
+import { fieldPlaceholder } from "@/lib/apps/device-types";
 import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, Loader2, Plus, Search, Settings, Star, Zap } from "lucide-react";
 import AppPickerModal, { type AppPickerCatalogItem } from "@/components/apps/AppPickerModal";
@@ -738,7 +739,7 @@ function FieldInputs({
             autoCapitalize={f.type === "mac" ? "characters" : "none"}
             spellCheck={false}
             className={`${input} font-mono`}
-            placeholder={f.type === "mac" ? "XX:XX:XX:XX:XX:XX" : ""}
+            placeholder={fieldPlaceholder(f.type, null, f.label)}
           />
         </div>
       ))}

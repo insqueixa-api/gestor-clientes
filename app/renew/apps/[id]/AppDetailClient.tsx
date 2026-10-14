@@ -16,7 +16,7 @@ import { normalizeMacInput } from "@/lib/apps/field-types";
 import ConfigureResultModal, { ConfigureResultData } from "@/app/renew/ConfigureResultModal";
 import ReconfigureModeModal, { ReconfigureMode } from "@/components/apps/ReconfigureModeModal";
 import DownloadHintCard from "@/components/apps/DownloadHintCard";
-import { ambientePlaceholder } from "@/lib/apps/device-types";
+import { ambientePlaceholder, fieldPlaceholder } from "@/lib/apps/device-types";
 import WhatsAppHelpLink from "@/components/apps/WhatsAppHelpLink";
 import { adaptSetupText, type DownloadHint } from "@/lib/apps/download-info";
 
@@ -469,7 +469,7 @@ export default function AppDetailClient() {
                           const next = f.type === "mac" ? normalizeMacInput(raw) : raw;
                           setEditingValues((prev) => ({ ...prev, [f.id]: next }));
                         }}
-                        placeholder={f.type === "obs" ? ambientePlaceholder(app.device_type) : undefined}
+                        placeholder={fieldPlaceholder(f.type, app.device_type, f.label)}
                         autoCapitalize={f.type === "mac" ? "characters" : "none"}
                         spellCheck={false}
                         className="w-full h-9 px-3 bg-muted border border-border rounded-lg text-sm text-foreground outline-none focus:border-sky-500"

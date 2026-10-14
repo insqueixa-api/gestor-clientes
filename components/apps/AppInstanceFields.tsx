@@ -10,7 +10,7 @@
 // então não dava pra corrigir nada (nem um MAC errado, nem limpar um campo)
 // por ali. Agora os dois editam e persistem do mesmo jeito.
 import FormattedDateInput from "@/components/ui/FormattedDateInput";
-import { ambientePlaceholder } from "@/lib/apps/device-types";
+import { ambientePlaceholder, fieldPlaceholder } from "@/lib/apps/device-types";
 import CopyFieldButton from "@/components/apps/CopyFieldButton";
 import { APP_FIELD_LABELS, normalizeMacInput } from "@/lib/apps/field-types";
 import { focusNextWhenMacComplete, capitalizeFirst } from "@/lib/dom-focus";
@@ -101,13 +101,7 @@ export default function AppInstanceFields({
                   type="text"
                   value={fieldValue}
                   onChange={(e) => handleChange(e.target.value, e.currentTarget)}
-                  placeholder={
-                    String(field?.type || "").toLowerCase() === "obs"
-                      ? ambientePlaceholder(deviceType)
-                      : label
-                        ? `Digite ${label}...`
-                        : "Digite..."
-                  }
+                  placeholder={fieldPlaceholder(field?.type, deviceType, label)}
                   autoCapitalize={isMacField ? "characters" : "none"}
                   spellCheck={false}
                   className={fieldValue ? "pr-10" : ""}

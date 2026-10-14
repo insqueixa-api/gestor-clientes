@@ -86,3 +86,32 @@ export function ambientePlaceholder(deviceType: string | null | undefined): stri
   if (dt) return "Ex: Sala, Quarto, Quarto das crianças...";
   return "Ex: Sala, Quarto, Celular da Maria...";
 }
+
+/**
+ * ✅ 14/10/2026, pedido do Márcio: exemplo em cada campo do app (portal,
+ * revenda e admin). Formatos conferidos no banco: MAC 17 caracteres com
+ * letras e números; Device Key/OTP só números (6 dígitos na maioria);
+ * senha do ClouDDy 8 números.
+ */
+export function fieldPlaceholder(
+  type: string | null | undefined,
+  deviceType?: string | null,
+  label?: string | null,
+): string {
+  switch (String(type || "").toLowerCase()) {
+    case "mac":
+      return "Ex: A1:B2:C3:4D:5E:6F";
+    case "device_key":
+      return "Ex: 482917";
+    case "email":
+      return "Ex: exemplo@gmail.com";
+    case "password":
+      return "Ex: 58203947";
+    case "url":
+      return "Ex: http://exemplo.com";
+    case "obs":
+      return ambientePlaceholder(deviceType);
+    default:
+      return label ? `Digite ${label}...` : "Digite...";
+  }
+}
