@@ -358,7 +358,7 @@ export async function syncIptvRendimentos(
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const { dataVenc, mesStart, mesStartStr, mesEndStr, dataPagamentoMes } = monthBounds(dateObj);
-    const [{ catId, contaMpPj }, { data: renewals }, { data: sales }, { data: apps }, { data: fx }, { data: resellerApps }] = await Promise.all([
+    const [{ catId, contaMpPj }, { data: renewals }, { data: sales }, { data: apps }, { data: fx }, { data: resellerApps }, { data: subsWithAlerts }] = await Promise.all([
       resolveIptvContext(supabaseAdmin, tenantId),
       supabaseAdmin
         .from("client_renewals")
@@ -395,7 +395,24 @@ export async function syncIptvRendimentos(
         .eq("status", "approved")
         .gte("paid_at", mesStartStr)
         .lte("paid_at", mesEndStr),
+      // ✅ 14/10/2026: mensalidade que quitou pendência de APP junto — a parte
+      // do app não está mais em client_renewals (fulfillment.ts), soma aqui
+      supabaseAdmin
+        .from("client_portal_payments")
+        .select("price_currency, settled_alert_ids")
+        .eq("tenant_id", tenantId)
+        .eq("payment_type", "subscription")
+        .in("status", ["approved", "manual_approved"])
+        .not("settled_alert_ids", "is", null)
+        .gte("paid_at", mesStartStr)
+        .lte("paid_at", mesEndStr),
     ]);
+    // valor das pendências de app quitadas junto com a mensalidade
+    const alertIds = (subsWithAlerts || []).flatMap((p: any) => (Array.isArray(p.settled_alert_ids) ? p.settled_alert_ids : []));
+    const { data: appAlerts } = alertIds.length
+      ? await supabaseAdmin.from("client_alerts").select("id, amount").in("id", alertIds).eq("kind", "app_activation")
+      : { data: [] as any[] };
+    const appAlertAmount = new Map<string, number>(((appAlerts || []) as any[]).map((a) => [String(a.id), Number(a.amount || 0)]));
 
     const usdToBrl = Number(fx?.usd_to_brl ?? 5);
     const eurToBrl = Number(fx?.eur_to_brl ?? 6);
@@ -416,7 +433,14 @@ export async function syncIptvRendimentos(
       (renewals || []).reduce((acc: number, r: any) => acc + Number(r.total_amount || 0), 0) +
       (sales || []).reduce((acc: number, s: any) => acc + Number(s.total_amount_brl || 0), 0) +
       (apps || []).reduce((acc: number, a: any) => acc + appToBrl(a), 0) +
-      (resellerApps || []).reduce((acc: number, a: any) => acc + Number(a.amount_brl || 0), 0);
+      (resellerApps || []).reduce((acc: number, a: any) => acc + Number(a.amount_brl || 0), 0) +
+      (subsWithAlerts || []).reduce((acc: number, p: any) => {
+        const part = (Array.isArray(p.settled_alert_ids) ? p.settled_alert_ids : []).reduce(
+          (t: number, id: string) => t + (appAlertAmount.get(String(id)) || 0),
+          0,
+        );
+        return acc + appToBrl({ payment_type: "app_renewal", price_amount: part, price_currency: p.price_currency });
+      }, 0);
 
     return upsertIptvLancamento(supabaseAdmin, tenantId, {
       descricao: "IPTV - Rendimentos",

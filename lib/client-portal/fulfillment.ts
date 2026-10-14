@@ -1502,6 +1502,20 @@ export async function runFulfillment(params: FulfillmentParams) {
   // quando a pendência era paga junto com a mensalidade). Se a função
   // falhar, fecha os sinos como sempre foi.
   const settledAlertIds = (payment as any).settled_alert_ids || [];
+  // ✅ 14/10/2026 (achado com o João: renovação + 3 ativações de app em
+  // confiança): a parte das pendências de APLICATIVO paga junto com a
+  // mensalidade NÃO é renovação — fica fora de client_renewals (Dashboard e
+  // Financeiro contam como Apps; ver docs/sql/dashboard_apps_from_subscription.sql).
+  // Pendência de renovação em confiança continua sendo renovação.
+  let appPendencyPart = 0;
+  if (settledAlertIds.length) {
+    const { data: appAlerts } = await supabaseAdmin
+      .from("client_alerts")
+      .select("amount")
+      .in("id", settledAlertIds)
+      .eq("kind", "app_activation");
+    appPendencyPart = Number(((appAlerts || []) as any[]).reduce((acc, a) => acc + Number(a.amount || 0), 0).toFixed(2));
+  }
   if (settledAlertIds.length) {
     const { error: settleErr } = await supabaseAdmin.rpc("settle_portal_payment_alerts", {
       p_payment_id: payment.id,
@@ -1706,7 +1720,9 @@ export async function runFulfillment(params: FulfillmentParams) {
     const months = toPeriodMonths(payment.period);
     const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
     const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
-    const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
+    // valor da RENOVAÇÃO = pago − pendências de app (essas contam em Apps)
+    const renewalAmount = Math.max(0, Number((totalPaid - appPendencyPart).toFixed(2)));
+    const unitPrice = months > 0 ? Number((renewalAmount / months).toFixed(2)) : renewalAmount;
     const qtyScreens = Number((client as any).screens ?? 1);
     const clientName = String((client as any).display_name || "Cliente").trim();
     const formattedMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: safeCurrency }).format(totalPaid);
@@ -1738,7 +1754,7 @@ export async function runFulfillment(params: FulfillmentParams) {
         screens: qtyScreens,
         currency: safeCurrency,
         unit_price: unitPrice,
-        total_amount: totalPaid,
+        total_amount: renewalAmount,
         credits_per_month: 1,
         credits_used: months * qtyScreens,
         status: "PENDING", 
@@ -1931,7 +1947,9 @@ if (newPassword) updatePayload.server_password = String(newPassword);
   // 5) Logs
   const totalPaid = payment.price_amount != null ? Number(payment.price_amount) : 0;
   const safeCurrency = String(payment.price_currency || client.price_currency || "BRL").toUpperCase().trim();
-  const unitPrice = months > 0 ? Number((totalPaid / months).toFixed(2)) : totalPaid;
+  // valor da RENOVAÇÃO = pago − pendências de app (essas contam em Apps)
+  const renewalAmount = Math.max(0, Number((totalPaid - appPendencyPart).toFixed(2)));
+  const unitPrice = months > 0 ? Number((renewalAmount / months).toFixed(2)) : renewalAmount;
   const qtyScreens = Number((client as any).screens ?? 1);
   const clientName = String((client as any).display_name || "Cliente").trim();
   const formattedMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: safeCurrency }).format(totalPaid);
@@ -1999,7 +2017,7 @@ try {
           screens: qtyScreens,
           currency: safeCurrency,
           unit_price: unitPrice,
-          total_amount: totalPaid,
+          total_amount: renewalAmount,
           credits_per_month: 1,
           credits_used: months * qtyScreens,
           status: "PAID",
