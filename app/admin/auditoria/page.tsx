@@ -1004,9 +1004,11 @@ function AuditoriaPageContent() {
         // fosse ativado no momento do pagamento. Só exibição: o pagamento
         // continua 1 registro (as linhas de app não têm ações próprias).
         const expanded: LogRow[] = mapped.flatMap((row) => {
-          if (row.payment_type !== "subscription" || row.is_pending_charge) return [row];
+          if (row.payment_type !== "subscription") return [row];
           const appPends = row.pendencies.filter((p: any) => p.appTrust);
           if (!appPends.length) return [row];
+          // "Pagar só a pendência" com 1 item já mostra o app na própria linha
+          if (row.is_pending_charge && row.pendencies.length < 2) return [row];
           const otherPends = row.pendencies.filter((p: any) => !p.appTrust);
           const appTotal = appPends.reduce((sum, p) => sum + Number(p.amount || 0), 0);
           const appCoupons = appPends.map((p: any) => p.couponCode).filter(Boolean) as string[];
@@ -1015,10 +1017,30 @@ function AuditoriaPageContent() {
             .split(",")
             .map((c) => c.trim())
             .filter((c) => c && !appCoupons.includes(c));
+          // ✅ 14/10/2026 (Claudia): pagamento SÓ de pendências (renovação em
+          // confiança + app) também separa — a linha fica com a pendência do
+          // plano (como se fosse 1 item) e cada app vira linha própria
+          const single = row.is_pending_charge && otherPends.length === 1 ? (otherPends[0] as any) : null;
+          const motherPending: LogRow["pending_display"] = !row.is_pending_charge
+            ? null
+            : single && single.planLabel != null
+              ? {
+                  kind: "plan",
+                  title: single.planLabel,
+                  subtitle: `${single.screens || 1} ${(single.screens || 1) === 1 ? "tela" : "telas"}`,
+                  icon_url: null,
+                }
+              : {
+                  kind: "plan",
+                  title: otherPends.length === 1 ? "Pendência" : "Pendências",
+                  subtitle: otherPends.length === 1 ? "1 item" : `${otherPends.length} itens`,
+                  icon_url: null,
+                };
           const mother: LogRow = {
             ...row,
             price_amount: Number((Number(row.price_amount) - appTotal).toFixed(2)),
-            pendencies: otherPends,
+            pendencies: single ? [{ ...single, trust: true }] : otherPends,
+            pending_display: motherPending,
             is_trust: otherPends.some((p) => p.trust),
             coupon_code: ownCodes.join(", ") || null,
             coupon_discount_amount:
@@ -1038,11 +1060,14 @@ function AuditoriaPageContent() {
             pendencies: [{ ...p, trust: true }],
             is_trust: true,
             app_alert_label: "Ativação em confiança",
+            is_pending_charge: false,
+            pending_display: null,
             coupon_code: p.couponCode || null,
             coupon_discount_amount: p.couponCode ? Number(p.couponDiscount || 0) : null,
             client_app_id: null,
           }));
-          return [mother, ...apps];
+          // pagamento só de apps (sem plano): não sobra linha "mãe"
+          return row.is_pending_charge && !otherPends.length ? apps : [mother, ...apps];
         });
 
         setRows(
