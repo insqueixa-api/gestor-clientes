@@ -1656,6 +1656,7 @@ export default function RenewClient() {
       // Reconfigurar (já tinha config antes) — pede pra escolher entre
       // manter a config atual (Principal) ou gerar uma nova (Secundária).
       setReconfigureModeTarget(clientAppId);
+      pushOverlay();
       return;
     }
     performConfigureApp(clientAppId, "principal");
@@ -1949,6 +1950,7 @@ export default function RenewClient() {
     // ✅ 04/10/2026: app com campos → abre o formulário; só grava ao salvar
     if (catalogEntry?.fields && catalogEntry.fields.length > 0) {
       setShowAddAppPicker(false);
+      pushOverlay();
       setPendingAdd({
         appId,
         deviceType: deviceType || null,
@@ -1978,6 +1980,7 @@ export default function RenewClient() {
       const result = await res.json().catch(() => null);
       if (!result?.ok) throw new Error(result?.error || "Falha ao adicionar.");
       setShowAddAppPicker(false);
+      dropOverlay();
       const newAppId = result.data?.id as string | undefined;
       const refreshed = await refreshInstalledApps();
       // ✅ Abre direto o formulário de preenchimento — sem isso, o app
@@ -2033,6 +2036,8 @@ export default function RenewClient() {
       }
       const added = pendingAdd;
       setPendingAdd(null);
+      // camadas: escolha + preenchimento → fica 1 (pergunta "configurar?"), ou nenhuma
+      dropOverlay(result.data?.not_verified || !result.data?.id ? 2 : 1);
       const refreshed = await refreshInstalledApps();
       const newId = result.data?.id as string | undefined;
       // ✅ 08/10/2026: a conferência falhou do NOSSO lado (ex: leitor do
@@ -2136,8 +2141,59 @@ export default function RenewClient() {
     window.history.back();
   }
 
+  // ✅ 14/10/2026, pedido do Márcio: os modais de aplicativo (escolher app →
+  // preencher dados → perguntar se configura → resultado / escolher lista)
+  // também são passos do histórico — o voltar do navegador/celular fecha só
+  // o de cima (do preenchimento volta pra escolha do app). Modal fechado por
+  // botão consome a entrada dele em silêncio (sem passo sobrando).
+  const overlayDepthRef = useRef(0);
+  const ignorePopRef = useRef(0);
+  const overlayOpenRef = useRef({ configure: false, reconfigure: false, prompt: false, pending: false, picker: false });
+  overlayOpenRef.current = {
+    configure: !!configureResult,
+    reconfigure: !!reconfigureModeTarget,
+    prompt: !!postAddPrompt,
+    pending: !!pendingAdd,
+    picker: showAddAppPicker,
+  };
+  // resultado de configurar abre sozinho (depois da chamada) → vira uma camada
+  const configureOpenRef = useRef(false);
+  useEffect(() => {
+    if (configureResult && !configureOpenRef.current) pushOverlay();
+    configureOpenRef.current = !!configureResult;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configureResult]);
+  function pushOverlay() {
+    overlayDepthRef.current += 1;
+    window.history.pushState({ portal: "overlay" }, "");
+  }
+  function dropOverlay(n = 1) {
+    const k = Math.min(n, overlayDepthRef.current);
+    if (k <= 0) return;
+    overlayDepthRef.current -= k;
+    ignorePopRef.current += 1;
+    window.history.go(-k);
+  }
+
   useEffect(() => {
     const onPop = () => {
+      if (ignorePopRef.current > 0) {
+        ignorePopRef.current -= 1;
+        return;
+      }
+      if (overlayDepthRef.current > 0) {
+        overlayDepthRef.current -= 1;
+        const o = overlayOpenRef.current;
+        if (o.configure) setConfigureResult(null);
+        else if (o.reconfigure) setReconfigureModeTarget(null);
+        else if (o.prompt) setPostAddPrompt(null);
+        else if (o.pending) {
+          // do preenchimento volta pra escolha do aplicativo
+          setPendingAdd(null);
+          setShowAddAppPicker(true);
+        } else if (o.picker) setShowAddAppPicker(false);
+        return;
+      }
       const n = navRef.current;
       if (n.section !== "menu") setActiveSection("menu");
       else if (n.selected && n.many) setSelectedAccountId(null);
@@ -5201,6 +5257,7 @@ export default function RenewClient() {
                       return;
                     }
                     setShowAddAppPicker(true);
+                    pushOverlay();
                     loadAppCatalog();
                   }}
                   className="h-8 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all shrink-0"
@@ -5319,6 +5376,7 @@ export default function RenewClient() {
                           return;
                         }
                         setShowAddAppPicker(true);
+                        pushOverlay();
                         loadAppCatalog();
                       }}
                       // Mesmo formato do botão "Falar com o suporte" (fim da página)
@@ -5816,7 +5874,10 @@ export default function RenewClient() {
               <div
                 className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
                 onMouseDown={(e) => {
-                  if (e.target === e.currentTarget) setPostAddPrompt(null);
+                  if (e.target === e.currentTarget) {
+                    setPostAddPrompt(null);
+                    dropOverlay();
+                  }
                 }}
               >
                 <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
@@ -5831,6 +5892,7 @@ export default function RenewClient() {
                       onClick={() => {
                         const target = postAddPrompt;
                         setPostAddPrompt(null);
+                        dropOverlay();
                         if (target.hasIntegration) performConfigureApp(target.clientAppId, "principal");
                         else if (target.requiresAdminSetup) handleRequestSetup(target.clientAppId);
                         else addToast("success", "Pronto!", "Configure no aplicativo com os dados mostrados no card.");
@@ -5842,6 +5904,7 @@ export default function RenewClient() {
                     <button
                       onClick={() => {
                         setPostAddPrompt(null);
+                        dropOverlay();
                         addToast("success", "Cadastro atualizado!", "Quando quiser configurar, toque em Configurar no card do aplicativo.");
                       }}
                       className="h-10 rounded-lg border border-border text-sm font-semibold text-foreground hover:bg-muted"
@@ -5856,11 +5919,20 @@ export default function RenewClient() {
               <div
                 className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
                 onMouseDown={(e) => {
-                  if (e.target === e.currentTarget && !pendingAdd.busy) setPendingAdd(null);
+                  if (e.target === e.currentTarget && !pendingAdd.busy) window.history.back();
                 }}
               >
                 <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
                   <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={pendingAdd.busy}
+                      onClick={() => window.history.back()}
+                      className="w-8 h-8 flex items-center justify-center bg-muted hover:bg-muted/70 rounded-lg text-foreground transition-colors shrink-0 disabled:opacity-50"
+                      title="Voltar pra escolha do aplicativo"
+                    >
+                      ←
+                    </button>
                     {pendingAdd.icon ? (
                       <img src={pendingAdd.icon} alt="" className="w-10 h-10 rounded-lg object-cover" />
                     ) : null}
@@ -5915,10 +5987,10 @@ export default function RenewClient() {
                     </button>
                     <button
                       disabled={pendingAdd.busy}
-                      onClick={() => setPendingAdd(null)}
+                      onClick={() => window.history.back()}
                       className="flex-1 h-10 rounded-lg border border-border text-sm font-semibold text-muted-foreground hover:bg-muted disabled:opacity-50"
                     >
-                      Cancelar
+                      Voltar
                     </button>
                   </div>
                 </div>
@@ -5926,7 +5998,10 @@ export default function RenewClient() {
             )}
             <AppPickerModal
               open={showAddAppPicker}
-              onClose={() => setShowAddAppPicker(false)}
+              onClose={() => {
+                setShowAddAppPicker(false);
+                dropOverlay();
+              }}
               catalog={appCatalog}
               deviceIcons={appDeviceIcons}
               catalogLoading={appCatalogLoading}
@@ -5951,14 +6026,20 @@ export default function RenewClient() {
 
             <ConfigureResultModal
               open={!!configureResult}
-              onCloseAction={() => setConfigureResult(null)}
+              onCloseAction={() => {
+                setConfigureResult(null);
+                dropOverlay();
+              }}
               data={configureResult}
               supportPhone={supportPhone}
             />
 
             <ReconfigureModeModal
               open={!!reconfigureModeTarget}
-              onClose={() => setReconfigureModeTarget(null)}
+              onClose={() => {
+                setReconfigureModeTarget(null);
+                dropOverlay();
+              }}
               appName={
                 installedApps.find((a) => a.id === reconfigureModeTarget)
                   ?.name || "Aplicativo"
@@ -5966,6 +6047,7 @@ export default function RenewClient() {
               onChoose={(mode) => {
                 const targetId = reconfigureModeTarget;
                 setReconfigureModeTarget(null);
+                dropOverlay();
                 if (targetId) performConfigureApp(targetId, mode);
               }}
             />
