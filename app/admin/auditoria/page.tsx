@@ -1005,53 +1005,34 @@ function AuditoriaPageContent() {
         // continua 1 registro (as linhas de app não têm ações próprias).
         const expanded: LogRow[] = mapped.flatMap((row) => {
           if (row.payment_type !== "subscription") return [row];
+          // Cada sino quitado vira a linha do que ele É (pedido do Márcio):
+          //  • ativação de app em confiança → linha do aplicativo
+          //  • renovação em confiança do plano → linha de Renovação
+          //  • pendência genérica → continua "Pagamento de pendência"
+          // Mensalidade normal: a linha da renovação fica com o valor do plano
+          // e só os APPS saem (a renovação em confiança paga junto continua
+          // dentro dela, como sempre foi).
           const appPends = row.pendencies.filter((p: any) => p.appTrust);
-          if (!appPends.length) return [row];
-          // "Pagar só a pendência" com 1 item já mostra o app na própria linha
-          if (row.is_pending_charge && row.pendencies.length < 2) return [row];
-          const otherPends = row.pendencies.filter((p: any) => !p.appTrust);
-          const appTotal = appPends.reduce((sum, p) => sum + Number(p.amount || 0), 0);
-          const appCoupons = appPends.map((p: any) => p.couponCode).filter(Boolean) as string[];
-          const appCouponDiscount = appPends.reduce((sum, p: any) => sum + Number(p.couponDiscount || 0), 0);
+          const planPends = row.is_pending_charge
+            ? row.pendencies.filter((p: any) => !p.appTrust && p.planLabel != null)
+            : [];
+          if (!appPends.length && !planPends.length) return [row];
+          const split = [...appPends, ...planPends];
+          const genericPends = row.pendencies.filter((p: any) => !split.includes(p));
+          const splitTotal = split.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          const splitCoupons = split.map((p: any) => p.couponCode).filter(Boolean) as string[];
+          const splitCouponDiscount = split.reduce((sum, p: any) => sum + Number(p.couponDiscount || 0), 0);
           const ownCodes = String(row.coupon_code || "")
             .split(",")
             .map((c) => c.trim())
-            .filter((c) => c && !appCoupons.includes(c));
-          // ✅ 14/10/2026 (Claudia): pagamento SÓ de pendências (renovação em
-          // confiança + app) também separa — a linha fica com a pendência do
-          // plano (como se fosse 1 item) e cada app vira linha própria
-          const single = row.is_pending_charge && otherPends.length === 1 ? (otherPends[0] as any) : null;
-          const motherPending: LogRow["pending_display"] = !row.is_pending_charge
-            ? null
-            : single && single.planLabel != null
-              ? {
-                  kind: "plan",
-                  title: single.planLabel,
-                  subtitle: `${single.screens || 1} ${(single.screens || 1) === 1 ? "tela" : "telas"}`,
-                  icon_url: null,
-                }
-              : {
-                  kind: "plan",
-                  title: otherPends.length === 1 ? "Pendência" : "Pendências",
-                  subtitle: otherPends.length === 1 ? "1 item" : `${otherPends.length} itens`,
-                  icon_url: null,
-                };
-          const mother: LogRow = {
+            .filter((c) => c && !splitCoupons.includes(c));
+          const couponOf = (p: any) => ({
+            coupon_code: p.couponCode || null,
+            coupon_discount_amount: p.couponCode ? Number(p.couponDiscount || 0) : null,
+          });
+
+          const apps: LogRow[] = appPends.map((p: any) => ({
             ...row,
-            price_amount: Number((Number(row.price_amount) - appTotal).toFixed(2)),
-            pendencies: single ? [{ ...single, trust: true }] : otherPends,
-            pending_display: motherPending,
-            is_trust: otherPends.some((p) => p.trust),
-            coupon_code: ownCodes.join(", ") || null,
-            coupon_discount_amount:
-              row.coupon_discount_amount != null && ownCodes.length
-                ? Math.max(0, Number((Number(row.coupon_discount_amount) - appCouponDiscount).toFixed(2)))
-                : null,
-          };
-          const apps: LogRow[] = appPends.map((p: any, i) => ({
-            ...row,
-            id: `${row.id}~app${i}`,
-            virtual_parent_id: row.id,
             payment_type: "app_renewal",
             app_name_snapshot: p.appName || "Aplicativo",
             app_icon_url: p.appName ? appsIconMap[String(p.appName).trim().toLowerCase()] ?? null : null,
@@ -1062,12 +1043,59 @@ function AuditoriaPageContent() {
             app_alert_label: "Ativação em confiança",
             is_pending_charge: false,
             pending_display: null,
-            coupon_code: p.couponCode || null,
-            coupon_discount_amount: p.couponCode ? Number(p.couponDiscount || 0) : null,
+            ...couponOf(p),
             client_app_id: null,
           }));
-          // pagamento só de apps (sem plano): não sobra linha "mãe"
-          return row.is_pending_charge && !otherPends.length ? apps : [mother, ...apps];
+          const renewals: LogRow[] = planPends.map((p: any) => ({
+            ...row,
+            payment_type: "subscription",
+            plan_label: p.planLabel,
+            screens: p.screens || row.screens,
+            price_amount: Number(p.amount || 0),
+            pendencies: [{ ...p, trust: true }],
+            is_trust: true,
+            is_pending_charge: false,
+            pending_display: null,
+            ...couponOf(p),
+          }));
+
+          // o que sobra no pagamento: mensalidade (com o plano) ou pendências genéricas
+          let rest: LogRow | null = null;
+          if (!row.is_pending_charge) {
+            rest = {
+              ...row,
+              price_amount: Number((Number(row.price_amount) - splitTotal).toFixed(2)),
+              pendencies: genericPends,
+              is_trust: genericPends.some((p) => p.trust),
+              coupon_code: ownCodes.join(", ") || null,
+              coupon_discount_amount:
+                row.coupon_discount_amount != null && ownCodes.length
+                  ? Math.max(0, Number((Number(row.coupon_discount_amount) - splitCouponDiscount).toFixed(2)))
+                  : null,
+            };
+          } else if (genericPends.length) {
+            rest = {
+              ...row,
+              price_amount: Number(genericPends.reduce((sum, p) => sum + Number(p.amount || 0), 0).toFixed(2)),
+              pendencies: genericPends,
+              is_trust: false,
+              pending_display: {
+                kind: "plan",
+                title: genericPends.length === 1 ? "Pendência" : "Pendências",
+                subtitle: genericPends.length === 1 ? "1 item" : `${genericPends.length} itens`,
+                icon_url: null,
+              },
+              coupon_code: ownCodes.join(", ") || null,
+              coupon_discount_amount: null,
+            };
+          }
+
+          // a 1ª linha fica com o id real do pagamento (ações continuam nela);
+          // as demais são só exibição
+          const out = [...(rest ? [rest] : []), ...renewals, ...apps];
+          return out.map((r, i) =>
+            i === 0 ? { ...r, id: row.id } : { ...r, id: `${row.id}~${i}`, virtual_parent_id: row.id },
+          );
         });
 
         setRows(
