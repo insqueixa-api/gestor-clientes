@@ -1,5 +1,6 @@
 "use client";
 // app/admin/settings/cupons/page.tsx
+import { isoDateInSaoPaulo } from "@/lib/date-br";
 import { Pencil, Play, Pause, Trash2, History, X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -124,6 +125,9 @@ export default function CuponsPage() {
   const [usageCoupon, setUsageCoupon] = useState<CouponRow | null>(null);
   const [activeTab, setActiveTab] = useState<CouponTab>("ativos");
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"todos" | "percent" | "fixed">("todos");
+  const [validityFilter, setValidityFilter] = useState<"todos" | "com" | "sem" | "vencendo">("todos");
+  const [audienceFilter, setAudienceFilter] = useState<"todos" | "geral" | "servidor" | "app" | "plano" | "status">("todos");
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   const { confirm, ConfirmUI } = useConfirm();
@@ -259,6 +263,10 @@ export default function CuponsPage() {
       arquivado: [],
     };
     for (const row of coupons) {
+      // ✅ 13/10/2026, pedido do Márcio: cupom INDIVIDUAL (client_id) só
+      // aparece na página do cliente — aqui ficam só os que valem pra todos.
+      // O Histórico (usos) continua mostrando todos, inclusive os pessoais.
+      if (row.client_id) continue;
       const bucket = classifyCoupon(row, redemptionCounts[row.id] || 0);
       groups[bucket].push(row);
     }
@@ -278,9 +286,30 @@ export default function CuponsPage() {
         : bucketed.arquivado;
 
   const term = search.trim().toLowerCase();
+  // ✅ 13/10/2026: filtros rápidos ao lado da busca
+  const todayISO = isoDateInSaoPaulo();
+  const in7ISO = new Date(Date.parse(`${todayISO}T12:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10);
+  const passQuick = (row: CouponRow) => {
+    if (typeFilter !== "todos" && row.discount_type !== typeFilter) return false;
+    const end = row.ends_at ? String(row.ends_at).slice(0, 10) : "";
+    if (validityFilter === "com" && !row.starts_at && !row.ends_at) return false;
+    if (validityFilter === "sem" && (row.starts_at || row.ends_at)) return false;
+    if (validityFilter === "vencendo" && !(end && end >= todayISO && end <= in7ISO)) return false;
+    if (audienceFilter !== "todos") {
+      const has = {
+        servidor: !!row.target_server_ids?.length,
+        app: !!row.target_app_names?.length,
+        plano: !!row.target_plan_labels?.length,
+        status: !!row.target_status?.length,
+      };
+      if (audienceFilter === "geral" ? Object.values(has).some(Boolean) || !!row.rule_date_field : !has[audienceFilter]) return false;
+    }
+    return true;
+  };
+  const quickCoupons = tabCoupons.filter(passQuick);
   const visibleCoupons = !term
-    ? tabCoupons
-    : tabCoupons.filter((row) => {
+    ? quickCoupons
+    : quickCoupons.filter((row) => {
         const clientName = String(row.clients?.display_name || "").toLowerCase();
         const clientUsername = String(row.clients?.username || "").toLowerCase();
         return (
@@ -430,12 +459,48 @@ export default function CuponsPage() {
           ))}
         </div>
 
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar por código, descrição ou cliente..."
-          className="w-full sm:max-w-sm h-9 rounded-lg border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
-        />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por código ou descrição..."
+            className="w-full sm:max-w-sm h-9 rounded-lg border border-border bg-transparent px-3 text-sm text-foreground/90 outline-none focus:ring-2 focus:ring-emerald-500/30"
+          />
+          {/* filtros rápidos */}
+          <div className="grid grid-cols-3 sm:flex gap-2">
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+              className="h-9 px-2 rounded-lg border border-border bg-transparent text-xs sm:text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
+            >
+              <option value="todos">Tipo</option>
+              <option value="percent">Percentual (%)</option>
+              <option value="fixed">Valor fixo (R$)</option>
+            </select>
+            <select
+              value={validityFilter}
+              onChange={(e) => setValidityFilter(e.target.value as typeof validityFilter)}
+              className="h-9 px-2 rounded-lg border border-border bg-transparent text-xs sm:text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
+            >
+              <option value="todos">Validade</option>
+              <option value="com">Com validade</option>
+              <option value="sem">Sem validade</option>
+              <option value="vencendo">Vencendo em 7 dias</option>
+            </select>
+            <select
+              value={audienceFilter}
+              onChange={(e) => setAudienceFilter(e.target.value as typeof audienceFilter)}
+              className="h-9 px-2 rounded-lg border border-border bg-transparent text-xs sm:text-sm text-foreground/90 outline-none focus:border-emerald-500/50"
+            >
+              <option value="todos">Público</option>
+              <option value="geral">Geral (todos os clientes)</option>
+              <option value="servidor">Por servidor</option>
+              <option value="app">Por aplicativo</option>
+              <option value="plano">Por plano</option>
+              <option value="status">Por status do cliente</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {loading && (
@@ -452,7 +517,7 @@ export default function CuponsPage() {
 
       {!loading && coupons.length > 0 && visibleCoupons.length === 0 && (
         <div className="p-12 text-center text-muted-foreground bg-card rounded-xl border border-dashed border-border">
-          {term
+          {term || typeFilter !== "todos" || validityFilter !== "todos" || audienceFilter !== "todos"
             ? "Nenhum cupom encontrado."
             : activeTab === "ativos"
               ? "Nenhum cupom ativo."
