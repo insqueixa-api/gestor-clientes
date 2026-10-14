@@ -457,7 +457,7 @@ function ClientePageContent() {
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<"Todos" | ClientStatus>(
+  const [statusFilter, setStatusFilter] = useState<"Todos" | ClientStatus | "Pendência">(
     "Todos",
   );
   const [archivedFilter, setArchivedFilter] = useState<"Todos" | "Não" | "Sim">(
@@ -1865,6 +1865,8 @@ function ClientePageContent() {
               <option value="Todos">Status (Todos)</option>
               {facetOk("status", "Ativo", statusFilter) && <option value="Ativo">Ativo</option>}
               {facetOk("status", "Vencido", statusFilter) && <option value="Vencido">Vencido</option>}
+              {/* ✅ 14/10/2026: cliente com sino (pendência) aberto */}
+              {facetOk("status", "Pendência", statusFilter) && <option value="Pendência">Com pendência</option>}
             </Select>
             )}
           </div>
@@ -2018,6 +2020,8 @@ function ClientePageContent() {
               <option value="Todos">Status (Todos)</option>
               {facetOk("status", "Ativo", statusFilter) && <option value="Ativo">Ativo</option>}
               {facetOk("status", "Vencido", statusFilter) && <option value="Vencido">Vencido</option>}
+              {/* ✅ 14/10/2026: cliente com sino (pendência) aberto */}
+              {facetOk("status", "Pendência", statusFilter) && <option value="Pendência">Com pendência</option>}
             </Select>
             )}
 
