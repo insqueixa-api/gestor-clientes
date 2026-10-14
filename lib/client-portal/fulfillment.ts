@@ -1725,7 +1725,7 @@ export async function runFulfillment(params: FulfillmentParams) {
     const unitPrice = months > 0 ? Number((renewalAmount / months).toFixed(2)) : renewalAmount;
     const qtyScreens = Number((client as any).screens ?? 1);
     const clientName = String((client as any).display_name || "Cliente").trim();
-    const formattedMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: safeCurrency }).format(totalPaid);
+    const formattedMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: safeCurrency }).format(renewalAmount);
 
     try {
       await supabaseAdmin.from("client_events").insert({
@@ -1952,7 +1952,7 @@ if (newPassword) updatePayload.server_password = String(newPassword);
   const unitPrice = months > 0 ? Number((renewalAmount / months).toFixed(2)) : renewalAmount;
   const qtyScreens = Number((client as any).screens ?? 1);
   const clientName = String((client as any).display_name || "Cliente").trim();
-  const formattedMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: safeCurrency }).format(totalPaid);
+  const formattedMoney = new Intl.NumberFormat("pt-BR", { style: "currency", currency: safeCurrency }).format(renewalAmount);
 
   try {
     await supabaseAdmin.from("client_events").insert({

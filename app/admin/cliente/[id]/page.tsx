@@ -351,6 +351,19 @@ function appTimelineItems(
   return [...logs, ...pays];
 }
 
+// ✅ 14/10/2026, pedido do Márcio: sino de ativação de app (criado, quitado ou
+// encerrado) é do APLICATIVO, não do servidor — logo e nome do app, sem a
+// etiqueta "Servidor · login" carimbada no evento.
+function appAlertEvent(e: TimelineItem, icons: AppIconRow[]): TimelineItem {
+  if (e.meta?.kind !== "app_activation") return e;
+  const appName = e.meta?.app_name || /"([^"]+)"/.exec(String(e.message || ""))?.[1] || null;
+  const app = appName ? icons.find((a) => String(a.name || "").toLowerCase() === String(appName).toLowerCase()) : null;
+  return {
+    ...e,
+    meta: { ...e.meta, app_event: true, app_name: appName, icon_url: app?.icon_url || null, server_name: null, server_username: null },
+  };
+}
+
 type EligibleCouponRule = {
   target_status: string[] | null;
   target_server_names: string[];
@@ -512,7 +525,7 @@ export default function ClientDetailsPage() {
 
   // logo do item da linha do tempo: app (eventos de app) ou servidor (renovações)
   function timelineLogo(item: TimelineItem): string | null {
-    if (item.source === "app_log" || item.source === "app_payment") return item.meta?.icon_url || null;
+    if (item.source === "app_log" || item.source === "app_payment" || item.meta?.app_event) return item.meta?.icon_url || null;
     return item.meta?.server_name ? serverLogoByName[String(item.meta.server_name).toLowerCase()] || null : null;
   }
 
@@ -956,7 +969,7 @@ export default function ClientDetailsPage() {
       );
       // + histórico de apps e renovações de app (mesma ida ao banco)
       setTimeline(
-        [...((bundle.events || []) as TimelineItem[]), ...appTimelineItems(bundle.app_log || [], bundle.app_payments || [], {
+        [...((bundle.events || []) as TimelineItem[]).map((e) => appAlertEvent(e, bundle.app_icons || [])), ...appTimelineItems(bundle.app_log || [], bundle.app_payments || [], {
             icons: bundle.app_icons || [],
             clientApps: bundle.client_apps || [],
           })].sort(
@@ -2198,7 +2211,7 @@ export default function ClientDetailsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         {(() => {
-                          const isApp = item.source === "app_log" || item.source === "app_payment";
+                          const isApp = item.source === "app_log" || item.source === "app_payment" || item.meta?.app_event;
                           const logo = timelineLogo(item);
                           const raw = item.meta?.label ?? EVENT_LABELS[item.event_type] ?? item.event_type;
                           // com logo, tira o emoji do começo do texto ("💰 Renovação" → "Renovação")
