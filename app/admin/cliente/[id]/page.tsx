@@ -2492,10 +2492,16 @@ export default function ClientDetailsPage() {
         />
       )}
       {expandedAppIcon && (
-        <div
-          className="fixed inset-0 z-[999998] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
-          onClick={() => setExpandedAppIcon(null)}
-        >
+        // ✅ 14/10/2026: fecha só no X (não ao clicar fora)
+        <div className="fixed inset-0 z-[999998] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+          <button
+            type="button"
+            onClick={() => setExpandedAppIcon(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white text-xl flex items-center justify-center"
+            title="Fechar"
+          >
+            ×
+          </button>
           <div className="flex flex-col items-center gap-3">
             <img
               src={expandedAppIcon.url}

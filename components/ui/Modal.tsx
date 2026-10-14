@@ -101,10 +101,6 @@ export function Modal({
   return createPortal(
     <div
       className={`fixed inset-0 ${zIndex} flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain`}
-      onPointerDown={(e) => {
-        // Só fecha se o clique começar exatamente no fundo escuro.
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       <div
         // dvh (não vh puro) — no mobile, vh às vezes é calculado com a barra

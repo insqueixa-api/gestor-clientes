@@ -4731,10 +4731,6 @@ export default function RenewClient() {
                 return (
                   <div
                     className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                    onMouseDown={(e) => {
-                      if (e.target === e.currentTarget && renewPaymentDone)
-                        closeRenewPaymentModal();
-                    }}
                   >
                     <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl md:max-w-2xl lg:max-w-3xl bg-card border border-border rounded-2xl shadow-2xl max-h-[90vh] overflow-x-hidden overflow-y-auto">
                       {renewPaymentDone ? (
@@ -5846,9 +5842,6 @@ export default function RenewClient() {
             {showAddMaintenance && (
               <div
                 className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                onMouseDown={(e) => {
-                  if (e.target === e.currentTarget) setShowAddMaintenance(false);
-                }}
               >
                 <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
                   <p className="text-sm font-bold text-foreground">🛠️ Estamos em manutenção</p>
@@ -5873,12 +5866,6 @@ export default function RenewClient() {
             {postAddPrompt && (
               <div
                 className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                onMouseDown={(e) => {
-                  if (e.target === e.currentTarget) {
-                    setPostAddPrompt(null);
-                    dropOverlay();
-                  }
-                }}
               >
                 <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
                   <p className="text-sm font-bold text-foreground">✅ {postAddPrompt.name} salvo!</p>
@@ -5918,9 +5905,6 @@ export default function RenewClient() {
             {pendingAdd && (
               <div
                 className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                onMouseDown={(e) => {
-                  if (e.target === e.currentTarget && !pendingAdd.busy) window.history.back();
-                }}
               >
                 <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
                   <div className="flex items-center gap-3">
@@ -6094,9 +6078,6 @@ export default function RenewClient() {
                 return (
                   <div
                     className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                    onMouseDown={(e) => {
-                      if (e.target === e.currentTarget) setCartOffer(null);
-                    }}
                   >
                     <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
                       <div className="px-5 pt-5 pb-3 border-b border-border">
@@ -6204,10 +6185,6 @@ export default function RenewClient() {
                 return (
                   <div
                     className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                    onMouseDown={(e) => {
-                      if (e.target === e.currentTarget)
-                        setInstructionsAppId(null);
-                    }}
                   >
                     <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-6 sm:p-7 flex flex-col gap-3 max-h-[85vh] overflow-y-auto">
                       {/* ✅ 04/10/2026: selo de configuração automática no topo, à direita */}

@@ -487,9 +487,6 @@ export default function AppsSection({
       {showMaintenance && (
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setShowMaintenance(false);
-          }}
         >
           <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-3">
             <p className="text-sm font-bold text-foreground">🛠️ Estamos em manutenção</p>
@@ -685,7 +682,7 @@ function ModalShell({
   subtitle: string;
 }) {
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div
         className="w-full max-w-md bg-card rounded-2xl border border-border shadow-2xl max-h-[90dvh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}

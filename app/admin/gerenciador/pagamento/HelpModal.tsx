@@ -9,9 +9,6 @@ export default function HelpModal({ type, onClose }: { type: string; onClose: ()
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
       <div
         className="w-full max-w-lg max-h-[90vh] bg-card border border-border rounded-xl shadow-2xl flex flex-col"

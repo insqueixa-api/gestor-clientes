@@ -1863,10 +1863,6 @@ export default function RecargaCliente({
       {/* --- MODAL PRINCIPAL --- */}
       <div
         className="fixed inset-0 z-[99990] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-hidden overscroll-contain"
-        onPointerDown={(e) => {
-          // Só fecha se começar o clique exatamente no fundo escuro
-          if (e.target === e.currentTarget) onClose();
-        }}
       >
         <div
           className="w-full max-w-3xl bg-card border border-border rounded-xl shadow-2xl flex flex-col overflow-hidden min-h-0 max-h-[90vh] transition-all animate-in fade-in zoom-in-95 duration-200"

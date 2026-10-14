@@ -98,10 +98,6 @@ export default function PaymentModal({
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onMouseDown={(e) => {
-        // fora do modal só fecha depois de concluído (não perde o PIX sem querer)
-        if (e.target === e.currentTarget && (finished || expired)) onClose();
-      }}
     >
       <div className="w-full max-w-[calc(100vw-1rem)] sm:max-w-xl bg-card border border-border rounded-2xl shadow-2xl max-h-[90dvh] overflow-x-hidden overflow-y-auto">
         {order.state === "done" ? (

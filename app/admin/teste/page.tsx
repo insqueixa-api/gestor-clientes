@@ -2980,9 +2980,6 @@ function Modal({
 
   return createPortal(
     <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -3209,9 +3206,6 @@ function PapaTestesModal({
 
   return createPortal(
     <div
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
       style={{
         position: "fixed",
         inset: 0,
