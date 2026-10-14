@@ -13,6 +13,7 @@
 // marcado como "exclusão solicitada").
 import {
   forwardRef,
+  useRef,
   useEffect,
   useImperativeHandle,
   useMemo,
@@ -126,6 +127,7 @@ function AplicativosLog(
   const [pageSize, setPageSize] = useState(25);
 
   const [tab, setTab] = useState<"pedidos" | "atividade">("pedidos");
+  const autoTabDoneRef = useRef(false);
   const [activityRows, setActivityRows] = useState<ActivityRow[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activitySearch, setActivitySearch] = useState("");
@@ -263,7 +265,14 @@ function AplicativosLog(
         completed_at: r.completed_at,
       }));
       setRows(mapped);
-      onPendingCountChange?.(mapped.filter((r) => r.status === "pending").length);
+      const pendingNow = mapped.filter((r) => r.status === "pending").length;
+      onPendingCountChange?.(pendingNow);
+      // ✅ 14/10/2026, pedido do Márcio: na 1ª carga, sem pedido manual
+      // pendente → abre direto em "Atividade do portal"
+      if (!autoTabDoneRef.current) {
+        autoTabDoneRef.current = true;
+        if (pendingNow === 0) setTab("atividade");
+      }
     }
     setLoading(false);
   }

@@ -70,6 +70,9 @@ type LogRow = {
   coupon_code: string | null;
   coupon_discount_amount: number | null;
   pendencies: { label: string; amount: number; trust?: boolean }[];
+  // ✅ 14/10/2026: linha de app gerada a partir de uma renovação que quitou o
+  // sino desse app (só exibição — sem ações próprias)
+  virtual_parent_id?: string;
   // ✅ 02/10/2026: linha que quitou um sino "Renovação em confiança"
   is_trust?: boolean;
   // ✅ 02/10/2026: "Pagar só a pendência" no portal (payment_type=pending_charge)
@@ -995,8 +998,55 @@ function AuditoriaPageContent() {
             );
         }
 
+        // ✅ 14/10/2026, pedido do Márcio: renovação que quitou sino de APP
+        // junto (ex: João, 3 FocoX Play em confiança) vira 1 linha da
+        // renovação (só o valor do plano) + 1 linha por app, como se o app
+        // fosse ativado no momento do pagamento. Só exibição: o pagamento
+        // continua 1 registro (as linhas de app não têm ações próprias).
+        const expanded: LogRow[] = mapped.flatMap((row) => {
+          if (row.payment_type !== "subscription" || row.is_pending_charge) return [row];
+          const appPends = row.pendencies.filter((p: any) => p.appTrust);
+          if (!appPends.length) return [row];
+          const otherPends = row.pendencies.filter((p: any) => !p.appTrust);
+          const appTotal = appPends.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+          const appCoupons = appPends.map((p: any) => p.couponCode).filter(Boolean) as string[];
+          const appCouponDiscount = appPends.reduce((sum, p: any) => sum + Number(p.couponDiscount || 0), 0);
+          const ownCodes = String(row.coupon_code || "")
+            .split(",")
+            .map((c) => c.trim())
+            .filter((c) => c && !appCoupons.includes(c));
+          const mother: LogRow = {
+            ...row,
+            price_amount: Number((Number(row.price_amount) - appTotal).toFixed(2)),
+            pendencies: otherPends,
+            is_trust: otherPends.some((p) => p.trust),
+            coupon_code: ownCodes.join(", ") || null,
+            coupon_discount_amount:
+              row.coupon_discount_amount != null && ownCodes.length
+                ? Math.max(0, Number((Number(row.coupon_discount_amount) - appCouponDiscount).toFixed(2)))
+                : null,
+          };
+          const apps: LogRow[] = appPends.map((p: any, i) => ({
+            ...row,
+            id: `${row.id}~app${i}`,
+            virtual_parent_id: row.id,
+            payment_type: "app_renewal",
+            app_name_snapshot: p.appName || "Aplicativo",
+            app_icon_url: p.appName ? appsIconMap[String(p.appName).trim().toLowerCase()] ?? null : null,
+            app_id: p.appName ? appsIdMap[String(p.appName).trim().toLowerCase()] ?? null : null,
+            price_amount: Number(p.amount || 0),
+            pendencies: [{ ...p, trust: true }],
+            is_trust: true,
+            app_alert_label: "Ativação em confiança",
+            coupon_code: p.couponCode || null,
+            coupon_discount_amount: p.couponCode ? Number(p.couponDiscount || 0) : null,
+            client_app_id: null,
+          }));
+          return [mother, ...apps];
+        });
+
         setRows(
-          [...mapped, ...resellerRows].sort(
+          [...expanded, ...resellerRows].sort(
             (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
           ),
         );
@@ -2322,11 +2372,11 @@ function AuditoriaPageContent() {
                           r.fulfillment_status !== "done";
 
                         const canShowAction =
-                          isManualPending ||
+                          !r.virtual_parent_id && (isManualPending ||
                           isAwaitingTransfer ||
                           isWhatsappError ||
                           isStuck ||
-                          resellerNeedsAttention;
+                          resellerNeedsAttention);
 
                         return (
                           <tr
@@ -2759,7 +2809,7 @@ function AuditoriaPageContent() {
                                     ser pagas). Concluído manual/automático
                                     nunca ganha lixeira — é histórico real,
                                     pedido do Márcio 09/09/2026. */}
-                                {matchesPayment(r, "recusado") && (
+                                {matchesPayment(r, "recusado") && !r.virtual_parent_id && (
                                   <button
                                     onClick={() => handleDeletarRegistro(r)}
                                     disabled={deletingId === r.id}
