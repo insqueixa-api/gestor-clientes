@@ -1,14 +1,17 @@
 // lib/apps/m3u-lists.ts
 //
 // Lista M3U principal e secundária (02/10/2026, pedido do Márcio —
-// docs/sql/m3u_principal_secundaria.sql). Fonte única das regras:
+// docs/sql/m3u_principal_secundaria.sql). Fonte única das regras.
 //
-//   * PRINCIPAL (clients.m3u_url): a que vem da integração, a montada na
-//     criação ou a gerada no admin. Rotacionar = outro domínio do servidor,
-//     no formato normal. No NaTV sempre https://<dns>.
-//   * SECUNDÁRIA (clients.m3u_url_secondary): rotaciona entre todos os
-//     domínios. NaTV: espelho http://r2.<dns> ou http://r3.<dns>. Outros
-//     servidores: um domínio diferente do que a principal está usando.
+// ✅ 15/10/2026, regra nova do Márcio — DNS 1 = a primeira cadastrada no
+// servidor (servers.dns[0]):
+//   * PRINCIPAL (clients.m3u_url): SEMPRE a DNS 1. Rotacionar = trocar de
+//     formato. NaTV: sorteia entre https://<dns1>, http://r2.<dns1> e
+//     http://r3.<dns1>. Outros servidores: só tem um formato (o esquema
+//     salvo na DNS), então a principal é sempre a mesma.
+//   * SECUNDÁRIA (clients.m3u_url_secondary): sorteia entre TODAS as outras
+//     DNS (nunca a DNS 1). NaTV: nos 3 formatos também. Servidor com 1 DNS
+//     só: usa a DNS 1, evitando o formato que a principal está usando.
 //   * "Configurar" usa a que está salva; "Reconfigurar" rotaciona e salva
 //     (lib/apps/orchestration.ts).
 //
@@ -56,9 +59,28 @@ function pick<T>(list: T[], random: () => number): T {
   return list[Math.floor(random() * list.length)];
 }
 
+/** Bases possíveis de uma DNS: NaTV nos 3 formatos; os outros, só o esquema salvo. */
+function basesOf(h: { scheme: string; host: string }, natv: boolean): string[] {
+  const host = h.host.replace(/^r\d+\./, "");
+  if (!natv) return [`${h.scheme}://${h.host}`];
+  return [`https://${host}`, ...NATV_MIRRORS.map((mirror) => `http://${mirror}.${host}`)];
+}
+
+/** Base (esquema + host) de uma URL salva, pra comparar com as opções. */
+function baseOf(url: string | null | undefined): string {
+  const m = String(url || "").trim().match(/^(https?):\/\/([^/?#]+)/i);
+  return m ? `${m[1].toLowerCase()}://${m[2].toLowerCase()}` : "";
+}
+
+/** Sorteia uma opção diferente das "evitar" (se sobrar alguma). */
+function pickFresh(options: string[], avoid: string[], random: () => number): string {
+  const fresh = options.filter((o) => !avoid.includes(o));
+  return pick(fresh.length ? fresh : options, random);
+}
+
 /**
- * Nova lista PRINCIPAL: outro domínio do servidor (se houver mais de um),
- * formato normal. NaTV: sempre https://.
+ * Nova lista PRINCIPAL: sempre a DNS 1 do servidor. NaTV: sorteia o formato
+ * (https / r2. / r3.), sem repetir o atual.
  */
 export function rotatePrincipalM3u(params: {
   dnsList: string[];
@@ -71,17 +93,14 @@ export function rotatePrincipalM3u(params: {
   const { username, password, random = Math.random } = params;
   const hosts = uniqueHosts(params.dnsList);
   if (!username || hosts.length === 0) return "";
-  const current = baseHostOf(params.currentPrincipal);
-  const candidates = hosts.length > 1 ? hosts.filter((h) => h.host !== current) : hosts;
-  const chosen = pick(candidates.length ? candidates : hosts, random);
-  const scheme = isNaTvServer(params.serverName) ? "https" : chosen.scheme;
-  return `${scheme}://${chosen.host}${m3uPath(username, password)}`;
+  const options = basesOf(hosts[0], isNaTvServer(params.serverName));
+  return pickFresh(options, [baseOf(params.currentPrincipal)], random) + m3uPath(username, password);
 }
 
 /**
- * Nova lista SECUNDÁRIA. NaTV: http://r2.|r3.<qualquer dns>. Outros: um
- * domínio diferente do que a principal usa (se o servidor tiver mais de um).
- * Também evita repetir a secundária atual quando há alternativa.
+ * Nova lista SECUNDÁRIA: qualquer DNS menos a DNS 1 (NaTV nos 3 formatos),
+ * sem repetir a secundária atual. Servidor com 1 DNS só: a DNS 1, num
+ * formato diferente do da principal quando der.
  */
 export function rotateSecondaryM3u(params: {
   dnsList: string[];
@@ -95,20 +114,9 @@ export function rotateSecondaryM3u(params: {
   const { username, password, random = Math.random } = params;
   const hosts = uniqueHosts(params.dnsList);
   if (!username || hosts.length === 0) return "";
-  const path = m3uPath(username, password);
-
-  if (isNaTvServer(params.serverName)) {
-    const current = String(params.currentSecondary || "").trim().toLowerCase();
-    const options = hosts.flatMap((h) => NATV_MIRRORS.map((mirror) => `http://${mirror}.${h.host}${path}`));
-    const fresh = options.filter((u) => u.toLowerCase() !== current);
-    return pick(fresh.length ? fresh : options, random);
-  }
-
-  const principalHost = baseHostOf(params.currentPrincipal);
-  const secondaryHost = baseHostOf(params.currentSecondary);
-  let candidates = hosts.filter((h) => h.host !== principalHost);
-  if (candidates.length === 0) candidates = hosts; // servidor com 1 domínio só
-  const notRepeated = candidates.filter((h) => h.host !== secondaryHost);
-  const chosen = pick(notRepeated.length ? notRepeated : candidates, random);
-  return `${chosen.scheme}://${chosen.host}${path}`;
+  const natv = isNaTvServer(params.serverName);
+  const others = hosts.slice(1).flatMap((h) => basesOf(h, natv));
+  const options = others.length ? others : basesOf(hosts[0], natv);
+  const avoid = [baseOf(params.currentPrincipal), baseOf(params.currentSecondary)];
+  return pickFresh(options, avoid, random) + m3uPath(username, password);
 }

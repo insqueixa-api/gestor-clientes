@@ -4875,18 +4875,6 @@ export default function NovoCliente({
     }
   }
 
-  // ✅ Esquema (http/https) salvo no DNS tem que ser respeitado, não forçado
-  // — achado com o NaTV (28/07/2026): o domínio passou a exigir https, mas
-  // isso aqui sempre forçava http. Default pra http só quando o DNS salvo
-  // não tem esquema nenhum. Réplica de splitScheme em lib/apps/panel.ts.
-  function splitDnsScheme(domain: string): { scheme: string; host: string } {
-    const m = domain.match(/^(https?):\/\//i);
-    return {
-      scheme: m ? m[1].toLowerCase() : "http",
-      host: domain.replace(/^https?:\/\//i, "").replace(/\/$/, ""),
-    };
-  }
-
   // ✅ Gera M3U URL sem side effects (usado internamente no executeSave)
   function buildM3uUrlSilent(
     overrideUser?: string,
@@ -4895,16 +4883,18 @@ export default function NovoCliente({
     const user = (overrideUser ?? username).trim();
     const pass = (overridePass ?? password)?.trim() || "";
     if (!user || serverDomains.length === 0) return "";
-    const randomDomain =
-      serverDomains[Math.floor(Math.random() * serverDomains.length)];
-    const { scheme, host } = splitDnsScheme(randomDomain);
-    return `${scheme}://${host}/get.php?username=${user}&password=${pass}&type=m3u_plus&output=ts`;
+    // ✅ 15/10/2026: principal = sempre a DNS 1 (lib/apps/m3u-lists.ts)
+    return rotatePrincipalM3u({
+      dnsList: serverDomains,
+      username: user,
+      password: pass,
+      serverName: servers.find((sv) => sv.id === serverId)?.name || "",
+    });
   }
 
   // ✅ 02/10/2026 (pedido do Márcio): regras de rotação em lib/apps/m3u-lists.ts
-  // (mesmas do servidor). Principal: outro domínio, formato normal (NaTV
-  // sempre https). Secundária: NaTV http://r2.|r3.<dns>; outros, um domínio
-  // diferente do da principal.
+  // (mesmas do servidor). Desde 15/10/2026: principal = sempre a DNS 1 (NaTV
+  // sorteia https/r2./r3.); secundária = qualquer outra DNS.
   function rotatePrincipalLocal(): string {
     return rotatePrincipalM3u({
       dnsList: serverDomains,

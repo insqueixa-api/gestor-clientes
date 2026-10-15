@@ -9,6 +9,7 @@ import { makeSupabaseAdmin, validatePortalClient } from "@/lib/client-portal/ses
 import { getIntegrationHandler } from "@/lib/integrations";
 import { CHECK_VALIDITY_HANDLERS, buildM3uUrlFromDns, buildM3uUrlSecondary, natvMirrorBaseUrl } from "@/lib/apps/panel";
 import { buildPortalVariableFields } from "@/lib/apps/portal-variable-rules";
+import { baseHostOf } from "@/lib/apps/m3u-lists";
 import { renderTemplate, pickRandomDns } from "@/lib/whatsapp/template-vars";
 import { convertAmount } from "@/lib/fx";
 import { effectiveIcon, effectiveTier } from "@/lib/apps/appativa-catalog";
@@ -224,12 +225,20 @@ export async function POST(req: NextRequest) {
 
       if (hasAnyInstructions) {
         const server = ((client as any)?.servers || null) as { name?: string; dns?: unknown } | null;
-        const dns = pickRandomDns(Array.isArray(server?.dns) ? server.dns : []);
+        const dnsList = (Array.isArray(server?.dns) ? server.dns : []) as string[];
+        const dns = pickRandomDns(dnsList);
         const username = client?.server_username || "";
         const password = client?.server_password || "";
+        // ✅ 15/10/2026, pedido do Márcio: o portal (principalmente app de
+        // iPhone, que o cliente digita na mão) NUNCA mostra a DNS 1 — só as
+        // outras; a DNS 1 só aparece se for a única cadastrada. A principal
+        // salva agora é sempre a DNS 1 (lib/apps/m3u-lists.ts), então o link
+        // M3U do portal sai da DNS sorteada (pickRandomDns já pula a 1ª).
+        const dns1Host = baseHostOf(String(dnsList[0] || "").includes("://") ? dnsList[0] : `http://${dnsList[0] || ""}`);
+        const isDns1 = (url: string) => dnsList.length > 1 && !!url && baseHostOf(url) === dns1Host;
+        const savedPrincipal = String(client?.m3u_url || "").trim();
         const m3uUrl =
-          String(client?.m3u_url || "").trim() ||
-          (dns ? buildM3uUrlFromDns([dns], username, password) : "");
+          (dns ? buildM3uUrlFromDns([dns], username, password) : "") || (isDns1(savedPrincipal) ? "" : savedPrincipal);
 
         // ✅ "Rota 2" (31/07/2026, pedido do Márcio) — mesmo mirror que o
         // Reconfigurar > Secundária já usa (buildM3uUrlSecondary): só existe
@@ -242,7 +251,10 @@ export async function POST(req: NextRequest) {
         const dnsR2 = isNaTv && dns ? natvMirrorBaseUrl(dns) : "";
         // ✅ 02/10/2026: secundária salva no cliente tem prioridade (é a que
         // de fato vai pro app no "Secundária")
-        const savedSecondary = String(client?.m3u_url_secondary || "").trim();
+        // (secundária antiga gravada na DNS 1 não aparece — cai na sorteada)
+        const savedSecondary = isDns1(String(client?.m3u_url_secondary || "").trim())
+          ? ""
+          : String(client?.m3u_url_secondary || "").trim();
         const m3uUrlR2 = savedSecondary || (isNaTv && dns ? buildM3uUrlSecondary([dns], username, password, server?.name) : "");
         const dnsForPortal = dnsR2 && Math.random() < 0.5 ? dnsR2 : dns;
 

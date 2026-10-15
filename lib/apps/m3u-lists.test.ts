@@ -5,6 +5,7 @@ const NATV = ["https://rj98.eu", "https://rw26.eu", "https://nc18.org", "https:/
 const ELITE = ["http://bbr.asia", "http://chinaz.asia", "http://bbr.asia"];
 const ONE = ["http://psbox.top"];
 const many = (fn: () => string) => Array.from({ length: 200 }, fn);
+const base = (u: string) => u.split("/get.php")[0];
 
 describe("lista M3U principal/secundária", () => {
   it("baseHostOf ignora esquema e espelho rN.", () => {
@@ -13,24 +14,40 @@ describe("lista M3U principal/secundária", () => {
     expect(baseHostOf("")).toBe("");
   });
 
-  it("principal do NaTV sempre https e nunca repete o domínio atual", () => {
+  it("principal do NaTV é sempre a DNS 1, nos 3 formatos, sem repetir o atual", () => {
     const cur = "https://rj98.eu/get.php?username=a&password=b&type=m3u_plus&output=ts";
+    const seen = new Set<string>();
     for (const u of many(() => rotatePrincipalM3u({ dnsList: NATV, username: "a", password: "b", serverName: "NaTV", currentPrincipal: cur }))) {
-      expect(u.startsWith("https://")).toBe(true);
-      expect(baseHostOf(u)).not.toBe("rj98.eu");
+      expect(baseHostOf(u)).toBe("rj98.eu");
+      expect(base(u)).not.toBe("https://rj98.eu");
+      seen.add(base(u));
+    }
+    expect([...seen].sort()).toEqual(["http://r2.rj98.eu", "http://r3.rj98.eu"]);
+  });
+
+  it("principal dos outros servidores é sempre a DNS 1", () => {
+    for (const u of many(() => rotatePrincipalM3u({ dnsList: ELITE, username: "a", password: "b", serverName: "Elite", currentPrincipal: "http://bbr.asia/x" }))) {
+      expect(base(u)).toBe("http://bbr.asia");
     }
   });
 
-  it("secundária do NaTV é http://r2. ou r3.", () => {
+  it("secundária do NaTV nunca usa a DNS 1 e varia os 3 formatos", () => {
+    const formats = new Set<string>();
     for (const u of many(() => rotateSecondaryM3u({ dnsList: NATV, username: "a", password: "b", serverName: "NaTV" }))) {
-      expect(u).toMatch(/^http:\/\/r[23]\.[a-z0-9.]+\/get\.php\?username=a&password=b/);
+      expect(baseHostOf(u)).not.toBe("rj98.eu");
+      expect(u).toMatch(/^(https:\/\/|http:\/\/r[23]\.)[a-z0-9.]+\/get\.php\?username=a&password=b/);
+      formats.add(u.startsWith("https://") ? "https" : u.slice(7, 9));
     }
+    expect([...formats].sort()).toEqual(["https", "r2", "r3"]);
   });
 
-  it("secundária dos outros nunca usa o domínio da principal", () => {
-    const principal = "http://bbr.asia/get.php?username=a&password=b";
-    for (const u of many(() => rotateSecondaryM3u({ dnsList: ELITE, username: "a", password: "b", serverName: "Elite", currentPrincipal: principal }))) {
+  it("secundária dos outros nunca usa a DNS 1 e não repete a atual", () => {
+    for (const u of many(() => rotateSecondaryM3u({ dnsList: ELITE, username: "a", password: "b", serverName: "Elite", currentPrincipal: "http://bbr.asia/x" }))) {
       expect(baseHostOf(u)).toBe("chinaz.asia");
+    }
+    const cur = "https://rw26.eu/get.php?username=a&password=b";
+    for (const u of many(() => rotateSecondaryM3u({ dnsList: NATV, username: "a", password: "b", serverName: "NaTV", currentSecondary: cur }))) {
+      expect(base(u)).not.toBe("https://rw26.eu");
     }
   });
 
