@@ -2036,10 +2036,17 @@ export default function RenewClient() {
       }
       const added = pendingAdd;
       setPendingAdd(null);
-      // camadas: escolha + preenchimento → fica 1 (pergunta "configurar?"), ou nenhuma
-      dropOverlay(result.data?.not_verified || !result.data?.id ? 2 : 1);
       const refreshed = await refreshInstalledApps();
       const newId = result.data?.id as string | undefined;
+      const newApp = newId ? refreshed.find((a) => a.id === newId) : null;
+      const hasIntegration = newApp ? newApp.has_integration : added.hasIntegration;
+      const requiresAdminSetup = !!newApp?.requires_admin_setup;
+      // ✅ 15/10/2026, pedido do Márcio: app sem integração (ex: Elite P2P)
+      // não tem o que "configurar agora" — os 2 botões davam no mesmo. Só
+      // pergunta quando Configurar faz algo (integração ou pedido ao suporte).
+      const askConfigure = !!newId && !result.data?.not_verified && (hasIntegration || requiresAdminSetup);
+      // camadas: escolha + preenchimento → fica 1 (pergunta "configurar?"), ou nenhuma
+      dropOverlay(askConfigure ? 1 : 2);
       // ✅ 08/10/2026: a conferência falhou do NOSSO lado (ex: leitor do
       // captcha fora do ar) — o app foi salvo; o cliente avisa o suporte e o
       // Márcio confere na Auditoria. Sem detalhe técnico pro cliente.
@@ -2051,8 +2058,7 @@ export default function RenewClient() {
         );
         return;
       }
-      const newApp = newId ? refreshed.find((a) => a.id === newId) : null;
-      if (newId) {
+      if (askConfigure && newId) {
         setPostAddPrompt({
           clientAppId: newId,
           name: added.name,
@@ -2064,9 +2070,11 @@ export default function RenewClient() {
                 : added.deviceType === "XBOX"
                   ? "no seu Xbox"
                   : "na sua TV",
-          hasIntegration: newApp ? newApp.has_integration : added.hasIntegration,
-          requiresAdminSetup: !!newApp?.requires_admin_setup,
+          hasIntegration,
+          requiresAdminSetup,
         });
+      } else if (newId) {
+        addToast("success", `${added.name} salvo!`, "Configure no aplicativo com os dados mostrados no card.");
       } else {
         addToast("success", "Aplicativo adicionado!", "Toque em Configurar no card pra liberar o sinal.");
       }
