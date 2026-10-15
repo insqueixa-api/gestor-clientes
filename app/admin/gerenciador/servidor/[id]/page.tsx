@@ -1,7 +1,7 @@
 "use client";
 // app/admin/gerenciador/servidor/[id]/page.tsx
 import { usePrivacyMode } from "@/hooks/usePrivacyMode";
-import { Loader2, CreditCard, EyeOff, Eye } from "lucide-react";
+import { Loader2, CreditCard, EyeOff, Eye, Pencil } from "lucide-react";
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
@@ -10,6 +10,9 @@ import dynamic from "next/dynamic";
 import { useTenantId } from "@/lib/tenant-context";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 const RecargaServidorModal = dynamic(() => import("../recarga_servidor"), {
+  ssr: false,
+});
+const NovoServidorModal = dynamic(() => import("../novo_servidor"), {
   ssr: false,
 });
 import type { ServerRow } from "../page";
@@ -72,6 +75,26 @@ export default function ServerDetailsPage() {
 
   // Controle do Modal de Recarga
   const [isRecargaOpen, setIsRecargaOpen] = useState(false);
+  // ✅ 15/10/2026, pedido do Márcio: editar sem sair da página do servidor
+  const [editServer, setEditServer] = useState<ServerRow | null>(null);
+  const [openingEdit, setOpeningEdit] = useState(false);
+
+  // mesmo registro que a lista entrega ao modal (view com o custo médio do
+  // crédito), pra editar daqui ser idêntico a editar pela lista
+  async function handleOpenEdit() {
+    if (!server) return;
+    setOpeningEdit(true);
+    try {
+      const { data } = await supabaseBrowser
+        .from(server.is_archived ? "vw_servers_archived" : "vw_servers_active")
+        .select("*")
+        .eq("id", server.id)
+        .maybeSingle();
+      setEditServer({ ...server, ...(data || {}) } as ServerRow);
+    } finally {
+      setOpeningEdit(false);
+    }
+  }
 
   // Toast
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -637,6 +660,15 @@ export default function ServerDetailsPage() {
           </Link>
 
           <button
+            onClick={() => void handleOpenEdit()}
+            disabled={!server || openingEdit}
+            className="h-10 px-4 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 text-sm font-medium transition-all shadow-sm inline-flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {openingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+            Editar
+          </button>
+
+          <button
             onClick={() => setIsRecargaOpen(true)}
             className="h-10 px-5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-2"
           >
@@ -949,6 +981,19 @@ export default function ServerDetailsPage() {
             loadData();
           }}
           onError={(msg) => addToast("error", "Erro na recarga", msg)} // ✅ Adicionado
+        />
+      )}
+
+      {editServer && (
+        <NovoServidorModal
+          server={editServer}
+          onClose={() => setEditServer(null)}
+          onSuccess={() => {
+            setEditServer(null);
+            addToast("success", "Salvo", "Dados do servidor atualizados.");
+            loadData();
+          }}
+          onError={(msg) => addToast("error", "Erro", msg)}
         />
       )}
 

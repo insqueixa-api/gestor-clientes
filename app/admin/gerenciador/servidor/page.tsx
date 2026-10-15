@@ -727,18 +727,6 @@ export default function AdminServersPage() {
                     >
                       {server.is_archived ? <IconRestore /> : <IconTrash />}
                     </IconActionBtn>
-
-                    {/* Link de Detalhes (usando o estilo do IconActionBtn mas renderizado como Link manualmente se preferir, ou apenas o botão wrapping) */}
-                    {/* Para manter consistência visual, usei as classes do IconActionBtn no Link abaixo */}
-                    <Link
-                      href={`/admin/gerenciador/servidor/${server.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      prefetch={false}
-                      title="Detalhes"
-                      className="p-1.5 rounded-lg border transition-all text-sky-500 bg-sky-500/10 border-sky-500/30 hover:bg-sky-500/20"
-                    >
-                      <IconDetails />
-                    </Link>
                   </div>
                 </div>
 
@@ -1138,22 +1126,6 @@ function IconTrash() {
 }
 function IconRestore() {
   return <RefreshCcw className="w-4 h-4" />;
-}
-function IconDetails() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-    </svg>
-  );
 }
 function IconChat() {
   return <MessageCircle className="w-4 h-4" />;
