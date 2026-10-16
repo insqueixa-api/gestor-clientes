@@ -20,9 +20,10 @@
 // raro/travado (ex: rejeição que precisa de correção manual) passa a ser
 // checado com menos frequência.
 //
-// Janela de 3h (generosa, cobre com folga o pior caso já medido, ~93min) —
-// depois disso, fica pro botão manual "Ver status" (Auditoria) resolver,
-// igual já era antes desse vigia existir.
+// ✅ 16/10/2026, pedido do Márcio: janela de 3h → 30 min (dentro dela,
+// checa de 2 em 2 min). Depois disso, fica pro botão manual "Ver status"
+// (Auditoria). SQL: docs/sql/appativa_watchdog_30min.sql (mesma janela na
+// função Postgres appativa_payment_dispatch_check).
 import { createClient as createAdmin } from "@supabase/supabase-js";
 import { isCronRequest } from "@/lib/internal-auth";
 import { resolveAppativaAppRenewal, prodLog } from "@/lib/client-portal/fulfillment";
@@ -56,7 +57,7 @@ async function handle(req: Request) {
 
   // 1) só consulta o próprio banco — barato, nunca bate na API da Appativa
   // se não achar nada.
-  const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+  const windowStart = new Date(Date.now() - 30 * 60 * 1000).toISOString();
   const { data: pending, error } = await supabaseAdmin
     .from("client_portal_payments")
     .select("id, tenant_id, created_at")
@@ -71,7 +72,7 @@ async function handle(req: Request) {
     // pena checar de novo. Isso é exatamente o "não martelar a Appativa"
     // que esse vigia já promete no comentário do topo do arquivo.
     .is("fulfillment_error", null)
-    .gte("created_at", threeHoursAgo)
+    .gte("created_at", windowStart)
     .limit(20);
 
   if (error) {
