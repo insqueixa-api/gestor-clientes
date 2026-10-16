@@ -153,6 +153,9 @@ export default function LoginClient() {
   // RPC com erro, ou falha de rede), troca a tela inteira por uma instrução
   // grande e direta, sem formulário nenhum pra distrair.
   const [linkDead, setLinkDead] = useState(false);
+  // ✅ 16/10/2026: conta desvinculada do portal → acesso bloqueado, botão
+  // vira "Falar com o suporte" (WhatsApp do admin)
+  const [blocked, setBlocked] = useState<{ support: string } | null>(null);
 
   const [loadingResolve, setLoadingResolve] = useState(false);
   const [loadingLogin, setLoadingLogin] = useState(false);
@@ -261,6 +264,10 @@ export default function LoginClient() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (data?.error === "access_blocked") {
+          setBlocked({ support: String(data?.support_whatsapp || "").replace(/\D/g, "") });
+          return;
+        }
         // Reseta o Turnstile (token só vale 1x — sem isso a próxima tentativa trava)
         turnstileRef.current?.reset();
         setTurnstileToken(null);
@@ -416,7 +423,7 @@ export default function LoginClient() {
                   competir por rede/CPU com a chamada que resolve o token,
                   logo no momento mais importante da página. */}
               <div className="flex justify-center pt-2 min-h-[65px] items-center">
-                {whatsapp ? (
+                {whatsapp && !blocked ? (
                   <Turnstile
                     ref={turnstileRef}
                     siteKey="0x4AAAAAACgrYURZlknhmi-J"
@@ -431,6 +438,30 @@ export default function LoginClient() {
                 )}
               </div>
 
+              {blocked ? (
+                <div className="space-y-3 text-center">
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                    <p className="text-sm font-bold text-amber-600">Acesso bloqueado por inatividade</p>
+                    <p className="mt-1 text-xs text-foreground/70">
+                      Fale com o suporte pelo WhatsApp para liberar o seu acesso à Área do Cliente.
+                    </p>
+                  </div>
+                  {blocked.support ? (
+                    <a
+                      href={`https://wa.me/${blocked.support}?text=${encodeURIComponent(
+                        `Olá! Meu acesso à Área do Cliente está bloqueado por inatividade. Pode liberar? Meu WhatsApp: ${formatWhatsApp(whatsapp)}`,
+                      )}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full rounded-xl py-3 font-semibold transition bg-[#25D366] hover:bg-[#1ebe5a] text-white inline-flex items-center justify-center"
+                    >
+                      Falar com o suporte no WhatsApp
+                    </a>
+                  ) : (
+                    <p className="text-xs text-foreground/70">Entre em contato com o suporte pelo WhatsApp.</p>
+                  )}
+                </div>
+              ) : (
               <div className="space-y-3">
                 <button
                   type="submit"
@@ -445,8 +476,9 @@ export default function LoginClient() {
                   {loadingLogin ? "Acessando..." : "Acessar Área do Cliente"}
                 </button>
               </div>
+              )}
 
-              {msg && (
+              {msg && !blocked && (
                 <div
                   className={`mt-2 text-center text-sm font-bold ${msg.type === "error" ? "text-red-500" : "text-emerald-500"}`}
                 >

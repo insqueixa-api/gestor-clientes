@@ -52,6 +52,59 @@ async function validateTurnstile(cfToken: string, ip: string): Promise<boolean> 
   }
 }
 
+// mesma regra de public.normalize_phone (minúsculo, só letras e números)
+const digitsOnly = (v: unknown) => String(v ?? "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
+/**
+ * Link ativo cujas contas foram todas desvinculadas do portal → bloqueado.
+ * Devolve o WhatsApp do admin (mesma busca do validate-session).
+ */
+async function blockedByInactivity(
+  supabaseAdmin: NonNullable<ReturnType<typeof makeSupabaseAdmin>>,
+  token: string,
+): Promise<{ supportWhatsapp: string | null } | null> {
+  const { data: tok } = await supabaseAdmin
+    .from("client_portal_tokens")
+    .select("tenant_id, whatsapp_username, phone_anchor, expires_at")
+    .eq("token", token)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (!tok || (tok.expires_at && new Date(tok.expires_at).getTime() <= Date.now())) return null;
+
+  const whats = digitsOnly(tok.whatsapp_username);
+  const anchor = digitsOnly(tok.phone_anchor);
+  const [{ data: unlinked }, { data: members }] = await Promise.all([
+    supabaseAdmin
+      .from("clients")
+      .select("whatsapp_username, secondary_whatsapp_username, phone_e164, secondary_phone_e164")
+      .eq("tenant_id", tok.tenant_id)
+      .not("deep_archived_at", "is", null),
+    supabaseAdmin
+      .from("tenant_members")
+      .select("user_id")
+      .eq("tenant_id", tok.tenant_id)
+      .in("role", ["ADMIN", "admin", "owner"])
+      .limit(1),
+  ]);
+  const match = (unlinked || []).some(
+    (c: any) =>
+      (whats && (digitsOnly(c.whatsapp_username) === whats || digitsOnly(c.secondary_whatsapp_username) === whats)) ||
+      (anchor && (digitsOnly(c.phone_e164) === anchor || digitsOnly(c.secondary_phone_e164) === anchor)),
+  );
+  if (!match) return null;
+
+  let supportWhatsapp: string | null = null;
+  if (members?.[0]?.user_id) {
+    const { data: prof } = await supabaseAdmin
+      .from("profiles")
+      .select("whatsapp_username")
+      .eq("id", members[0].user_id)
+      .maybeSingle();
+    supportWhatsapp = prof?.whatsapp_username || null;
+  }
+  return { supportWhatsapp };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabaseAdmin = makeSupabaseAdmin();
@@ -95,7 +148,18 @@ export async function POST(req: NextRequest) {
           { status: 200, headers: NO_STORE_HEADERS },
         );
       }
-      if (error) {
+      // ✅ 16/10/2026, pedido do Márcio: link válido de conta DESVINCULADA do
+      // portal (deep_archived_at) — o link continua ativo, mas a pessoa não
+      // tem mais conta no portal. Em vez de "Tente novamente", avisa que o
+      // acesso está bloqueado por inatividade e manda pro suporte.
+      const blocked = await blockedByInactivity(supabaseAdmin, token).catch(() => null);
+      if (blocked) {
+        return NextResponse.json(
+          { error: "access_blocked", support_whatsapp: blocked.supportWhatsapp },
+          { status: 403, headers: NO_STORE_HEADERS },
+        );
+      }
+      if (error && !String(error.message || "").includes("invalid_credentials")) {
         safeServerLog("[PORTAL][login] rpc error");
         console.error("[login: rpc error (portal_start_session)]", { kind: "client_portal_error", route: "login", message: error?.message });
       }
