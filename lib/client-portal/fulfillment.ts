@@ -7,6 +7,7 @@ import { APP_FIELD_LABELS, AppFieldType } from "@/lib/apps/field-types";
 import { extractFieldByType, findFieldByType, extractDateOnly } from "@/lib/apps/panel";
 import {
   solicitarAtivacao,
+  reenviarAtivacao,
   consultarAtivacao,
   getAppativaApiKey,
   syncAppativaCredits,
@@ -1157,6 +1158,77 @@ export async function sendAppRenewalWhatsapp(
   }
 }
 
+// ✅ 16/10/2026: janela do reenvio automático. O pedido do Márcio foi "nos
+// primeiros 5 minutos"; 10 de tolerância porque o vigia confere de 2 em 2
+// minutos (a recusa pode ser vista um pouco depois de acontecer).
+const APPATIVA_AUTO_RESEND_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * Reenvia 1x (mesmo pedido, mesmos dados) uma ativação que a Appativa recusou
+ * logo no começo. Marcador: client_portal_payments.fulfillment_attempts
+ * (0 → 1), reservado ANTES de chamar a API (update condicional) — webhook e
+ * vigia podem ver a recusa ao mesmo tempo, só um reenvia. Nunca reenvia de
+ * novo: se a 2ª tentativa também for recusada, segue o fluxo normal (erro
+ * na Auditoria, "Reenviar via Appativa" manual).
+ */
+async function autoResendAppativaOnce(
+  supabaseAdmin: any,
+  tenantId: string,
+  payment: { id: string; created_at?: string | null; fulfillment_attempts?: number | null; appativa_historico_id: string; client_id: string },
+  clientAppId: string | null,
+  apiKey: string,
+): Promise<boolean> {
+  try {
+    if (Number(payment.fulfillment_attempts || 0) > 0 || !clientAppId || !payment.created_at) return false;
+    if (Date.now() - new Date(payment.created_at).getTime() > APPATIVA_AUTO_RESEND_WINDOW_MS) return false;
+
+    const { data: appRow } = await supabaseAdmin
+      .from("client_apps")
+      .select("field_values, apps(appativa_app_id, fields_config)")
+      .eq("id", clientAppId)
+      .eq("client_id", payment.client_id)
+      .maybeSingle();
+    const appMeta: any = Array.isArray(appRow?.apps) ? appRow?.apps[0] : appRow?.apps;
+    const appativaAppId = appMeta?.appativa_app_id ? String(appMeta.appativa_app_id) : "";
+    const fieldsConfig = Array.isArray(appMeta?.fields_config) ? appMeta.fields_config : [];
+    const { macApp, keyApp } = extractAppativaCreds(fieldsConfig, appRow?.field_values || {});
+    if (!appativaAppId || !macApp) return false;
+
+    const { data: claimed } = await supabaseAdmin
+      .from("client_portal_payments")
+      .update({ fulfillment_attempts: 1 })
+      .eq("id", payment.id)
+      .eq("tenant_id", tenantId)
+      .eq("fulfillment_attempts", 0)
+      .eq("fulfillment_status", "manual_pending")
+      .select("id");
+    if (!claimed?.length) return false;
+
+    const result = await reenviarAtivacao(apiKey, {
+      historicoId: payment.appativa_historico_id,
+      appativaAppId,
+      macApp,
+      keyApp: keyApp || undefined,
+      obs: "Reenvio automático (recusa nos primeiros minutos)",
+    });
+    if (!("data" in result)) {
+      prodLog("appativa_resolve.auto_resend_failed", { paymentId: payment.id, message: result.error });
+      return false;
+    }
+    const newHistoricoId = "historico_id" in result.data ? result.data.historico_id : (result.data as any).id;
+    await supabaseAdmin
+      .from("client_portal_payments")
+      .update({ appativa_historico_id: newHistoricoId || payment.appativa_historico_id, fulfillment_error: null })
+      .eq("id", payment.id)
+      .eq("tenant_id", tenantId);
+    prodLog("appativa_resolve.auto_resent", { paymentId: payment.id });
+    return true;
+  } catch (e: any) {
+    prodLog("appativa_resolve.auto_resend_error", { paymentId: payment.id, message: e?.message });
+    return false;
+  }
+}
+
 // ============================================================
 // resolveAppativaAppRenewal — reconsulta a Appativa (/api/historico) pra
 // confirmar/concluir um app_renewal pendente. Achado 25/08/2026 (Márcio, em
@@ -1187,7 +1259,7 @@ export async function resolveAppativaAppRenewal(
 ): Promise<{ outcome: "done" | "pending" | "error" | "skipped" }> {
   const { data: payment } = await supabaseAdmin
     .from("client_portal_payments")
-    .select("id, tenant_id, client_id, client_app_id, app_name_snapshot, price_currency, price_amount, fulfillment_status, appativa_historico_id")
+    .select("id, tenant_id, client_id, client_app_id, app_name_snapshot, price_currency, price_amount, fulfillment_status, appativa_historico_id, created_at, fulfillment_attempts")
     .eq("tenant_id", tenantId)
     .eq("id", paymentId)
     .maybeSingle();
@@ -1281,6 +1353,13 @@ export async function resolveAppativaAppRenewal(
   }
 
   if (APPATIVA_FAILURE_STATUSES.has(status)) {
+    // ✅ 16/10/2026, pedido do Márcio: recusa logo no começo pode ser só
+    // tráfego do lado deles (caso real: Alessandro/IBO Player — reenviou no
+    // site e ativou na hora). Reenvia 1x sozinho, com os mesmos dados, se a
+    // recusa aparecer nos primeiros minutos do pagamento.
+    if (await autoResendAppativaOnce(supabaseAdmin, tenantId, payment, effectiveClientAppId, apiKey)) {
+      return { outcome: "pending" };
+    }
     await supabaseAdmin
       .from("client_portal_payments")
       .update({
