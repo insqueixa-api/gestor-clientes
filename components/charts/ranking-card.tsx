@@ -25,7 +25,17 @@ type ProgressItem = {
     realizado?: string;
     diff?: string;
     diffTone?: "good" | "bad";
+    realTone?: "good" | "bad" | "early" | "late" | "pending";
   }[];
+};
+
+// cor do Realizado: verde dentro do previsto, vermelho passou, azul adiantada
+const REAL_TONE: Record<string, string> = {
+  good: "text-emerald-600 dark:text-emerald-400",
+  bad: "text-rose-600 dark:text-rose-400",
+  early: "text-sky-600 dark:text-sky-400",
+  late: "text-orange-600 dark:text-orange-400",
+  pending: "text-amber-600 dark:text-amber-400",
 };
 
 const DIFF_TONE: Record<string, string> = {
@@ -293,28 +303,28 @@ export function RankingCard({
                         <table className="w-full text-[11px] leading-5">
                           <thead>
                             <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                              <th className="text-left font-medium">Lançamento</th>
+                              <th className="text-left font-medium pl-1.5">Lançamento</th>
                               <th className="text-right font-medium pl-3">Previsto</th>
                               <th className="text-right font-medium pl-3">Realizado</th>
-                              <th className="text-right font-medium pl-3">Diferença</th>
+                              <th className="text-right font-medium pl-3 pr-1.5">Diferença</th>
                             </tr>
                           </thead>
                           <tbody>
                             {item.details!.slice(0, 12).map((d, i) => (
-                              <tr key={i} className="border-t border-border/50">
-                                <td className="max-w-0 w-full truncate pr-2">
+                              <tr key={i} className={i % 2 === 0 ? "bg-muted/60" : ""}>
+                                <td className="max-w-0 w-full truncate pl-1.5 pr-2 py-0.5">
                                   <span className="text-foreground/90">{d.label}</span>
                                   {d.note && <span className="text-muted-foreground"> · {d.note}</span>}
                                 </td>
                                 <td className="text-right tabular-nums whitespace-nowrap pl-3 text-muted-foreground">{d.previsto ?? "—"}</td>
                                 <td
-                                  className={`text-right tabular-nums whitespace-nowrap pl-3 font-medium ${
-                                    d.tone === "pending" ? DETAIL_TONE.pending : "text-foreground/90"
+                                  className={`text-right tabular-nums whitespace-nowrap pl-3 font-semibold ${
+                                    REAL_TONE[d.realTone ?? (d.tone === "pending" ? "pending" : "")] ?? "text-foreground/90"
                                   }`}
                                 >
                                   {d.realizado ?? "—"}
                                 </td>
-                                <td className={`text-right tabular-nums whitespace-nowrap pl-3 ${DIFF_TONE[d.diffTone ?? ""] ?? "text-muted-foreground"}`}>
+                                <td className={`text-right tabular-nums whitespace-nowrap pl-3 pr-1.5 ${DIFF_TONE[d.diffTone ?? ""] ?? "text-muted-foreground"}`}>
                                   {d.diff ?? ""}
                                 </td>
                               </tr>

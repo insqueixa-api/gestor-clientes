@@ -646,6 +646,10 @@ export default async function AdminDashboardPage({
     realizado?: string;
     diff?: string;
     diffTone?: "good" | "bad";
+    // ✅ cor do Realizado (pedido do Márcio, 17/10/2026): verde = dentro do
+    // previsto, vermelho = passou, azul = adiantada, laranja = atrasada,
+    // amarelo = ainda pendente
+    realTone?: "good" | "bad" | "early" | "late" | "pending";
   };
   const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   const trxById = new Map(finTrxRows.map((t) => [t.id, t]));
@@ -711,11 +715,13 @@ export default async function AdminDashboardPage({
       const real = t?.status === "PAGO" ? toNumber(t.valor) : null;
       if (prev) {
         const paidBefore = real != null && !dp && t?.data_pagamento ? ddmm(toBRDateStr(t.data_pagamento)) : null;
+        const cmp = real != null ? diffOf(prev.valor, real) : { diff: "" };
         out.push({
           label,
           previsto: fmtBRL(prev.valor),
           realizado: real != null ? fmtBRL(real) : "pendente",
-          ...(real != null ? diffOf(prev.valor, real) : { diff: "" }),
+          ...cmp,
+          realTone: real == null ? "pending" : cmp.diffTone === "bad" ? "bad" : "good",
           note: dp ? `pago ${ddmm(dp)}` : paidBefore ? `pago antes · ${paidBefore}` : t?.data_vencimento ? `vence ${ddmm(t.data_vencimento)}` : undefined,
           tone: real != null ? "ok" : "pending",
         });
@@ -731,6 +737,8 @@ export default async function AdminDashboardPage({
           previsto: prevNext != null ? fmtBRL(prevNext) : "—",
           realizado: fmtBRL(real),
           ...(prevNext != null ? diffOf(prevNext, real) : { diff: "" }),
+          realTone:
+            venc > _finMonthEnd ? "early" : venc && venc < _finMonthStart ? "late" : tipo === "DESPESA" ? "bad" : "good",
           note: `pago ${ddmm(dp)} · ${why}`,
           tone: why === "fora da previsão" ? "extra" : "ok",
         });
