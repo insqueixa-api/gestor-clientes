@@ -3829,7 +3829,10 @@ export default function NovoCliente({
       const { data: userRes } = await supabaseBrowser.auth.getUser();
       const createdBy = userRes?.user?.id;
 
-      const rpcScreens = isTrialMode ? 1 : Number(screens || 1);
+      // ✅ 16/10/2026, pedido do Márcio: teste também tem Plano/Telas — o
+      // preço fixado (ex: Anual a R$ 300) só vale no portal pro período igual
+      // ao plano cadastrado, então o teste precisa poder sair com o plano certo.
+      const rpcScreens = Number(screens || 1);
 
       // ✅ valor vem da tabela automaticamente via useEffect quando priceTouched=false
       // ✅ e vira override quando você digita (priceTouched=true)
@@ -3840,9 +3843,7 @@ export default function NovoCliente({
 
       const rpcCurrency = currency || "BRL";
 
-      const rpcPlanLabel = isTrialMode
-        ? PLAN_LABELS["MONTHLY"]
-        : PLAN_LABELS[selectedPlanPeriod];
+      const rpcPlanLabel = PLAN_LABELS[selectedPlanPeriod] || PLAN_LABELS["MONTHLY"];
 
       let clientId = clientToEdit?.id;
       let apiM3uUrl = ""; // ✅ Hoistado para fora do else
@@ -6039,10 +6040,10 @@ export default function NovoCliente({
                     </div>
                   </div>
 
-                  {/* ✅ Só CLIENTE vê Plano / Telas / Créditos */}
+                  {/* ✅ Plano / Telas pra cliente e teste (16/10/2026); Créditos só cliente */}
 
-                  {!isTrialMode && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {(
+                    <div className={`grid grid-cols-2 gap-2 ${isTrialMode ? "" : "sm:grid-cols-3"}`}>
                       <div className="col-span-2 sm:col-span-1">
                         <Label>Plano</Label>
 
@@ -6092,13 +6093,15 @@ export default function NovoCliente({
                         />
                       </div>
 
-                      <div className="col-span-2 sm:col-span-1">
-                        <Label>Créditos</Label>
+                      {!isTrialMode && (
+                        <div className="col-span-2 sm:col-span-1">
+                          <Label>Créditos</Label>
 
-                        <div className="h-10 w-full bg-sky-500/10 border border-sky-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-sky-500">
-                          {creditsInfo ? creditsInfo.used : "—"}
+                          <div className="h-10 w-full bg-sky-500/10 border border-sky-500/20 rounded-lg flex items-center justify-center text-sm font-medium text-sky-500">
+                            {creditsInfo ? creditsInfo.used : "—"}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   )}
 
