@@ -268,24 +268,28 @@ export function RankingCard({
                   onClick={() => hasDetails && setOpenIdx((cur) => (cur === idx ? null : idx))}
                 >
                   {isOpen && (
+                    // pointer-events-none: o resumo nunca "segura" o mouse —
+                    // descer pra próxima linha abre a dela na hora
                     <div
-                      className={`absolute left-9 right-0 z-30 rounded-lg border border-border bg-card shadow-xl p-2.5 ${
+                      className={`pointer-events-none absolute left-9 right-0 z-30 rounded-lg border border-border bg-card shadow-xl px-2.5 py-2 ${
                         idx >= 3 ? "bottom-full mb-1" : "top-full mt-1"
                       }`}
                     >
-                      <p className="text-[11px] font-semibold text-foreground mb-1.5 truncate">{item.label}</p>
-                      <div className="space-y-1 max-h-60 overflow-y-auto">
-                        {item.details!.map((d, i) => (
-                          <div key={i} className="flex items-start justify-between gap-3 text-[11px]">
-                            <div className="min-w-0">
-                              <p className="text-foreground/90 truncate">{d.label}</p>
-                              {d.note && <p className="text-[10px] text-muted-foreground truncate">{d.note}</p>}
-                            </div>
+                      <div className="space-y-0.5">
+                        {item.details!.slice(0, 12).map((d, i) => (
+                          <div key={i} className="flex items-center justify-between gap-3 text-[11px] leading-5">
+                            <span className="min-w-0 truncate">
+                              <span className="text-foreground/90">{d.label}</span>
+                              {d.note && <span className="text-muted-foreground"> · {d.note}</span>}
+                            </span>
                             <span className={`shrink-0 tabular-nums font-medium ${DETAIL_TONE[d.tone ?? ""] ?? "text-muted-foreground"}`}>
                               {d.value}
                             </span>
                           </div>
                         ))}
+                        {item.details!.length > 12 && (
+                          <div className="text-[10px] text-muted-foreground">+{item.details!.length - 12} mais</div>
+                        )}
                       </div>
                     </div>
                   )}
