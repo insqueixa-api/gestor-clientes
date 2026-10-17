@@ -649,7 +649,17 @@ export default async function AdminDashboardPage({
           { label: "📱 Aplicativos", value: fmtBRL(toNumber(finance?.apps_paid_month_brl)), tone: "ok" },
           { label: "⏳ Ainda a receber (ativos)", value: fmtBRL(toNumber(finance?.to_receive_brl_estimated)), tone: "pending" },
         ];
-        if (iptvPrevistoReceita > 0) lines.push({ label: "Previsto na virada do mês", value: fmtBRL(iptvPrevistoReceita) });
+        // ✅ as duas previsões lado a lado (dúvida do Márcio, 17/10/2026):
+        // a de hoje (= card "A Receber") e a fotografia do dia 1 (a meta)
+        const iptvHoje =
+          toNumber(finance?.clients_paid_month_brl_estimated) +
+          toNumber(finance?.reseller_paid_month_brl) +
+          toNumber(finance?.apps_paid_month_brl) +
+          toNumber(finance?.to_receive_brl_estimated);
+        lines.push({ label: "📈 Previsão hoje (recebido + a receber)", value: fmtBRL(iptvHoje) });
+        if (iptvPrevistoReceita > 0) {
+          lines.push({ label: `Previsto no dia 1º (meta)`, value: fmtBRL(iptvPrevistoReceita) });
+        }
         return lines;
       }
       return purchasesRows
