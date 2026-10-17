@@ -422,8 +422,9 @@ export default function LoginClient() {
                   linkDead nem chega a renderizar este formulário). Evita
                   competir por rede/CPU com a chamada que resolve o token,
                   logo no momento mais importante da página. */}
+              {!blocked && (
               <div className="flex justify-center pt-2 min-h-[65px] items-center">
-                {whatsapp && !blocked ? (
+                {whatsapp ? (
                   <Turnstile
                     ref={turnstileRef}
                     siteKey="0x4AAAAAACgrYURZlknhmi-J"
@@ -437,6 +438,7 @@ export default function LoginClient() {
                   </div>
                 )}
               </div>
+              )}
 
               {blocked ? (
                 <div className="space-y-3 text-center">
