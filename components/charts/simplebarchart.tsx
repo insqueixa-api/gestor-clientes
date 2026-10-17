@@ -10,7 +10,11 @@ export type SimpleBarChartDatum = {
   displayValue: number;
   tooltipTitle: string;
   tooltipContent: string;
+  /** ✅ 17/10/2026: detalhe do dia (ex: "Tony · TonyFast · Fast"), lista no tooltip */
+  tooltipLines?: string[];
 };
+
+const TIP_MAX_LINES = 10;
 
 interface SimpleBarChartProps {
   data: SimpleBarChartDatum[];
@@ -201,12 +205,15 @@ export function SimpleBarChart({
     setTooltipPos({ x: t.clientX - rect.left, y: t.clientY - rect.top });
   };
 
-  const TIP_W = 280;
+  const tipLines = hoveredItem?.tooltipLines ?? [];
+  const TIP_W = tipLines.length ? 300 : 280;
   const tipLeft = Math.min(
     Math.max(tooltipPos.x - TIP_W / 2, 6),
     (chartRef.current?.clientWidth ?? 800) - TIP_W - 6,
   );
-  const tipTop = tooltipPos.y - 90;
+  // altura estimada (cresce com a lista) — sem espaço acima, abre embaixo
+  const tipEstH = 62 + Math.min(tipLines.length, TIP_MAX_LINES + 1) * 17;
+  const tipTop = tooltipPos.y - tipEstH - 10;
 
   return (
     <div className="w-full select-none">
@@ -371,7 +378,9 @@ export function SimpleBarChart({
             className="pointer-events-none absolute z-50"
             style={{
               left: tipLeft,
-              top: tipTop < 0 ? tooltipPos.y + 12 : tipTop,
+              // acima do cursor: ancora pela base (altura real, não a estimada)
+              top: tipTop < 0 ? tooltipPos.y + 12 : tooltipPos.y - 10,
+              transform: tipTop < 0 ? undefined : "translateY(-100%)",
               width: TIP_W,
             }}
           >
@@ -400,6 +409,21 @@ export function SimpleBarChart({
               >
                 {hoveredItem.tooltipContent}
               </div>
+              {tipLines.length > 0 && (
+                <div
+                  className="mt-1.5 pt-1.5 space-y-0.5"
+                  style={{ borderTop: `1px solid ${acc}33`, fontSize: "11px", color: tipText }}
+                >
+                  {tipLines.slice(0, TIP_MAX_LINES).map((l, i) => (
+                    <div key={i} className="truncate">
+                      {l}
+                    </div>
+                  ))}
+                  {tipLines.length > TIP_MAX_LINES && (
+                    <div style={{ opacity: 0.6 }}>+{tipLines.length - TIP_MAX_LINES} mais</div>
+                  )}
+                </div>
+              )}
             </div>
             <div
               style={{

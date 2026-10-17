@@ -267,10 +267,18 @@ export default async function AdminDashboardPage({
   // sessão antes de chegar aqui, via getAdminTenantContext), então não
   // precisa de um getUser()/tenant_members próprio nesta página.
   // Ver docs/sql/add_dashboard_bundle_rpcs.sql.
-  const [iptvRes, financeRes] = await Promise.all([
+  // ✅ 17/10/2026: + detalhes do mês pro tooltip dos gráficos (quem
+  // cadastrou / quem pagou) — docs/sql/get_dashboard_month_details.sql
+  const [iptvRes, financeRes, detailsRes] = await Promise.all([
     supabase.rpc("get_dashboard_iptv_bundle"),
     supabase.rpc("get_dashboard_finance_bundle"),
+    supabase.rpc("get_dashboard_month_details"),
   ]);
+  type MonthDetails = {
+    regs: { day: string; name: string | null; username: string | null; server: string | null; is_trial: boolean }[];
+    payments: { day: string; kind: "cliente" | "revenda" | "app"; name: string | null; detail: string | null; amount: number }[];
+  };
+  const monthDetails = (detailsRes.data ?? null) as MonthDetails | null;
 
   // Filtro: apenas IPTV e Financeiro
   const availableModules = ["iptv", "financeiro"] as const;
@@ -527,6 +535,10 @@ export default async function AdminDashboardPage({
     return cat ? `${cat.icone} ${cat.nome}` : "📦 Sem categoria";
   };
 
+  // ✅ 17/10/2026: lançamento a lançamento do previsto (tooltip dos cards)
+  const prevByTrx = new Map<string, { tipo: "RECEITA" | "DESPESA"; key: string; valor: number }>();
+  let iptvPrevistoReceita = 0;
+
   if (hasSnapshot) {
     // Previsto: direto da fotografia (nunca recalcula)
     for (const s of finSnapshotRows) {
@@ -535,6 +547,11 @@ export default async function AdminDashboardPage({
         s.origem === "iptv_a_receber"
           ? iptvKey
           : (s.categoria_id ?? "__none__");
+      if (s.origem === "iptv_a_receber") iptvPrevistoReceita += toNumber(s.valor);
+      else if (s.transacao_id) {
+        const cur = prevByTrx.get(s.transacao_id);
+        prevByTrx.set(s.transacao_id, { tipo: s.tipo, key, valor: (cur?.valor ?? 0) + toNumber(s.valor) });
+      }
       const label =
         s.origem === "iptv_a_receber" ? iptvLabel : catLabel(s.categoria_id);
       const prev = map.get(key) ?? { label, value: 0 };
@@ -560,8 +577,10 @@ export default async function AdminDashboardPage({
       const label = catLabel(t.categoria_id);
       const prev = map.get(key) ?? { label, value: 0 };
       map.set(key, { ...prev, value: prev.value + toNumber(t.valor) });
+      prevByTrx.set(t.id, { tipo: t.tipo, key, valor: toNumber(t.valor) });
     }
     const _toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
+    iptvPrevistoReceita = _toReceiveVal;
     if (_toReceiveVal > 0 && iptvCatEntry) {
       const prev = catRevPrevMap.get(iptvKey) ?? { label: iptvLabel, value: 0 };
       catRevPrevMap.set(iptvKey, {
@@ -611,9 +630,65 @@ export default async function AdminDashboardPage({
   // empréstimo paga no meio do mês) entra só no Executado — antes ia
   // também pro Previsto como "Ajuste", e a linha mostrava X previsto / X
   // executado pra algo que nunca foi planejado.
+  // ✅ 17/10/2026, pedido do Márcio: passar o mouse na categoria mostra o
+  // que compõe a linha — lançamento a lançamento (pago, pendente, fora da
+  // previsão); IPTV = clientes/revenda/apps pagos + o que falta receber.
+  type CatDetail = { label: string; value: string; note?: string; tone?: "ok" | "pending" | "extra" };
+  const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  const trxById = new Map(finTrxRows.map((t) => [t.id, t]));
+  const paidInMonth = (t: FinTrx) => {
+    const dp = t.data_pagamento ? toBRDateStr(t.data_pagamento) : null;
+    return t.status === "PAGO" && !!dp && dp >= _finMonthStart && dp <= _finMonthEnd ? dp : null;
+  };
+  const detailsFor = (tipo: "RECEITA" | "DESPESA", key: string): CatDetail[] => {
+    if (key === iptvKey) {
+      if (tipo === "RECEITA") {
+        const lines: CatDetail[] = [
+          { label: "👤 Clientes (renovações)", value: fmtBRL(toNumber(finance?.clients_paid_month_brl_estimated)), tone: "ok" },
+          { label: "🏪 Revenda (créditos)", value: fmtBRL(toNumber(finance?.reseller_paid_month_brl)), tone: "ok" },
+          { label: "📱 Aplicativos", value: fmtBRL(toNumber(finance?.apps_paid_month_brl)), tone: "ok" },
+          { label: "⏳ Ainda a receber (ativos)", value: fmtBRL(toNumber(finance?.to_receive_brl_estimated)), tone: "pending" },
+        ];
+        if (iptvPrevistoReceita > 0) lines.push({ label: "Previsto na virada do mês", value: fmtBRL(iptvPrevistoReceita) });
+        return lines;
+      }
+      return purchasesRows
+        .filter((r) => toBRDateStr(r.created_at).slice(0, 7) === todayMonthKey)
+        .map((r) => ({ label: "Recarga de créditos", value: fmtBRL(toNumber(r.total_amount_brl)), note: ddmm(toBRDateStr(r.created_at)), tone: "ok" as const }));
+    }
+    const ids = new Set<string>();
+    for (const [id, p] of prevByTrx) if (p.tipo === tipo && p.key === key) ids.add(id);
+    for (const t of finTrxRows) {
+      if (t.tipo === tipo && (t.categoria_id ?? "__none__") === key && paidInMonth(t)) ids.add(t.id);
+    }
+    const out: CatDetail[] = [];
+    for (const id of ids) {
+      const t = trxById.get(id);
+      const prev = prevByTrx.get(id);
+      const label = t?.descricao?.trim() || "Lançamento";
+      const dp = t ? paidInMonth(t) : null;
+      if (t && dp) {
+        const paid = toNumber(t.valor);
+        const extra = !prev ? "fora da previsão" : Math.abs(prev.valor - paid) > 0.009 ? `previsto ${fmtBRL(prev.valor)}` : "";
+        out.push({ label, value: fmtBRL(paid), note: [`pago ${ddmm(dp)}`, extra].filter(Boolean).join(" · "), tone: prev ? "ok" : "extra" });
+      } else if (prev) {
+        const early = t?.status === "PAGO" && t.data_pagamento ? `pago antes, em ${ddmm(toBRDateStr(t.data_pagamento))}` : null;
+        out.push({
+          label,
+          value: fmtBRL(prev.valor),
+          note: early ?? (t?.data_vencimento ? `pendente · vence ${ddmm(t.data_vencimento)}` : "pendente"),
+          tone: early ? "ok" : "pending",
+        });
+      }
+    }
+    const order = { pending: 0, extra: 1, ok: 2 } as const;
+    return out.sort((a, b) => order[a.tone ?? "ok"] - order[b.tone ?? "ok"]);
+  };
+
   const buildProgressItems = (
     prevMap: Map<string, { label: string; value: number }>,
     execMap: Map<string, { label: string; value: number }>,
+    tipo: "RECEITA" | "DESPESA",
   ) => {
     const keys = new Set<string>([...prevMap.keys(), ...execMap.keys()]);
     return Array.from(keys)
@@ -624,6 +699,7 @@ export default async function AdminDashboardPage({
           label: p?.label ?? e?.label ?? "📦 Sem categoria",
           previsto: p?.value ?? 0,
           executado: e?.value ?? 0,
+          details: detailsFor(tipo, key),
         };
       })
       .sort(
@@ -636,10 +712,12 @@ export default async function AdminDashboardPage({
   const finCatRevProgressItems = buildProgressItems(
     catRevPrevMap,
     catRevExecMap,
+    "RECEITA",
   );
   const finCatExpProgressItems = buildProgressItems(
     catExpPrevMap,
     catExpExecMap,
+    "DESPESA",
   );
 
   const dueRows = iptvBundle?.due ?? [];
@@ -706,6 +784,21 @@ export default async function AdminDashboardPage({
   const toReceiveQty = toNumber(finance?.to_receive_clients_qty);
   const toReceiveVal = toNumber(finance?.to_receive_brl_estimated);
 
+  // ✅ 17/10/2026: linhas do tooltip por dia (quem cadastrou / quem pagou)
+  const regsByDay = new Map<string, string[]>();
+  for (const r of monthDetails?.regs ?? []) {
+    const key = normalizeDayKey(r.day);
+    const line = [r.is_trial ? "🧪" : "👤", [r.name, r.username, r.server].filter(Boolean).join(" · ")].join(" ");
+    regsByDay.set(key, [...(regsByDay.get(key) ?? []), line]);
+  }
+  const paysByDay = new Map<string, string[]>();
+  const payIcon = { cliente: "👤", revenda: "🏪", app: "📱" } as const;
+  for (const p of monthDetails?.payments ?? []) {
+    const key = normalizeDayKey(p.day);
+    const line = `${payIcon[p.kind] ?? "•"} ${[p.name, p.detail].filter(Boolean).join(" · ")} · ${fmtBRL(toNumber(p.amount))}`;
+    paysByDay.set(key, [...(paysByDay.get(key) ?? []), line]);
+  }
+
   // Gráfico: novos cadastros
   const regsMap = new Map<string, { clients: number; trials: number }>();
   for (const r of regsRows) {
@@ -727,6 +820,7 @@ export default async function AdminDashboardPage({
         displayValue: total,
         tooltipTitle: spTitleFromISO(iso),
         tooltipContent: `${fmtInt(found.clients)} Clientes / ${fmtInt(found.trials)} Testes`,
+        tooltipLines: regsByDay.get(iso) ?? [],
       };
     });
 
@@ -752,6 +846,7 @@ export default async function AdminDashboardPage({
         displayValue: totalVal,
         tooltipTitle: spTitleFromISO(iso),
         tooltipContent: `Clientes: ${fmtBRL(found.clients)} • Revenda + Apps: ${fmtBRL(found.reseller)} • Total: ${fmtBRL(totalVal)}`,
+        tooltipLines: paysByDay.get(iso) ?? [],
       };
     });
 

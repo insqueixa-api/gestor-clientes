@@ -15,6 +15,14 @@ type ProgressItem = {
   previsto: number;
   executado: number;
   logo_url?: string | null;
+  /** ✅ 17/10/2026: o que compõe a linha (passar o mouse / tocar) */
+  details?: { label: string; value: string; note?: string; tone?: "ok" | "pending" | "extra" }[];
+};
+
+const DETAIL_TONE: Record<string, string> = {
+  ok: "text-emerald-600 dark:text-emerald-400",
+  pending: "text-amber-600 dark:text-amber-400",
+  extra: "text-sky-600 dark:text-sky-400",
 };
 
 type AccentColor = "sky" | "emerald" | "violet" | "rose" | "amber" | "indigo";
@@ -150,6 +158,8 @@ export function RankingCard({
   const [view, setView] = useState<"previsto" | "ajustes" | "executado">(
     "executado",
   );
+  // linha com o resumo aberto (mouse em cima ou toque no celular)
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
 
   const defaultFormat = mode === "currency" ? fmtBRL : fmtInt;
   const fmt = formatValue ?? defaultFormat;
@@ -175,7 +185,7 @@ export function RankingCard({
   const max = Math.max(...currentItems.map((i) => i.value), 1);
 
   return (
-    <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+    <div className={`bg-card rounded-xl border border-border shadow-sm ${hasProgress ? "" : "overflow-hidden"}`}>
       {/* Header */}
       <div className="px-5 pt-5 pb-4 flex items-center justify-between border-b border-border">
         <div>
@@ -246,8 +256,39 @@ export function RankingCard({
               const isOver =
                 item.executado > item.previsto && item.previsto > 0;
 
+              const hasDetails = !!item.details?.length;
+              const isOpen = hasDetails && openIdx === idx;
+
               return (
-                <div key={item.label} className="group">
+                <div
+                  key={item.label}
+                  className={`group relative ${hasDetails ? "cursor-pointer" : ""}`}
+                  onMouseEnter={() => hasDetails && setOpenIdx(idx)}
+                  onMouseLeave={() => setOpenIdx((cur) => (cur === idx ? null : cur))}
+                  onClick={() => hasDetails && setOpenIdx((cur) => (cur === idx ? null : idx))}
+                >
+                  {isOpen && (
+                    <div
+                      className={`absolute left-9 right-0 z-30 rounded-lg border border-border bg-card shadow-xl p-2.5 ${
+                        idx >= 3 ? "bottom-full mb-1" : "top-full mt-1"
+                      }`}
+                    >
+                      <p className="text-[11px] font-semibold text-foreground mb-1.5 truncate">{item.label}</p>
+                      <div className="space-y-1 max-h-60 overflow-y-auto">
+                        {item.details!.map((d, i) => (
+                          <div key={i} className="flex items-start justify-between gap-3 text-[11px]">
+                            <div className="min-w-0">
+                              <p className="text-foreground/90 truncate">{d.label}</p>
+                              {d.note && <p className="text-[10px] text-muted-foreground truncate">{d.note}</p>}
+                            </div>
+                            <span className={`shrink-0 tabular-nums font-medium ${DETAIL_TONE[d.tone ?? ""] ?? "text-muted-foreground"}`}>
+                              {d.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {/* Row */}
                   <div className="flex items-center gap-3 mb-1.5">
                     {/* Rank badge */}
