@@ -390,6 +390,8 @@ export default async function AdminDashboardPage({
     snapshot: SnapshotRow[];
     // ✅ 17/10/2026: o que vencia no mês e já estava pago na foto (só tooltip)
     snapshot_pagos?: { transacao_id: string | null; tipo: "RECEITA" | "DESPESA"; valor: number | string; categoria_id: string | null }[];
+    // ✅ 17/10/2026: contas do mês seguinte na foto do dia 1º (previsto da conta adiantada)
+    snapshot_proximo?: { transacao_id: string | null; tipo: "RECEITA" | "DESPESA"; valor: number | string; categoria_id: string | null }[];
     evolucao_transacoes: EvolucaoTrx[];
     evolucao_snapshot: EvolucaoSnapshotRow[];
     saldo_atual: number | string | null;
@@ -652,6 +654,10 @@ export default async function AdminDashboardPage({
     if (!sp.transacao_id) continue;
     prevAllByTrx.set(sp.transacao_id, { tipo: sp.tipo, key: sp.categoria_id ?? "__none__", valor: toNumber(sp.valor) });
   }
+  const prevNextByTrx = new Map<string, number>();
+  for (const sp of financeBundle?.snapshot_proximo ?? []) {
+    if (sp.transacao_id) prevNextByTrx.set(sp.transacao_id, toNumber(sp.valor));
+  }
   const paidInMonth = (t: FinTrx) => {
     const dp = t.data_pagamento ? toBRDateStr(t.data_pagamento) : null;
     return t.status === "PAGO" && !!dp && dp >= _finMonthStart && dp <= _finMonthEnd ? dp : null;
@@ -718,11 +724,13 @@ export default async function AdminDashboardPage({
         const venc = t.data_vencimento || "";
         const why =
           venc > _finMonthEnd ? `adiantada · vence ${ddmm(venc)}` : venc && venc < _finMonthStart ? `atrasada · venceu ${ddmm(venc)}` : "fora da previsão";
+        // adiantada: previsto = valor dela na foto do dia 1º (contas do mês seguinte)
+        const prevNext = venc > _finMonthEnd ? prevNextByTrx.get(t.id) : undefined;
         out.push({
           label,
-          previsto: "—",
+          previsto: prevNext != null ? fmtBRL(prevNext) : "—",
           realizado: fmtBRL(real),
-          diff: "",
+          ...(prevNext != null ? diffOf(prevNext, real) : { diff: "" }),
           note: `pago ${ddmm(dp)} · ${why}`,
           tone: why === "fora da previsão" ? "extra" : "ok",
         });

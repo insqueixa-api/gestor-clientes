@@ -91,6 +91,37 @@ async function snapshotTenant(tenantId: string, anoMes: string, force: boolean) 
     pago_na_foto: t.status === "PAGO",
   }));
 
+  // 1b) ✅ 17/10/2026, pedido do Márcio ("eu costumo sempre adiantar as
+  // contas"): contas do MÊS SEGUINTE como referência (ref_proximo_mes) — a
+  // conta adiantada mostra no resumo o valor que tinha no dia 1º. Nunca
+  // entram na barra Previsto (docs/sql/fin_snapshot_ref_proximo_mes.sql).
+  const [ny, nm] = anoMes.split("-").map(Number);
+  const nextAnoMes = nm === 12 ? `${ny + 1}-01` : `${ny}-${String(nm + 1).padStart(2, "0")}`;
+  const next = monthRange(nextAnoMes);
+  const { data: proximas, error: nextErr } = await supabaseAdmin
+    .from("fin_transacoes")
+    .select("id, tipo, valor, categoria_id, data_vencimento, status")
+    .eq("tenant_id", tenantId)
+    .in("status", ["PENDENTE", "PAGO"])
+    .gte("data_vencimento", next.start)
+    .lte("data_vencimento", next.end);
+  if (nextErr) throw new Error(`Falha ao buscar contas do mês seguinte: ${nextErr.message}`);
+  for (const t of proximas || []) {
+    rows.push({
+      tenant_id: tenantId,
+      ano_mes: anoMes,
+      transacao_id: t.id,
+      client_id: null,
+      origem: "fin_transacoes",
+      tipo: t.tipo,
+      valor: t.valor,
+      categoria_id: t.categoria_id,
+      data_vencimento: t.data_vencimento,
+      pago_na_foto: t.status === "PAGO",
+      ref_proximo_mes: true,
+    });
+  }
+
   // 2) "A receber" do IPTV: clientes ativos (não-teste, não-arquivados) com
   // vencimento no mês — mesma regra da view vw_dashboard_finance_cards
   // (to_receive_brl_estimated), só que congelada em vez de recalculada ao vivo.
