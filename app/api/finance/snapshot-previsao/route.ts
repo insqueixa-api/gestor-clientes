@@ -63,19 +63,22 @@ async function snapshotTenant(tenantId: string, anoMes: string, force: boolean) 
 
   const { start, end } = monthRange(anoMes);
 
-  // 1) fin_transacoes com vencimento no mês — só as PENDENTES no momento da
-  // foto (o que já estava PAGO não é mais "planejado", vira Ajuste).
+  // 1) fin_transacoes com vencimento no mês. PENDENTES = o previsto (barra);
+  // ✅ 17/10/2026, pedido do Márcio ("o print do dia 1 deve registrar
+  // tudo"): as que JÁ estavam pagas também entram, marcadas com
+  // pago_na_foto — o Dashboard não soma essas no Previsto (decisão de
+  // 21/09 continua), só mostra no resumo previsto x realizado.
   const { data: transacoes, error } = await supabaseAdmin
     .from("fin_transacoes")
-    .select("id, tipo, valor, categoria_id, data_vencimento")
+    .select("id, tipo, valor, categoria_id, data_vencimento, status")
     .eq("tenant_id", tenantId)
-    .eq("status", "PENDENTE")
+    .in("status", ["PENDENTE", "PAGO"])
     .gte("data_vencimento", start)
     .lte("data_vencimento", end);
 
   if (error) throw new Error(`Falha ao buscar transações: ${error.message}`);
 
-  const rows = (transacoes || []).map((t) => ({
+  const rows: Record<string, unknown>[] = (transacoes || []).map((t) => ({
     tenant_id: tenantId,
     ano_mes: anoMes,
     transacao_id: t.id,
@@ -85,6 +88,7 @@ async function snapshotTenant(tenantId: string, anoMes: string, force: boolean) 
     valor: t.valor,
     categoria_id: t.categoria_id,
     data_vencimento: t.data_vencimento,
+    pago_na_foto: t.status === "PAGO",
   }));
 
   // 2) "A receber" do IPTV: clientes ativos (não-teste, não-arquivados) com

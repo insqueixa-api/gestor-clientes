@@ -16,7 +16,21 @@ type ProgressItem = {
   executado: number;
   logo_url?: string | null;
   /** ✅ 17/10/2026: o que compõe a linha (passar o mouse / tocar) */
-  details?: { label: string; value: string; note?: string; tone?: "ok" | "pending" | "extra" }[];
+  details?: {
+    label: string;
+    note?: string;
+    tone?: "ok" | "pending" | "extra";
+    value?: string; // lista simples
+    previsto?: string; // tabela previsto x realizado x diferença
+    realizado?: string;
+    diff?: string;
+    diffTone?: "good" | "bad";
+  }[];
+};
+
+const DIFF_TONE: Record<string, string> = {
+  good: "text-emerald-600 dark:text-emerald-400",
+  bad: "text-rose-600 dark:text-rose-400",
 };
 
 const DETAIL_TONE: Record<string, string> = {
@@ -275,6 +289,39 @@ export function RankingCard({
                         idx >= 3 ? "bottom-full mb-1" : "top-full mt-1"
                       }`}
                     >
+                      {item.details!.some((d) => d.realizado !== undefined) ? (
+                        <table className="w-full text-[11px] leading-5">
+                          <thead>
+                            <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                              <th className="text-left font-medium">Lançamento</th>
+                              <th className="text-right font-medium pl-3">Previsto</th>
+                              <th className="text-right font-medium pl-3">Realizado</th>
+                              <th className="text-right font-medium pl-3">Diferença</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {item.details!.slice(0, 12).map((d, i) => (
+                              <tr key={i} className="border-t border-border/50">
+                                <td className="max-w-0 w-full truncate pr-2">
+                                  <span className="text-foreground/90">{d.label}</span>
+                                  {d.note && <span className="text-muted-foreground"> · {d.note}</span>}
+                                </td>
+                                <td className="text-right tabular-nums whitespace-nowrap pl-3 text-muted-foreground">{d.previsto ?? "—"}</td>
+                                <td
+                                  className={`text-right tabular-nums whitespace-nowrap pl-3 font-medium ${
+                                    d.tone === "pending" ? DETAIL_TONE.pending : "text-foreground/90"
+                                  }`}
+                                >
+                                  {d.realizado ?? "—"}
+                                </td>
+                                <td className={`text-right tabular-nums whitespace-nowrap pl-3 ${DIFF_TONE[d.diffTone ?? ""] ?? "text-muted-foreground"}`}>
+                                  {d.diff ?? ""}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : (
                       <div className="space-y-0.5">
                         {item.details!.slice(0, 12).map((d, i) => (
                           <div key={i} className="flex items-center justify-between gap-3 text-[11px] leading-5">
@@ -291,6 +338,7 @@ export function RankingCard({
                           <div className="text-[10px] text-muted-foreground">+{item.details!.length - 12} mais</div>
                         )}
                       </div>
+                      )}
                     </div>
                   )}
                   {/* Row */}

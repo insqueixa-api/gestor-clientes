@@ -388,6 +388,8 @@ export default async function AdminDashboardPage({
     categorias: { id: string; nome: string; icone: string }[];
     transacoes: FinTrx[];
     snapshot: SnapshotRow[];
+    // ✅ 17/10/2026: o que vencia no mês e já estava pago na foto (só tooltip)
+    snapshot_pagos?: { transacao_id: string | null; tipo: "RECEITA" | "DESPESA"; valor: number | string; categoria_id: string | null }[];
     evolucao_transacoes: EvolucaoTrx[];
     evolucao_snapshot: EvolucaoSnapshotRow[];
     saldo_atual: number | string | null;
@@ -633,9 +635,23 @@ export default async function AdminDashboardPage({
   // ✅ 17/10/2026, pedido do Márcio: passar o mouse na categoria mostra o
   // que compõe a linha — lançamento a lançamento (pago, pendente, fora da
   // previsão); IPTV = clientes/revenda/apps pagos + o que falta receber.
-  type CatDetail = { label: string; value: string; note?: string; tone?: "ok" | "pending" | "extra" };
+  type CatDetail = {
+    label: string;
+    note?: string;
+    tone?: "ok" | "pending" | "extra";
+    value?: string; // lista simples (IPTV)
+    previsto?: string; // tabela previsto x realizado x diferença
+    realizado?: string;
+    diff?: string;
+    diffTone?: "good" | "bad";
+  };
   const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   const trxById = new Map(finTrxRows.map((t) => [t.id, t]));
+  const prevAllByTrx = new Map(prevByTrx);
+  for (const sp of financeBundle?.snapshot_pagos ?? []) {
+    if (!sp.transacao_id) continue;
+    prevAllByTrx.set(sp.transacao_id, { tipo: sp.tipo, key: sp.categoria_id ?? "__none__", valor: toNumber(sp.valor) });
+  }
   const paidInMonth = (t: FinTrx) => {
     const dp = t.data_pagamento ? toBRDateStr(t.data_pagamento) : null;
     return t.status === "PAGO" && !!dp && dp >= _finMonthStart && dp <= _finMonthEnd ? dp : null;
@@ -666,40 +682,49 @@ export default async function AdminDashboardPage({
         .filter((r) => toBRDateStr(r.created_at).slice(0, 7) === todayMonthKey)
         .map((r) => ({ label: "Recarga de créditos", value: fmtBRL(toNumber(r.total_amount_brl)), note: ddmm(toBRDateStr(r.created_at)), tone: "ok" as const }));
     }
+    // ✅ 17/10/2026, pedido do Márcio: tabela previsto x realizado x
+    // diferença. Previsto = valor na foto do dia 1º (inclusive o que já
+    // estava pago — snapshot_pagos); Realizado = valor pago de fato.
     const ids = new Set<string>();
-    for (const [id, p] of prevByTrx) if (p.tipo === tipo && p.key === key) ids.add(id);
+    for (const [id, p] of prevAllByTrx) if (p.tipo === tipo && p.key === key) ids.add(id);
     for (const t of finTrxRows) {
       if (t.tipo === tipo && (t.categoria_id ?? "__none__") === key && paidInMonth(t)) ids.add(t.id);
     }
+    const diffOf = (prevista: number, real: number): Pick<CatDetail, "diff" | "diffTone"> => {
+      const d = Number((real - prevista).toFixed(2));
+      if (Math.abs(d) < 0.01) return { diff: "—" };
+      const worse = tipo === "DESPESA" ? d > 0 : d < 0;
+      return { diff: `${d > 0 ? "+" : "−"}${fmtBRL(Math.abs(d))}`, diffTone: worse ? "bad" : "good" };
+    };
     const out: CatDetail[] = [];
     for (const id of ids) {
       const t = trxById.get(id);
-      const prev = prevByTrx.get(id);
+      const prev = prevAllByTrx.get(id);
       const label = t?.descricao?.trim() || "Lançamento";
       const dp = t ? paidInMonth(t) : null;
-      if (t && dp) {
-        const paid = toNumber(t.valor);
-        // ✅ 17/10/2026, achado do Márcio: conta do mês QUE VEM paga agora
-        // (ex: Light que vence 02/11 paga em 16/10) não é "fora da previsão"
-        // — é adiantamento; e conta de mês passado paga agora é atraso.
-        const venc = t.data_vencimento || "";
-        const noPrev = !prev
-          ? venc > _finMonthEnd
-            ? `adiantada · vence ${ddmm(venc)}`
-            : venc && venc < _finMonthStart
-              ? `atrasada · venceu ${ddmm(venc)}`
-              : "fora da previsão"
-          : "";
-        const extra = noPrev || (prev && Math.abs(prev.valor - paid) > 0.009 ? `previsto ${fmtBRL(prev.valor)}` : "");
-        const reallyExtra = !prev && noPrev === "fora da previsão";
-        out.push({ label, value: fmtBRL(paid), note: [`pago ${ddmm(dp)}`, extra].filter(Boolean).join(" · "), tone: reallyExtra ? "extra" : "ok" });
-      } else if (prev) {
-        const early = t?.status === "PAGO" && t.data_pagamento ? `pago antes, em ${ddmm(toBRDateStr(t.data_pagamento))}` : null;
+      const real = t?.status === "PAGO" ? toNumber(t.valor) : null;
+      if (prev) {
+        const paidBefore = real != null && !dp && t?.data_pagamento ? ddmm(toBRDateStr(t.data_pagamento)) : null;
         out.push({
           label,
-          value: fmtBRL(prev.valor),
-          note: early ?? (t?.data_vencimento ? `pendente · vence ${ddmm(t.data_vencimento)}` : "pendente"),
-          tone: early ? "ok" : "pending",
+          previsto: fmtBRL(prev.valor),
+          realizado: real != null ? fmtBRL(real) : "pendente",
+          ...(real != null ? diffOf(prev.valor, real) : { diff: "" }),
+          note: dp ? `pago ${ddmm(dp)}` : paidBefore ? `pago antes · ${paidBefore}` : t?.data_vencimento ? `vence ${ddmm(t.data_vencimento)}` : undefined,
+          tone: real != null ? "ok" : "pending",
+        });
+      } else if (t && dp && real != null) {
+        // ✅ conta do mês QUE VEM paga agora = adiantada; de mês passado = atrasada
+        const venc = t.data_vencimento || "";
+        const why =
+          venc > _finMonthEnd ? `adiantada · vence ${ddmm(venc)}` : venc && venc < _finMonthStart ? `atrasada · venceu ${ddmm(venc)}` : "fora da previsão";
+        out.push({
+          label,
+          previsto: "—",
+          realizado: fmtBRL(real),
+          diff: "",
+          note: `pago ${ddmm(dp)} · ${why}`,
+          tone: why === "fora da previsão" ? "extra" : "ok",
         });
       }
     }
