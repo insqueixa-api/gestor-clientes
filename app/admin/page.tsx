@@ -679,8 +679,20 @@ export default async function AdminDashboardPage({
       const dp = t ? paidInMonth(t) : null;
       if (t && dp) {
         const paid = toNumber(t.valor);
-        const extra = !prev ? "fora da previsão" : Math.abs(prev.valor - paid) > 0.009 ? `previsto ${fmtBRL(prev.valor)}` : "";
-        out.push({ label, value: fmtBRL(paid), note: [`pago ${ddmm(dp)}`, extra].filter(Boolean).join(" · "), tone: prev ? "ok" : "extra" });
+        // ✅ 17/10/2026, achado do Márcio: conta do mês QUE VEM paga agora
+        // (ex: Light que vence 02/11 paga em 16/10) não é "fora da previsão"
+        // — é adiantamento; e conta de mês passado paga agora é atraso.
+        const venc = t.data_vencimento || "";
+        const noPrev = !prev
+          ? venc > _finMonthEnd
+            ? `adiantada · vence ${ddmm(venc)}`
+            : venc && venc < _finMonthStart
+              ? `atrasada · venceu ${ddmm(venc)}`
+              : "fora da previsão"
+          : "";
+        const extra = noPrev || (prev && Math.abs(prev.valor - paid) > 0.009 ? `previsto ${fmtBRL(prev.valor)}` : "");
+        const reallyExtra = !prev && noPrev === "fora da previsão";
+        out.push({ label, value: fmtBRL(paid), note: [`pago ${ddmm(dp)}`, extra].filter(Boolean).join(" · "), tone: reallyExtra ? "extra" : "ok" });
       } else if (prev) {
         const early = t?.status === "PAGO" && t.data_pagamento ? `pago antes, em ${ddmm(toBRDateStr(t.data_pagamento))}` : null;
         out.push({
