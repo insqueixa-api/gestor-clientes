@@ -364,6 +364,32 @@ function appAlertEvent(e: TimelineItem, icons: AppIconRow[]): TimelineItem {
   };
 }
 
+// ✅ 16/10/2026, pedido do Márcio: teste que paga a renovação vira cliente no
+// mesmo instante — "Convertido" + "Renovação" eram 2 linhas do mesmo evento.
+// Junta na linha da renovação; conversão manual (sem renovação junto)
+// continua com a linha própria.
+function mergeConversionIntoRenewal(events: TimelineItem[]): TimelineItem[] {
+  const NEAR_MS = 2 * 60 * 1000;
+  const renewals = events.filter((e) => e.event_type === "RENEWAL");
+  const merged = new Set<TimelineItem>();
+  const mergedInto = new Map<TimelineItem, TimelineItem>();
+  for (const conv of events) {
+    if (conv.event_type !== "TRIAL_CONVERTED") continue;
+    const t = new Date(conv.created_at).getTime();
+    const ren = renewals.find((r) => !mergedInto.has(r) && Math.abs(new Date(r.created_at).getTime() - t) <= NEAR_MS);
+    if (!ren) continue;
+    merged.add(conv);
+    mergedInto.set(ren, conv);
+  }
+  return events
+    .filter((e) => !merged.has(e))
+    .map((e) =>
+      mergedInto.has(e)
+        ? { ...e, message: [e.message, "Teste convertido em cliente"].filter(Boolean).join(" · "), meta: { ...e.meta, label: "Renovação + conversão", merged_event_id: mergedInto.get(e)!.id } }
+        : e,
+    );
+}
+
 type EligibleCouponRule = {
   target_status: string[] | null;
   target_server_names: string[];
@@ -571,7 +597,8 @@ export default function ClientDetailsPage() {
         const { error } = await supabaseBrowser
           .from(item.source === "app_log" ? "client_app_activity_log" : "client_events")
           .delete()
-          .eq("id", item.id)
+          // linha "Renovação + conversão" apaga os 2 eventos juntos
+          .in("id", [item.id, ...(item.meta?.merged_event_id ? [item.meta.merged_event_id] : [])])
           .eq("tenant_id", tid);
 
         if (error) throw error;
@@ -969,7 +996,7 @@ export default function ClientDetailsPage() {
       );
       // + histórico de apps e renovações de app (mesma ida ao banco)
       setTimeline(
-        [...((bundle.events || []) as TimelineItem[]).map((e) => appAlertEvent(e, bundle.app_icons || [])), ...appTimelineItems(bundle.app_log || [], bundle.app_payments || [], {
+        [...mergeConversionIntoRenewal(bundle.events || []).map((e) => appAlertEvent(e, bundle.app_icons || [])), ...appTimelineItems(bundle.app_log || [], bundle.app_payments || [], {
             icons: bundle.app_icons || [],
             clientApps: bundle.client_apps || [],
           })].sort(
